@@ -1208,6 +1208,10 @@ const Game = {
             return;
         }
         this.gold -= cost;
+        this.triggerCameraShake();
+        this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
+        this.spawnParticleBurst(anchorX, anchorY, 8);
+        AudioFX.play('slice');
         this.resetSession();
         this.stats.warsPlayed++;
         this.updateLeaderboardUI();
