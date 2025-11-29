@@ -28,6 +28,7 @@
 
         #game-container { position: relative; width: 100vw; height: 100vh; }
         canvas { display: block; width: 100%; height: 100%; }
+        .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
 
         /* HUD */
         .hud {
@@ -205,9 +206,51 @@
             text-shadow: -1px -1px 0 #000, 1px -1px 0 #000;
             z-index: 5; white-space: pre;
         }
-        @keyframes float { 
+        @keyframes float {
             0% { transform: translateY(0) scale(1); opacity: 1; }
             100% { transform: translateY(-80px) scale(0.9); opacity: 0; }
+        }
+
+        .floating-text {
+            position: absolute;
+            font-weight: 800;
+            pointer-events: none;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.45);
+            animation: float-up 0.8s ease-out forwards;
+            white-space: nowrap;
+            text-shadow: 0 0 6px rgba(0,0,0,0.6);
+        }
+        .floating-text.gold-text { color: var(--gold); }
+        .floating-text.alert-text { color: var(--danger); }
+        .floating-text.info-text { color: #9be3b4; }
+        @keyframes float-up {
+            0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -26px) scale(0.96); opacity: 0; }
+        }
+
+        .particle {
+            position: absolute;
+            width: 8px; height: 8px;
+            border-radius: 2px;
+            opacity: 0.9;
+            animation: burst 0.7s ease-out forwards;
+        }
+        @keyframes burst {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(calc(var(--dx)*1px), calc(var(--dy)*1px)) scale(0.4); opacity: 0; }
+        }
+
+        .shake { animation: shake 0.3s ease-in-out; }
+        @keyframes shake {
+            0% { transform: translate(1px, -1px); }
+            20% { transform: translate(-3px, 2px); }
+            40% { transform: translate(4px, -2px); }
+            60% { transform: translate(-2px, 3px); }
+            80% { transform: translate(2px, -3px); }
+            100% { transform: translate(0, 0); }
         }
 
         /* TIP OVERLAY */
@@ -231,6 +274,7 @@
 
 <div id="game-container">
     <canvas id="canvas"></canvas>
+    <div class="fx-layer" id="fx-layer"></div>
     <div id="debug-log"></div>
     <div id="tip-overlay"></div>
 
@@ -358,6 +402,7 @@
     </div>
 </div>
 
+<script src="juice.js"></script>
 <script src="persistence.js"></script>
 <script>
 /** ENGINE */
@@ -441,6 +486,7 @@ const SAVE_SLOTS = ['1', '2', '3'];
 const Game = {
     canvas: document.getElementById('canvas'),
     ctx: document.getElementById('canvas').getContext('2d'),
+    fxLayer: document.getElementById('fx-layer'),
 
     state: 'OVERWORLD',
     gold: 300, wood: 40,
@@ -450,6 +496,7 @@ const Game = {
     session: { warKills: 0 },
     activeSaveSlot: '1',
     cam: { x: 0, y: 0, zoom: 1 },
+    shakeTimer: null,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     combat: { 
@@ -478,8 +525,8 @@ const Game = {
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
 
-        document.getElementById('btn-war').onclick = () => this.startWar();
-        document.getElementById('btn-retreat').onclick = () => this.endWar(false);
+        document.getElementById('btn-war').onclick = (e) => this.startWar(e);
+        document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
         document.getElementById('btn-close-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='none'; };
 
@@ -907,6 +954,7 @@ const Game = {
 
         // BOUNTY LOGIC
         if (u.hp <= 0) {
+            this.spawnBurstAtHex(u.pos, 7);
             this.registerKill(attackerOwner);
             if (Math.random() > 0.5) { // 50% Chance
                 const bounty = Math.floor(Math.random() * 2) + 1; // 1-2g
@@ -1091,11 +1139,12 @@ const Game = {
 
     addBuilding(hex, type, owner) {
         let stats = this.getBuildingStats(type, owner);
-        this.combat.buildings.set(hex.toString(), { 
-            type, owner, hp: stats.hp, maxHp: stats.hp, 
+        this.combat.buildings.set(hex.toString(), {
+            type, owner, hp: stats.hp, maxHp: stats.hp,
             prodTimer: 0, attackTimer: Math.random(),
-            pulse: 0 
+            pulse: 0
         });
+        if (owner === 'player') this.spawnBurstAtHex(hex, 6);
     },
 
     spawnUnit(type, owner, hex) {
@@ -1109,13 +1158,21 @@ const Game = {
         });
     },
 
-    startWar() {
+    startWar(clickEvt) {
         const cost = (this.difficulty + 1) * 25;
+        const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.1;
+        const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.1;
         if(this.gold < cost) {
             this.spawnTxt(new Hex(0,0), `Need ${cost}g`, '#f55');
+            this.showFloatingText(anchorX, anchorY, `Need ${cost}g`, 'alert-text');
+            AudioFX.play('thud');
             return;
         }
         this.gold -= cost;
+        this.triggerCameraShake();
+        this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
+        this.spawnParticleBurst(anchorX, anchorY, 8);
+        AudioFX.play('slice');
         this.resetSession();
         this.stats.warsPlayed++;
         this.updateLeaderboardUI();
@@ -1180,23 +1237,30 @@ const Game = {
         return lost;
     },
 
-    endWar(outcome) {
+    endWar(outcome, clickEvt) {
         this.state = 'OVERWORLD';
-        
-        if(outcome === 'VICTORY') { 
-            this.wood += 60; 
-            this.difficulty++; 
-            this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff'); 
+        const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
+        const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
+
+        if(outcome === 'VICTORY') {
+            this.wood += 60;
+            this.difficulty++;
+            this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
+            this.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
         }
         else if(outcome === 'DEFEAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*6)+5); // 5-10
             this.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
+            this.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
+            AudioFX.play('thud');
         }
         else if(outcome === 'RETREAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*5)+1); // 1-5
             this.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
+            this.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
+            AudioFX.play('thud');
         }
 
         this.recordWarEnd(outcome);
@@ -1240,6 +1304,55 @@ const Game = {
         }
     },
     parseKey(k) { const p = k.split(','); return new Hex(parseInt(p[0]), parseInt(p[1])); },
+    /** Convert a hex coordinate into the current camera projection. */
+    projectHexToScreen(pos) {
+        const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
+        const hex = pos.toPixel ? pos : new Hex(pos.q, pos.r, pos.s ?? -pos.q - pos.r);
+        return hex.toPixel(layout);
+    },
+    /** Screen-space floating text for button feedback and battle summaries. */
+    showFloatingText(x, y, txt, cssClass) {
+        const layer = this.fxLayer || document.getElementById('fx-layer');
+        if (!layer) return;
+        const el = document.createElement('div');
+        el.className = 'floating-text';
+        if (cssClass) el.classList.add(cssClass);
+        el.innerText = txt;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        layer.appendChild(el);
+        setTimeout(() => el.remove(), 820);
+    },
+    /** Brief camera shake anchored to the main container. */
+    triggerCameraShake() {
+        const target = document.getElementById('game-container');
+        if (!target) return;
+        target.classList.add('shake');
+        clearTimeout(this.shakeTimer);
+        this.shakeTimer = setTimeout(() => target.classList.remove('shake'), Juice.clampShakeDuration(300));
+    },
+    /** Emit outward-fading particle squares at a given screen coordinate. */
+    spawnParticleBurst(x, y, count = 6, colors = ['#ffd166', '#06d6a0', '#ef476f']) {
+        const layer = this.fxLayer || document.getElementById('fx-layer');
+        if (!layer || typeof Juice === 'undefined') return;
+        const burst = Juice.createBurstVectors(count, 18, 46);
+        burst.forEach((vec, idx) => {
+            const node = document.createElement('div');
+            node.className = 'particle';
+            node.style.left = `${x}px`;
+            node.style.top = `${y}px`;
+            node.style.setProperty('--dx', vec.dx.toFixed(2));
+            node.style.setProperty('--dy', vec.dy.toFixed(2));
+            node.style.background = colors[idx % colors.length];
+            layer.appendChild(node);
+            setTimeout(() => node.remove(), vec.duration);
+        });
+    },
+    /** Convenience wrapper to project hex positions into a burst origin. */
+    spawnBurstAtHex(pos, count) {
+        const p = this.projectHexToScreen(pos);
+        this.spawnParticleBurst(p.x, p.y, count);
+    },
     spawnTxt(pos, txt, col) {
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
         const p = (pos.toPixel ? pos : new Hex(pos.q, pos.r)).toPixel(layout);
