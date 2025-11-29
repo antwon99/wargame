@@ -66,11 +66,36 @@
             transition: all 0.1s;
         }
         .btn:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); }
-        
+
         .btn-war { background: #800; border-color: #f00; color: #fff; }
         .btn-upg { background: #5a189a; border-color: #7b2cbf; color: #fff; margin-right: 10px; }
         .btn-retreat { background: #334; border-color: #445; font-size: 0.9rem; padding: 10px 20px; }
         .btn-close { background: #444; border-color: #555; padding: 8px 16px; margin-top: 20px; width: 100%; }
+
+        .meta-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .meta-btn {
+            pointer-events: auto;
+            background: #1f1f2b; border: 1px solid #3d3d50;
+            color: #d7d7ff; padding: 10px 16px;
+            border-radius: 10px; font-weight: 700; font-size: 0.95rem;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+        }
+        .meta-btn:active { transform: translateY(2px); box-shadow: none; }
+
+        .leaderboard {
+            background: rgba(0,0,0,0.7);
+            border: 1px solid #30303a;
+            padding: 10px 14px;
+            border-radius: 12px;
+            width: min(640px, 92vw);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .board-row { display: flex; justify-content: space-between; font-weight: 700; color: #cdd6f4; }
+        .board-row span { color: #9be3b4; }
+        .board-caption { color: #8d8d9f; font-size: 0.85rem; }
 
         .lvl-badge {
             background: #333; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: #aaa;
@@ -158,6 +183,20 @@
                     <button class="btn btn-upg" id="btn-upg">💪 Upgrades</button>
                     <button class="btn btn-war" id="btn-war">⚔️ WAR</button>
                 </div>
+
+                <div class="meta-row" style="margin-top:10px;">
+                    <button class="meta-btn" id="btn-save">💾 Save</button>
+                    <button class="meta-btn" id="btn-load">📂 Load</button>
+                    <button class="meta-btn" id="btn-reset">🧹 Reset</button>
+                </div>
+
+                <div class="leaderboard" id="leaderboard">
+                    <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
+                    <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
+                    <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
+                    <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+                    <div class="board-caption" id="save-status">No save stored yet.</div>
+                </div>
             </div>
 
             <!-- Combat UI -->
@@ -203,6 +242,7 @@
     </div>
 </div>
 
+<script src="persistence.js"></script>
 <script>
 /** ENGINE */
 const SQRT3 = Math.sqrt(3);
@@ -283,11 +323,13 @@ const TIPS = [
 const Game = {
     canvas: document.getElementById('canvas'),
     ctx: document.getElementById('canvas').getContext('2d'),
-    
+
     state: 'OVERWORLD',
     gold: 300, wood: 40,
     difficulty: 0,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
+    stats: { ...Persistence.DEFAULT_STATS },
+    session: { warKills: 0 },
     cam: { x: 0, y: 0, zoom: 1 },
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
@@ -301,18 +343,28 @@ const Game = {
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.setupInput();
+        this.resetSession();
 
-        this.addOverworldHex(new Hex(0,0), 'castle');
-        for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
-        this.calcOverworldGhosts();
+        const loaded = Persistence.loadSnapshot({ hexFactory: (q, r, s) => new Hex(q, r, s) });
+        if (loaded.state) {
+            this.applySnapshot(loaded.state);
+            this.stats = loaded.stats;
+        } else {
+            this.bootstrapNewWorld();
+        }
 
         this.updateHUD();
         this.updateUpgradeMenu();
+        this.updateLeaderboardUI();
 
         document.getElementById('btn-war').onclick = () => this.startWar();
         document.getElementById('btn-retreat').onclick = () => this.endWar(false);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
         document.getElementById('btn-close-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='none'; };
+
+        document.getElementById('btn-save').onclick = () => this.saveGame();
+        document.getElementById('btn-load').onclick = () => this.loadGame();
+        document.getElementById('btn-reset').onclick = () => this.resetProgress();
 
         document.getElementById('buy-soldier').onclick = () => this.buyUpgrade('soldier');
         document.getElementById('buy-archer').onclick = () => this.buyUpgrade('archer');
@@ -340,6 +392,83 @@ const Game = {
         this.canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
         this.canvas.addEventListener('pointerup', e => onUp(e.clientX, e.clientY));
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
+    },
+
+    // --- Persistence + Leaderboard Helpers ---
+    /** Reset per-war counters so leaderboard streaks remain scoped to current conflict. */
+    resetSession() { this.session = { warKills: 0 }; },
+
+    /** Build the starting overworld state and clear any lingering combat/claimable data. */
+    bootstrapNewWorld() {
+        this.state = 'OVERWORLD';
+        this.gold = 300; this.wood = 40; this.difficulty = 0;
+        this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
+        this.overworld.hexes = new Map();
+        this.overworld.claimable = new Map();
+        this.addOverworldHex(new Hex(0,0), 'castle');
+        for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
+        this.calcOverworldGhosts();
+        this.resetSession();
+        this.updateSaveStatus('Fresh campaign');
+        document.getElementById('ui-overworld').classList.add('visible');
+        document.getElementById('ui-combat').classList.remove('visible');
+        document.getElementById('state-txt').innerText = "KINGDOM";
+    },
+
+    /** Apply a hydrated snapshot to the live game state (overworld only). */
+    applySnapshot(snapshot) {
+        this.state = 'OVERWORLD';
+        this.gold = snapshot.gold;
+        this.wood = snapshot.wood;
+        this.difficulty = snapshot.difficulty;
+        this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
+        this.overworld.hexes = snapshot.overworld.hexes;
+        this.overworld.claimable = new Map();
+        this.calcOverworldGhosts();
+        this.resetSession();
+        this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
+        document.getElementById('ui-overworld').classList.add('visible');
+        document.getElementById('ui-combat').classList.remove('visible');
+        document.getElementById('state-txt').innerText = "KINGDOM";
+    },
+
+    /** Persist the overworld snapshot and leaderboard stats to localStorage. */
+    saveGame() {
+        const result = Persistence.saveSnapshot(this);
+        this.updateSaveStatus(`Saved ${result.savedAt}`);
+        this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
+    },
+
+    /** Load the last stored snapshot and refresh UI with the saved overworld. */
+    loadGame() {
+        const loaded = Persistence.loadSnapshot({ hexFactory: (q, r, s) => new Hex(q, r, s) });
+        if (!loaded.state) {
+            this.spawnTxt(new Hex(0,0), 'No Save Found', '#ef476f');
+            this.updateSaveStatus('No save stored yet.');
+            return;
+        }
+        this.applySnapshot(loaded.state);
+        this.stats = loaded.stats;
+        this.updateHUD();
+        this.updateUpgradeMenu();
+        this.updateLeaderboardUI();
+        this.spawnTxt(new Hex(0,0), 'Save Loaded', '#9be3b4');
+    },
+
+    /** Wipe stored data and rebuild the starting overworld for a new run. */
+    resetProgress() {
+        Persistence.clearSnapshot();
+        this.stats = { ...Persistence.DEFAULT_STATS };
+        this.bootstrapNewWorld();
+        this.updateLeaderboardUI();
+        this.updateHUD();
+        this.updateUpgradeMenu();
+        this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
+    },
+
+    updateSaveStatus(msg) {
+        const el = document.getElementById('save-status');
+        if (el) el.innerText = msg;
     },
 
     loop(now) {
@@ -400,6 +529,15 @@ const Game = {
         document.getElementById('buy-mines').innerText = `${this.getUpgradeCost('mines')}g`;
         document.getElementById('lbl-defense').innerText = `Lv. ${this.upgrades.defense}`;
         document.getElementById('buy-defense').innerText = `${this.getUpgradeCost('defense')}g`;
+    },
+
+    updateLeaderboardUI() {
+        const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+        setTxt('stat-best-lvl', this.stats.bestDifficulty || 0);
+        setTxt('stat-best-kills', this.stats.bestKills || 0);
+        setTxt('stat-total-kills', this.stats.totalKills || 0);
+        setTxt('stat-wars', this.stats.warsPlayed || 0);
+        if (this.stats.lastSaveISO) this.updateSaveStatus(`Last saved ${this.stats.lastSaveISO}`);
     },
 
     getUnitStats(type) {
@@ -574,17 +712,37 @@ const Game = {
         this.combat.ai.timer += dt;
         if(this.combat.ai.timer > this.combat.ai.nextMove) {
             this.combat.ai.timer = 0;
-            this.combat.ai.nextMove = 2.0 + Math.random(); 
+            this.combat.ai.nextMove = 2.0 + Math.random();
             this.runAI();
         }
+    },
+
+    /** Track leaderboard totals when the player lands a final blow. */
+    registerKill(owner) {
+        if(owner !== 'player') return;
+        this.stats.totalKills++;
+        this.session.warKills++;
+        this.stats.bestKills = Math.max(this.stats.bestKills, this.session.warKills);
+        this.updateLeaderboardUI();
+    },
+
+    /** Persist leaderboard milestones and autosave at the end of any war outcome. */
+    recordWarEnd(outcome) {
+        const normalized = outcome || 'RETREAT';
+        this.stats.bestDifficulty = Math.max(this.stats.bestDifficulty, this.difficulty);
+        this.stats.bestKills = Math.max(this.stats.bestKills, this.session.warKills);
+        this.stats.lastOutcome = normalized;
+        this.updateLeaderboardUI();
+        this.saveGame();
     },
 
     damageUnit(u, dmg, attackerOwner) {
         u.hp -= dmg;
         this.spawnTxt(u.pos, `-${Math.floor(dmg)}`, '#ff5555');
-        
+
         // BOUNTY LOGIC
         if (u.hp <= 0) {
+            this.registerKill(attackerOwner);
             if (Math.random() > 0.5) { // 50% Chance
                 const bounty = Math.floor(Math.random() * 2) + 1; // 1-2g
                 if (attackerOwner === 'player') {
@@ -793,6 +951,9 @@ const Game = {
             return;
         }
         this.gold -= cost;
+        this.resetSession();
+        this.stats.warsPlayed++;
+        this.updateLeaderboardUI();
         this.state = 'COMBAT';
         
         this.combat.territory.clear();
@@ -872,7 +1033,9 @@ const Game = {
             this.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         }
-        
+
+        this.recordWarEnd(outcome);
+
         document.getElementById('ui-overworld').classList.add('visible');
         document.getElementById('ui-combat').classList.remove('visible');
         document.getElementById('state-txt').innerText = "KINGDOM";
