@@ -63,11 +63,24 @@ function runTests() {
         overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
         stats: { totalKills: 11, bestDifficulty: 2 }
     };
-    Persistence.saveSnapshot(saveGame);
-    const loaded = Persistence.loadSnapshot({ hexFactory: (q, r, s) => new Hex(q, r, s) });
+    Persistence.saveSnapshot(saveGame, 1);
+    const loaded = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     assert.ok(loaded.state);
     assert.strictEqual(loaded.state.gold, 77);
     assert.strictEqual(loaded.stats.totalKills, 11);
+
+    // Multi-slot isolation
+    const altGame = { ...saveGame, gold: 999, stats: { totalKills: 42, bestDifficulty: 7 } };
+    Persistence.saveSnapshot(altGame, 2);
+    const slotOne = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    const slotTwo = Persistence.loadSnapshot(2, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.strictEqual(slotOne.state.gold, 77);
+    assert.strictEqual(slotTwo.state.gold, 999);
+    assert.strictEqual(slotTwo.stats.bestDifficulty, 7);
+
+    const meta = Persistence.getSlotMetadata(2);
+    assert.ok(meta.hasSave);
+    assert.strictEqual(meta.slot, '2');
 
     console.log('All persistence tests passed.');
 }
