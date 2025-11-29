@@ -38,16 +38,49 @@
         }
 
         .top-bar {
-            background: var(--ui-bg); padding: 10px 20px;
-            display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(90deg, rgba(10,10,15,0.85), rgba(20,20,30,0.85));
+            padding: 10px 16px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
             border-bottom: 1px solid #333; pointer-events: auto;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            gap: 12px;
         }
 
-        .res-group { display: flex; gap: 20px; }
-        .res { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 6px; }
+        .hamburger {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        .hamburger:hover { background: rgba(255,255,255,0.12); }
+        .hamburger:active { transform: translateY(2px); }
+
+        .resource-pill {
+            justify-self: center;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 8px 18px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+        }
+        .res-group { display: flex; gap: 18px; }
+        .res { font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 6px; }
         .gold { color: var(--gold); }
         .wood { color: var(--wood); }
+
+        .top-right { text-align: right; display: flex; flex-direction: column; gap: 4px; }
 
         .controls {
             padding: 20px; padding-bottom: 40px;
@@ -84,14 +117,15 @@
         .meta-btn:active { transform: translateY(2px); box-shadow: none; }
 
         .leaderboard {
-            background: rgba(0,0,0,0.7);
-            border: 1px solid #30303a;
-            padding: 10px 14px;
-            border-radius: 12px;
-            width: min(640px, 92vw);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px 14px;
+            border-radius: 16px;
+            width: 100%;
             display: flex;
             flex-direction: column;
             gap: 6px;
+            backdrop-filter: blur(6px);
         }
         .board-row { display: flex; justify-content: space-between; font-weight: 700; color: #cdd6f4; }
         .board-row span { color: #9be3b4; }
@@ -104,6 +138,42 @@
 
         .mode-panel { display: none; width: 100%; flex-direction: column; align-items: center; gap: 10px; }
         .visible { display: flex; }
+
+        /* Sidebar */
+        .sidebar {
+            position: absolute;
+            top: 0; left: 0;
+            width: min(360px, 90vw);
+            height: 100%;
+            background: rgba(12, 12, 18, 0.85);
+            border-right: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.45);
+            transform: translateX(-105%);
+            transition: transform 0.3s ease;
+            z-index: 15;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+        }
+        .sidebar.open { transform: translateX(0); }
+        .sidebar-inner { padding: 16px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow-y: auto; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
+        .sidebar h3 { margin: 0; letter-spacing: 0.5px; }
+        .sidebar-section { display: flex; flex-direction: column; gap: 12px; }
+        .save-grid { display: grid; gap: 12px; }
+        .save-slot {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .slot-meta { color: #cdd6f4; font-weight: 700; }
+        .slot-caption { color: #8d8d9f; font-size: 0.85rem; }
+        .slot-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .sidebar-close { padding: 8px 12px; }
 
         /* UPGRADE MENU */
         #upgrade-menu {
@@ -166,11 +236,14 @@
 
     <div class="hud">
         <div class="top-bar">
-            <div class="res-group">
-                <div class="res gold"><span>💰</span><span id="gold">0</span></div>
-                <div class="res wood"><span>🌲</span><span id="wood">0</span></div>
+            <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
+            <div class="resource-pill">
+                <div class="res-group">
+                    <div class="res gold"><span>💰</span><span id="gold">0</span></div>
+                    <div class="res wood"><span>🌲</span><span id="wood">0</span></div>
+                </div>
             </div>
-            <div style="text-align:right;">
+            <div class="top-right">
                 <div id="state-txt" style="color:#fff; font-weight:bold;">KINGDOM</div>
                 <div id="lvl-txt" class="lvl-badge">Enemy Lv.0</div>
             </div>
@@ -183,20 +256,6 @@
                     <button class="btn btn-upg" id="btn-upg">💪 Upgrades</button>
                     <button class="btn btn-war" id="btn-war">⚔️ WAR</button>
                 </div>
-
-                <div class="meta-row" style="margin-top:10px;">
-                    <button class="meta-btn" id="btn-save">💾 Save</button>
-                    <button class="meta-btn" id="btn-load">📂 Load</button>
-                    <button class="meta-btn" id="btn-reset">🧹 Reset</button>
-                </div>
-
-                <div class="leaderboard" id="leaderboard">
-                    <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
-                    <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
-                    <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
-                    <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
-                    <div class="board-caption" id="save-status">No save stored yet.</div>
-                </div>
             </div>
 
             <!-- Combat UI -->
@@ -205,6 +264,63 @@
             </div>
         </div>
     </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-inner">
+            <div class="sidebar-header">
+                <h3>Command Sidebar</h3>
+                <button class="meta-btn sidebar-close" id="btn-sidebar-close">✕</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <h4 style="margin:0;">Save Manager</h4>
+                    <span class="lvl-badge" id="active-slot-label">Slot 1 Active</span>
+                </div>
+                <div class="board-caption" id="save-status">No save stored yet.</div>
+                <div class="save-grid">
+                    <div class="save-slot" data-slot="1">
+                        <div class="slot-meta">Save Slot 1</div>
+                        <div class="slot-caption" data-slot-caption="1">Empty Slot</div>
+                        <div class="slot-actions">
+                            <button class="meta-btn slot-save" data-slot="1">💾 Save</button>
+                            <button class="meta-btn slot-load" data-slot="1">📂 Load</button>
+                        </div>
+                    </div>
+                    <div class="save-slot" data-slot="2">
+                        <div class="slot-meta">Save Slot 2</div>
+                        <div class="slot-caption" data-slot-caption="2">Empty Slot</div>
+                        <div class="slot-actions">
+                            <button class="meta-btn slot-save" data-slot="2">💾 Save</button>
+                            <button class="meta-btn slot-load" data-slot="2">📂 Load</button>
+                        </div>
+                    </div>
+                    <div class="save-slot" data-slot="3">
+                        <div class="slot-meta">Save Slot 3</div>
+                        <div class="slot-caption" data-slot-caption="3">Empty Slot</div>
+                        <div class="slot-actions">
+                            <button class="meta-btn slot-save" data-slot="3">💾 Save</button>
+                            <button class="meta-btn slot-load" data-slot="3">📂 Load</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h4 style="margin:0;">Leaderboard / Stats</h4>
+                <div class="leaderboard" id="leaderboard">
+                    <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
+                    <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
+                    <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
+                    <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <button class="meta-btn" id="btn-reset">🧹 Reset Campaign</button>
+            </div>
+        </div>
+    </aside>
 </div>
 
 <!-- UPGRADE SCREEN -->
@@ -319,6 +435,8 @@ const TIPS = [
     "RISK: Mystery Hexes are 90% Rocks, 10% Jackpot."
 ];
 
+const SAVE_SLOTS = ['1', '2', '3'];
+
 /** ENGINE */
 const Game = {
     canvas: document.getElementById('canvas'),
@@ -330,6 +448,7 @@ const Game = {
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
     stats: { ...Persistence.DEFAULT_STATS },
     session: { warKills: 0 },
+    activeSaveSlot: '1',
     cam: { x: 0, y: 0, zoom: 1 },
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
@@ -345,10 +464,11 @@ const Game = {
         this.setupInput();
         this.resetSession();
 
-        const loaded = Persistence.loadSnapshot({ hexFactory: (q, r, s) => new Hex(q, r, s) });
+        const loaded = Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (loaded.state) {
             this.applySnapshot(loaded.state);
             this.stats = loaded.stats;
+            this.activeSaveSlot = loaded.slot || '1';
         } else {
             this.bootstrapNewWorld();
         }
@@ -356,15 +476,18 @@ const Game = {
         this.updateHUD();
         this.updateUpgradeMenu();
         this.updateLeaderboardUI();
+        this.updateSaveSlotsUI();
 
         document.getElementById('btn-war').onclick = () => this.startWar();
         document.getElementById('btn-retreat').onclick = () => this.endWar(false);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
         document.getElementById('btn-close-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='none'; };
 
-        document.getElementById('btn-save').onclick = () => this.saveGame();
-        document.getElementById('btn-load').onclick = () => this.loadGame();
-        document.getElementById('btn-reset').onclick = () => this.resetProgress();
+        document.getElementById('btn-sidebar-toggle').onclick = () => this.toggleSidebar();
+        document.getElementById('btn-sidebar-close').onclick = () => this.toggleSidebar(false);
+        document.getElementById('btn-reset').onclick = () => { this.resetProgress(); this.updateSaveSlotsUI(); };
+        document.querySelectorAll('.slot-save').forEach(btn => btn.onclick = () => this.saveGame(btn.dataset.slot));
+        document.querySelectorAll('.slot-load').forEach(btn => btn.onclick = () => this.loadGame(btn.dataset.slot));
 
         document.getElementById('buy-soldier').onclick = () => this.buyUpgrade('soldier');
         document.getElementById('buy-archer').onclick = () => this.buyUpgrade('archer');
@@ -397,6 +520,14 @@ const Game = {
     // --- Persistence + Leaderboard Helpers ---
     /** Reset per-war counters so leaderboard streaks remain scoped to current conflict. */
     resetSession() { this.session = { warKills: 0 }; },
+
+    /** Toggle the collapsible sidebar that houses meta controls. */
+    toggleSidebar(forceState) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', shouldOpen);
+    },
 
     /** Build the starting overworld state and clear any lingering combat/claimable data. */
     bootstrapNewWorld() {
@@ -432,43 +563,77 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
     },
 
-    /** Persist the overworld snapshot and leaderboard stats to localStorage. */
-    saveGame() {
-        const result = Persistence.saveSnapshot(this);
-        this.updateSaveStatus(`Saved ${result.savedAt}`);
+    /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
+    saveGame(slot = this.activeSaveSlot) {
+        const targetSlot = String(slot || this.activeSaveSlot);
+        const result = Persistence.saveSnapshot(this, targetSlot);
+        this.activeSaveSlot = result.slot;
+        const formattedTime = new Date(result.savedAt).toLocaleString();
+        this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
+        this.updateSaveSlotsUI();
         this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
     },
 
-    /** Load the last stored snapshot and refresh UI with the saved overworld. */
-    loadGame() {
-        const loaded = Persistence.loadSnapshot({ hexFactory: (q, r, s) => new Hex(q, r, s) });
+    /** Load a stored snapshot and refresh UI with the saved overworld. */
+    loadGame(slot = this.activeSaveSlot) {
+        const targetSlot = String(slot || this.activeSaveSlot);
+        const loaded = Persistence.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (!loaded.state) {
-            this.spawnTxt(new Hex(0,0), 'No Save Found', '#ef476f');
+            this.spawnTxt(new Hex(0,0), `No Save In Slot ${targetSlot}`, '#ef476f');
             this.updateSaveStatus('No save stored yet.');
+            this.updateSaveSlotsUI();
             return;
         }
+        this.activeSaveSlot = loaded.slot || targetSlot;
         this.applySnapshot(loaded.state);
         this.stats = loaded.stats;
         this.updateHUD();
         this.updateUpgradeMenu();
         this.updateLeaderboardUI();
-        this.spawnTxt(new Hex(0,0), 'Save Loaded', '#9be3b4');
+        this.updateSaveSlotsUI();
+        this.toggleSidebar(false);
+        this.spawnTxt(new Hex(0,0), `Loaded Slot ${this.activeSaveSlot}`, '#9be3b4');
     },
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
     resetProgress() {
         Persistence.clearSnapshot();
         this.stats = { ...Persistence.DEFAULT_STATS };
+        this.activeSaveSlot = '1';
         this.bootstrapNewWorld();
         this.updateLeaderboardUI();
         this.updateHUD();
         this.updateUpgradeMenu();
+        this.updateSaveSlotsUI();
+        this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
     },
 
     updateSaveStatus(msg) {
         const el = document.getElementById('save-status');
         if (el) el.innerText = msg;
+    },
+
+    /** Refresh the sidebar cards to reflect slot metadata and active slot. */
+    updateSaveSlotsUI() {
+        const label = document.getElementById('active-slot-label');
+        if (label) label.innerText = `Slot ${this.activeSaveSlot} Active`;
+
+        SAVE_SLOTS.forEach(slot => {
+            const meta = Persistence.getSlotMetadata(slot);
+            const caption = document.querySelector(`[data-slot-caption="${slot}"]`);
+            const loadBtn = document.querySelector(`.slot-load[data-slot="${slot}"]`);
+            if (caption) {
+                if (meta.hasSave) {
+                    const when = meta.lastSaveISO ? new Date(meta.lastSaveISO).toLocaleString() : 'Unknown Time';
+                    const level = meta.level !== null ? meta.level : '?';
+                    caption.innerText = `Level ${level} - Saved: ${when}`;
+                } else {
+                    caption.innerText = 'Empty Slot';
+                }
+            }
+            if (loadBtn) loadBtn.disabled = !meta.hasSave;
+        });
     },
 
     loop(now) {
