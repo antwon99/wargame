@@ -1,22 +1,22 @@
-# Hex Kingdom 2.5: Warlord Economy
+# Hex Kingdom
 
-This repository contains a single-page prototype for the Hex Kingdom 2.5 wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
+This repository contains a single-page prototype for the Hex Kingdom wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
 
 ## Getting Started
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/antwon99/wargame
    cd wargame
    ```
 2. Open the game:
-   - **Quick view:** Double-click `Wargame.html` (or `index.html`, which redirects to it) to open in your browser.
+   - **Quick view:** Double-click `Wargame.html` to open it in your browser.
    - **Local server (recommended for consistent asset loading):**
      ```bash
      python -m http.server 8000
-     # visit http://localhost:8000/ for an automatic redirect
-     # or open http://localhost:8000/Wargame.html directly
+     # then visit http://localhost:8000/Wargame.html
      ```
+
 
 ## Save/Load and Leaderboard
 
@@ -25,11 +25,13 @@ This repository contains a single-page prototype for the Hex Kingdom 2.5 wargame
 - Completing a war automatically records stats and refreshes the stored snapshot so you do not lose leaderboard progress between sessions.
 - See `docs/persistence.md` for the payload format and extension tips.
 
+
 ## Development Notes
 
 - All gameplay logic, UI, and styling live in `Wargame.html`. Keep related code grouped with clear comments to aid navigation.
 - If you split the project into multiple files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
+
 
 ### Testing
 
@@ -38,10 +40,10 @@ This repository contains a single-page prototype for the Hex Kingdom 2.5 wargame
   node tests/persistence.test.js
   ```
 
+
 ## Repository Layout
 
 - `Wargame.html` — single-page prototype containing the full game.
-- `index.html` — redirect shim so local servers open the game instead of a directory listing.
 - `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
 
 ## Contributing
