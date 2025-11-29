@@ -124,7 +124,6 @@ const Game = {
     state: 'OVERWORLD',
     gold: 300, wood: 40,
     difficulty: 0,
-    isEndingWar: false,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
     stats: { ...Persistence.DEFAULT_STATS },
     session: { warKills: 0 },
@@ -191,26 +190,10 @@ const Game = {
         let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
         const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
         const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
-        const onTap = (evt) => {
-            if (this.state === 'COMBAT') {
-                const hexTarget = evt.target.closest('.hex');
-                if (!hexTarget) {
-                    const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
-                    const hex = Hex.fromPixel(layout, { x: evt.clientX, y: evt.clientY });
-                    if (!this.combat.territory.has(hex.toString())) return;
-                }
-            }
-            this.onClick(evt.clientX, evt.clientY, evt);
-        };
-        const onUp = (evt) => {
-            if(isDrag) {
-                isDrag = false;
-                if(Math.hypot(evt.clientX-start.x, evt.clientY-start.y) < 10) onTap(evt);
-            }
-        };
+        const onUp = (x, y) => { if(isDrag) { isDrag = false; if(Math.hypot(x-start.x, y-start.y) < 10) this.onClick(x, y); }};
         this.canvas.addEventListener('pointerdown', e => onDown(e.clientX, e.clientY));
         this.canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
-        this.canvas.addEventListener('pointerup', e => onUp(e));
+        this.canvas.addEventListener('pointerup', e => onUp(e.clientX, e.clientY));
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
     },
 
@@ -702,7 +685,7 @@ const Game = {
         if(tile) tile.owner = 'scorched';
     },
 
-    onClick(x, y, evt) {
+    onClick(x, y) {
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
         const hex = Hex.fromPixel(layout, {x, y});
         const key = hex.toString();
@@ -719,11 +702,9 @@ const Game = {
                     this.spawnTxt(hex, "Need Wood", '#f55');
                 }
             }
-        }
+        } 
         else if (this.state === 'COMBAT') {
             const tile = this.combat.territory.get(key);
-            const hexTarget = evt?.target?.closest ? evt.target.closest('.hex') : null;
-            if (!hexTarget && !tile) return;
             if(!this.isFrontier(key, 'player')) {
                 if(tile && tile.owner === 'player') this.spawnTxt(hex, "Too Far!", '#f55');
                 else if(tile && tile.owner === 'scorched') this.spawnTxt(hex, "Dead Land", '#333');
@@ -814,7 +795,6 @@ const Game = {
         const cost = (this.difficulty + 1) * 25;
         const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.1;
         const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.1;
-        this.isEndingWar = false;
         if(this.gold < cost) {
             this.spawnTxt(new Hex(0,0), `Need ${cost}g`, '#f55');
             this.showFloatingText(anchorX, anchorY, `Need ${cost}g`, 'alert-text');
@@ -907,8 +887,6 @@ const Game = {
     },
 
     endWar(outcome, clickEvt) {
-        if (this.isEndingWar) return;
-        this.isEndingWar = true;
         this.state = 'OVERWORLD';
         const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
         const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
