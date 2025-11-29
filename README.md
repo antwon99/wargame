@@ -1,6 +1,6 @@
-# Hex Kingdom 2.5: Warlord Economy
+# Hex Kingdom
 
-This repository contains a single-page prototype for the Hex Kingdom 2.5 wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
+This repository contains a single-page prototype for the Hex Kingdom wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
 
 ## Getting Started
 
