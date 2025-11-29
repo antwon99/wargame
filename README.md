@@ -17,11 +17,29 @@ This repository contains a single-page prototype for the Hex Kingdom 2.5 wargame
      # then visit http://localhost:8000/Wargame.html
      ```
 
+
+## Save/Load and Leaderboard
+
+- The overworld view now includes **Save**, **Load**, and **Reset** controls plus a personal leaderboard (best level, best war kills, total kills, wars fought).
+- Progress is stored in browser `localStorage` (`wargame-save-v1` and `wargame-stats-v1`). Saves are taken from overworld state; mid-war layouts are not preserved to avoid corrupt campaigns.
+- Completing a war automatically records stats and refreshes the stored snapshot so you do not lose leaderboard progress between sessions.
+- See `docs/persistence.md` for the payload format and extension tips.
+
+
 ## Development Notes
 
 - All gameplay logic, UI, and styling live in `Wargame.html`. Keep related code grouped with clear comments to aid navigation.
 - If you split the project into multiple files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
+
+
+### Testing
+
+- Run the persistence tests with:
+  ```bash
+  node tests/persistence.test.js
+  ```
+
 
 ## Repository Layout
 
