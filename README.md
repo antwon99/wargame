@@ -6,7 +6,7 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/antwon99/wargame
    cd wargame
    ```
 2. Open the game:
