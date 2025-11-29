@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
-const SQRT3 = Math.sqrt(3);
+const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -33,7 +33,7 @@ class Hex {
     toString() { return `${this.q},${this.r}`; }
 }
 
-const Layout = {
+const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
     f0: SQRT3, f1: SQRT3 / 2.0, f2: 0.0, f3: 3.0 / 2.0,
     b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
@@ -128,6 +128,7 @@ const Game = {
     stats: { ...Persistence.DEFAULT_STATS },
     session: { warKills: 0 },
     activeSaveSlot: '1',
+    voidClicks: 0,
     cam: { x: 0, y: 0, zoom: 1 },
     shakeTimer: null,
     
@@ -140,6 +141,7 @@ const Game = {
 
     init() {
         this.resize();
+        this.bindVoidClickEasterEgg();
         window.addEventListener('resize', () => this.resize());
         this.setupInput();
         this.resetSession();
@@ -186,15 +188,72 @@ const Game = {
         this.cam.y = this.canvas.height/2;
     },
 
+    /**
+     * Initialize the void click easter egg handler, incrementing counters and
+     * emitting thematic text when the player clicks on background space.
+     */
+    bindVoidClickEasterEgg() {
+        this.voidClicks = 0;
+        this.handleVoidClick = (x, y) => {
+            const hit = this.isPointerOnDrawnHex(x, y);
+            if (hit && hit.hit) return;
+
+            this.voidClicks += 1;
+            const outcome = typeof VoidEasterEgg !== 'undefined'
+                ? VoidEasterEgg.computeMessage(this.voidClicks)
+                : { message: 'Out of Bounds', isSassy: false };
+
+            const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
+            const targetHex = hit && hit.hex ? new Hex(hit.hex.q, hit.hex.r, hit.hex.s) : Hex.fromPixel(layout, { x, y });
+            const color = outcome.isSassy ? '#ef476f' : '#aaa';
+            this.spawnTxt(targetHex, outcome.message, color);
+        };
+    },
+
     setupInput() {
         let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
         const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
         const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
-        const onUp = (x, y) => { if(isDrag) { isDrag = false; if(Math.hypot(x-start.x, y-start.y) < 10) this.onClick(x, y); }};
+        const onUp = (x, y) => {
+            if(isDrag) {
+                isDrag = false;
+                if(Math.hypot(x-start.x, y-start.y) < 10) {
+                    const hit = this.isPointerOnDrawnHex(x, y);
+                    if(hit && hit.hit) this.onClick(x, y);
+                    else if(this.handleVoidClick) this.handleVoidClick(x, y);
+                }
+            }
+        };
         this.canvas.addEventListener('pointerdown', e => onDown(e.clientX, e.clientY));
         this.canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
         this.canvas.addEventListener('pointerup', e => onUp(e.clientX, e.clientY));
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
+    },
+
+    /**
+     * Determine whether a pointer event landed on a visible hex tile for the active state.
+     * Falls back to a permissive hit when the helper utilities are unavailable so clicks
+     * remain functional in constrained environments.
+     */
+    isPointerOnDrawnHex(x, y) {
+        if (typeof InputHelpers === 'undefined' || typeof InputHelpers.isPointerOnDrawnHex !== 'function') {
+            const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
+            return { hit: true, hex: Hex.fromPixel(layout, { x, y }) };
+        }
+
+        const result = InputHelpers.isPointerOnDrawnHex({
+            x,
+            y,
+            cam: this.cam,
+            zoom: this.cam.zoom,
+            LayoutImpl: Layout,
+            state: this.state,
+            overworldMaps: { hexes: this.overworld.hexes, claimable: this.overworld.claimable },
+            combatMaps: { territory: this.combat.territory }
+        });
+
+        if (result.hex && !(result.hex instanceof Hex)) result.hex = new Hex(result.hex.q, result.hex.r, result.hex.s);
+        return result;
     },
 
     // --- Persistence + Leaderboard Helpers ---
