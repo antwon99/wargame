@@ -4,8 +4,10 @@
  * supporting simple Node-based tests via CommonJS exports.
  */
 (function (global) {
-    const STORAGE_KEY = 'wargame-save-v1';
-    const STATS_KEY = 'wargame-stats-v1';
+    const STORAGE_PREFIX = 'hexWar_slot';
+    const STATS_PREFIX = 'hexWar_stats_slot';
+    const STORAGE_KEY = `${STORAGE_PREFIX}1`;
+    const STATS_KEY = `${STATS_PREFIX}1`;
     const DEFAULT_STATS = {
         totalKills: 0,
         bestKills: 0,
@@ -30,6 +32,37 @@
             console.warn('Failed to parse stored data', err);
             return null;
         }
+    }
+
+    /**
+     * Generate the storage key for a save slot.
+     * @param {string|number} slot user-facing slot number.
+     * @returns {string} localStorage key for the slot.
+     */
+    function storageKeyForSlot(slot) {
+        return `${STORAGE_PREFIX}${slot}`;
+    }
+
+    /**
+     * Generate the storage key for leaderboard stats tied to a save slot.
+     * @param {string|number} slot user-facing slot number.
+     * @returns {string} localStorage key for the slot's stats.
+     */
+    function statsKeyForSlot(slot) {
+        return `${STATS_PREFIX}${slot}`;
+    }
+
+    /**
+     * Normalize overloaded slot + options arguments for load routines.
+     * @param {string|number|object} slotOrOptions slot or options object.
+     * @param {object} [options] optional options when slot is provided first.
+     * @returns {{slot: string, options: object}} normalized params.
+     */
+    function normalizeSlotAndOptions(slotOrOptions, options = {}) {
+        if (typeof slotOrOptions === 'string' || typeof slotOrOptions === 'number') {
+            return { slot: String(slotOrOptions), options };
+        }
+        return { slot: '1', options: slotOrOptions || {} };
     }
 
     /**
@@ -98,63 +131,95 @@
     }
 
     /**
-     * Save the game snapshot + leaderboard stats to localStorage.
+     * Save the game snapshot + leaderboard stats to a specific save slot.
      * @param {object} game current Game instance.
-     * @returns {{savedAt: string, payload: object}} time and payload details for UI/debugging.
+     * @param {string|number} [slot='1'] slot number to persist into.
+     * @returns {{savedAt: string, payload: object, slot: string}} time and payload details for UI/debugging.
      */
-    function saveSnapshot(game) {
+    function saveSnapshot(game, slot = '1') {
         const payload = serializeGameState(game);
         const savedAt = new Date().toISOString();
+        const slotKey = storageKeyForSlot(slot);
+        const statKey = statsKeyForSlot(slot);
         payload.stats.lastSaveISO = savedAt;
         if (typeof global.localStorage !== 'undefined') {
-            global.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-            global.localStorage.setItem(STATS_KEY, JSON.stringify(payload.stats));
+            global.localStorage.setItem(slotKey, JSON.stringify(payload));
+            global.localStorage.setItem(statKey, JSON.stringify(payload.stats));
         }
-        return { savedAt, payload };
+        return { savedAt, payload, slot: String(slot) };
     }
 
     /**
-     * Load the last saved snapshot, if present.
-     * @param {object} [options] passthrough options for deserialization.
-     * @returns {{state: object|null, stats: object}} hydrated state + stats.
+     * Load the saved snapshot for a specific slot, if present.
+     * @param {string|number|object} [slotOrOptions] slot identifier or options object.
+     * @param {object} [options] passthrough options for deserialization when slot is provided first.
+     * @returns {{state: object|null, stats: object, slot: string}} hydrated state + stats.
      */
-    function loadSnapshot(options = {}) {
-        const rawState = readFromStorage(STORAGE_KEY);
-        const rawStats = readFromStorage(STATS_KEY);
+    function loadSnapshot(slotOrOptions = {}, options = {}) {
+        const { slot, options: normalizedOptions } = normalizeSlotAndOptions(slotOrOptions, options);
+        const rawState = readFromStorage(storageKeyForSlot(slot));
+        const rawStats = readFromStorage(statsKeyForSlot(slot));
         return {
-            state: deserializeGameState(rawState, options),
-            stats: { ...DEFAULT_STATS, ...(rawStats || rawState?.stats || {}) }
+            state: deserializeGameState(rawState, normalizedOptions),
+            stats: { ...DEFAULT_STATS, ...(rawStats || rawState?.stats || {}) },
+            slot
         };
     }
 
     /**
-     * Remove all stored progress and leaderboard data.
+     * Remove all stored progress and leaderboard data for a slot, or every slot when none is provided.
+     * @param {string|number} [slot] optional slot to target; clears every slot when omitted.
      */
-    function clearSnapshot() {
+    function clearSnapshot(slot) {
         if (typeof global.localStorage === 'undefined') return;
-        global.localStorage.removeItem(STORAGE_KEY);
-        global.localStorage.removeItem(STATS_KEY);
+        if (slot) {
+            global.localStorage.removeItem(storageKeyForSlot(slot));
+            global.localStorage.removeItem(statsKeyForSlot(slot));
+            return;
+        }
+        Object.keys(global.localStorage)
+            .filter(key => key.startsWith(STORAGE_PREFIX) || key.startsWith(STATS_PREFIX))
+            .forEach(key => global.localStorage.removeItem(key));
     }
 
     /**
-     * Check if storage currently holds a save file.
+     * Check if storage currently holds a save file in the desired slot.
+     * @param {string|number} [slot='1'] slot identifier.
      * @returns {boolean} true when a save payload exists.
      */
-    function hasSnapshot() {
+    function hasSnapshot(slot = '1') {
         if (typeof global.localStorage === 'undefined') return false;
-        return Boolean(global.localStorage.getItem(STORAGE_KEY));
+        return Boolean(global.localStorage.getItem(storageKeyForSlot(slot)));
+    }
+
+    /**
+     * Inspect a slot without deserializing the entire payload.
+     * @param {string|number} slot slot identifier.
+     * @returns {{slot: string, hasSave: boolean, lastSaveISO: string|null, level: number|null}} snapshot metadata.
+     */
+    function getSlotMetadata(slot) {
+        const state = readFromStorage(storageKeyForSlot(slot));
+        if (!state) return { slot: String(slot), hasSave: false, lastSaveISO: null, level: null };
+        const level = typeof state.difficulty === 'number' ? state.difficulty : null;
+        const lastSaveISO = state.stats?.lastSaveISO || null;
+        return { slot: String(slot), hasSave: true, lastSaveISO, level };
     }
 
     global.Persistence = {
         STORAGE_KEY,
+        STORAGE_PREFIX,
         STATS_KEY,
+        STATS_PREFIX,
         DEFAULT_STATS,
         serializeGameState,
         deserializeGameState,
         saveSnapshot,
         loadSnapshot,
         clearSnapshot,
-        hasSnapshot
+        hasSnapshot,
+        getSlotMetadata,
+        storageKeyForSlot,
+        statsKeyForSlot
     };
 
     if (typeof module !== 'undefined' && module.exports) {
