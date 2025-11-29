@@ -1,0 +1,27 @@
+# Node and package managers
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+/dist/
+/build/
+/.cache/
+*.log
+
+# Environment and editor files
+.env
+.env.*
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# OS-generated files
+Desktop.ini
+
+# Local server artifacts
+http-server.pid
