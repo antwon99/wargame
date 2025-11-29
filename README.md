@@ -1,6 +1,6 @@
 # Hex Kingdom
 
-This repository contains a single-page prototype for the Hex Kingdom wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
+This repository contains a single-page prototype for the Hex Kingdom wargame experience. The project now uses a multi-file layout for maintainability: `Wargame.html` is the primary entry point and pulls in `style.css` for presentation plus `script.js` for gameplay, alongside the supporting `persistence.js` and `juice.js` helpers.
 
 ## Getting Started
 
@@ -10,7 +10,7 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
    cd wargame
    ```
 2. Open the game:
-   - **Quick view:** Double-click `Wargame.html` to open it in your browser.
+   - **Quick view:** Double-click `Wargame.html` to open it in your browser (it loads the external CSS/JS automatically).
    - **Local server (recommended for consistent asset loading):**
      ```bash
      python -m http.server 8000
@@ -28,8 +28,8 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 ## Development Notes
 
-- All gameplay logic, UI, and styling live in `Wargame.html`. Keep related code grouped with clear comments to aid navigation.
-- If you split the project into multiple files later, document the new structure here and update the `.gitignore` accordingly.
+- The HTML shell lives in `Wargame.html`, while the styling and game logic are separated into `style.css` and `script.js`. Shared systems such as saving and juice remain in `persistence.js` and `juice.js` respectively.
+- If you add new assets, keep imports consolidated in `Wargame.html` so the entry point stays easy to open.
 - Use conventional commits for version history and add tests alongside new features where possible.
 
 
@@ -43,7 +43,10 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 ## Repository Layout
 
-- `Wargame.html` — single-page prototype containing the full game.
+- `Wargame.html` — entry point that loads the compiled HUD/menus and references the shared assets.
+- `style.css` — extracted styling for the HUD, sidebar, overlays, and overlays/FX layers.
+- `script.js` — extracted gameplay, UI wiring, and combat logic that previously lived inline.
+- `persistence.js` / `juice.js` — supporting systems for saves and audiovisual feedback.
 - `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
 
 ## Contributing
