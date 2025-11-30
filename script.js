@@ -93,101 +93,41 @@ const TIPS = [
 
 
 /**
- * Unified audio controller that prevents stacking music, keeps SFX fire-and-forget,
- * and exposes the current assignments for the debug overlay.
+ * Thin facade over the global GameAudio so gameplay code can request
+ * manifest keys without worrying about availability in tests/browsers.
  */
-const AudioSystem = {
-    currentMusic: null,
-    currentAmbiance: null,
-    isMuted: false,
-    masterVolume: 1,
-    _activeSources: new Set(),
-
-    /** Register a node for debug tracking and automatic cleanup. */
-    _registerNode(node, meta) {
-        if (!node) return;
-        node.__meta = meta;
-        this._activeSources.add(node);
-        const cleanup = () => {
-            this._activeSources.delete(node);
-        };
-        node.addEventListener?.('ended', cleanup);
-        node.addEventListener?.('pause', cleanup);
+const AudioBridge = {
+    /** Request playback for a manifest entry (sfx or music). */
+    play(key, options = {}) {
+        if (typeof window === 'undefined') return false;
+        const audio = window.GameAudio;
+        if (audio && typeof audio.play === 'function') {
+            return audio.play(key, options);
+        }
+        return false;
     },
 
-    /** Apply master volume to a node unless the browser blocks it. */
-    _applyVolume(node) {
-        if (typeof node.volume !== 'undefined') node.volume = this.masterVolume;
+    /** Convenience helper for looping tracks (ambience/music). */
+    playLoop(key, options = {}) {
+        return this.play(key, { ...options, loop: options.loop !== false, reset: options.reset !== false });
     },
 
-    /** Pause all known sources and clear debug state. */
+    /** Begin the shared ambient loop defined by the audio manifest. */
+    startAmbient() {
+        window.GameAudio?.startAmbientLoop?.();
+    },
+
+    /** Stop the current ambient loop (no-op if unavailable). */
+    stopAmbient() {
+        window.GameAudio?.stop?.();
+    },
+
+    /** Halt all cached audio nodes (useful during state transitions). */
     stopAll() {
-        const pauseSafe = (node) => {
-            try { node.pause(); } catch (_) { /* noop */ }
-        };
-        if (this.currentMusic) pauseSafe(this.currentMusic);
-        if (this.currentAmbiance) pauseSafe(this.currentAmbiance);
-        this._activeSources.forEach((src) => pauseSafe(src));
-        this._activeSources.clear();
-        this.currentMusic = null;
-        this.currentAmbiance = null;
-    },
-
-    /**
-     * Play a looping music track, pausing any previous music to prevent stacking.
-     * @param {string} file path to the music asset
-     */
-    playMusic(file) {
-        if (this.currentMusic) {
-            try { this.currentMusic.pause(); } catch (_) { /* noop */ }
-            this._activeSources.delete(this.currentMusic);
-        }
-        const music = new Audio(file);
-        music.loop = true;
-        this._applyVolume(music);
-        this.currentMusic = music;
-        this._registerNode(music, { type: 'music', file });
-        music.play?.().catch(() => {});
-    },
-
-    /**
-     * Assign an ambient loop distinct from core music. Replaces any existing loop.
-     * @param {string} file path to the ambiance asset
-     */
-    setAmbiance(file) {
-        if (this.currentAmbiance) {
-            try { this.currentAmbiance.pause(); } catch (_) { /* noop */ }
-            this._activeSources.delete(this.currentAmbiance);
-        }
-        const ambiance = new Audio(file);
-        ambiance.loop = true;
-        this._applyVolume(ambiance);
-        this.currentAmbiance = ambiance;
-        this._registerNode(ambiance, { type: 'ambiance', file });
-        ambiance.play?.().catch(() => {});
-    },
-
-    /**
-     * Fire-and-forget SFX. Overlap is allowed and tracked for debugging.
-     * @param {string} file path to the SFX asset
-     */
-    playSFX(file) {
-        const fx = new Audio(file);
-        this._applyVolume(fx);
-        this._registerNode(fx, { type: 'sfx', file });
-        fx.play?.().catch(() => {});
-        return fx;
-    },
-
-    /** Snapshot of active sources for the debug overlay. */
-    describeActiveSources() {
-        return Array.from(this._activeSources).map((src) => {
-            const file = src.__meta?.file || src.src || 'unknown';
-            return file.split('/').pop();
-        });
+        window.GameAudio?.stopAll?.();
     }
 };
-if (typeof window !== 'undefined') window.AudioSystem = AudioSystem;
+if (typeof window !== 'undefined') window.AudioBridge = AudioBridge;
 
 const SAVE_SLOTS = ['1', '2', '3'];
 
@@ -217,13 +157,7 @@ const AudioDebugConsole = {
 
         const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
             ? window.AudioDebugBus.snapshot()
-            : {
-                intendedTrack: AudioSystem.currentMusic?.src?.split('/')?.pop() || 'None',
-                masterVolume: AudioSystem.masterVolume,
-                activeSources: AudioSystem.describeActiveSources()?.map((src) => ({
-                    label: src,
-                })) || []
-            };
+            : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
 
         const activeSources = snapshot.activeSources || [];
         const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
@@ -399,33 +333,19 @@ const Game = {
 
     /** Start or swap the peaceful ambiance loop. */
     armAmbientLoop() {
-        AudioSystem.setAmbiance('sfx/ambient.mp3');
+        AudioBridge.startAmbient();
         this.ambientActive = true;
     },
 
     /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
-        if (this.ambientActive && AudioSystem.currentAmbiance) {
-            try { AudioSystem.currentAmbiance.pause(); } catch (_) { /* noop */ }
-        }
+        if (this.ambientActive) AudioBridge.stopAmbient();
         this.ambientActive = false;
     },
 
-    /** Route game SFX to the singleton audio system. */
-    playSound(key) {
-        const sfxMap = {
-            tower: 'sfx/tower.mp3',
-            arrow: 'sfx/arrow.mp3',
-            sword: 'sfx/sword.mp3',
-            rare: 'sfx/rare.mp3',
-            wardrum: 'sfx/wardrum.mp3',
-            victory: 'sfx/victory.mp3',
-            defeat: 'sfx/defeat.mp3',
-            city: 'sfx/city.mp3',
-            choptree: 'sfx/choptree.mp3'
-        };
-        const target = sfxMap[key];
-        if (target) AudioSystem.playSFX(target);
+    /** Route game SFX to the manifest-driven audio manager. */
+    playSound(key, options = {}) {
+        AudioBridge.play(key, options);
     },
 
     /**
@@ -1301,7 +1221,8 @@ const Game = {
         }
         this.gold -= cost;
         this.haltAmbientLoop();
-        AudioSystem.playMusic('sfx/wardrum.mp3');
+        AudioBridge.stopAll();
+        AudioBridge.playLoop('wardrum', { reset: true });
         this.triggerCameraShake();
         this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
         this.spawnParticleBurst(anchorX, anchorY, 8);
@@ -1427,16 +1348,17 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
-        AudioSystem.playMusic(this.pickTerritoryMusic());
+        AudioBridge.stopAll();
+        AudioBridge.playLoop(this.pickTerritoryMusic(), { reset: true });
         this.armAmbientLoop();
     },
 
     /**
      * Select a territory-safe music track using the existing ambiance playlist.
-     * @returns {string} file path to the selected track
+     * @returns {string} manifest key for the selected track
      */
     pickTerritoryMusic() {
-        const tracks = ['sfx/ambiance_upbeat.mp3', 'sfx/ambiance_uplifting.mp3'];
+        const tracks = ['ambiance_upbeat', 'ambiance_uplifting'];
         const index = Math.floor(Math.random() * tracks.length);
         return tracks[index];
     },
