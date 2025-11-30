@@ -229,10 +229,10 @@ class AmbientConductor {
     }
 
     /** Begin scheduling tracks for the current mode. Safe to call repeatedly. */
-    start() {
+    start(options = {}) {
         this.active = true;
-        this.stopCurrent({ fadeMs: this.getConfig()?.fadeMs });
         this.clearTimers();
+        this.stopCurrent({ fadeMs: options.fadeMs ?? this.getConfig()?.fadeMs });
         this.scheduleNext(true);
         return true;
     }
@@ -247,8 +247,9 @@ class AmbientConductor {
     /** Switch playlists and restart scheduling. */
     enterMode(mode) {
         if (!mode || this.currentMode === mode) return false;
+        const previousConfig = this.getConfig();
         this.currentMode = mode;
-        if (this.active) this.start();
+        if (this.active) this.start({ fadeMs: previousConfig?.fadeMs });
         return true;
     }
 
@@ -262,8 +263,8 @@ class AmbientConductor {
         this.launchTrack();
     }
 
-    getConfig() {
-        return this.states[this.currentMode] || null;
+    getConfig(mode = this.currentMode) {
+        return this.states[mode] || null;
     }
 
     clearTimers() {
@@ -310,7 +311,8 @@ class AmbientConductor {
         this.activeHandle = {
             ...handle,
             targetVolume: track.volume ?? config.volume,
-            fadeMs: Math.min(track.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs)
+            fadeMs: Math.min(track.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs),
+            mode: this.currentMode
         };
         this.fadeTo(
             handle.node,
@@ -353,7 +355,7 @@ class AmbientConductor {
         if (!this.activeHandle || !this.activeHandle.node) return;
         const handleRef = this.activeHandle;
         const node = handleRef.node;
-        const fadeMs = Math.min(options.fadeMs || 0, this.maxOverlapMs);
+        const fadeMs = Math.min(options.fadeMs ?? handleRef.fadeMs ?? 0, this.maxOverlapMs);
         if (fadeMs <= 0) {
             if (node.pause) node.pause();
             if (typeof node.currentTime === 'number') node.currentTime = 0;
