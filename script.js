@@ -1411,8 +1411,18 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
-        AudioSystem.playMusic('sfx/peaceful.mp3');
+        AudioSystem.playMusic(this.pickTerritoryMusic());
         this.armAmbientLoop();
+    },
+
+    /**
+     * Select a territory-safe music track using the existing ambiance playlist.
+     * @returns {string} file path to the selected track
+     */
+    pickTerritoryMusic() {
+        const tracks = ['sfx/ambiance_upbeat.mp3', 'sfx/ambiance_uplifting.mp3'];
+        const index = Math.floor(Math.random() * tracks.length);
+        return tracks[index];
     },
 
     showWarTip() {
