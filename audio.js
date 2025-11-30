@@ -351,18 +351,23 @@ class AmbientConductor {
 
     stopCurrent(options = {}) {
         if (!this.activeHandle || !this.activeHandle.node) return;
-        const node = this.activeHandle.node;
+        const handleRef = this.activeHandle;
+        const node = handleRef.node;
         const fadeMs = Math.min(options.fadeMs || 0, this.maxOverlapMs);
         if (fadeMs <= 0) {
             if (node.pause) node.pause();
             if (typeof node.currentTime === 'number') node.currentTime = 0;
-            this.activeHandle = null;
+            if (this.activeHandle === handleRef || this.activeHandle?.node === node) {
+                this.activeHandle = null;
+            }
             return;
         }
         this.fadeTo(node, 0, fadeMs, node.volume, () => {
             if (node.pause) node.pause();
             if (typeof node.currentTime === 'number') node.currentTime = 0;
-            this.activeHandle = null;
+            if (this.activeHandle === handleRef || this.activeHandle?.node === node) {
+                this.activeHandle = null;
+            }
         });
     }
 

@@ -192,6 +192,70 @@ function testConductorLimitsOverlapAndCrossfades() {
     assert.strictEqual(conductor.activeHandle.node, secondNode, 'new track should own the active handle');
 }
 
+function testStopCurrentPreservesActiveHandleIdentity() {
+    const log = [];
+    const scheduler = createManualScheduler();
+    const manager = new AudioManager({
+        territory: { src: 'territory', cooldownMs: 0 },
+        war: { src: 'war', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = new AmbientConductor(manager, {
+        initialMode: 'TERRITORY',
+        random: () => 0.2,
+        maxOverlapMs: 500,
+        scheduler,
+        states: {
+            TERRITORY: {
+                tracks: [{ key: 'territory', fadeMs: 300, startVolume: 0.2, volume: 0.6 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 300,
+                overlapMs: 300,
+                crossfadeChance: 0,
+                maxTrackMs: 5000,
+                volume: 0.6
+            },
+            WAR: {
+                tracks: [{ key: 'war', fadeMs: 300, startVolume: 0.2, volume: 0.65 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 300,
+                overlapMs: 300,
+                crossfadeChance: 0,
+                maxTrackMs: 5000,
+                volume: 0.65
+            }
+        }
+    });
+
+    const flushFades = (ticks = 20) => {
+        for (let i = 0; i < ticks; i += 1) {
+            scheduler.intervals.forEach((fn) => { if (typeof fn === 'function') fn(); });
+        }
+    };
+
+    conductor.playNextNow();
+    const firstNode = log[0];
+
+    conductor.active = false;
+    conductor.enterMode('WAR');
+    conductor.playNextNow();
+
+    flushFades();
+    const aliveAfterWar = log.filter((n) => !n.paused);
+    assert.strictEqual(conductor.activeHandle.node, log[1], 'war track should remain active after territory fade-out');
+    assert.strictEqual(aliveAfterWar.length, 1, 'only one node should remain active after fading territory');
+    assert.ok(firstNode.paused, 'territory track should be paused after its fade');
+
+    conductor.active = false;
+    conductor.enterMode('TERRITORY');
+    conductor.playNextNow();
+
+    flushFades();
+    const aliveAfterTerritory = log.filter((n) => !n.paused);
+    assert.strictEqual(conductor.activeHandle.node, log[2], 'territory track should remain active after war fade-out');
+    assert.strictEqual(aliveAfterTerritory.length, 1, 'only one node should remain active after fading war');
+}
+
 function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
@@ -199,6 +263,7 @@ function run() {
     testWeightedSelectionUsesRandomizer();
     testAmbientConductorModes();
     testConductorLimitsOverlapAndCrossfades();
+    testStopCurrentPreservesActiveHandleIdentity();
     testManifestIncludesNewEffects();
     console.log('All audio tests passed.');
 }
