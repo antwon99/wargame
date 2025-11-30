@@ -25,6 +25,13 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 - Completing a war automatically records stats and refreshes the stored snapshot so you do not lose leaderboard progress between sessions.
 - See `docs/persistence.md` for the payload format and extension tips.
 
+## Research / Tech Tree
+
+- The HUD includes a **Research** button that opens a modal of late-game technologies.
+- Tech cards turn green when you can afford them, gold when fully purchased, and gray when out of reach.
+- Lives provide up to three revive charges on defeat, Architecture and Lumberjacks boost town/forest income, and Land Reclamation converts fields into new towns or forests.
+- See `docs/research.md` for the full rules and costs.
+
 
 ## Development Notes
 
@@ -51,6 +58,7 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 - `Wargame.html` — single-page prototype containing the full game.
 - `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
+- `researchSystem.js` — shared tech tree definitions and affordability helpers used by the UI and tests.
 
 ## Contributing
 

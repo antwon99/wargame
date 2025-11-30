@@ -39,7 +39,7 @@ function testCooldownPreventsSpam() {
 function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.victory, 'victory sound should be mapped');
     assert.ok(SFX_MANIFEST.rare, 'legendary attack sound should be mapped');
-    assert.ok(SFX_MANIFEST.rower, 'tower/castle sound should be mapped');
+    assert.ok(SFX_MANIFEST.tower, 'tower/castle sound should be mapped');
 }
 
 function testOverlapCreatesClone() {

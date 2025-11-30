@@ -78,6 +78,14 @@
             wood: game.wood,
             difficulty: game.difficulty,
             upgrades: { ...game.upgrades },
+            research: {
+                technologies: Array.from(game.research?.technologies || []).map(t => ({
+                    id: t.id,
+                    purchased: Boolean(t.purchased),
+                    timesPurchased: t.timesPurchased || 0
+                })),
+                lives: game.research?.lives || 0
+            },
             overworld: {
                 hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type }) => ({
                     q: hex.q,
@@ -125,6 +133,7 @@
             wood: snapshot.wood ?? 0,
             difficulty: snapshot.difficulty ?? 0,
             upgrades: snapshot.upgrades || {},
+            research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
             stats: { ...DEFAULT_STATS, ...(snapshot.stats || {}) }
         };

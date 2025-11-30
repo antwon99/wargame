@@ -109,6 +109,7 @@ const Game = {
     gold: 300, wood: 40,
     difficulty: 0,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
+    research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0 }, lives: 0 },
     stats: { ...Persistence.DEFAULT_STATS },
     session: { warKills: 0 },
     activeSaveSlot: '1',
@@ -142,6 +143,7 @@ const Game = {
 
         this.updateHUD();
         this.updateUpgradeMenu();
+        this.updateResearchUI();
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
 
@@ -151,6 +153,8 @@ const Game = {
         document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
         document.getElementById('btn-close-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='none'; };
+        document.getElementById('btn-research').onclick = () => this.toggleResearch(true);
+        document.getElementById('btn-close-research').onclick = () => this.toggleResearch(false);
 
         document.getElementById('btn-sidebar-toggle').onclick = () => this.toggleSidebar();
         document.getElementById('btn-sidebar-close').onclick = () => this.toggleSidebar(false);
@@ -281,6 +285,8 @@ const Game = {
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         this.calcOverworldGhosts();
+        this.research = this.buildResearchState();
+        this.updateResearchBonuses();
         this.resetSession();
         this.updateSaveStatus('Fresh campaign');
         document.getElementById('ui-overworld').classList.add('visible');
@@ -295,6 +301,8 @@ const Game = {
         this.wood = snapshot.wood;
         this.difficulty = snapshot.difficulty;
         this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
+        this.research = this.buildResearchState(snapshot.research);
+        this.updateResearchBonuses();
         this.overworld.hexes = snapshot.overworld.hexes;
         this.overworld.claimable = new Map();
         this.calcOverworldGhosts();
@@ -331,6 +339,7 @@ const Game = {
         this.stats = loaded.stats;
         this.updateHUD();
         this.updateUpgradeMenu();
+        this.updateResearchUI();
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
@@ -438,6 +447,238 @@ const Game = {
         document.getElementById('buy-defense').innerText = `${this.getUpgradeCost('defense')}g`;
     },
 
+    /**
+     * Build a fresh research state or hydrate from a saved payload.
+     * Keeps the data in sync with the ResearchSystem definition file so tests
+     * and gameplay share cost math.
+     * @param {object} [saved] optional save payload with technologies + lives.
+     * @returns {{technologies: Array, bonuses: object, lives: number}}
+     */
+    buildResearchState(saved = {}) {
+        const technologies = ResearchSystem.instantiateTechnologies(saved.technologies || []);
+        const livesTech = technologies.find(t => t.id === 'lives');
+        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
+        const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
+        return {
+            technologies,
+            bonuses: { townGoldBonus: 0, forestWoodBonus: 0 },
+            lives: remainingLives
+        };
+    },
+
+    /**
+     * Recalculate passive bonuses derived from purchased tech so loading and
+     * respecs remain deterministic.
+     */
+    updateResearchBonuses() {
+        this.research.bonuses = { townGoldBonus: 0, forestWoodBonus: 0 };
+        const livesTech = this.research.technologies.find(t => t.id === 'lives');
+        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
+        this.research.lives = Math.min(this.research.lives || 0, purchasedLives);
+
+        this.research.technologies.forEach(tech => {
+            if (!tech.timesPurchased) return;
+            if (tech.id === 'architecture') this.research.bonuses.townGoldBonus += tech.timesPurchased;
+            if (tech.id === 'lumberjacks') this.research.bonuses.forestWoodBonus += tech.timesPurchased;
+        });
+    },
+
+    /** Toggle the research modal visibility. */
+    toggleResearch(forceOpen) {
+        const modal = document.getElementById('research-modal');
+        if (!modal) return;
+        modal.style.display = forceOpen === false ? 'none' : 'flex';
+        if (forceOpen !== false) this.updateResearchUI();
+    },
+
+    /**
+     * Convert a cost object into a human-readable string.
+     * @param {object} cost resource object keyed by gold/wood.
+     * @returns {string}
+     */
+    formatCost(cost) {
+        const parts = [];
+        if (cost.gold) parts.push(`${cost.gold}g`);
+        if (cost.wood) parts.push(`${cost.wood}w`);
+        return parts.join(' + ');
+    },
+
+    /** Locate a technology by id. */
+    getTech(id) { return this.research.technologies.find(t => t.id === id); },
+
+    /**
+     * Determine the scaled price for a tech, optionally scoped to an option.
+     * @param {object} tech technology entry.
+     * @param {string} [optionId] optional cost option id.
+     * @returns {object} resource cost.
+     */
+    getTechCost(tech, optionId) {
+        return ResearchSystem.getCostForTech(tech, optionId);
+    },
+
+    /** Check if the player can pay a specific cost. */
+    canPayCost(cost) { return ResearchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost); },
+
+    /**
+     * Attempt to purchase a technology and immediately apply its effect.
+     * @param {string} techId identifier of the tech to buy.
+     * @param {string} [optionId] optional option key (land reclamation).
+     */
+    buyTechnology(techId, optionId) {
+        const tech = this.getTech(techId);
+        if (!tech || !ResearchSystem.hasRemainingPurchases(tech)) return;
+
+        const cost = this.getTechCost(tech, optionId);
+        const hasFields = tech.id === 'land-reclamation' ? this.hasFieldToConvert() : true;
+        if (!hasFields) return;
+        if (!this.canPayCost(cost)) return;
+
+        this.gold -= cost.gold || 0;
+        this.wood -= cost.wood || 0;
+        this.applyTechEffect(tech, optionId);
+        ResearchSystem.recordPurchase(tech);
+        this.updateResearchBonuses();
+        this.updateHUD();
+        this.updateResearchUI();
+    },
+
+    /**
+     * Apply immediate bonuses from a purchased tech.
+     * @param {object} tech technology definition.
+     * @param {string} [optionId] cost option chosen by the player.
+     */
+    applyTechEffect(tech, optionId) {
+        if (tech.id === 'lives') {
+            const cap = tech.maxPurchases || 3;
+            this.research.lives = Math.min(this.research.lives + 1, cap);
+            this.spawnTxt(new Hex(0,0), `+1 LIFE (${this.research.lives}/${cap})`, '#9be3b4');
+            return;
+        }
+
+        if (tech.id === 'architecture') {
+            this.research.bonuses.townGoldBonus += 1;
+            this.spawnTxt(new Hex(0,0), 'TOWNS RICHER', '#ffd166');
+            return;
+        }
+
+        if (tech.id === 'lumberjacks') {
+            this.research.bonuses.forestWoodBonus += 1;
+            this.spawnTxt(new Hex(0,0), 'WOOD FLOW +', '#8ae7a8');
+            return;
+        }
+
+        if (tech.id === 'land-reclamation') {
+            const targetType = optionId === 'town' ? 'town' : 'forest';
+            const success = this.convertRandomField(targetType);
+            if (!success) {
+                this.spawnTxt(new Hex(0,0), 'NO FIELDS LEFT', '#ef476f');
+            }
+        }
+    },
+
+    /**
+     * Transform a random field into a more lucrative tile.
+     * @param {string} newType either 'forest' or 'town'.
+     * @returns {boolean} true when a field was converted.
+     */
+    convertRandomField(newType) {
+        const fields = Array.from(this.overworld.hexes.values()).filter(h => h.type === 'field');
+        if (fields.length === 0) return false;
+        const choice = fields[Math.floor(Math.random() * fields.length)];
+        choice.type = newType;
+        this.calcOverworldGhosts();
+        this.spawnTxt(choice.hex, `${newType.toUpperCase()} BUILT`, newType === 'town' ? '#ffd166' : '#8ae7a8');
+        return true;
+    },
+
+    /** True when at least one field can be reclaimed. */
+    hasFieldToConvert() {
+        return Array.from(this.overworld.hexes.values()).some(h => h.type === 'field');
+    },
+
+    /**
+     * Render the research tech grid and reflect affordability / purchase state.
+     */
+    updateResearchUI() {
+        const grid = document.getElementById('tech-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const livesTech = this.getTech('lives');
+        const livesCap = livesTech?.maxPurchases || 3;
+        const livesLabel = document.getElementById('research-lives');
+        if (livesLabel) livesLabel.innerText = `❤️ ${this.research.lives}/${livesCap}`;
+        const headerLives = document.getElementById('lives-count');
+        if (headerLives) headerLives.innerText = this.research.lives;
+
+        this.research.technologies.forEach(tech => {
+            const card = document.createElement('div');
+            card.className = 'tech-card';
+
+            const title = document.createElement('h3');
+            title.className = 'tech-title';
+            const counter = tech.maxPurchases && tech.maxPurchases > 1 ? ` (${tech.timesPurchased}/${tech.maxPurchases})` : '';
+            title.innerText = `${tech.name}${counter}`;
+
+            const desc = document.createElement('p');
+            desc.className = 'tech-desc';
+            desc.innerText = tech.description;
+
+            const costLine = document.createElement('p');
+            costLine.className = 'tech-cost';
+
+            const actions = document.createElement('div');
+            actions.className = 'tech-actions';
+
+            const canBuyMore = ResearchSystem.hasRemainingPurchases(tech);
+            let affordable = false;
+
+            if (tech.costOptions && tech.costOptions.length > 0) {
+                costLine.innerText = tech.costOptions.map(opt => `${opt.label} (${this.formatCost(this.getTechCost(tech, opt.id))})`).join(' | ');
+                tech.costOptions.forEach(opt => {
+                    const optCost = this.getTechCost(tech, opt.id);
+                    const btn = document.createElement('button');
+                    btn.innerText = opt.label;
+                    const canAfford = this.canPayCost(optCost) && canBuyMore && this.hasFieldToConvert();
+                    affordable = affordable || canAfford;
+                    btn.disabled = !canAfford;
+                    btn.classList.add('primary-btn');
+                    btn.onclick = () => this.buyTechnology(tech.id, opt.id);
+                    actions.appendChild(btn);
+                });
+            } else {
+                const cost = this.getTechCost(tech);
+                costLine.innerText = `Cost: ${this.formatCost(cost)}`;
+                affordable = this.canPayCost(cost) && canBuyMore;
+                const btn = document.createElement('button');
+                btn.innerText = tech.purchased ? 'Repurchase' : 'Purchase';
+                btn.disabled = !affordable;
+                btn.classList.add('primary-btn');
+                btn.onclick = () => this.buyTechnology(tech.id);
+                actions.appendChild(btn);
+            }
+
+            if (!canBuyMore) {
+                card.classList.add('purchased');
+                actions.querySelectorAll('button').forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('purchased-btn');
+                    btn.innerText = 'Purchased';
+                });
+            } else if (affordable) {
+                card.classList.add('affordable');
+            } else {
+                card.classList.add('unaffordable');
+            }
+
+            card.appendChild(title);
+            card.appendChild(desc);
+            card.appendChild(costLine);
+            card.appendChild(actions);
+            grid.appendChild(card);
+        });
+    },
+
     updateLeaderboardUI() {
         const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
         setTxt('stat-best-lvl', this.stats.bestDifficulty || 0);
@@ -484,8 +725,8 @@ const Game = {
             let woodInc = 0;
             for(let [k, d] of this.overworld.hexes) {
                 const def = OVERWORLD_TILES[d.type.toUpperCase()];
-                if(def.income.gold) goldInc += def.income.gold;
-                if(def.income.wood) woodInc += def.income.wood;
+                if(def.income.gold) goldInc += def.income.gold + (d.type === 'town' ? this.research.bonuses.townGoldBonus : 0);
+                if(def.income.wood) woodInc += def.income.wood + (d.type === 'forest' ? this.research.bonuses.forestWoodBonus : 0);
             }
             
             const multi = this.getIncomeMulti();
@@ -555,7 +796,7 @@ const Game = {
                     if(target) {
                         b.attackTimer = 0;
                         this.damageUnit(target, stats.dmg, b.owner); // New Function
-                        if (b.type === 'tower' || b.type === 'castle') this.playSound('rower', { allowOverlap: true });
+                        if (b.type === 'tower' || b.type === 'castle') this.playSound('tower', { allowOverlap: true });
                         // Visuals
                         const pStart = hex.toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
                         const pEnd = (new Hex(target.pos.q, target.pos.r, target.pos.s)).toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
@@ -955,22 +1196,28 @@ const Game = {
         this.state = 'OVERWORLD';
         const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
         const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
+        let result = outcome;
 
-        if(outcome === 'VICTORY') {
+        if(outcome === 'DEFEAT' && this.research.lives > 0) {
+            this.research.lives -= 1;
+            result = 'REVIVE';
+        }
+
+        if(result === 'VICTORY') {
             this.wood += 60;
             this.difficulty++;
             this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
             this.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
             this.playSound('victory');
         }
-        else if(outcome === 'DEFEAT') {
+        else if(result === 'DEFEAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*6)+5); // 5-10
             this.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
             this.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
             this.playSound('defeat');
         }
-        else if(outcome === 'RETREAT') {
+        else if(result === 'RETREAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*5)+1); // 1-5
             this.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
@@ -978,7 +1225,7 @@ const Game = {
             this.playSound('defeat');
         }
 
-        this.recordWarEnd(outcome);
+        this.recordWarEnd(result);
 
         document.getElementById('ui-overworld').classList.add('visible');
         document.getElementById('ui-combat').classList.remove('visible');
@@ -1085,6 +1332,8 @@ const Game = {
     updateHUD() {
         document.getElementById('gold').innerText = Math.floor(this.gold);
         document.getElementById('wood').innerText = Math.floor(this.wood);
+        const lives = document.getElementById('lives-count');
+        if (lives) lives.innerText = this.research.lives;
         document.getElementById('lvl-txt').innerText = `Enemy Lv.${this.difficulty}`;
         
         const cost = (this.difficulty + 1) * 25;

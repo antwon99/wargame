@@ -118,7 +118,7 @@ const SFX_MANIFEST = {
     wardrum: { src: 'sfx/wardrum.mp3', cooldownMs: 1200 },
     sword: { src: 'sfx/sword.mp3', allowOverlap: true, cooldownMs: 90 },
     arrow: { src: 'sfx/arrow.mp3', allowOverlap: true, cooldownMs: 90 },
-    rower: { src: 'sfx/rower.mp3', allowOverlap: true, cooldownMs: 120 },
+    tower: { src: 'sfx/tower.mp3', allowOverlap: true, cooldownMs: 120 },
     rare: { src: 'sfx/rare.mp3', allowOverlap: true, cooldownMs: 140 },
     defeat: { src: 'sfx/defeat.mp3', cooldownMs: 400 },
     victory: { src: 'sfx/victory.mp3', cooldownMs: 400 },
