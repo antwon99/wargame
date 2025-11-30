@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { AudioManager } = require('../audio.js');
+const { AudioManager, SFX_MANIFEST } = require('../audio.js');
 
 function createStubFactory(log) {
     return (src) => {
@@ -36,6 +36,12 @@ function testCooldownPreventsSpam() {
     assert.strictEqual(firstNode.playCount, 2, 'play should reuse base node after cooldown');
 }
 
+function testManifestIncludesNewEffects() {
+    assert.ok(SFX_MANIFEST.victory, 'victory sound should be mapped');
+    assert.ok(SFX_MANIFEST.rare, 'legendary attack sound should be mapped');
+    assert.ok(SFX_MANIFEST.tower, 'tower/castle sound should be mapped');
+}
+
 function testOverlapCreatesClone() {
     const log = [];
     const manager = new AudioManager({ sword: { src: 'sword', allowOverlap: true } }, { createAudio: createStubFactory(log) });
@@ -62,6 +68,7 @@ function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
     testAmbientLoop();
+    testManifestIncludesNewEffects();
     console.log('All audio tests passed.');
 }
 

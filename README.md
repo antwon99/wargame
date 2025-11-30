@@ -50,7 +50,7 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 ## Audio
 
-- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, defeat, city unlocks, forest claims, and an overworld ambient loop.
+- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop.
 - See `docs/audio.md` for the event map and integration notes.
 
 

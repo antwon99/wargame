@@ -5,8 +5,11 @@ The game routes every sound effect through `audio.js`, which exposes an `AudioMa
 ## Event Map
 - **wardrum.mp3** — triggered when the player starts a war.
 - **sword.mp3** — played when swordsmen land an attack.
-- **arrow.mp3** — fired for archer volleys and tower shots.
+- **arrow.mp3** — fired for archer volleys.
+- **tower.mp3** — fired for tower and castle volleys so they sound distinct from bowmen.
+- **rare.mp3** — legendary unit (dragon) attack cue.
 - **defeat.mp3** — used when the player retreats or loses a war.
+- **victory.mp3** — used when the player wins a war.
 - **city.mp3** — plays when claiming a town hex.
 - **choptree.mp3** — plays when claiming a forest hex.
 - **ambient.mp3** — territorial ambience that loops while in the overworld; paused during combat.

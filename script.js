@@ -796,7 +796,7 @@ const Game = {
                     if(target) {
                         b.attackTimer = 0;
                         this.damageUnit(target, stats.dmg, b.owner); // New Function
-                        if (b.type === 'tower') this.playSound('arrow', { allowOverlap: true });
+                        if (b.type === 'tower' || b.type === 'castle') this.playSound('tower', { allowOverlap: true });
                         // Visuals
                         const pStart = hex.toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
                         const pEnd = (new Hex(target.pos.q, target.pos.r, target.pos.s)).toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
@@ -837,6 +837,7 @@ const Game = {
                     u.cooldown = 1.0;
                     if (u.type === 'archer') this.playSound('arrow', { allowOverlap: true });
                     if (u.type === 'soldier') this.playSound('sword', { allowOverlap: true });
+                    if (u.type === 'dragon') this.playSound('rare', { allowOverlap: true });
                     if(target.isBuilding) {
                         this.damageBuilding(target.key, u.dmg);
                     } else {
@@ -1207,6 +1208,7 @@ const Game = {
             this.difficulty++;
             this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
             this.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
+            this.playSound('victory');
         }
         else if(result === 'DEFEAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*6)+5); // 5-10
@@ -1222,10 +1224,6 @@ const Game = {
             this.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
             this.playSound('defeat');
         }
-        else if(result === 'REVIVE') {
-            this.spawnTxt(new Hex(0,0), 'FOCUSED. TRY AGAIN.', '#9be3b4');
-            this.showFloatingText(anchorX, anchorY, 'Revived!', 'info-text');
-        }
 
         this.recordWarEnd(result);
 
@@ -1234,7 +1232,6 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
-        this.updateResearchUI();
         this.armAmbientLoop();
     },
 
