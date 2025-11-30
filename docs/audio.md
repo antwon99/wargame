@@ -24,7 +24,8 @@ The game routes every sound effect through `audio.js`, which exposes an `AudioMa
 
 ## Integration Notes
 - The `AudioBridge` in `script.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).
-- `armAmbientLoop()` starts the ambient birds/wind loop **and** arms territory music once the player interacts with the canvas.
-- `haltAmbientLoop()` pivots to war ambience, pausing the overworld loop while scheduling war music.
+- `armAmbientLoop()` starts the ambient birds/wind loop, locks the conductor into `TERRITORY` mode, and begins scheduling the peaceful playlist.
+- `haltAmbientLoop()` stops the ambient loop and clears the conductor so war transitions can retake control cleanly.
+- `startWar()` switches the conductor to `WAR` mode and pauses the overworld ambient loop; `endWar()` returns to `TERRITORY` and restarts the ambiance pipeline.
 - Per-sound cooldowns prevent excessive layering while keeping overlap enabled for rapid attacks.
 - To add a new effect, extend `SFX_MANIFEST` in `audio.js` with either a `src` or a `variations` array and trigger it via `AudioBridge.play()`.
