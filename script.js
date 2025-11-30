@@ -74,42 +74,26 @@ const TIPS = [
     "RISK: Mystery Hexes are 90% Rocks, 10% Jackpot."
 ];
 
-/** Minimal Web Audio synth for UI feedback. */
-const AudioFX = {
-    ctx: null,
-    ensureCtx() {
-        if (this.ctx) return true;
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return false;
-        this.ctx = new AudioContext();
-        return true;
+/**
+ * Small bridge so game code can safely trigger audio without assuming
+ * the underlying browser APIs are present.
+ */
+const AudioBridge = {
+    play(key, options) {
+        if (typeof GameAudio === 'undefined' || !GameAudio.play) return false;
+        return GameAudio.play(key, options);
     },
-    play(type) {
-        if (!this.ensureCtx()) return;
-        const envelope = this.library[type];
-        if (!envelope) return;
-        const now = this.ctx.currentTime;
-        envelope.forEach(part => {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = part.wave;
-            osc.frequency.setValueAtTime(part.freq, now);
-            gain.gain.setValueAtTime(part.volume, now);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + part.duration);
-            osc.connect(gain).connect(this.ctx.destination);
-            osc.start(now);
-            osc.stop(now + part.duration);
-        });
+    startAmbient() {
+        if (typeof GameAudio === 'undefined' || !GameAudio.startAmbientLoop) return false;
+        return GameAudio.startAmbientLoop();
     },
-    library: {
-        slice: [
-            { wave: 'triangle', freq: 240, duration: 0.18, volume: 0.22 },
-            { wave: 'sawtooth', freq: 420, duration: 0.12, volume: 0.18 }
-        ],
-        thud: [
-            { wave: 'sine', freq: 110, duration: 0.35, volume: 0.3 },
-            { wave: 'square', freq: 70, duration: 0.2, volume: 0.25 }
-        ]
+    stopAmbient() {
+        if (typeof GameAudio === 'undefined' || !GameAudio.stop) return false;
+        return GameAudio.stop();
+    },
+    stopAll() {
+        if (typeof GameAudio === 'undefined' || !GameAudio.stopAll) return false;
+        return GameAudio.stopAll();
     }
 };
 
@@ -131,6 +115,7 @@ const Game = {
     voidClicks: 0,
     cam: { x: 0, y: 0, zoom: 1 },
     shakeTimer: null,
+    ambientActive: false,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     combat: { 
@@ -159,6 +144,8 @@ const Game = {
         this.updateUpgradeMenu();
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
+
+        this.armAmbientLoop();
 
         document.getElementById('btn-war').onclick = (e) => this.startWar(e);
         document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
@@ -212,7 +199,7 @@ const Game = {
 
     setupInput() {
         let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
-        const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
+        const onDown = (x, y) => { this.armAmbientLoop(); isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
         const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
         const onUp = (x, y) => {
             if(isDrag) {
@@ -228,6 +215,22 @@ const Game = {
         this.canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
         this.canvas.addEventListener('pointerup', e => onUp(e.clientX, e.clientY));
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
+    },
+
+    /** Start the ambient territory loop once the player interacts. */
+    armAmbientLoop() {
+        if (AudioBridge.startAmbient()) this.ambientActive = true;
+    },
+
+    /** Halt ambient audio so war SFX have room to breathe. */
+    haltAmbientLoop() {
+        AudioBridge.stopAmbient();
+        this.ambientActive = false;
+    },
+
+    /** Proxy to the shared audio bridge for game-triggered sounds. */
+    playSound(key, options) {
+        return AudioBridge.play(key, options);
     },
 
     /**
@@ -552,6 +555,7 @@ const Game = {
                     if(target) {
                         b.attackTimer = 0;
                         this.damageUnit(target, stats.dmg, b.owner); // New Function
+                        if (b.type === 'tower' || b.type === 'castle') this.playSound('rower', { allowOverlap: true });
                         // Visuals
                         const pStart = hex.toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
                         const pEnd = (new Hex(target.pos.q, target.pos.r, target.pos.s)).toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
@@ -590,6 +594,9 @@ const Game = {
             if(target && minDist <= u.range) {
                 if(u.cooldown <= 0) {
                     u.cooldown = 1.0;
+                    if (u.type === 'archer') this.playSound('arrow', { allowOverlap: true });
+                    if (u.type === 'soldier') this.playSound('sword', { allowOverlap: true });
+                    if (u.type === 'dragon') this.playSound('rare', { allowOverlap: true });
                     if(target.isBuilding) {
                         this.damageBuilding(target.key, u.dmg);
                     } else {
@@ -857,14 +864,14 @@ const Game = {
         if(this.gold < cost) {
             this.spawnTxt(new Hex(0,0), `Need ${cost}g`, '#f55');
             this.showFloatingText(anchorX, anchorY, `Need ${cost}g`, 'alert-text');
-            AudioFX.play('thud');
             return;
         }
         this.gold -= cost;
+        this.haltAmbientLoop();
         this.triggerCameraShake();
         this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
         this.spawnParticleBurst(anchorX, anchorY, 8);
-        AudioFX.play('slice');
+        this.playSound('wardrum');
         this.resetSession();
         this.stats.warsPlayed++;
         this.updateLeaderboardUI();
@@ -923,7 +930,6 @@ const Game = {
             this.triggerCameraShake();
             this.showFloatingText(x, y, 'TO WAR!', 'gold-text');
             this.spawnParticleBurst(x, y, 8);
-            AudioFX.play('slice');
         } catch (err) {
             console.warn('War FX failed; continuing combat init', err);
         }
@@ -955,20 +961,21 @@ const Game = {
             this.difficulty++;
             this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
             this.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
+            this.playSound('victory');
         }
         else if(outcome === 'DEFEAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*6)+5); // 5-10
             this.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
             this.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
-            AudioFX.play('thud');
+            this.playSound('defeat');
         }
         else if(outcome === 'RETREAT') {
             const lost = this.loseOverworldHexes(Math.floor(Math.random()*5)+1); // 1-5
             this.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
             setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
             this.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
-            AudioFX.play('thud');
+            this.playSound('defeat');
         }
 
         this.recordWarEnd(outcome);
@@ -978,6 +985,7 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
+        this.armAmbientLoop();
     },
 
     showWarTip() {
@@ -994,9 +1002,13 @@ const Game = {
 
     claimHexLogic(hex, free) {
         const r = Math.random();
-        let type = 'field'; if(r > 0.75) type = 'town'; else if(r > 0.5) type = 'forest'; 
+        let type = 'field'; if(r > 0.75) type = 'town'; else if(r > 0.5) type = 'forest';
         this.addOverworldHex(hex, type);
-        if(!free) this.spawnTxt(hex, `${type.toUpperCase()}!`, '#fff');
+        if(!free) {
+            this.spawnTxt(hex, `${type.toUpperCase()}!`, '#fff');
+            if (type === 'town') this.playSound('city');
+            if (type === 'forest') this.playSound('choptree');
+        }
     },
     addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type}); },
     calcOverworldGhosts() {

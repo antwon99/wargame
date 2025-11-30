@@ -1,6 +1,6 @@
 # Hex Kingdom
 
-This repository contains a single-page prototype for the Hex Kingdom wargame experience. The project is currently implemented entirely in `Wargame.html`, combining layout, styling, and game logic in one file for easy portability while prototyping.
+This repository contains a single-page prototype for the Hex Kingdom wargame experience. The UI lives in `Wargame.html` while supporting modules (e.g., `script.js`, `audio.js`, `persistence.js`) provide gameplay logic, persistence, and audio routing.
 
 ## Getting Started
 
@@ -35,10 +35,16 @@ This repository contains a single-page prototype for the Hex Kingdom wargame exp
 
 ### Testing
 
-- Run the persistence tests with:
+- Run the Node-based checks with:
   ```bash
-  node tests/persistence.test.js
+  for f in tests/*.test.js; do node "$f"; done
   ```
+  - Key suites: audio routing (`tests/audio.test.js`), juice helpers, persistence, input helpers, and void easter egg behavior.
+
+## Audio
+
+- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop.
+- See `docs/audio.md` for the event map and integration notes.
 
 
 ## Repository Layout
