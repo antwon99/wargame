@@ -92,16 +92,6 @@ const TIPS = [
 ];
 
 
-/** Preload high-churn SFX to minimize latency before the first play. */
-const buildPreloadedAudio = (src) => {
-    const audio = new Audio(src);
-    if (typeof audio.preload !== 'undefined') audio.preload = 'auto';
-    return audio;
-};
-const PRELOADED_SFX = new Map([
-    ['sfx/tower.mp3', buildPreloadedAudio('sfx/tower.mp3')]
-]);
-
 /**
  * Unified audio controller that prevents stacking music, keeps SFX fire-and-forget,
  * and exposes the current assignments for the debug overlay.
@@ -112,18 +102,6 @@ const AudioSystem = {
     isMuted: false,
     masterVolume: 1,
     _activeSources: new Set(),
-    _sfxCache: PRELOADED_SFX,
-
-    /** Fetch a cached SFX node, building it when missing. */
-    _getSfxNode(file) {
-        if (!file) return null;
-        if (!this._sfxCache.has(file)) {
-            const audio = buildPreloadedAudio(file);
-            this._applyVolume(audio);
-            this._sfxCache.set(file, audio);
-        }
-        return this._sfxCache.get(file) || null;
-    },
 
     /** Register a node for debug tracking and automatic cleanup. */
     _registerNode(node, meta) {
@@ -194,14 +172,7 @@ const AudioSystem = {
      * @param {string} file path to the SFX asset
      */
     playSFX(file) {
-        const cached = this._getSfxNode(file);
-        if (!cached) return null;
-
-        // Rewind to guarantee an immediate attack, cloning only when the base node is mid-playback.
-        const isPlaying = !cached.paused && cached.currentTime > 0;
-        const fx = isPlaying && cached.cloneNode ? cached.cloneNode(true) : cached;
-        try { fx.currentTime = 0; } catch (_) { /* noop */ }
-
+        const fx = new Audio(file);
         this._applyVolume(fx);
         this._registerNode(fx, { type: 'sfx', file });
         fx.play?.().catch(() => {});
@@ -343,8 +314,6 @@ const Game = {
         document.getElementById('buy-prod').onclick = () => this.buyUpgrade('production');
         document.getElementById('buy-mines').onclick = () => this.buyUpgrade('mines');
         document.getElementById('buy-defense').onclick = () => this.buyUpgrade('defense');
-
-        initAudio();
 
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
@@ -1654,19 +1623,6 @@ const Game = {
 window.Hex = Hex;
 window.Game = Game;
 
-/**
- * Start the default ambiance loop and pick an initial BGM track for the overworld.
- * The selection mirrors the war-mode randomness but pulls from the peaceful playlist.
- */
-const initAudio = () => {
-    const territoryPlaylist = ['sfx/ambiance_upbeat.mp3', 'sfx/ambiance_uplifting.mp3'];
-    const choice = territoryPlaylist[Math.floor(Math.random() * territoryPlaylist.length)];
-
-    AudioSystem.setAmbiance('sfx/ambient.mp3');
-    Game.ambientActive = true;
-    AudioSystem.playMusic(choice);
-};
-
 /** Refresh the on-screen audio diagnostics with the latest AudioSystem state. */
 const updateAudioDebug = () => {
     const panel = document.getElementById('audio-debug');
@@ -1683,7 +1639,8 @@ const updateAudioDebug = () => {
     `;
 };
 
-Game.init();
 setInterval(updateAudioDebug, 500);
 updateAudioDebug();
+
+Game.init();
 });
