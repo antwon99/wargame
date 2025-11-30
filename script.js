@@ -133,6 +133,60 @@ const AudioBridge = {
 
 const SAVE_SLOTS = ['1', '2', '3'];
 
+// === AUDIO DEBUG CONSOLE (diagnostic-only; remove after triage) ===
+const AudioDebugConsole = {
+    el: null,
+    timer: 0,
+    init() {
+        this.el = document.getElementById('audio-debug-panel');
+        this.timer = 0;
+    },
+    update(dt = 0, gameState = 'OVERWORLD') {
+        if (!this.el) return;
+        this.timer += dt;
+        if (this.timer < 0.5) return;
+        this.timer = 0;
+
+        const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
+            ? window.AudioDebugBus.snapshot()
+            : { intendedTrack: 'Unavailable', masterVolume: 1, activeSources: [] };
+
+        const activeSources = snapshot.activeSources || [];
+        const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
+        const playingList = activeSources.length
+            ? `<ul>${activeSources.map(src => `<li>${src.label || src.src || src.key || 'unknown'}</li>`).join('')}</ul>`
+            : '<div>None</div>';
+
+        this.el.innerHTML = `
+            <div class="section">
+                <div class="label">Current Music Track</div>
+                <div>${snapshot.intendedTrack || 'None'}</div>
+            </div>
+            <div class="section">
+                <div class="label">Active Audio Elements (${activeSources.length})</div>
+                ${playingList}
+            </div>
+            <div class="section">
+                <div class="label">Master Volume</div>
+                <div>${Number(snapshot.masterVolume ?? 1).toFixed(2)}</div>
+            </div>
+            <div class="section">
+                <div class="label">Game State</div>
+                <div>${friendlyState}</div>
+            </div>
+        `;
+    }
+};
+
+/**
+ * Refresh the floating audio debug overlay with the latest playback info.
+ * @param {number} dt delta time since last frame in seconds
+ * @param {string} gameState current game state code (OVERWORLD|COMBAT)
+ */
+function updateAudioDebug(dt, gameState) {
+    AudioDebugConsole.update(dt, gameState);
+}
+
 /** ENGINE */
 const Game = {
     canvas: document.getElementById('canvas'),
@@ -163,6 +217,7 @@ const Game = {
 
     init() {
         this.resize();
+        AudioDebugConsole.init();
         this.bindVoidClickEasterEgg();
         window.addEventListener('resize', () => this.resize());
         this.setupInput();
@@ -454,6 +509,7 @@ const Game = {
                 if(p.life <= 0) { p.el.remove(); this.combat.particles.splice(i,1); }
             }
             this.draw();
+            updateAudioDebug(dt, this.state);
         } catch (e) {
             console.error(e);
             document.getElementById('debug-log').style.display = 'block';
