@@ -38,6 +38,23 @@ const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
     b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
 
+const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
+    ? window.PlatformAdapter
+    : {
+        detectPlatformProfile: () => ({
+            isMobile: false,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            deviceScale: window.devicePixelRatio || 1,
+            baseZoom: 1
+        }),
+        sizeCanvasForDisplay: (canvas, ctx, profile) => {
+            if (!canvas || !ctx || !profile) return;
+            canvas.width = profile.viewportWidth;
+            canvas.height = profile.viewportHeight;
+        }
+    };
+
 /** CONFIG */
 const OVERWORLD_TILES = {
     CASTLE: { id: 'castle', color: '#445', char: '🏰', income: {gold:2, wood:1} },
@@ -132,6 +149,8 @@ const Game = {
     activeSaveSlot: '1',
     voidClicks: 0,
     cam: { x: 0, y: 0, zoom: 1 },
+    deviceProfile: Platform.detectPlatformProfile(),
+    viewport: { width: window.innerWidth, height: window.innerHeight },
     shakeTimer: null,
     ambientActive: false,
     
@@ -190,10 +209,23 @@ const Game = {
     },
 
     resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        this.cam.x = this.canvas.width/2;
-        this.cam.y = this.canvas.height/2;
+        const previousProfile = this.deviceProfile;
+        this.deviceProfile = Platform.detectPlatformProfile();
+        this.viewport = {
+            width: this.deviceProfile.viewportWidth,
+            height: this.deviceProfile.viewportHeight
+        };
+
+        Platform.sizeCanvasForDisplay(this.canvas, this.ctx, this.deviceProfile);
+
+        this.cam.x = this.viewport.width / 2;
+        this.cam.y = this.viewport.height / 2;
+
+        if (!previousProfile || previousProfile.isMobile !== this.deviceProfile.isMobile) {
+            this.cam.zoom = this.deviceProfile.baseZoom;
+        } else if (this.deviceProfile.isMobile && this.cam.zoom > this.deviceProfile.baseZoom) {
+            this.cam.zoom = this.deviceProfile.baseZoom;
+        }
     },
 
     /**
@@ -1170,7 +1202,10 @@ const Game = {
         this.addBuilding(pHex, 'castle', 'player');
         this.addBuilding(eHex, 'castle', 'enemy');
 
-        this.cam.x = this.canvas.width/2; this.cam.y = this.canvas.height/2; this.cam.zoom = 0.8;
+        const warZoom = this.deviceProfile && this.deviceProfile.isMobile
+            ? this.deviceProfile.baseZoom
+            : 0.8;
+        this.cam.x = this.viewport.width / 2; this.cam.y = this.viewport.height / 2; this.cam.zoom = warZoom;
         document.getElementById('ui-overworld').classList.remove('visible');
         document.getElementById('ui-combat').classList.add('visible');
         document.getElementById('state-txt').innerText = "WARZONE";
@@ -1359,7 +1394,7 @@ const Game = {
 
     draw() {
         const ctx = this.ctx;
-        ctx.fillStyle = '#121218'; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillStyle = '#121218'; ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
         if(this.state === 'COMBAT') this.drawCombat(layout); else this.drawOverworld(layout);
     },
@@ -1433,7 +1468,7 @@ const Game = {
     drawHex(layout, hex, fill, stroke, label, sub) {
         const ctx = this.ctx;
         const p = hex.toPixel(layout);
-        if(p.x<-50 || p.x>this.canvas.width+50 || p.y<-50 || p.y>this.canvas.height+50) return;
+        if(p.x<-50 || p.x>this.viewport.width+50 || p.y<-50 || p.y>this.viewport.height+50) return;
         const size = layout.size;
         ctx.beginPath();
         for(let i=0; i<6; i++) {
