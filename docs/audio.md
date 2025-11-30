@@ -3,7 +3,7 @@
 The game routes every sound effect through `audio.js`, which exposes an `AudioManager` instance (`window.GameAudio`) backed by the `/sfx` mp3 library. The manager caches `Audio` elements, enforces per-sound cooldowns, and provides optional overlap playback for rapid-fire cues such as arrows. Variations are weighted so repeated actions sound lively instead of repetitive.
 
 ## Event Map
-- **wardrum.mp3** — triggered when the player starts a war.
+- **wardrum.mp3** — sits inside the WAR playlist and fades in when battles begin.
 - **sword*.mp3** — five weighted sword impacts selected randomly for melee attacks.
 - **arrow*.mp3** — four weighted bow shots for archer volleys.
 - **tower*.mp3** — three weighted blasts for towers/castles.
@@ -24,8 +24,8 @@ The game routes every sound effect through `audio.js`, which exposes an `AudioMa
 
 ## Integration Notes
 - The `AudioBridge` in `script.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).
-- `armAmbientLoop()` starts the ambient birds/wind loop, locks the conductor into `TERRITORY` mode, and begins scheduling the peaceful playlist.
-- `haltAmbientLoop()` stops the ambient loop and clears the conductor so war transitions can retake control cleanly.
-- `startWar()` switches the conductor to `WAR` mode and pauses the overworld ambient loop; `endWar()` returns to `TERRITORY` and restarts the ambiance pipeline.
+- `armAmbientLoop()` locks the conductor into `TERRITORY` mode and begins scheduling the peaceful playlist.
+- `haltAmbientLoop()` clears the conductor so no playlists continue running in the background.
+- `startWar()` switches the conductor to `WAR` mode (with the wardrum track folded into the playlist); `endWar()` returns to `TERRITORY` and restarts the ambiance pipeline.
 - Per-sound cooldowns prevent excessive layering while keeping overlap enabled for rapid attacks.
 - To add a new effect, extend `SFX_MANIFEST` in `audio.js` with either a `src` or a `variations` array and trigger it via `AudioBridge.play()`.

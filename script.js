@@ -214,7 +214,6 @@ const Game = {
     deviceProfile: Platform.detectPlatformProfile(),
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shakeTimer: null,
-    ambientActive: false,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     combat: { 
@@ -331,23 +330,17 @@ const Game = {
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
     },
 
-    /** Start or swap the peaceful ambiance loop. */
+    /** Start or swap the peaceful ambiance conductor playlist. */
     armAmbientLoop() {
         if (typeof window === 'undefined') return;
-        window.GameAudio?.startAmbientLoop?.();
         window.AmbientSoundscape?.enterMode?.('TERRITORY');
         window.AmbientSoundscape?.start?.();
-        this.ambientActive = true;
     },
 
     /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
         if (typeof window === 'undefined') return;
-        if (this.ambientActive) {
-            window.GameAudio?.stop?.();
-        }
         window.AmbientSoundscape?.stopAll?.();
-        this.ambientActive = false;
     },
 
     /** Route game SFX to the manifest-driven audio manager. */
@@ -1227,10 +1220,8 @@ const Game = {
             return;
         }
         this.gold -= cost;
-        this.haltAmbientLoop();
         window.AmbientSoundscape?.enterMode?.('WAR');
         window.AmbientSoundscape?.start?.();
-        AudioBridge.playLoop('wardrum', { reset: true });
         this.triggerCameraShake();
         this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
         this.spawnParticleBurst(anchorX, anchorY, 8);
@@ -1356,7 +1347,6 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
-        window.AmbientSoundscape?.enterMode?.('TERRITORY');
         this.armAmbientLoop();
     },
 

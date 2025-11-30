@@ -533,6 +533,7 @@ const AMBIENT_STATES = {
     },
     WAR: {
         tracks: [
+            { key: 'wardrum', weight: 0.6, startVolume: 0.28, volume: 0.6, fadeMs: 1600 },
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
             { key: 'ambiance_dark', weight: 1, volume: 0.62 }
         ],
