@@ -12,8 +12,9 @@ This document outlines the lightweight visual and audio feedback hooks that acco
 - Applied when engaging War to emphasize combat transitions.
 
 ## Sound Effects
-- Minimal Web Audio synth with slice (attack) and thud (loss/retreat) envelopes.
-- Triggered on War clicks and non-victory outcomes; guarded when AudioContext is unavailable.
+- Backed by the `AudioManager` in `audio.js`, which loads mp3s from `/sfx`.
+- Key cues: wardrum (war start), sword (soldier attacks), arrow (archers/towers), defeat (retreat/loss), city/forest claiming, and an overworld ambient loop.
+- All calls route through the `AudioBridge` so gameplay can safely proceed if audio is blocked.
 
 ## Particle Bursts
 - `spawnParticleBurst(x, y, count)` emits 5-8 square particles that move outward and fade.
