@@ -333,13 +333,20 @@ const Game = {
 
     /** Start or swap the peaceful ambiance loop. */
     armAmbientLoop() {
-        AudioBridge.startAmbient();
+        if (typeof window === 'undefined') return;
+        window.GameAudio?.startAmbientLoop?.();
+        window.AmbientSoundscape?.enterMode?.('TERRITORY');
+        window.AmbientSoundscape?.start?.();
         this.ambientActive = true;
     },
 
     /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
-        if (this.ambientActive) AudioBridge.stopAmbient();
+        if (typeof window === 'undefined') return;
+        if (this.ambientActive) {
+            window.GameAudio?.stop?.();
+        }
+        window.AmbientSoundscape?.stopAll?.();
         this.ambientActive = false;
     },
 
@@ -1221,7 +1228,8 @@ const Game = {
         }
         this.gold -= cost;
         this.haltAmbientLoop();
-        AudioBridge.stopAll();
+        window.AmbientSoundscape?.enterMode?.('WAR');
+        window.AmbientSoundscape?.start?.();
         AudioBridge.playLoop('wardrum', { reset: true });
         this.triggerCameraShake();
         this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
@@ -1348,19 +1356,8 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
-        AudioBridge.stopAll();
-        AudioBridge.playLoop(this.pickTerritoryMusic(), { reset: true });
+        window.AmbientSoundscape?.enterMode?.('TERRITORY');
         this.armAmbientLoop();
-    },
-
-    /**
-     * Select a territory-safe music track using the existing ambiance playlist.
-     * @returns {string} manifest key for the selected track
-     */
-    pickTerritoryMusic() {
-        const tracks = ['ambiance_upbeat', 'ambiance_uplifting'];
-        const index = Math.floor(Math.random() * tracks.length);
-        return tracks[index];
     },
 
     showWarTip() {
