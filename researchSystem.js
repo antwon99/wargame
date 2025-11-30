@@ -1,0 +1,140 @@
+/**
+ * ResearchSystem centralizes the tech tree metadata and affordability helpers.
+ * Definitions here are DOM-free so both the browser game and Node tests can
+ * share logic without invoking the full renderer.
+ */
+(function (global) {
+    const BASE_TECHNOLOGIES = [
+        {
+            id: 'lives',
+            name: 'Lives',
+            description: 'Gain an extra chance to ignore a defeat. Costs scale heavily and caps at three revives.',
+            cost: { gold: 1000 },
+            maxPurchases: 3,
+            growthFactor: 2.5
+        },
+        {
+            id: 'architecture',
+            name: 'Architecture',
+            description: 'Improve town planning to squeeze more gold out of each settlement.',
+            cost: { wood: 200 },
+            maxPurchases: 1,
+            growthFactor: 1
+        },
+        {
+            id: 'lumberjacks',
+            name: 'Lumberjacks',
+            description: 'Train specialized woodcutters to harvest more lumber from forests.',
+            cost: { gold: 400 },
+            maxPurchases: 1,
+            growthFactor: 1
+        },
+        {
+            id: 'land-reclamation',
+            name: 'Land Reclamation',
+            description: 'Rebuild useless fields into productive sites by spending either gold or wood.',
+            costOptions: [
+                { id: 'forest', label: '500w: Plant Forest', cost: { wood: 500 } },
+                { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
+            ],
+            maxPurchases: 1,
+            growthFactor: 1
+        }
+    ];
+
+    function cloneCost(cost = {}) {
+        return { ...cost };
+    }
+
+    function cloneOptions(options = []) {
+        return options.map(opt => ({ ...opt, cost: cloneCost(opt.cost) }));
+    }
+
+    /**
+     * Clone the base tech definitions and merge saved purchase state.
+     * @param {Array} [saved] persisted payload from the game save system.
+     * @returns {Array} hydrated technology entries ready for gameplay.
+     */
+    function instantiateTechnologies(saved = []) {
+        const savedMap = new Map(saved.map(t => [t.id, t]));
+        return BASE_TECHNOLOGIES.map(base => {
+            const savedTech = savedMap.get(base.id);
+            const clone = {
+                ...base,
+                cost: cloneCost(base.cost),
+                costOptions: cloneOptions(base.costOptions),
+                purchased: Boolean(savedTech?.purchased),
+                timesPurchased: savedTech?.timesPurchased || 0
+            };
+            if (clone.timesPurchased > 0) clone.purchased = true;
+            return clone;
+        });
+    }
+
+    /**
+     * Compute the current scaled cost for a technology, respecting growth
+     * factors and optional cost variants.
+     * @param {object} tech technology entry to evaluate.
+     * @param {string} [optionId] optional option key for variable-cost tech.
+     * @returns {object} resource cost keyed by gold/wood.
+     */
+    function getCostForTech(tech, optionId) {
+        const purchaseCount = tech.timesPurchased || 0;
+        const factor = Math.max(tech.growthFactor || 1, 1);
+        const baseCost = tech.costOptions && tech.costOptions.length > 0
+            ? tech.costOptions.find(opt => opt.id === optionId)?.cost || cloneCost()
+            : tech.cost || cloneCost();
+
+        const scaledCost = {};
+        Object.entries(baseCost).forEach(([key, value]) => {
+            if (typeof value !== 'number') return;
+            const scaled = Math.floor(value * Math.pow(factor, purchaseCount));
+            scaledCost[key] = scaled;
+        });
+        return scaledCost;
+    }
+
+    /**
+     * Check if a tech can be purchased again based on its maxPurchases cap.
+     * @param {object} tech technology entry to inspect.
+     * @returns {boolean} true when the tech has capacity for more buys.
+     */
+    function hasRemainingPurchases(tech) {
+        if (typeof tech.maxPurchases !== 'number') return true;
+        return (tech.timesPurchased || 0) < tech.maxPurchases;
+    }
+
+    /**
+     * Increment purchase metadata for a tech after a successful transaction.
+     * @param {object} tech technology entry to mutate.
+     */
+    function recordPurchase(tech) {
+        tech.timesPurchased = (tech.timesPurchased || 0) + 1;
+        tech.purchased = true;
+    }
+
+    /**
+     * Determine whether a player resource pool can satisfy a tech cost.
+     * @param {object} resources available resources (gold/wood).
+     * @param {object} cost desired purchase cost.
+     * @returns {boolean} true when every cost component is covered.
+     */
+    function isAffordable(resources = {}, cost = {}) {
+        return Object.entries(cost).every(([key, price]) => {
+            const available = resources[key] || 0;
+            return available >= price;
+        });
+    }
+
+    const api = {
+        BASE_TECHNOLOGIES,
+        instantiateTechnologies,
+        getCostForTech,
+        isAffordable,
+        hasRemainingPurchases,
+        recordPurchase
+    };
+
+    global.ResearchSystem = api;
+    if (typeof module !== 'undefined') module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);

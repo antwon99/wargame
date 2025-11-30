@@ -73,6 +73,7 @@
         .res { font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 6px; }
         .gold { color: var(--gold); }
         .wood { color: var(--wood); }
+        .lives { color: #f08b8b; }
 
         .top-right { text-align: right; display: flex; flex-direction: column; gap: 4px; }
 
@@ -96,6 +97,7 @@
 
         .btn-war { background: #800; border-color: #f00; color: #fff; }
         .btn-upg { background: #5a189a; border-color: #7b2cbf; color: #fff; margin-right: 10px; }
+        .btn-research { background: linear-gradient(45deg, #4895ef, #4cc9f0); border-color: #5e9bff; color: #0a0a16; margin-right: 10px; }
         .btn-retreat { background: #334; border-color: #445; font-size: 0.9rem; padding: 10px 20px; }
         .btn-close { background: #444; border-color: #555; padding: 8px 16px; margin-top: 20px; width: 100%; }
 
@@ -177,7 +179,103 @@
             flex-direction: column; align-items: center; justify-content: center;
             pointer-events: auto;
         }
-        
+
+        /* RESEARCH MODAL */
+        #research-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 14, 30, 0.92);
+            backdrop-filter: blur(10px);
+            z-index: 25;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .research-panel {
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            width: min(1100px, 96vw);
+            max-height: 90vh;
+            padding: 18px 18px 24px 18px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .research-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #e2e8f0;
+        }
+
+        .research-meta { display: flex; gap: 10px; align-items: center; }
+        .research-pill {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.18);
+            padding: 6px 10px;
+            border-radius: 10px;
+            color: #f8fafc;
+            font-weight: 700;
+        }
+
+        .research-subtitle {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 0.95rem;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .tech-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 170px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+
+        .tech-card .tech-title { font-weight: 800; color: #e2e8f0; margin: 0; }
+        .tech-card .tech-desc { color: #cbd5e1; font-size: 0.9rem; margin: 0; }
+        .tech-card .tech-cost { color: #94a3b8; font-size: 0.85rem; margin: 0; }
+        .tech-card .tech-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .tech-card.affordable { border-color: #2dd4bf; box-shadow: 0 6px 16px rgba(45, 212, 191, 0.2); }
+        .tech-card.purchased { border-color: var(--gold); box-shadow: 0 6px 16px rgba(255, 209, 102, 0.2); }
+        .tech-card.unaffordable { opacity: 0.6; }
+
+        .tech-card button {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px;
+            padding: 8px 10px;
+            color: #e2e8f0;
+            cursor: pointer;
+            flex: 1;
+            min-width: 120px;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .tech-card button:hover:not(:disabled) { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+        .tech-card button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .tech-card button.purchased-btn { border-color: var(--gold); color: var(--gold); background: rgba(255,209,102,0.06); }
+        .tech-card button.primary-btn { border-color: #2dd4bf; color: #2dd4bf; }
+
         .upg-card {
             background: #222; border: 1px solid #444; border-radius: 12px;
             padding: 12px; margin: 8px; width: 85%; max-width: 400px;
