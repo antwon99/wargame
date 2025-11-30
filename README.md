@@ -1,6 +1,7 @@
 # Hex Kingdom
 
-This repository contains a single-page prototype for the Hex Kingdom wargame experience. The UI lives in `Wargame.html` while supporting modules (e.g., `script.js`, `audio.js`, `persistence.js`) provide gameplay logic, persistence, and audio routing.
+This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html`, while supporting modules such as `script.js`, `audio.js`, and `persistence.js` provide gameplay logic, data persistence, and audio routing, respectively (with more to come.)
+
 
 ## Getting Started
 
