@@ -195,10 +195,20 @@ const SAVE_SLOTS = ['1', '2', '3'];
 const AudioDebugConsole = {
     el: null,
     timer: 0,
+    /**
+     * Locate the debug panel element. Supports legacy and current IDs so we do not
+     * crash when the markup lags behind script changes.
+     */
     init() {
-        this.el = document.getElementById('audio-debug-panel');
+        this.el = document.getElementById('audio-debug') || document.getElementById('audio-debug-panel');
         this.timer = 0;
     },
+    /**
+     * Refresh the audio diagnostics overlay at a throttled cadence so the UI
+     * stays in sync with active playback without wasting cycles.
+     * @param {number} dt delta time since last frame in seconds
+     * @param {string} gameState current game state code (OVERWORLD|COMBAT)
+     */
     update(dt = 0, gameState = 'OVERWORLD') {
         if (!this.el) return;
         this.timer += dt;
@@ -207,7 +217,13 @@ const AudioDebugConsole = {
 
         const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
             ? window.AudioDebugBus.snapshot()
-            : { intendedTrack: 'Unavailable', masterVolume: 1, activeSources: [] };
+            : {
+                intendedTrack: AudioSystem.currentMusic?.src?.split('/')?.pop() || 'None',
+                masterVolume: AudioSystem.masterVolume,
+                activeSources: AudioSystem.describeActiveSources()?.map((src) => ({
+                    label: src,
+                })) || []
+            };
 
         const activeSources = snapshot.activeSources || [];
         const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
@@ -1632,25 +1648,6 @@ const Game = {
 
 window.Hex = Hex;
 window.Game = Game;
-
-/** Refresh the on-screen audio diagnostics with the latest AudioSystem state. */
-const updateAudioDebug = () => {
-    const panel = document.getElementById('audio-debug');
-    if (!panel) return;
-    const music = AudioSystem.currentMusic?.src ? AudioSystem.currentMusic.src.split('/').pop() : 'None';
-    const ambiance = AudioSystem.currentAmbiance?.src ? AudioSystem.currentAmbiance.src.split('/').pop() : 'None';
-    const active = AudioSystem.describeActiveSources();
-    panel.innerHTML = `
-        <div><strong>Music:</strong> ${music}</div>
-        <div><strong>Ambiance:</strong> ${ambiance}</div>
-        <div><strong>Active:</strong> ${active.length} ${active.join(', ')}</div>
-        <div><strong>Volume:</strong> ${AudioSystem.masterVolume}</div>
-        <div><strong>Game State:</strong> ${Game.state}</div>
-    `;
-};
-
-setInterval(updateAudioDebug, 500);
-updateAudioDebug();
 
 Game.init();
 });
