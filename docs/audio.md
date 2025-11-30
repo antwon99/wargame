@@ -19,6 +19,7 @@ The game routes every sound effect through `audio.js`, which exposes an `AudioMa
 ## Ambience and Music
 - `AmbientSoundscape` (see `audio.js`) uses weighted playlists per mode (`TERRITORY` vs `WAR`) to decide which track should play next.
 - Music does **not** loop; instead, the conductor schedules the next track after a random silence window and sometimes crossfades by starting the next track before the previous fade-out ends.
+- Crossfades are capped to 10 seconds to avoid piling up multiple songs; only the outgoing track and the incoming track can overlap.
 - Default timing: territory silences range ~20–42s with gentle 2.2s fades; war silences range ~12–30s with 2.6s fades and slightly more aggressive crossfades.
 
 ## Integration Notes

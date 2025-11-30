@@ -10,9 +10,10 @@ function createStubFactory(log) {
             volume: 1,
             playCount: 0,
             paused: false,
+            pauseCalls: 0,
             listeners: {},
             play() { this.playCount++; return Promise.resolve(); },
-            pause() { this.paused = true; },
+            pause() { this.paused = true; this.pauseCalls++; },
             addEventListener(event, fn) { this.listeners[event] = fn; },
             cloneNode() {
                 const clone = createStubFactory(log)(src);
@@ -25,6 +26,17 @@ function createStubFactory(log) {
         };
         log.push(node);
         return node;
+    };
+}
+
+function createManualScheduler() {
+    return {
+        timeouts: [],
+        intervals: [],
+        setTimeout(fn) { this.timeouts.push(fn); return this.timeouts.length - 1; },
+        clearTimeout(id) { this.timeouts[id] = null; },
+        setInterval(fn) { this.intervals.push(fn); return this.intervals.length - 1; },
+        clearInterval(id) { this.intervals[id] = null; }
     };
 }
 
@@ -135,12 +147,58 @@ function testAmbientConductorModes() {
     assert.ok(log.find((n) => n.src === 'b'), 'war mode should swap playlist');
 }
 
+function testConductorLimitsOverlapAndCrossfades() {
+    const log = [];
+    const scheduler = createManualScheduler();
+    const manager = new AudioManager({
+        territory: { src: 'territory', cooldownMs: 0 },
+        war: { src: 'war', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = new AmbientConductor(manager, {
+        initialMode: 'TERRITORY',
+        random: () => 0.01,
+        maxOverlapMs: 10000,
+        scheduler,
+        states: {
+            TERRITORY: {
+                tracks: [{ key: 'territory', fadeMs: 15000, startVolume: 0, volume: 0.6 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 15000,
+                overlapMs: 15000,
+                crossfadeChance: 0,
+                maxTrackMs: 20
+            }
+        }
+    });
+
+    conductor.playNextNow();
+    assert.strictEqual(conductor.activeHandle.fadeMs, 10000, 'fade duration should cap at maxOverlapMs');
+
+    // Launch another track immediately to force a crossfade while the first is active.
+    conductor.states.TERRITORY.tracks = [{ key: 'war', fadeMs: 15000, startVolume: 0, volume: 0.6 }];
+    conductor.playNextNow();
+
+    // Exhaust fade intervals so both tracks complete their fades.
+    for (let i = 0; i < 200; i += 1) {
+        scheduler.intervals.forEach((fn) => { if (typeof fn === 'function') fn(); });
+    }
+
+    const firstNode = log.find((n) => n.src === 'territory');
+    const secondNode = log.find((n) => n.src === 'war');
+
+    assert.ok(firstNode.paused, 'previous track should be paused after fade out');
+    assert.ok(firstNode.pauseCalls >= 1, 'fade-out should explicitly pause the previous track');
+    assert.strictEqual(conductor.activeHandle.node, secondNode, 'new track should own the active handle');
+}
+
 function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
     testAmbientLoop();
     testWeightedSelectionUsesRandomizer();
     testAmbientConductorModes();
+    testConductorLimitsOverlapAndCrossfades();
     testManifestIncludesNewEffects();
     console.log('All audio tests passed.');
 }

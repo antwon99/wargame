@@ -11,7 +11,8 @@ This feature revamps the combat/ambience sound design by introducing weighted va
 - `AmbientConductor` manages long-form tracks with:
   - **Mode-specific playlists:** `TERRITORY` (upbeat/uplifting) and `WAR` (sorrow/dark).
   - **Silence windows:** random gaps between songs to avoid constant playback.
-  - **Crossfades:** optional overlap that fades out the current track while fading in the next.
+  - **Crossfades:** optional overlap that fades out the current track while fading in the next, capped to 10 seconds so songs ne
+ver stack indefinitely.
   - **Fallback timers:** ensure scheduling continues even if an `ended` event never fires (e.g., in tests).
 - The default configuration (`AMBIENT_STATES` in `audio.js`):
   - Territory: 20–42s silence windows, 2.2s fades, ~38% chance to overlap by ~1.4s.

@@ -213,6 +213,7 @@ class AmbientConductor {
         this.random = options.random || Math.random;
         this.currentMode = options.initialMode || 'TERRITORY';
         this.states = options.states || {};
+        this.maxOverlapMs = options.maxOverlapMs || 10000;
         this.scheduler = options.scheduler || {
             setTimeout: (...args) => setTimeout(...args),
             clearTimeout: (id) => clearTimeout(id),
@@ -222,9 +223,9 @@ class AmbientConductor {
         this.trackSelectors = new Map();
         this.activeHandle = null;
         this.nextTimer = null;
-        this.fadeInterval = null;
         this.fallbackTimer = null;
         this.active = false;
+        this.fadeIntervals = new Map();
     }
 
     /** Begin scheduling tracks for the current mode. Safe to call repeatedly. */
@@ -267,10 +268,10 @@ class AmbientConductor {
 
     clearTimers() {
         if (this.nextTimer) this.scheduler.clearTimeout(this.nextTimer);
-        if (this.fadeInterval) this.scheduler.clearInterval(this.fadeInterval);
+        this.fadeIntervals.forEach((intervalId) => this.scheduler.clearInterval(intervalId));
+        this.fadeIntervals.clear();
         if (this.fallbackTimer) this.scheduler.clearTimeout(this.fallbackTimer);
         this.nextTimer = null;
-        this.fadeInterval = null;
         this.fallbackTimer = null;
     }
 
@@ -287,6 +288,7 @@ class AmbientConductor {
     launchTrack() {
         const config = this.getConfig();
         if (!config) return;
+        const previousHandle = this.activeHandle;
         const track = this.pickTrack(config.tracks);
         if (!track) {
             this.scheduleNext();
@@ -308,9 +310,22 @@ class AmbientConductor {
         this.activeHandle = {
             ...handle,
             targetVolume: track.volume ?? config.volume,
-            fadeMs: track.fadeMs ?? config.fadeMs
+            fadeMs: Math.min(track.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs)
         };
-        this.fadeTo(handle.node, this.activeHandle.targetVolume ?? handle.node.volume, this.activeHandle.fadeMs, handle.node.volume);
+        this.fadeTo(
+            handle.node,
+            this.activeHandle.targetVolume ?? handle.node.volume,
+            this.activeHandle.fadeMs,
+            typeof track.startVolume === 'number' ? track.startVolume : handle.node.volume
+        );
+
+        if (previousHandle?.node && previousHandle.node !== handle.node) {
+            const fadeOutMs = Math.min(previousHandle.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs);
+            this.fadeTo(previousHandle.node, 0, fadeOutMs, previousHandle.node.volume, () => {
+                if (previousHandle.node.pause) previousHandle.node.pause();
+                if (typeof previousHandle.node.currentTime === 'number') previousHandle.node.currentTime = 0;
+            });
+        }
     }
 
     attachEndListeners(node, config) {
@@ -327,7 +342,9 @@ class AmbientConductor {
         const config = this.getConfig();
         if (!config) return;
         const crossfade = this.random() < (config.crossfadeChance ?? 0);
-        const delay = crossfade ? Math.min(config.overlapMs ?? config.fadeMs ?? 1200, config.fadeMs ?? 1200) : this.randomSilence(config);
+        const delay = crossfade
+            ? Math.min(config.overlapMs ?? config.fadeMs ?? 1200, config.fadeMs ?? 1200, this.maxOverlapMs)
+            : this.randomSilence(config);
         this.stopCurrent({ fadeMs: config.fadeMs });
         this.scheduleNext(false, delay);
     }
@@ -335,7 +352,7 @@ class AmbientConductor {
     stopCurrent(options = {}) {
         if (!this.activeHandle || !this.activeHandle.node) return;
         const node = this.activeHandle.node;
-        const fadeMs = options.fadeMs || 0;
+        const fadeMs = Math.min(options.fadeMs || 0, this.maxOverlapMs);
         if (fadeMs <= 0) {
             if (node.pause) node.pause();
             if (typeof node.currentTime === 'number') node.currentTime = 0;
@@ -360,8 +377,9 @@ class AmbientConductor {
             const nextVol = Math.max(0, Math.min(1, startVolume + delta * step));
             node.volume = nextVol;
             if (step >= steps) {
-                if (this.fadeInterval) this.scheduler.clearInterval(this.fadeInterval);
-                this.fadeInterval = null;
+                const intervalId = this.fadeIntervals.get(node);
+                if (intervalId) this.scheduler.clearInterval(intervalId);
+                this.fadeIntervals.delete(node);
                 if (onDone) onDone();
             }
         };
@@ -371,8 +389,10 @@ class AmbientConductor {
             if (onDone) onDone();
             return;
         }
-        if (this.fadeInterval) this.scheduler.clearInterval(this.fadeInterval);
-        this.fadeInterval = this.scheduler.setInterval(applyStep, durationMs / steps);
+        const existingInterval = this.fadeIntervals.get(node);
+        if (existingInterval) this.scheduler.clearInterval(existingInterval);
+        const intervalId = this.scheduler.setInterval(applyStep, durationMs / steps);
+        this.fadeIntervals.set(node, intervalId);
     }
 
     randomSilence(config) {
