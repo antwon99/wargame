@@ -38,6 +38,45 @@ class WeightedSelector {
     }
 }
 
+// === AUDIO DEBUG BUS (diagnostic-only; remove after triage) ===
+const AudioDebugBus = {
+    enabled: true,
+    sources: new Map(),
+    intendedTrack: 'None',
+    masterVolume: 1,
+    boundNodes: new WeakSet(),
+    reportIntent(name) {
+        if (!this.enabled) return;
+        this.intendedTrack = name || 'Unknown';
+    },
+    registerPlayback(node, meta = {}) {
+        if (!this.enabled || !node) return;
+        const label = meta.src ? meta.src.split('/').pop() : (meta.key || 'unknown');
+        this.sources.set(node, { ...meta, label });
+
+        const cleanup = () => this.unregisterPlayback(node);
+        if (typeof node.addEventListener === 'function' && !this.boundNodes.has(node)) {
+            node.addEventListener('ended', cleanup);
+            node.addEventListener('pause', cleanup);
+            this.boundNodes.add(node);
+        } else if (!node.onended) {
+            node.onended = cleanup;
+        }
+    },
+    unregisterPlayback(node) {
+        if (!node) return;
+        this.sources.delete(node);
+    },
+    snapshot() {
+        return {
+            intendedTrack: this.intendedTrack,
+            masterVolume: this.masterVolume,
+            activeSources: Array.from(this.sources.values())
+        };
+    }
+};
+if (typeof window !== 'undefined') window.AudioDebugBus = AudioDebugBus;
+
 /**
  * AudioManager centralizes playback for UI and combat events.
  * It wraps HTMLAudioElement creation with cooldowns, loop helpers,
@@ -58,6 +97,8 @@ class AudioManager {
         this.ambientKey = options.ambientKey || Object.keys(manifest).find((k) => manifest[k].isAmbient);
         this.random = options.random || Math.random;
         this.variantSelectors = new Map();
+        this.masterVolume = options.masterVolume ?? 1;
+        AudioDebugBus.masterVolume = this.masterVolume;
     }
 
     /**
@@ -139,6 +180,8 @@ class AudioManager {
         if (typeof volume !== 'undefined' && node.volume !== volume) node.volume = volume;
         if (typeof loop !== 'undefined') node.loop = !!loop;
         if (reset && typeof node.currentTime === 'number') node.currentTime = 0;
+
+        AudioDebugBus.registerPlayback(node, { key, variantKey, src: variantDef.src });
 
         const promise = node.play ? node.play() : null;
         if (promise && typeof promise.catch === 'function') promise.catch(() => {});
@@ -295,6 +338,8 @@ class AmbientConductor {
             this.scheduleNext();
             return;
         }
+
+        AudioDebugBus.reportIntent(track.key);
 
         const handle = this.audioManager.playWithHandle(track.key, {
             allowOverlap: true,
@@ -503,7 +548,7 @@ const AMBIENT_STATES = {
 const AmbientSoundscape = new AmbientConductor(GameAudio, { initialMode: 'TERRITORY', states: AMBIENT_STATES });
 
 if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape };
+    module.exports = { AudioManager, GameAudio, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus };
 }
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;

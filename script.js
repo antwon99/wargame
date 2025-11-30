@@ -91,45 +91,132 @@ const TIPS = [
     "RISK: Mystery Hexes are 90% Rocks, 10% Jackpot."
 ];
 
+
+/** Preload high-churn SFX to minimize latency before the first play. */
+const buildPreloadedAudio = (src) => {
+    const audio = new Audio(src);
+    if (typeof audio.preload !== 'undefined') audio.preload = 'auto';
+    return audio;
+};
+const PRELOADED_SFX = new Map([
+    ['sfx/tower.mp3', buildPreloadedAudio('sfx/tower.mp3')]
+]);
+
 /**
- * Small bridge so game code can safely trigger audio without assuming
- * the underlying browser APIs are present.
+ * Unified audio controller that prevents stacking music, keeps SFX fire-and-forget,
+ * and exposes the current assignments for the debug overlay.
  */
-const AudioBridge = {
-    play(key, options) {
-        if (typeof GameAudio === 'undefined' || !GameAudio.play) return false;
-        return GameAudio.play(key, options);
+const AudioSystem = {
+    currentMusic: null,
+    currentAmbiance: null,
+    isMuted: false,
+    masterVolume: 1,
+    _activeSources: new Set(),
+    _sfxCache: PRELOADED_SFX,
+
+    /** Fetch a cached SFX node, building it when missing. */
+    _getSfxNode(file) {
+        if (!file) return null;
+        if (!this._sfxCache.has(file)) {
+            const audio = buildPreloadedAudio(file);
+            this._applyVolume(audio);
+            this._sfxCache.set(file, audio);
+        }
+        return this._sfxCache.get(file) || null;
     },
-    startAmbient() {
-        return this.enterTerritoryAmbience();
+
+    /** Register a node for debug tracking and automatic cleanup. */
+    _registerNode(node, meta) {
+        if (!node) return;
+        node.__meta = meta;
+        this._activeSources.add(node);
+        const cleanup = () => {
+            this._activeSources.delete(node);
+        };
+        node.addEventListener?.('ended', cleanup);
+        node.addEventListener?.('pause', cleanup);
     },
-    stopAmbient() {
-        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.stopAll) AmbientSoundscape.stopAll();
-        if (typeof GameAudio === 'undefined' || !GameAudio.stop) return false;
-        return GameAudio.stop();
+
+    /** Apply master volume to a node unless the browser blocks it. */
+    _applyVolume(node) {
+        if (typeof node.volume !== 'undefined') node.volume = this.masterVolume;
     },
+
+    /** Pause all known sources and clear debug state. */
     stopAll() {
-        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.stopAll) AmbientSoundscape.stopAll();
-        if (typeof GameAudio === 'undefined' || !GameAudio.stopAll) return false;
-        return GameAudio.stopAll();
+        const pauseSafe = (node) => {
+            try { node.pause(); } catch (_) { /* noop */ }
+        };
+        if (this.currentMusic) pauseSafe(this.currentMusic);
+        if (this.currentAmbiance) pauseSafe(this.currentAmbiance);
+        this._activeSources.forEach((src) => pauseSafe(src));
+        this._activeSources.clear();
+        this.currentMusic = null;
+        this.currentAmbiance = null;
     },
-    enterTerritoryAmbience() {
-        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.start) {
-            AmbientSoundscape.enterMode('TERRITORY');
-            AmbientSoundscape.start();
+
+    /**
+     * Play a looping music track, pausing any previous music to prevent stacking.
+     * @param {string} file path to the music asset
+     */
+    playMusic(file) {
+        if (this.currentMusic) {
+            try { this.currentMusic.pause(); } catch (_) { /* noop */ }
+            this._activeSources.delete(this.currentMusic);
         }
-        if (typeof GameAudio === 'undefined' || !GameAudio.startAmbientLoop) return false;
-        return GameAudio.startAmbientLoop();
+        const music = new Audio(file);
+        music.loop = true;
+        this._applyVolume(music);
+        this.currentMusic = music;
+        this._registerNode(music, { type: 'music', file });
+        music.play?.().catch(() => {});
     },
-    enterWarAmbience() {
-        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.start) {
-            AmbientSoundscape.enterMode('WAR');
-            AmbientSoundscape.start();
+
+    /**
+     * Assign an ambient loop distinct from core music. Replaces any existing loop.
+     * @param {string} file path to the ambiance asset
+     */
+    setAmbiance(file) {
+        if (this.currentAmbiance) {
+            try { this.currentAmbiance.pause(); } catch (_) { /* noop */ }
+            this._activeSources.delete(this.currentAmbiance);
         }
-        if (typeof GameAudio === 'undefined' || !GameAudio.stop) return false;
-        return GameAudio.stop();
+        const ambiance = new Audio(file);
+        ambiance.loop = true;
+        this._applyVolume(ambiance);
+        this.currentAmbiance = ambiance;
+        this._registerNode(ambiance, { type: 'ambiance', file });
+        ambiance.play?.().catch(() => {});
+    },
+
+    /**
+     * Fire-and-forget SFX. Overlap is allowed and tracked for debugging.
+     * @param {string} file path to the SFX asset
+     */
+    playSFX(file) {
+        const cached = this._getSfxNode(file);
+        if (!cached) return null;
+
+        // Rewind to guarantee an immediate attack, cloning only when the base node is mid-playback.
+        const isPlaying = !cached.paused && cached.currentTime > 0;
+        const fx = isPlaying && cached.cloneNode ? cached.cloneNode(true) : cached;
+        try { fx.currentTime = 0; } catch (_) { /* noop */ }
+
+        this._applyVolume(fx);
+        this._registerNode(fx, { type: 'sfx', file });
+        fx.play?.().catch(() => {});
+        return fx;
+    },
+
+    /** Snapshot of active sources for the debug overlay. */
+    describeActiveSources() {
+        return Array.from(this._activeSources).map((src) => {
+            const file = src.__meta?.file || src.src || 'unknown';
+            return file.split('/').pop();
+        });
     }
 };
+if (typeof window !== 'undefined') window.AudioSystem = AudioSystem;
 
 const SAVE_SLOTS = ['1', '2', '3'];
 
@@ -183,8 +270,6 @@ const Game = {
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
 
-        this.armAmbientLoop();
-
         document.getElementById('btn-war').onclick = (e) => this.startWar(e);
         document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
@@ -203,6 +288,8 @@ const Game = {
         document.getElementById('buy-prod').onclick = () => this.buyUpgrade('production');
         document.getElementById('buy-mines').onclick = () => this.buyUpgrade('mines');
         document.getElementById('buy-defense').onclick = () => this.buyUpgrade('defense');
+
+        initAudio();
 
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
@@ -252,7 +339,7 @@ const Game = {
 
     setupInput() {
         let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
-        const onDown = (x, y) => { this.armAmbientLoop(); isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
+        const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
         const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
         const onUp = (x, y) => {
             if(isDrag) {
@@ -270,20 +357,35 @@ const Game = {
         this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
     },
 
-    /** Start the ambient territory loop once the player interacts. */
+    /** Start or swap the peaceful ambiance loop. */
     armAmbientLoop() {
-        if (AudioBridge.startAmbient()) this.ambientActive = true;
+        AudioSystem.setAmbiance('sfx/ambient.mp3');
+        this.ambientActive = true;
     },
 
-    /** Halt ambient audio so war SFX have room to breathe. */
+    /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
-        AudioBridge.enterWarAmbience();
+        if (this.ambientActive && AudioSystem.currentAmbiance) {
+            try { AudioSystem.currentAmbiance.pause(); } catch (_) { /* noop */ }
+        }
         this.ambientActive = false;
     },
 
-    /** Proxy to the shared audio bridge for game-triggered sounds. */
-    playSound(key, options) {
-        return AudioBridge.play(key, options);
+    /** Route game SFX to the singleton audio system. */
+    playSound(key) {
+        const sfxMap = {
+            tower: 'sfx/tower.mp3',
+            arrow: 'sfx/arrow.mp3',
+            sword: 'sfx/sword.mp3',
+            rare: 'sfx/rare.mp3',
+            wardrum: 'sfx/wardrum.mp3',
+            victory: 'sfx/victory.mp3',
+            defeat: 'sfx/defeat.mp3',
+            city: 'sfx/city.mp3',
+            choptree: 'sfx/choptree.mp3'
+        };
+        const target = sfxMap[key];
+        if (target) AudioSystem.playSFX(target);
     },
 
     /**
@@ -1158,10 +1260,10 @@ const Game = {
         }
         this.gold -= cost;
         this.haltAmbientLoop();
+        AudioSystem.playMusic('sfx/wardrum.mp3');
         this.triggerCameraShake();
         this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
         this.spawnParticleBurst(anchorX, anchorY, 8);
-        this.playSound('wardrum');
         this.resetSession();
         this.stats.warsPlayed++;
         this.updateLeaderboardUI();
@@ -1284,6 +1386,7 @@ const Game = {
         document.getElementById('state-txt').innerText = "KINGDOM";
         this.hideWarTip();
         this.updateHUD();
+        AudioSystem.playMusic('sfx/peaceful.mp3');
         this.armAmbientLoop();
     },
 
@@ -1495,5 +1598,36 @@ const Game = {
 window.Hex = Hex;
 window.Game = Game;
 
+/**
+ * Start the default ambiance loop and pick an initial BGM track for the overworld.
+ * The selection mirrors the war-mode randomness but pulls from the peaceful playlist.
+ */
+const initAudio = () => {
+    const territoryPlaylist = ['sfx/ambiance_upbeat.mp3', 'sfx/ambiance_uplifting.mp3'];
+    const choice = territoryPlaylist[Math.floor(Math.random() * territoryPlaylist.length)];
+
+    AudioSystem.setAmbiance('sfx/ambient.mp3');
+    Game.ambientActive = true;
+    AudioSystem.playMusic(choice);
+};
+
+/** Refresh the on-screen audio diagnostics with the latest AudioSystem state. */
+const updateAudioDebug = () => {
+    const panel = document.getElementById('audio-debug');
+    if (!panel) return;
+    const music = AudioSystem.currentMusic?.src ? AudioSystem.currentMusic.src.split('/').pop() : 'None';
+    const ambiance = AudioSystem.currentAmbiance?.src ? AudioSystem.currentAmbiance.src.split('/').pop() : 'None';
+    const active = AudioSystem.describeActiveSources();
+    panel.innerHTML = `
+        <div><strong>Music:</strong> ${music}</div>
+        <div><strong>Ambiance:</strong> ${ambiance}</div>
+        <div><strong>Active:</strong> ${active.length} ${active.join(', ')}</div>
+        <div><strong>Volume:</strong> ${AudioSystem.masterVolume}</div>
+        <div><strong>Game State:</strong> ${Game.state}</div>
+    `;
+};
+
 Game.init();
+setInterval(updateAudioDebug, 500);
+updateAudioDebug();
 });
