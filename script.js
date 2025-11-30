@@ -183,8 +183,6 @@ const Game = {
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
 
-        this.armAmbientLoop();
-
         document.getElementById('btn-war').onclick = (e) => this.startWar(e);
         document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
         document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
@@ -252,7 +250,7 @@ const Game = {
 
     setupInput() {
         let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
-        const onDown = (x, y) => { this.armAmbientLoop(); isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
+        const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
         const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
         const onUp = (x, y) => {
             if(isDrag) {
