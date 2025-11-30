@@ -84,16 +84,33 @@ const AudioBridge = {
         return GameAudio.play(key, options);
     },
     startAmbient() {
-        if (typeof GameAudio === 'undefined' || !GameAudio.startAmbientLoop) return false;
-        return GameAudio.startAmbientLoop();
+        return this.enterTerritoryAmbience();
     },
     stopAmbient() {
+        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.stopAll) AmbientSoundscape.stopAll();
         if (typeof GameAudio === 'undefined' || !GameAudio.stop) return false;
         return GameAudio.stop();
     },
     stopAll() {
+        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.stopAll) AmbientSoundscape.stopAll();
         if (typeof GameAudio === 'undefined' || !GameAudio.stopAll) return false;
         return GameAudio.stopAll();
+    },
+    enterTerritoryAmbience() {
+        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.start) {
+            AmbientSoundscape.enterMode('TERRITORY');
+            AmbientSoundscape.start();
+        }
+        if (typeof GameAudio === 'undefined' || !GameAudio.startAmbientLoop) return false;
+        return GameAudio.startAmbientLoop();
+    },
+    enterWarAmbience() {
+        if (typeof AmbientSoundscape !== 'undefined' && AmbientSoundscape.start) {
+            AmbientSoundscape.enterMode('WAR');
+            AmbientSoundscape.start();
+        }
+        if (typeof GameAudio === 'undefined' || !GameAudio.stop) return false;
+        return GameAudio.stop();
     }
 };
 
@@ -228,7 +245,7 @@ const Game = {
 
     /** Halt ambient audio so war SFX have room to breathe. */
     haltAmbientLoop() {
-        AudioBridge.stopAmbient();
+        AudioBridge.enterWarAmbience();
         this.ambientActive = false;
     },
 
