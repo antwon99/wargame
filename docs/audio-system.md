@@ -11,12 +11,8 @@ This document summarizes the lightweight audio singleton embedded in `script.js`
 ## Key API
 - `AudioSystem.playMusic(path)`: Pauses the previous music element and starts a new looping track.
 - `AudioSystem.setAmbiance(path)`: Starts or swaps the looping ambiance track.
-- `AudioSystem.playSFX(path)`: Fire-and-forget sound effects; overlap is permitted and pooled nodes reset `currentTime` to cut latency.
+- `AudioSystem.playSFX(path)`: Fire-and-forget sound effects; overlap is permitted.
 - `AudioSystem.stopAll()`: Pauses music, ambiance, and any tracked sources.
-
-## Startup Initialization
-- `initAudio()` (in `script.js`) now seeds the peaceful ambiance loop and randomly picks between `ambiance_upbeat.mp3` and `ambiance_uplifting.mp3` for the opening BGM.
-- The `AudioSystem` keeps a preload cache (starting with `sfx/tower.mp3`) so high-frequency effects are buffered before first use.
 
 ## Debug Overlay
 `updateAudioDebug()` (defined in `script.js`) reads directly from `AudioSystem` to show:
