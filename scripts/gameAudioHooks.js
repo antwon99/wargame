@@ -4,6 +4,7 @@
  */
 export function armAmbientLoop(windowRef = (typeof window !== 'undefined' ? window : undefined)) {
     if (!windowRef) return;
+    windowRef.GameAudio?.startAmbientLoop?.();
     windowRef.AmbientSoundscape?.enterMode?.('TERRITORY');
     windowRef.AmbientSoundscape?.start?.();
 }

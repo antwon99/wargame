@@ -219,6 +219,7 @@ const Game = {
     deviceProfile: Platform.detectPlatformProfile(),
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shakeTimer: null,
+    ambientLoopStarted: false,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     combat: { 
@@ -280,6 +281,8 @@ const Game = {
 
     /** Start or swap the peaceful ambiance conductor playlist. */
     armAmbientLoop() {
+        if (this.ambientLoopStarted) return;
+        this.ambientLoopStarted = true;
         armAmbientLoopHelper();
     },
 
