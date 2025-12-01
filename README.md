@@ -2,23 +2,6 @@
 
 This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html` with the ES module entry point `scripts/script.js`, which stitches together the overworld loop, combat engine, UI bindings, persistence, and audio systems (all housed under `scripts/`).
 
-## Top-Level Layout
-
-```
-.
-├─ docs/
-├─ scripts/
-├─ sfx/
-├─ tests/
-├─ .gitignore
-├─ AGENTS.md
-├─ README.md
-├─ Wargame.html
-├─ index.html
-└─ style.css
-```
-
-
 ## Getting Started
 
 1. Clone the repository:
@@ -33,7 +16,6 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
      python -m http.server 8000
      # then visit http://localhost:8000/Wargame.html
      ```
-
 
 ## Save/Load and Leaderboard
 
@@ -73,9 +55,19 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ## Repository Layout
 
-- `Wargame.html` — single-page prototype containing the full game and loading `scripts/script.js` as an ES module entry.
-- `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
-- `scripts/` — gameplay modules such as the overworld loop, combat engine, UI bindings, persistence, and audio routing.
+```
+.
+├─ docs/
+├─ scripts/
+├─ sfx/
+├─ tests/
+├─ .gitignore
+├─ AGENTS.md
+├─ README.md
+├─ Wargame.html
+├─ index.html
+└─ style.css
+```
 
 ## Contributing
 
