@@ -20,6 +20,7 @@ import {
     startWar,
     updateCombat
 } from './combatEngine.js';
+import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
@@ -133,8 +134,6 @@ const AudioBridge = {
     }
 };
 if (typeof window !== 'undefined') window.AudioBridge = AudioBridge;
-
-const SAVE_SLOTS = ['1', '2', '3'];
 
 // === AUDIO DEBUG CONSOLE (diagnostic-only; remove after triage) ===
 const AudioDebugConsole = {
@@ -250,24 +249,7 @@ const Game = {
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
 
-        document.getElementById('btn-war').onclick = (e) => this.startWar(e);
-        document.getElementById('btn-retreat').onclick = (e) => this.endWar('RETREAT', e);
-        document.getElementById('btn-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='flex'; };
-        document.getElementById('btn-close-upg').onclick = () => { document.getElementById('upgrade-menu').style.display='none'; };
-        document.getElementById('btn-research').onclick = () => this.toggleResearch(true);
-        document.getElementById('btn-close-research').onclick = () => this.toggleResearch(false);
-
-        document.getElementById('btn-sidebar-toggle').onclick = () => this.toggleSidebar();
-        document.getElementById('btn-sidebar-close').onclick = () => this.toggleSidebar(false);
-        document.getElementById('btn-reset').onclick = () => { this.resetProgress(); this.updateSaveSlotsUI(); };
-        document.querySelectorAll('.slot-save').forEach(btn => btn.onclick = () => this.saveGame(btn.dataset.slot));
-        document.querySelectorAll('.slot-load').forEach(btn => btn.onclick = () => this.loadGame(btn.dataset.slot));
-
-        document.getElementById('buy-soldier').onclick = () => this.buyUpgrade('soldier');
-        document.getElementById('buy-archer').onclick = () => this.buyUpgrade('archer');
-        document.getElementById('buy-prod').onclick = () => this.buyUpgrade('production');
-        document.getElementById('buy-mines').onclick = () => this.buyUpgrade('mines');
-        document.getElementById('buy-defense').onclick = () => this.buyUpgrade('defense');
+        setupUIBindings(this);
 
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
@@ -291,48 +273,6 @@ const Game = {
         } else if (this.deviceProfile.isMobile && this.cam.zoom > this.deviceProfile.baseZoom) {
             this.cam.zoom = this.deviceProfile.baseZoom;
         }
-    },
-
-    /**
-     * Initialize the void click easter egg handler, incrementing counters and
-     * emitting thematic text when the player clicks on background space.
-     */
-    bindVoidClickEasterEgg() {
-        this.voidClicks = 0;
-        this.handleVoidClick = (x, y) => {
-            const hit = this.isPointerOnDrawnHex(x, y);
-            if (hit && hit.hit) return;
-
-            this.voidClicks += 1;
-            const outcome = typeof VoidEasterEgg !== 'undefined'
-                ? VoidEasterEgg.computeMessage(this.voidClicks)
-                : { message: 'Out of Bounds', isSassy: false };
-
-            const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
-            const targetHex = hit && hit.hex ? new Hex(hit.hex.q, hit.hex.r, hit.hex.s) : Hex.fromPixel(layout, { x, y });
-            const color = outcome.isSassy ? '#ef476f' : '#aaa';
-            this.spawnTxt(targetHex, outcome.message, color);
-        };
-    },
-
-    setupInput() {
-        let isDrag = false, start = {x:0, y:0}, camStart = {x:0, y:0};
-        const onDown = (x, y) => { isDrag = true; start = {x, y}; camStart = {x:this.cam.x, y:this.cam.y}; };
-        const onMove = (x, y) => { if(isDrag) { this.cam.x = camStart.x + (x - start.x); this.cam.y = camStart.y + (y - start.y); }};
-        const onUp = (x, y) => {
-            if(isDrag) {
-                isDrag = false;
-                if(Math.hypot(x-start.x, y-start.y) < 10) {
-                    const hit = this.isPointerOnDrawnHex(x, y);
-                    if(hit && hit.hit) this.onClick(x, y);
-                    else if(this.handleVoidClick) this.handleVoidClick(x, y);
-                }
-            }
-        };
-        this.canvas.addEventListener('pointerdown', e => onDown(e.clientX, e.clientY));
-        this.canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
-        this.canvas.addEventListener('pointerup', e => onUp(e.clientX, e.clientY));
-        this.canvas.addEventListener('wheel', e => { e.preventDefault(); this.cam.zoom = Math.max(0.4, Math.min(2.5, this.cam.zoom - e.deltaY*0.001)); }, {passive: false});
     },
 
     /** Start or swap the peaceful ambiance conductor playlist. */
@@ -383,14 +323,6 @@ const Game = {
     /** Reset per-war counters so leaderboard streaks remain scoped to current conflict. */
     resetSession() { this.session = { warKills: 0 }; },
 
-    /** Toggle the collapsible sidebar that houses meta controls. */
-    toggleSidebar(forceState) {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar) return;
-        const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
-        sidebar.classList.toggle('open', shouldOpen);
-    },
-
     /** Build the starting overworld state and clear any lingering combat/claimable data. */
     bootstrapNewWorld() {
         this.state = 'OVERWORLD';
@@ -405,9 +337,7 @@ const Game = {
         this.updateResearchBonuses();
         this.resetSession();
         this.updateSaveStatus('Fresh campaign');
-        document.getElementById('ui-overworld').classList.add('visible');
-        document.getElementById('ui-combat').classList.remove('visible');
-        document.getElementById('state-txt').innerText = "KINGDOM";
+        this.showOverworldUI();
     },
 
     /** Apply a hydrated snapshot to the live game state (overworld only). */
@@ -424,9 +354,7 @@ const Game = {
         this.calcOverworldGhosts();
         this.resetSession();
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
-        document.getElementById('ui-overworld').classList.add('visible');
-        document.getElementById('ui-combat').classList.remove('visible');
-        document.getElementById('state-txt').innerText = "KINGDOM";
+        this.showOverworldUI();
     },
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
@@ -474,33 +402,6 @@ const Game = {
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-    },
-
-    updateSaveStatus(msg) {
-        const el = document.getElementById('save-status');
-        if (el) el.innerText = msg;
-    },
-
-    /** Refresh the sidebar cards to reflect slot metadata and active slot. */
-    updateSaveSlotsUI() {
-        const label = document.getElementById('active-slot-label');
-        if (label) label.innerText = `Slot ${this.activeSaveSlot} Active`;
-
-        SAVE_SLOTS.forEach(slot => {
-            const meta = Persistence.getSlotMetadata(slot);
-            const caption = document.querySelector(`[data-slot-caption="${slot}"]`);
-            const loadBtn = document.querySelector(`.slot-load[data-slot="${slot}"]`);
-            if (caption) {
-                if (meta.hasSave) {
-                    const when = meta.lastSaveISO ? new Date(meta.lastSaveISO).toLocaleString() : 'Unknown Time';
-                    const level = meta.level !== null ? meta.level : '?';
-                    caption.innerText = `Level ${level} - Saved: ${when}`;
-                } else {
-                    caption.innerText = 'Empty Slot';
-                }
-            }
-            if (loadBtn) loadBtn.disabled = !meta.hasSave;
-        });
     },
 
     loop(now) {
@@ -551,19 +452,6 @@ const Game = {
         }
     },
 
-    updateUpgradeMenu() {
-        document.getElementById('lbl-soldier').innerText = `Lv. ${this.upgrades.soldier}`;
-        document.getElementById('buy-soldier').innerText = `${this.getUpgradeCost('soldier')}g`;
-        document.getElementById('lbl-archer').innerText = `Lv. ${this.upgrades.archer}`;
-        document.getElementById('buy-archer').innerText = `${this.getUpgradeCost('archer')}g`;
-        document.getElementById('lbl-prod').innerText = `Lv. ${this.upgrades.production}`;
-        document.getElementById('buy-prod').innerText = `${this.getUpgradeCost('production')}g`;
-        document.getElementById('lbl-mines').innerText = `Lv. ${this.upgrades.mines}`;
-        document.getElementById('buy-mines').innerText = `${this.getUpgradeCost('mines')}g`;
-        document.getElementById('lbl-defense').innerText = `Lv. ${this.upgrades.defense}`;
-        document.getElementById('buy-defense').innerText = `${this.getUpgradeCost('defense')}g`;
-    },
-
     /**
      * Build a fresh research state or hydrate from a saved payload.
      * Keeps the data in sync with the ResearchSystem definition file so tests
@@ -598,14 +486,6 @@ const Game = {
             if (tech.id === 'architecture') this.research.bonuses.townGoldBonus += tech.timesPurchased;
             if (tech.id === 'lumberjacks') this.research.bonuses.forestWoodBonus += tech.timesPurchased;
         });
-    },
-
-    /** Toggle the research modal visibility. */
-    toggleResearch(forceOpen) {
-        const modal = document.getElementById('research-modal');
-        if (!modal) return;
-        modal.style.display = forceOpen === false ? 'none' : 'flex';
-        if (forceOpen !== false) this.updateResearchUI();
     },
 
     /**
@@ -711,98 +591,6 @@ const Game = {
     /** True when at least one field can be reclaimed. */
     hasFieldToConvert() {
         return Array.from(this.overworld.hexes.values()).some(h => h.type === 'field');
-    },
-
-    /**
-     * Render the research tech grid and reflect affordability / purchase state.
-     */
-    updateResearchUI() {
-        const grid = document.getElementById('tech-grid');
-        if (!grid) return;
-        grid.innerHTML = '';
-
-        const livesTech = this.getTech('lives');
-        const livesCap = livesTech?.maxPurchases || 3;
-        const livesLabel = document.getElementById('research-lives');
-        if (livesLabel) livesLabel.innerText = `❤️ ${this.research.lives}/${livesCap}`;
-        const headerLives = document.getElementById('lives-count');
-        if (headerLives) headerLives.innerText = this.research.lives;
-
-        this.research.technologies.forEach(tech => {
-            const card = document.createElement('div');
-            card.className = 'tech-card';
-
-            const title = document.createElement('h3');
-            title.className = 'tech-title';
-            const counter = tech.maxPurchases && tech.maxPurchases > 1 ? ` (${tech.timesPurchased}/${tech.maxPurchases})` : '';
-            title.innerText = `${tech.name}${counter}`;
-
-            const desc = document.createElement('p');
-            desc.className = 'tech-desc';
-            desc.innerText = tech.description;
-
-            const costLine = document.createElement('p');
-            costLine.className = 'tech-cost';
-
-            const actions = document.createElement('div');
-            actions.className = 'tech-actions';
-
-            const canBuyMore = ResearchSystem.hasRemainingPurchases(tech);
-            let affordable = false;
-
-            if (tech.costOptions && tech.costOptions.length > 0) {
-                costLine.innerText = tech.costOptions.map(opt => `${opt.label} (${this.formatCost(this.getTechCost(tech, opt.id))})`).join(' | ');
-                tech.costOptions.forEach(opt => {
-                    const optCost = this.getTechCost(tech, opt.id);
-                    const btn = document.createElement('button');
-                    btn.innerText = opt.label;
-                    const canAfford = this.canPayCost(optCost) && canBuyMore && this.hasFieldToConvert();
-                    affordable = affordable || canAfford;
-                    btn.disabled = !canAfford;
-                    btn.classList.add('primary-btn');
-                    btn.onclick = () => this.buyTechnology(tech.id, opt.id);
-                    actions.appendChild(btn);
-                });
-            } else {
-                const cost = this.getTechCost(tech);
-                costLine.innerText = `Cost: ${this.formatCost(cost)}`;
-                affordable = this.canPayCost(cost) && canBuyMore;
-                const btn = document.createElement('button');
-                btn.innerText = tech.purchased ? 'Repurchase' : 'Purchase';
-                btn.disabled = !affordable;
-                btn.classList.add('primary-btn');
-                btn.onclick = () => this.buyTechnology(tech.id);
-                actions.appendChild(btn);
-            }
-
-            if (!canBuyMore) {
-                card.classList.add('purchased');
-                actions.querySelectorAll('button').forEach(btn => {
-                    btn.disabled = true;
-                    btn.classList.add('purchased-btn');
-                    btn.innerText = 'Purchased';
-                });
-            } else if (affordable) {
-                card.classList.add('affordable');
-            } else {
-                card.classList.add('unaffordable');
-            }
-
-            card.appendChild(title);
-            card.appendChild(desc);
-            card.appendChild(costLine);
-            card.appendChild(actions);
-            grid.appendChild(card);
-        });
-    },
-
-    updateLeaderboardUI() {
-        const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
-        setTxt('stat-best-lvl', this.stats.bestDifficulty || 0);
-        setTxt('stat-best-kills', this.stats.bestKills || 0);
-        setTxt('stat-total-kills', this.stats.totalKills || 0);
-        setTxt('stat-wars', this.stats.warsPlayed || 0);
-        if (this.stats.lastSaveISO) this.updateSaveStatus(`Last saved ${this.stats.lastSaveISO}`);
     },
 
     getUnitStats(type) { return getUnitStats(this, type); },
@@ -917,18 +705,6 @@ const Game = {
 
     endWar(outcome, clickEvt) { return endWar(this, outcome, clickEvt); },
 
-    showWarTip() {
-        const el = document.getElementById('tip-overlay');
-        const tip = TIPS[Math.floor(Math.random()*TIPS.length)];
-        el.innerText = tip;
-        el.classList.add('tip-visible');
-        setTimeout(() => el.classList.remove('tip-visible'), 4000);
-    },
-    
-    hideWarTip() {
-        document.getElementById('tip-overlay').classList.remove('tip-visible');
-    },
-
     claimHexLogic(hex, free) {
         const r = Math.random();
         let type = 'field'; if(r > 0.75) type = 'town'; else if(r > 0.5) type = 'forest';
@@ -959,69 +735,6 @@ const Game = {
         const hex = pos.toPixel ? pos : new Hex(pos.q, pos.r, pos.s ?? -pos.q - pos.r);
         return hex.toPixel(layout);
     },
-    /** Screen-space floating text for button feedback and battle summaries. */
-    showFloatingText(x, y, txt, cssClass) {
-        const layer = this.fxLayer || document.getElementById('fx-layer');
-        if (!layer) return;
-        const el = document.createElement('div');
-        el.className = 'floating-text';
-        if (cssClass) el.classList.add(cssClass);
-        el.innerText = txt;
-        el.style.left = `${x}px`;
-        el.style.top = `${y}px`;
-        layer.appendChild(el);
-        setTimeout(() => el.remove(), 820);
-    },
-    /** Brief camera shake anchored to the main container. */
-    triggerCameraShake() {
-        const target = document.getElementById('game-container');
-        if (!target) return;
-        target.classList.add('shake');
-        clearTimeout(this.shakeTimer);
-        this.shakeTimer = setTimeout(() => target.classList.remove('shake'), Juice.clampShakeDuration(300));
-    },
-    /** Emit outward-fading particle squares at a given screen coordinate. */
-    spawnParticleBurst(x, y, count = 6, colors = ['#ffd166', '#06d6a0', '#ef476f']) {
-        const layer = this.fxLayer || document.getElementById('fx-layer');
-        if (!layer || typeof Juice === 'undefined') return;
-        const burst = Juice.createBurstVectors(count, 18, 46);
-        burst.forEach((vec, idx) => {
-            const node = document.createElement('div');
-            node.className = 'particle';
-            node.style.left = `${x}px`;
-            node.style.top = `${y}px`;
-            node.style.setProperty('--dx', vec.dx.toFixed(2));
-            node.style.setProperty('--dy', vec.dy.toFixed(2));
-            node.style.background = colors[idx % colors.length];
-            layer.appendChild(node);
-            setTimeout(() => node.remove(), vec.duration);
-        });
-    },
-    /** Convenience wrapper to project hex positions into a burst origin. */
-    spawnBurstAtHex(pos, count) {
-        const p = this.projectHexToScreen(pos);
-        this.spawnParticleBurst(p.x, p.y, count);
-    },
-    spawnTxt(pos, txt, col) {
-        const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
-        const p = (pos.toPixel ? pos : new Hex(pos.q, pos.r)).toPixel(layout);
-        const el = document.createElement('div');
-        el.className = 'floater'; el.innerText = txt;
-        el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; el.style.color = col;
-        document.body.appendChild(el);
-        this.combat.particles.push({el, life:2.5});
-    },
-    updateHUD() {
-        document.getElementById('gold').innerText = Math.floor(this.gold);
-        document.getElementById('wood').innerText = Math.floor(this.wood);
-        const lives = document.getElementById('lives-count');
-        if (lives) lives.innerText = this.research.lives;
-        document.getElementById('lvl-txt').innerText = `Enemy Lv.${this.difficulty}`;
-        
-        const cost = (this.difficulty + 1) * 25;
-        document.getElementById('btn-war').innerText = `⚔️ WAR (${cost}g)`;
-    },
-
     draw() {
         const ctx = this.ctx;
         ctx.fillStyle = '#121218'; ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
@@ -1121,6 +834,8 @@ const Game = {
         }
     }
 };
+
+applyUIBindings(Game, { Hex, Layout, TIPS });
 
 window.Hex = Hex;
 window.Game = Game;
