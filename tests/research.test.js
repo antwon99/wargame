@@ -1,5 +1,5 @@
 const assert = require('assert');
-const ResearchSystem = require('../researchSystem.js');
+const ResearchSystem = require('../scripts/researchSystem.js');
 
 function testInstantiatesWithSavedPurchases() {
     const techs = ResearchSystem.instantiateTechnologies([

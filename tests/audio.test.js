@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { AudioManager, SFX_MANIFEST, AmbientConductor } = require('../audio.js');
+const { AudioManager, SFX_MANIFEST, AmbientConductor } = require('../scripts/audio.js');
 
 function createStubFactory(log) {
     return (src) => {

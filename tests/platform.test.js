@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { detectPlatformProfile, sizeCanvasForDisplay } = require('../platform.js');
+const { detectPlatformProfile, sizeCanvasForDisplay } = require('../scripts/platform.js');
 
 function testDetectsMobileProfile() {
     const profile = detectPlatformProfile({
