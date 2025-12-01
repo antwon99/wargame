@@ -251,6 +251,8 @@ const Game = {
 
         setupUIBindings(this);
 
+        this.armAmbientLoop();
+
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
     },
