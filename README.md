@@ -1,6 +1,21 @@
 # Hex Kingdom
 
-This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html`, while supporting modules such as `scripts/script.js`, `scripts/audio.js`, and `scripts/persistence.js` provide gameplay logic, data persistence, and audio routing, respectively (with more to come.)
+This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html` with the ES module entry point `scripts/script.js`, which stitches together the overworld loop, combat engine, UI bindings, persistence, and audio systems (all housed under `scripts/`).
+
+## Top-Level Layout
+
+```
+.
+├─ AGENTS.md
+├─ README.md
+├─ Wargame.html
+├─ docs/
+├─ index.html
+├─ scripts/
+├─ sfx/
+├─ style.css
+└─ tests/
+```
 
 
 ## Getting Started
@@ -12,7 +27,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
    ```
 2. Open the game:
    - **Quick view:** Double-click `Wargame.html` to open it in your browser.
-   - **Local server (recommended for consistent asset loading):**
+   - **Local server (recommended for ES module loading and consistent assets):**
      ```bash
      python -m http.server 8000
      # then visit http://localhost:8000/Wargame.html
@@ -36,7 +51,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ## Development Notes
 
-- Core gameplay logic now lives in the `scripts/` directory. Keep related code grouped with clear comments to aid navigation.
+- Core gameplay logic now lives in the `scripts/` directory, with `scripts/script.js` importing ES modules such as `combatEngine.js`, `uiBindings.js`, `gameAudioHooks.js`, `persistence.js`, and `researchSystem.js`.
 - If you split the project into additional files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
 
@@ -51,15 +66,15 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ## Audio
 
-- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop.
+- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop. Effects are grouped into `/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, and `/sfx/system` subfolders.
 - See `docs/audio.md` for the event map and integration notes.
 
 
 ## Repository Layout
 
-- `Wargame.html` — single-page prototype containing the full game.
+- `Wargame.html` — single-page prototype containing the full game and loading `scripts/script.js` as an ES module entry.
 - `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
-- `scripts/` — gameplay modules such as the main loop, persistence, UI bindings, and audio routing.
+- `scripts/` — gameplay modules such as the overworld loop, combat engine, UI bindings, persistence, and audio routing.
 
 ## Contributing
 

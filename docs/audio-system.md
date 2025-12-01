@@ -1,9 +1,9 @@
 # Audio System Overview
 
-The game routes all sounds through the `audio.js` stack: a manifest-driven `GameAudio` manager, a randomizing `AmbientSoundscape` scheduler, and a thin `AudioBridge` facade in `script.js`.
+The game routes all sounds through the `scripts/audio.js` stack: a manifest-driven `GameAudio` manager, a randomizing `AmbientSoundscape` scheduler, and a thin `AudioBridge` facade in `scripts/script.js`.
 
 ## Manifest (GameAudio)
-- `SFX_MANIFEST` in `audio.js` maps keys to `{ src, loop?, volume?, cooldownMs?, allowOverlap?, isAmbient?, variations? }` entries. Keys are stable handles consumed by gameplay code (`AudioBridge.play('arrow')`).
+- `SFX_MANIFEST` in `scripts/audio.js` maps keys to `{ src, loop?, volume?, cooldownMs?, allowOverlap?, isAmbient?, variations? }` entries. Keys are stable handles consumed by gameplay code (`AudioBridge.play('arrow')`). Manifest entries source mp3s from the organized `/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, and `/sfx/system` subfolders.
 - **Weighted variants**: Provide `variations: [{ src, weight?, id? }, ...]` to bias selection while keeping attack spam lively. `GameAudio` picks a variation per play call using a cached `WeightedSelector`.
 - **Cooldowns**: `cooldownMs` throttles repeat requests per manifest key; overlap is still allowed when `allowOverlap` is true (clones the cached node). Cooldowns can be overridden per call via `AudioBridge.play(key, { cooldownMs })` when needed.
 - **Ambient loops**: Mark a manifest entry with `isAmbient: true` to expose it as the default loop for `GameAudio.startAmbientLoop()`. Other ambience/music tracks live in the `AmbientSoundscape` playlists (below).
@@ -19,7 +19,7 @@ The game routes all sounds through the `audio.js` stack: a manifest-driven `Game
 - `AmbientSoundscape.enterMode(mode)` / `AmbientSoundscape.start()`: Swap and launch the scheduler for `TERRITORY` vs `WAR` playlists.
 
 ## Debug Overlay
-`updateAudioDebug()` (in `script.js`) reads from the global `AudioDebugBus.snapshot()` to render:
+`updateAudioDebug()` (in `scripts/script.js`) reads from the global `AudioDebugBus.snapshot()` to render:
 - Intended track (last scheduled by `AmbientSoundscape`)
 - Active audio sources with filenames/keys
 - Master volume and current game state
