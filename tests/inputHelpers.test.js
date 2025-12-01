@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { Layout, isPointerOnDrawnHex, cubeToPixel } = require('../inputHelpers.js');
+const { Layout, isPointerOnDrawnHex, cubeToPixel } = require('../scripts/inputHelpers.js');
 
 function makeLayout() {
     return { origin: { x: 0, y: 0 }, size: 30, ...Layout };
