@@ -15,7 +15,7 @@ global.Hex = class Hex {
     toString() { return `${this.q},${this.r}`; }
 };
 
-const Persistence = require('../persistence.js');
+const Persistence = require('../scripts/persistence.js');
 
 function runTests() {
     // Serialize

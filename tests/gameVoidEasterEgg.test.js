@@ -1,6 +1,6 @@
 const assert = require('assert');
-const VoidEasterEgg = require('../voidEasterEgg.js');
-const Persistence = require('../persistence.js');
+const VoidEasterEgg = require('../scripts/voidEasterEgg.js');
+const Persistence = require('../scripts/persistence.js');
 
 // Set up a barebones DOM + window environment so script.js can register the Game singleton.
 const capturedTexts = [];
@@ -37,7 +37,7 @@ global.Persistence = Persistence;
 global.VoidEasterEgg = VoidEasterEgg;
 global.InputHelpers = { SQRT3: Math.sqrt(3), Layout: {} };
 
-afterEnvironment(() => { require('../script.js'); });
+afterEnvironment(() => { require('../scripts/script.js'); });
 
 function afterEnvironment(cb) {
     cb();

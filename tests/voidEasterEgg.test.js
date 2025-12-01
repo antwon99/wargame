@@ -1,5 +1,5 @@
 const assert = require('assert');
-const VoidEasterEgg = require('../voidEasterEgg.js');
+const VoidEasterEgg = require('../scripts/voidEasterEgg.js');
 
 function testBaseMessages() {
     for (let i = 1; i <= 5; i++) {

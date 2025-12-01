@@ -1,6 +1,6 @@
 # Hex Kingdom
 
-This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html`, while supporting modules such as `script.js`, `audio.js`, and `persistence.js` provide gameplay logic, data persistence, and audio routing, respectively (with more to come.)
+This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html`, while supporting modules such as `scripts/script.js`, `scripts/audio.js`, and `scripts/persistence.js` provide gameplay logic, data persistence, and audio routing, respectively (with more to come.)
 
 
 ## Getting Started
@@ -36,8 +36,8 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ## Development Notes
 
-- All gameplay logic, UI, and styling live in `Wargame.html`. Keep related code grouped with clear comments to aid navigation.
-- If you split the project into multiple files later, document the new structure here and update the `.gitignore` accordingly.
+- Core gameplay logic now lives in the `scripts/` directory. Keep related code grouped with clear comments to aid navigation.
+- If you split the project into additional files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
 
 
@@ -59,7 +59,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 - `Wargame.html` — single-page prototype containing the full game.
 - `AGENTS.md` — contributor guidance for coding standards and documentation expectations.
-- `researchSystem.js` — shared tech tree definitions and affordability helpers used by the UI and tests.
+- `scripts/` — gameplay modules such as the main loop, persistence, UI bindings, and audio routing.
 
 ## Contributing
 
