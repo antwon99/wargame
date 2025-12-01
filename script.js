@@ -1,3 +1,26 @@
+import {
+    COMBAT_BUILDINGS,
+    UNITS,
+    addBuilding,
+    buyBuilding,
+    checkConnection,
+    damageBuilding,
+    damageUnit,
+    endWar,
+    getBuildingStats,
+    getSpawnRate,
+    getUnitStats,
+    isFrontier,
+    loseOverworldHexes,
+    recordWarEnd,
+    registerKill,
+    runAI,
+    scorchEarth,
+    spawnUnit,
+    startWar,
+    updateCombat
+} from './combatEngine.js';
+
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
 const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
@@ -61,24 +84,6 @@ const OVERWORLD_TILES = {
     FIELD:  { id: 'field',  color: '#90be6d', char: '🌾', income: {} },
     FOREST: { id: 'forest', color: '#2d6a4f', char: '🌲', income: {wood:1} },
     TOWN:   { id: 'town',   color: '#5e548e', char: '🏠', income: {gold:2} }
-};
-
-const COMBAT_BUILDINGS = {
-    // Castle now has income:5 and prodRate:4.0
-    CASTLE: { id: 'castle', char: '🏰', hp: 3000, dmg: 50, range: 4, rate: 1.0, income: 5, prodRate: 4.0 }, 
-    MINE:   { id: 'mine',   char: '🟡', cost: 40, hp: 300, income: 8, rate: 3.0 },
-    BARRACKS:{ id: 'barracks', char: '⚔️', cost: 75, hp: 500, spawn: 'soldier', rate: 5.0 },
-    RANGE:  { id: 'range',  char: '🏹', cost: 100, hp: 250, spawn: 'archer', rate: 4.5 },
-    TOWER:  { id: 'tower',  char: '🛡️', cost: 120, hp: 1000, dmg: 40, range: 4, rate: 0.8 }, 
-    LAIR:   { id: 'lair',   char: '🌋', cost: 0, hp: 1500, spawn: 'dragon', rate: 12.0 },
-    MYSTERY:{ id: 'mystery', char: '❓', cost: 25 },
-    ROCKS:  { id: 'rocks', char: '🪨', hp: 150 }
-};
-
-const UNITS = {
-    soldier: { hp: 150, dmg: 12, speed: 2.0, range: 1, char: '⚔️' },
-    archer:  { hp: 70,  dmg: 18, speed: 1.8, range: 3, char: '🏹' },
-    dragon:  { hp: 1200, dmg: 80, speed: 1.5, range: 2, char: '🐲' }
 };
 
 const TIPS = [
@@ -800,30 +805,11 @@ const Game = {
         if (this.stats.lastSaveISO) this.updateSaveStatus(`Last saved ${this.stats.lastSaveISO}`);
     },
 
-    getUnitStats(type) {
-        const base = UNITS[type];
-        if(!base) return { hp: 100, dmg: 10, speed: 1, range: 1 };
-        if (type === 'soldier' || type === 'archer') {
-            const multi = 1 + ((this.upgrades[type] - 1) * 0.2);
-            return { ...base, hp: base.hp * multi, dmg: base.dmg * multi };
-        }
-        return base;
-    },
+    getUnitStats(type) { return getUnitStats(this, type); },
 
-    getBuildingStats(type, owner) {
-        const def = COMBAT_BUILDINGS[type.toUpperCase()];
-        if(owner !== 'player') return def;
-        if(type === 'tower' || type === 'castle') {
-            const multi = 1 + ((this.upgrades.defense - 1) * 0.25); 
-            return { ...def, hp: def.hp * multi, dmg: def.dmg * multi };
-        }
-        return def;
-    },
+    getBuildingStats(type, owner) { return getBuildingStats(this, type, owner); },
 
-    getSpawnRate(baseRate) {
-        const multi = Math.pow(0.9, this.upgrades.production - 1);
-        return baseRate * multi;
-    },
+    getSpawnRate(baseRate) { return getSpawnRate(this, baseRate); },
 
     getIncomeMulti() {
         return 1 + ((this.upgrades.mines - 1) * 0.2); 
@@ -853,256 +839,23 @@ const Game = {
         }
     },
 
-    updateCombat(dt) {
-        for(let [k, b] of this.combat.buildings) {
-            if(b.type === 'rocks') continue;
-            
-            // PRODUCTION
-            b.prodTimer += dt;
-            const def = COMBAT_BUILDINGS[b.type.toUpperCase()];
-            if(!def) continue;
-
-            // Determine correct rate: specific prodRate > upgrades > default rate
-            let rate = def.prodRate || def.rate;
-            if (b.owner === 'player' && def.spawn) rate = this.getSpawnRate(rate);
-
-            if((def.spawn || def.income) && b.prodTimer >= rate) {
-                b.prodTimer = 0;
-                const hex = this.parseKey(k);
-                
-                // Income Logic (Mine OR Castle)
-                if(def.income) {
-                    if(b.owner === 'player') { 
-                        this.gold += def.income; 
-                        this.spawnTxt(hex, `+${def.income}g`, '#ffd166'); 
-                    } else { 
-                        this.combat.ai.gold += def.income; 
-                        // Visual cue for AI mining
-                        if(b.type === 'mine' && Math.random() > 0.8) this.spawnTxt(hex, `+${def.income}g`, '#ef476f'); 
-                    }
-                }
-                
-                // Spawn Logic
-                if (def.spawn) {
-                    this.spawnUnit(def.spawn, b.owner, hex);
-                    b.pulse = 0.5;
-                }
-            }
-
-            // ATTACK
-            const stats = this.getBuildingStats(b.type, b.owner);
-            if(stats.dmg) {
-                b.attackTimer += dt;
-                if(b.attackTimer >= (stats.rate || 1.0)) {
-                    const hex = this.parseKey(k);
-                    let target = null;
-                    let minDist = stats.range;
-                    
-                    for(let u of this.combat.units) {
-                        if(u.owner !== b.owner) {
-                            const d = Hex.distance(hex, Hex.round(u.pos));
-                            if(d <= minDist) { minDist = d; target = u; }
-                        }
-                    }
-
-                    if(target) {
-                        b.attackTimer = 0;
-                        this.damageUnit(target, stats.dmg, b.owner); // New Function
-                        if (b.type === 'tower' || b.type === 'castle') this.playSound('tower', { allowOverlap: true });
-                        // Visuals
-                        const pStart = hex.toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
-                        const pEnd = (new Hex(target.pos.q, target.pos.r, target.pos.s)).toPixel({origin:this.cam, size:30*this.cam.zoom, ...Layout});
-                        this.combat.fx.push({ startHex: hex, endPos: target.pos, life: 0.15, color: b.owner === 'player' ? '#0ff' : '#f00' });
-                    }
-                }
-            }
-        }
-
-        for(let i=this.combat.units.length-1; i>=0; i--) {
-            let u = this.combat.units[i];
-            const currentHex = Hex.round(u.pos);
-            const key = currentHex.toString();
-            if(this.combat.territory.has(key)) {
-                const tile = this.combat.territory.get(key);
-                if(tile.owner !== u.owner && tile.owner !== 'scorched') tile.owner = u.owner; 
-            }
-            let target = null;
-            let minDist = Infinity;
-            this.combat.units.forEach(other => {
-                if(u.owner !== other.owner) {
-                    const d = Hex.distance(currentHex, Hex.round(other.pos));
-                    if(d < minDist) { minDist = d; target = other; }
-                }
-            });
-            if(!target || minDist > 2) {
-                for(let [k, b] of this.combat.buildings) {
-                    if(b.owner !== u.owner) {
-                        const bHex = this.parseKey(k);
-                        const d = Hex.distance(currentHex, bHex);
-                        if(d < minDist) { minDist = d; target = { ...b, hex: bHex, isBuilding: true, key: k }; }
-                    }
-                }
-            }
-            u.cooldown -= dt;
-            if(target && minDist <= u.range) {
-                if(u.cooldown <= 0) {
-                    u.cooldown = 1.0;
-                    if (u.type === 'archer') this.playSound('arrow', { allowOverlap: true });
-                    if (u.type === 'soldier') this.playSound('sword', { allowOverlap: true });
-                    if (u.type === 'dragon') this.playSound('rare', { allowOverlap: true });
-                    if(target.isBuilding) {
-                        this.damageBuilding(target.key, u.dmg);
-                    } else {
-                        this.damageUnit(target, u.dmg, u.owner);
-                    }
-                }
-            } else {
-                const defaultTarget = u.owner === 'player' ? {q:0, r:-8} : {q:0, r:8};
-                const dest = target ? (target.pos || target.hex) : defaultTarget;
-                const dq = dest.q - u.pos.q;
-                const dr = dest.r - u.pos.r;
-                const dist = Math.hypot(dq, dr);
-                if(dist > 0.1) {
-                    const speed = u.speed * dt * 0.5;
-                    u.pos.q += (dq / dist) * speed;
-                    u.pos.r += (dr / dist) * speed;
-                    u.pos.s = -u.pos.q - u.pos.r; 
-                }
-            }
-        }
-        this.combat.units = this.combat.units.filter(u => u.hp > 0);
-        this.updateHUD();
-
-        this.combat.ai.timer += dt;
-        if(this.combat.ai.timer > this.combat.ai.nextMove) {
-            this.combat.ai.timer = 0;
-            this.combat.ai.nextMove = 2.0 + Math.random();
-            this.runAI();
-        }
-    },
+    updateCombat(dt) { return updateCombat(this, dt); },
 
     /** Track leaderboard totals when the player lands a final blow. */
-    registerKill(owner) {
-        if(owner !== 'player') return;
-        this.stats.totalKills++;
-        this.session.warKills++;
-        this.stats.bestKills = Math.max(this.stats.bestKills, this.session.warKills);
-        this.updateLeaderboardUI();
-    },
+    registerKill(owner) { return registerKill(this, owner); },
 
     /** Persist leaderboard milestones and autosave at the end of any war outcome. */
-    recordWarEnd(outcome) {
-        const normalized = outcome || 'RETREAT';
-        this.stats.bestDifficulty = Math.max(this.stats.bestDifficulty, this.difficulty);
-        this.stats.bestKills = Math.max(this.stats.bestKills, this.session.warKills);
-        this.stats.lastOutcome = normalized;
-        this.updateLeaderboardUI();
-        this.saveGame();
-    },
+    recordWarEnd(outcome) { return recordWarEnd(this, outcome); },
 
-    damageUnit(u, dmg, attackerOwner) {
-        u.hp -= dmg;
-        this.spawnTxt(u.pos, `-${Math.floor(dmg)}`, '#ff5555');
+    damageUnit(u, dmg, attackerOwner) { return damageUnit(this, u, dmg, attackerOwner); },
 
-        // BOUNTY LOGIC
-        if (u.hp <= 0) {
-            this.spawnBurstAtHex(u.pos, 7);
-            this.registerKill(attackerOwner);
-            if (Math.random() > 0.5) { // 50% Chance
-                const bounty = Math.floor(Math.random() * 2) + 1; // 1-2g
-                if (attackerOwner === 'player') {
-                    this.gold += bounty;
-                    this.spawnTxt(u.pos, `+${bounty}g`, '#00ff00'); // Green text
-                } else {
-                    this.combat.ai.gold += bounty;
-                }
-            }
-        }
-    },
+    runAI() { return runAI(this); },
 
-    runAI() {
-        const candidates = [];
-        for(let [k, t] of this.combat.territory) {
-            if(t.owner === 'enemy' && !this.combat.buildings.has(k)) {
-                if (this.isFrontier(k, 'enemy')) {
-                    const type = this.combat.slots.get(k);
-                    if(type) candidates.push({ key: k, type: type });
-                }
-            }
-        }
+    damageBuilding(key, amt) { return damageBuilding(this, key, amt); },
 
-        if(candidates.length > 0) {
-            const choice = candidates[Math.floor(Math.random() * candidates.length)];
-            const hex = this.parseKey(choice.key);
-            let typeToBuy = choice.type;
-            
-            if(typeToBuy === 'mystery') {
-                const r = Math.random();
-                if(r < 0.9) typeToBuy = 'rocks';
-                else {
-                    const r2 = Math.random();
-                    if(r2 < 0.5) typeToBuy = 'barracks'; else typeToBuy = 'lair';
-                }
-            }
+    checkConnection(startHex, owner) { return checkConnection(this, startHex, owner); },
 
-            const def = COMBAT_BUILDINGS[typeToBuy.toUpperCase()];
-            if(def && this.combat.ai.gold >= def.cost) {
-                this.combat.ai.gold -= def.cost;
-                this.addBuilding(hex, typeToBuy, 'enemy');
-                if(typeToBuy === 'rocks') this.spawnTxt(hex, "AI: ROCKS...", '#ef476f');
-                if(typeToBuy === 'lair') this.spawnTxt(hex, "AI: LEGENDARY!", '#ef476f');
-            }
-        }
-    },
-
-    damageBuilding(key, amt) {
-        const b = this.combat.buildings.get(key);
-        if(!b) return;
-        b.hp -= amt;
-        b.pulse = 1.0;
-        if(b.hp <= 0) {
-            if(b.type === 'castle') {
-                this.endWar(b.owner === 'enemy' ? 'VICTORY' : 'DEFEAT');
-            } else {
-                const hex = this.parseKey(key);
-                const isConnected = this.checkConnection(hex, b.owner);
-                this.combat.buildings.delete(key);
-                if (!isConnected) {
-                    this.scorchEarth(key);
-                    this.spawnTxt(hex, "SCORCHED!", '#000');
-                } else {
-                    if(b.owner === 'enemy') { this.wood += 5; this.spawnTxt(hex, "+5w", '#a67c52'); }
-                }
-            }
-        }
-    },
-
-    checkConnection(startHex, owner) {
-        const castleHex = owner === 'player' ? this.combat.castles.player : this.combat.castles.enemy;
-        if(!castleHex) return true; 
-        const queue = [startHex];
-        const visited = new Set();
-        visited.add(startHex.toString());
-        while(queue.length > 0) {
-            const curr = queue.shift();
-            if(curr.equals(castleHex)) return true; 
-            for(let i=0; i<6; i++) {
-                const n = Hex.neighbor(curr, i);
-                const nk = n.toString();
-                if(visited.has(nk)) continue;
-                const tile = this.combat.territory.get(nk);
-                if(tile && tile.owner === owner && tile.owner !== 'scorched') {
-                    visited.add(nk); queue.push(n);
-                }
-            }
-        }
-        return false;
-    },
-
-    scorchEarth(key) {
-        const tile = this.combat.territory.get(key);
-        if(tile) tile.owner = 'scorched';
-    },
+    scorchEarth(key) { return scorchEarth(this, key); },
 
     onClick(x, y) {
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
@@ -1136,146 +889,15 @@ const Game = {
         this.updateHUD();
     },
 
-    isFrontier(key, who) {
-        const tile = this.combat.territory.get(key);
-        if(!tile || tile.owner !== who) return false;
-        if(this.combat.buildings.has(key)) return false;
+    isFrontier(key, who) { return isFrontier(this, key, who); },
 
-        const hex = this.parseKey(key);
-        
-        for(let i=0; i<6; i++) {
-            const n = Hex.neighbor(hex, i);
-            const b = this.combat.buildings.get(n.toString());
-            if(b && b.owner === who) return true;
-        }
+    buyBuilding(hex, type) { return buyBuilding(this, hex, type); },
 
-        const opponent = who === 'player' ? 'enemy' : 'player';
-        for(let q = -3; q <= 3; q++) {
-            for(let r = -3; r <= 3; r++) {
-                if (Math.abs(q + r) > 3) continue; 
-                if (q===0 && r===0) continue;
-                
-                const neighbor = hex.add(new Hex(q, r, -q-r));
-                const b = this.combat.buildings.get(neighbor.toString());
-                if(b && b.owner === opponent) return true;
-            }
-        }
-        return false;
-    },
+    addBuilding(hex, type, owner) { return addBuilding(this, hex, type, owner); },
 
-    buyBuilding(hex, type) {
-        const def = COMBAT_BUILDINGS[type.toUpperCase()];
-        if(this.gold >= def.cost) {
-            this.gold -= def.cost;
-            let finalType = type;
-            if(type === 'mystery') {
-                const roll = Math.random();
-                if(roll < 0.9) { 
-                    finalType = 'rocks'; 
-                    this.spawnTxt(hex, "ROCKS...", '#888'); 
-                } else {
-                    const r2 = Math.random();
-                    if(r2 < 0.5) finalType = 'barracks';
-                    else {
-                        finalType = 'lair'; 
-                        this.spawnTxt(hex, "LEGENDARY!", '#d4f');
-                    }
-                }
-            }
-            if(finalType !== 'rocks' && finalType !== 'lair') this.spawnTxt(hex, finalType.toUpperCase(), '#fff');
-            this.addBuilding(hex, finalType, 'player');
-        } else {
-            this.spawnTxt(hex, `Need ${def.cost}g`, '#ffd166');
-        }
-    },
+    spawnUnit(type, owner, hex) { return spawnUnit(this, type, owner, hex); },
 
-    addBuilding(hex, type, owner) {
-        let stats = this.getBuildingStats(type, owner);
-        this.combat.buildings.set(hex.toString(), {
-            type, owner, hp: stats.hp, maxHp: stats.hp,
-            prodTimer: 0, attackTimer: Math.random(),
-            pulse: 0
-        });
-        if (owner === 'player') this.spawnBurstAtHex(hex, 6);
-    },
-
-    spawnUnit(type, owner, hex) {
-        let stats = UNITS[type];
-        if (owner === 'player') stats = this.getUnitStats(type); 
-        this.combat.units.push({
-            type, owner, 
-            pos: {q:hex.q, r:hex.r, s:hex.s},
-            hp: stats.hp, maxHp: stats.hp, dmg: stats.dmg, range: stats.range, speed: stats.speed,
-            cooldown: 0
-        });
-    },
-
-    startWar(clickEvt) {
-        const cost = (this.difficulty + 1) * 25;
-        const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.1;
-        const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.1;
-        if(this.gold < cost) {
-            this.spawnTxt(new Hex(0,0), `Need ${cost}g`, '#f55');
-            this.showFloatingText(anchorX, anchorY, `Need ${cost}g`, 'alert-text');
-            return;
-        }
-        this.gold -= cost;
-        window.AmbientSoundscape?.enterMode?.('WAR');
-        window.AmbientSoundscape?.start?.();
-        this.triggerCameraShake();
-        this.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
-        this.spawnParticleBurst(anchorX, anchorY, 8);
-        this.resetSession();
-        this.stats.warsPlayed++;
-        this.updateLeaderboardUI();
-        this.state = 'COMBAT';
-
-        this.combat.territory.clear();
-        this.combat.buildings.clear();
-        this.combat.slots.clear();
-        this.combat.units = [];
-        this.combat.fx = [];
-        this.combat.ai.timer = 0;
-        this.combat.ai.gold = 300 + (this.difficulty * 100);
-
-        const W = 4; const H = 9; 
-        for(let r = -H; r <= H; r++) {
-            const centerQ = -Math.floor(r/2); 
-            for(let q = centerQ - W; q <= centerQ + W; q++) {
-                const hex = new Hex(q, r);
-                const key = hex.toString();
-                const owner = r > 0 ? 'player' : (r < 0 ? 'enemy' : 'neutral');
-                this.combat.territory.set(key, { owner, hex });
-                
-                const rand = Math.random();
-                let type = 'mystery'; 
-                if(rand > 0.8) type = 'mystery';
-                else if(rand > 0.5) type = 'barracks'; 
-                else if(rand > 0.25) type = 'mine'; 
-                else if(rand > 0.15) type = 'range'; 
-                else type = 'tower'; 
-                this.combat.slots.set(key, type);
-            }
-        }
-        
-        const pHex = new Hex(-Math.floor(8/2), 8);
-        const eHex = new Hex(-Math.floor(-8/2), -8);
-        this.combat.castles.player = pHex;
-        this.combat.castles.enemy = eHex;
-        this.addBuilding(pHex, 'castle', 'player');
-        this.addBuilding(eHex, 'castle', 'enemy');
-
-        const warZoom = this.deviceProfile && this.deviceProfile.isMobile
-            ? this.deviceProfile.baseZoom
-            : 0.8;
-        this.cam.x = this.viewport.width / 2; this.cam.y = this.viewport.height / 2; this.cam.zoom = warZoom;
-        document.getElementById('ui-overworld').classList.remove('visible');
-        document.getElementById('ui-combat').classList.add('visible');
-        document.getElementById('state-txt').innerText = "WARZONE";
-        this.updateHUD();
-        this.showWarTip();
-        this.playWarStartFX(anchorX, anchorY);
-    },
+    startWar(clickEvt) { return startWar(this, clickEvt); },
 
     /**
      * Trigger the non-blocking visual/audio feedback for war startup.
@@ -1291,64 +913,9 @@ const Game = {
         }
     },
 
-    loseOverworldHexes(count) {
-        const keys = Array.from(this.overworld.hexes.keys());
-        const candidates = keys.filter(k => this.overworld.hexes.get(k).type !== 'castle');
-        
-        let lost = 0;
-        while(lost < count && candidates.length > 0) {
-            const index = Math.floor(Math.random() * candidates.length);
-            const keyToRemove = candidates[index];
-            this.overworld.hexes.delete(keyToRemove);
-            candidates.splice(index, 1); 
-            lost++;
-        }
-        this.calcOverworldGhosts();
-        return lost;
-    },
+    loseOverworldHexes(count) { return loseOverworldHexes(this, count); },
 
-    endWar(outcome, clickEvt) {
-        this.state = 'OVERWORLD';
-        const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
-        const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
-        let result = outcome;
-
-        if(outcome === 'DEFEAT' && this.research.lives > 0) {
-            this.research.lives -= 1;
-            result = 'REVIVE';
-        }
-
-        if(result === 'VICTORY') {
-            this.wood += 60;
-            this.difficulty++;
-            this.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
-            this.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
-            this.playSound('victory');
-        }
-        else if(result === 'DEFEAT') {
-            const lost = this.loseOverworldHexes(Math.floor(Math.random()*6)+5); // 5-10
-            this.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
-            setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
-            this.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
-            this.playSound('defeat');
-        }
-        else if(result === 'RETREAT') {
-            const lost = this.loseOverworldHexes(Math.floor(Math.random()*5)+1); // 1-5
-            this.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
-            setTimeout(() => this.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
-            this.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
-            this.playSound('defeat');
-        }
-
-        this.recordWarEnd(result);
-
-        document.getElementById('ui-overworld').classList.add('visible');
-        document.getElementById('ui-combat').classList.remove('visible');
-        document.getElementById('state-txt').innerText = "KINGDOM";
-        this.hideWarTip();
-        this.updateHUD();
-        this.armAmbientLoop();
-    },
+    endWar(outcome, clickEvt) { return endWar(this, outcome, clickEvt); },
 
     showWarTip() {
         const el = document.getElementById('tip-overlay');
