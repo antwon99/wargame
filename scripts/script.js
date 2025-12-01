@@ -20,6 +20,7 @@ import {
     startWar,
     updateCombat
 } from './combatEngine.js';
+import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -251,6 +252,8 @@ const Game = {
 
         setupUIBindings(this);
 
+        this.armAmbientLoop();
+
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
     },
@@ -277,15 +280,12 @@ const Game = {
 
     /** Start or swap the peaceful ambiance conductor playlist. */
     armAmbientLoop() {
-        if (typeof window === 'undefined') return;
-        window.AmbientSoundscape?.enterMode?.('TERRITORY');
-        window.AmbientSoundscape?.start?.();
+        armAmbientLoopHelper();
     },
 
     /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
-        if (typeof window === 'undefined') return;
-        window.AmbientSoundscape?.stopAll?.();
+        haltAmbientLoopHelper();
     },
 
     /** Route game SFX to the manifest-driven audio manager. */
