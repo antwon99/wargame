@@ -464,56 +464,82 @@ class AmbientConductor {
     }
 }
 
+const SFX_GROUPS = {
+    ambientLoops: ['sfx/ambient/ambient.mp3'],
+    wardrums: ['sfx/ambient/wardrum.mp3'],
+    city: ['sfx/ambient/city.mp3'],
+    swords: [
+        { src: 'sfx/combat/sword/sword.mp3', weight: 2 },
+        { src: 'sfx/combat/sword/sword2.mp3', weight: 1 },
+        { src: 'sfx/combat/sword/sword3.mp3', weight: 1 },
+        { src: 'sfx/combat/sword/sword4.mp3', weight: 1 },
+        { src: 'sfx/combat/sword/sword5.mp3', weight: 1 }
+    ],
+    arrows: [
+        { src: 'sfx/combat/arrow/arrow.mp3', weight: 2 },
+        { src: 'sfx/combat/arrow/arrow2.mp3', weight: 1 },
+        { src: 'sfx/combat/arrow/arrow3.mp3', weight: 1 },
+        { src: 'sfx/combat/arrow/arrow4.mp3', weight: 1 }
+    ],
+    towers: [
+        { src: 'sfx/combat/tower/tower.mp3', weight: 2 },
+        { src: 'sfx/combat/tower/tower2.mp3', weight: 1 },
+        { src: 'sfx/combat/tower/tower3.mp3', weight: 1 }
+    ],
+    rares: [
+        { src: 'sfx/ui/rare.mp3', weight: 2 },
+        { src: 'sfx/ui/rare2.mp3', weight: 1 },
+        { src: 'sfx/ui/rare3.mp3', weight: 1 }
+    ],
+    victory: ['sfx/system/victory.mp3'],
+    defeat: ['sfx/system/defeat.mp3'],
+    territoryMusic: [
+        'sfx/ambient/ambiance_upbeat.mp3',
+        'sfx/ambient/ambiance_uplifting.mp3'
+    ],
+    warMusic: [
+        'sfx/ambient/ambiance_sorrow.mp3',
+        'sfx/ambient/ambiance_dark.mp3'
+    ],
+    /**
+     * Choptree is the only remaining root-level effect because it straddles
+     * UI feedback and resource collection; grouping it would be premature
+     * without more context on where it should sit.
+     */
+    misc: ['sfx/choptree.mp3']
+};
+
 const SFX_MANIFEST = {
-    wardrum: { src: 'sfx/wardrum.mp3', cooldownMs: 1200 },
+    wardrum: { src: SFX_GROUPS.wardrums[0], cooldownMs: 1200 },
     sword: {
         allowOverlap: true,
         cooldownMs: 90,
-        variations: [
-            { src: 'sfx/sword.mp3', weight: 2 },
-            { src: 'sfx/sword2.mp3', weight: 1 },
-            { src: 'sfx/sword3.mp3', weight: 1 },
-            { src: 'sfx/sword4.mp3', weight: 1 },
-            { src: 'sfx/sword5.mp3', weight: 1 }
-        ]
+        variations: SFX_GROUPS.swords
     },
     arrow: {
         allowOverlap: true,
         cooldownMs: 90,
-        variations: [
-            { src: 'sfx/arrow.mp3', weight: 2 },
-            { src: 'sfx/arrow2.mp3', weight: 1 },
-            { src: 'sfx/arrow3.mp3', weight: 1 },
-            { src: 'sfx/arrow4.mp3', weight: 1 }
-        ]
+        variations: SFX_GROUPS.arrows
     },
     tower: {
         allowOverlap: true,
         cooldownMs: 120,
-        variations: [
-            { src: 'sfx/tower.mp3', weight: 2 },
-            { src: 'sfx/tower2.mp3', weight: 1 },
-            { src: 'sfx/tower3.mp3', weight: 1 }
-        ]
+        variations: SFX_GROUPS.towers
     },
     rare: {
         allowOverlap: true,
         cooldownMs: 140,
-        variations: [
-            { src: 'sfx/rare.mp3', weight: 2 },
-            { src: 'sfx/rare2.mp3', weight: 1 },
-            { src: 'sfx/rare3.mp3', weight: 1 }
-        ]
+        variations: SFX_GROUPS.rares
     },
-    defeat: { src: 'sfx/defeat.mp3', cooldownMs: 400 },
-    victory: { src: 'sfx/victory.mp3', cooldownMs: 400 },
-    city: { src: 'sfx/city.mp3', cooldownMs: 100 },
-    choptree: { src: 'sfx/choptree.mp3', cooldownMs: 100 },
-    ambient: { src: 'sfx/ambient.mp3', loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0 },
-    ambiance_upbeat: { src: 'sfx/ambiance_upbeat.mp3', volume: 0.55, cooldownMs: 0, allowOverlap: true },
-    ambiance_uplifting: { src: 'sfx/ambiance_uplifting.mp3', volume: 0.55, cooldownMs: 0, allowOverlap: true },
-    ambiance_sorrow: { src: 'sfx/ambiance_sorrow.mp3', volume: 0.6, cooldownMs: 0, allowOverlap: true },
-    ambiance_dark: { src: 'sfx/ambiance_dark.mp3', volume: 0.6, cooldownMs: 0, allowOverlap: true }
+    defeat: { src: SFX_GROUPS.defeat[0], cooldownMs: 400 },
+    victory: { src: SFX_GROUPS.victory[0], cooldownMs: 400 },
+    city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
+    choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
+    ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0 },
+    ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true },
+    ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true },
+    ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true },
+    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true }
 };
 
 const GameAudio = new AudioManager(SFX_MANIFEST);
@@ -549,10 +575,11 @@ const AMBIENT_STATES = {
 const AmbientSoundscape = new AmbientConductor(GameAudio, { initialMode: 'TERRITORY', states: AMBIENT_STATES });
 
 if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus };
+    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus };
 }
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;
     window.GameAudio = GameAudio;
     window.AmbientSoundscape = AmbientSoundscape;
+    window.SFX_GROUPS = SFX_GROUPS;
 }
