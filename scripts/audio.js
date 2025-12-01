@@ -466,8 +466,8 @@ class AmbientConductor {
 
 const SFX_GROUPS = {
     ambientLoops: ['sfx/ambient/ambient.mp3'],
-    wardrums: ['sfx/ambient/wardrum.mp3'],
-    city: ['sfx/ambient/city.mp3'],
+    wardrums: ['sfx/system/wardrum.mp3'],
+    city: ['sfx/territory/city.mp3'],
     swords: [
         { src: 'sfx/combat/sword/sword.mp3', weight: 2 },
         { src: 'sfx/combat/sword/sword2.mp3', weight: 1 },
@@ -502,11 +502,11 @@ const SFX_GROUPS = {
         'sfx/ambient/ambiance_dark.mp3'
     ],
     /**
-     * Choptree is the only remaining root-level effect because it straddles
-     * UI feedback and resource collection; grouping it would be premature
-     * without more context on where it should sit.
+     * Choptree straddles UI feedback and resource collection but currently
+     * lives alongside other territory cues to keep surface interactions
+     * bundled together.
      */
-    misc: ['sfx/choptree.mp3']
+    misc: ['sfx/territory/choptree.mp3']
 };
 
 const SFX_MANIFEST = {
