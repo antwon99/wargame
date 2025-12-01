@@ -6,15 +6,16 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ```
 .
+├─ docs/
+├─ scripts/
+├─ sfx/
+├─ tests/
+├─ .gitignore
 ├─ AGENTS.md
 ├─ README.md
 ├─ Wargame.html
-├─ docs/
 ├─ index.html
-├─ scripts/
-├─ sfx/
-├─ style.css
-└─ tests/
+└─ style.css
 ```
 
 
