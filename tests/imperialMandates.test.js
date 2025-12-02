@@ -52,15 +52,18 @@ function testInitializeImperialIntroActivatesMandate() {
     assert.strictEqual(callouts[0].options.title, 'By Imperial Decree:', 'opening decree should be shown as a callout');
     assert.ok(state.firstMandateActive, 'mandate should be active after spawning rebel camp');
     assert.ok(state.firstMandateRebelTileId, 'tracked rebel tile id should be stored');
+    assert.strictEqual(state.preferAnchoredDecree, false, 'anchored renderer should be consumed after first decree');
 }
 
 function testHandleTileClearedCompletesMandate() {
     const gameState = buildGameState();
     ImperialMandates.resetMandateState();
 
+    const modalConfigs = [];
     const uiBindings = {
         showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
-        hideTileCallout: () => null
+        hideTileCallout: () => null,
+        showImperialModal: (config) => modalConfigs.push(config)
     };
 
     ImperialMandates.initializeImperialIntro(gameState, uiBindings);
@@ -76,6 +79,7 @@ function testHandleTileClearedCompletesMandate() {
     const state = ImperialMandates.getMandateState();
     assert.ok(state.firstMandateCompleted, 'mandate completes when rebel camp cleared');
     assert.ok(!RebelSystem.isRebelCampTile(trackedTile), 'rebel flag should be removed after completion');
+    assert.strictEqual(modalConfigs[0].buttonLabel, null, 'follow-up decrees should use no-button renderer');
 }
 
 function testDecreeCalloutSupportsBoundHelpers() {
@@ -96,6 +100,26 @@ function testDecreeCalloutSupportsBoundHelpers() {
     const trackedTile = gameState.overworld.hexes.get(state.firstMandateRebelTileId);
 
     assert.strictEqual(callouts[0].tile, trackedTile, 'rebel camp tile should anchor bound callout helper');
+}
+
+function testReprimandUsesStandardImperialRenderer() {
+    const gameState = buildGameState();
+    ImperialMandates.resetMandateState();
+
+    const decrees = [];
+    const uiBindings = {
+        showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
+        hideTileCallout: () => null,
+        showImperialModal: (config) => decrees.push(config)
+    };
+
+    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
+    const trackedTile = gameState.overworld.hexes.get(ImperialMandates.getMandateState().firstMandateRebelTileId);
+
+    ImperialMandates.handleBattleEnd('DEFEAT', trackedTile, gameState, uiBindings);
+
+    assert.strictEqual(decrees[0].buttonLabel, null, 'imperial reprimand should render without confirmation button');
+    assert.ok(decrees[0].lines.includes('The frontier has been pushed back.'), 'reprimand text should be forwarded to renderer');
 }
 
 function testRebelDecreeCanRequestAutoHide() {
@@ -120,6 +144,7 @@ function run() {
     testHandleTileClearedCompletesMandate();
     testDecreeCalloutSupportsBoundHelpers();
     testRebelDecreeCanRequestAutoHide();
+    testReprimandUsesStandardImperialRenderer();
     console.log('All imperial mandate tests passed.');
 }
 
