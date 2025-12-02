@@ -36,6 +36,23 @@ const IntroOverlay = {
         if (!this.overlayEl || !this.active) return;
         this.active = false;
         this.overlayEl.classList.add('intro-hidden');
+
+        // Notify downstream systems that the welcome gate has been cleared so
+        // tutorial popups and mandate setup can begin.
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('intro:begin'));
+        }
+    },
+
+    /**
+     * Restore the overlay so a fresh campaign can replay the welcome gate.
+     * Useful when the user resets progress without reloading the page.
+     */
+    reset() {
+        if (!this.overlayEl) return;
+        this.active = true;
+        this.overlayEl.style.display = 'flex';
+        this.overlayEl.classList.remove('intro-hidden');
     }
 };
 

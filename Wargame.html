@@ -18,6 +18,9 @@
     <div id="game-container">
         <canvas id="canvas"></canvas>
         <div class="fx-layer" id="fx-layer"></div>
+        <div class="tile-action-layer" id="tile-action-layer">
+            <button class="tile-attack-button" id="tile-attack-overlay-btn" type="button">⚔️ Attack</button>
+        </div>
         <div id="audio-debug"></div>
         <div id="debug-log"></div>
         <div id="tip-overlay"></div>
@@ -46,7 +49,6 @@
                 </div>
                 <div id="tile-inspector" class="tile-inspector" aria-live="polite">
                     <div class="tile-inspector__label" id="tile-inspector-label">Select a tile to inspect</div>
-                    <button class="btn btn-war btn-attack" id="tile-attack-btn" type="button">⚔️ Attack</button>
                 </div>
             </div>
 
