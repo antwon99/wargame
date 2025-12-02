@@ -65,7 +65,8 @@ export function getUnitStats(game, type) {
     const base = UNITS[type];
     if(!base) return { hp: 100, dmg: 10, speed: 1, range: 1 };
     if (type === 'soldier' || type === 'archer') {
-        const multi = 1 + ((game.upgrades[type] - 1) * 0.2);
+        const level = Number(game.upgrades?.[type] ?? 1);
+        const multi = 1 + ((level - 1) * 0.2);
         return { ...base, hp: base.hp * multi, dmg: base.dmg * multi };
     }
     return base;
@@ -82,7 +83,8 @@ export function getBuildingStats(game, type, owner) {
     const def = COMBAT_BUILDINGS[type.toUpperCase()];
     if(owner !== 'player') return def;
     if(type === 'tower' || type === 'castle') {
-        const multi = 1 + ((game.upgrades.defense - 1) * 0.25);
+        const level = Number(game.upgrades?.defense ?? 1);
+        const multi = 1 + ((level - 1) * 0.25);
         return { ...def, hp: def.hp * multi, dmg: def.dmg * multi };
     }
     return def;
@@ -95,7 +97,8 @@ export function getBuildingStats(game, type, owner) {
  * @returns {number} adjusted spawn rate.
  */
 export function getSpawnRate(game, baseRate) {
-    const multi = Math.pow(0.9, game.upgrades.production - 1);
+    const level = Number(game.upgrades?.production ?? 1);
+    const multi = Math.pow(0.9, level - 1);
     return baseRate * multi;
 }
 
