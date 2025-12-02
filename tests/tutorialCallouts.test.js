@@ -37,6 +37,7 @@ function buildStubDom() {
     const body = createStubElement();
     body.appendChild = (child) => body.children.push(child);
     const timers = [];
+    const frames = [];
     const stubSetTimeout = (cb, delay) => {
         const timer = { cb, delay, cancelled: false };
         timers.push(timer);
@@ -47,6 +48,17 @@ function buildStubDom() {
         const target = timers.find((t) => t === timer);
         if (target) target.cancelled = true;
     };
+    const stubRequestAnimationFrame = (cb) => {
+        const frame = { cb, cancelled: false };
+        frames.push(frame);
+        return frame;
+    };
+    const stubCancelAnimationFrame = (frame) => {
+        if (!frame) return;
+        const target = frames.find((f) => f === frame);
+        if (target) target.cancelled = true;
+    };
+    const listenerMap = {};
     const doc = {
         body,
         getElementById: (id) => (id === 'game-container' ? container : null),
@@ -58,10 +70,33 @@ function buildStubDom() {
     const win = {
         innerWidth: 800,
         innerHeight: 600,
-        requestAnimationFrame: (cb) => cb(),
+        requestAnimationFrame: stubRequestAnimationFrame,
+        cancelAnimationFrame: stubCancelAnimationFrame,
         setTimeout: stubSetTimeout,
         clearTimeout: stubClearTimeout,
-        __timers: timers
+        addEventListener: (event, cb) => {
+            listenerMap[event] = listenerMap[event] || new Set();
+            listenerMap[event].add(cb);
+        },
+        removeEventListener: (event, cb) => {
+            if (!listenerMap[event]) return;
+            listenerMap[event].delete(cb);
+        },
+        __timers: timers,
+        __frames: frames,
+        __listeners: listenerMap,
+        __runFrames: () => {
+            const pending = [...frames];
+            frames.length = 0;
+            pending.forEach((frame) => {
+                if (!frame.cancelled) frame.cb();
+            });
+        },
+        __dispatch: (event) => {
+            const listeners = listenerMap[event];
+            if (!listeners) return;
+            listeners.forEach((cb) => cb());
+        }
     };
     return { anchorEl, container, body, document: doc, window: win };
 }
@@ -70,12 +105,14 @@ function withStubbedDom(cb) {
     const originalWindow = global.window;
     const originalDocument = global.document;
     const originalRAF = global.requestAnimationFrame;
+    const originalCancelRAF = global.cancelAnimationFrame;
     const originalSetTimeout = global.setTimeout;
     const originalClearTimeout = global.clearTimeout;
     const env = buildStubDom();
     global.window = env.window;
     global.document = env.document;
     global.requestAnimationFrame = env.window.requestAnimationFrame;
+    global.cancelAnimationFrame = env.window.cancelAnimationFrame;
     global.setTimeout = env.window.setTimeout;
     global.clearTimeout = env.window.clearTimeout;
     delete global.TutorialCallouts;
@@ -87,6 +124,7 @@ function withStubbedDom(cb) {
         global.window = originalWindow;
         global.document = originalDocument;
         global.requestAnimationFrame = originalRAF;
+        global.cancelAnimationFrame = originalCancelRAF;
         global.setTimeout = originalSetTimeout;
         global.clearTimeout = originalClearTimeout;
         delete global.TutorialCallouts;
@@ -114,6 +152,8 @@ function testHideRemovesElements() {
         TutorialCallouts.hideTileCallout();
         const removalFlags = env.document.getElementById('game-container').children.map((child) => child.removed);
         assert.ok(removalFlags.every(Boolean), 'callout and connector should be removed on hide');
+        const cancelledFrames = env.window.__frames.filter((frame) => frame.cancelled);
+        assert.ok(cancelledFrames.length >= 1, 'reflow frame should be cancelled on hide');
     });
 }
 
@@ -155,12 +195,34 @@ function testDismissCancelsAutoHideTimer() {
     });
 }
 
+function testCalloutRepositionsWithFramesAndResize() {
+    withStubbedDom((TutorialCallouts, env) => {
+        TutorialCallouts.showTileCallout({}, { element: env.anchorEl }, { title: 'Follow me' });
+        const callout = env.document.getElementById('game-container').children.find((el) => el.className === 'tile-callout');
+
+        const initialLeft = parseFloat(callout.style.left);
+        env.anchorEl.__rect.left += 120;
+        env.anchorEl.__rect.top += 80;
+
+        env.window.__runFrames();
+        const updatedLeft = parseFloat(callout.style.left);
+        assert.notStrictEqual(updatedLeft, initialLeft, 'callout should update position on animation frame');
+
+        env.anchorEl.__rect.left += 40;
+        env.anchorEl.__rect.top += 20;
+        env.window.__dispatch('resize');
+        const resizedLeft = parseFloat(callout.style.left);
+        assert.notStrictEqual(resizedLeft, updatedLeft, 'callout should reflow when window resizes');
+    });
+}
+
 function run() {
     testCalloutAnchorsAboveTile();
     testHideRemovesElements();
     testOnConfirmRunsWithoutDom();
     testAutoHideUsesDefaultDuration();
     testDismissCancelsAutoHideTimer();
+    testCalloutRepositionsWithFramesAndResize();
     console.log('All tutorial callout tests passed.');
 }
 
