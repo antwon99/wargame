@@ -17,12 +17,6 @@
             font-family: 'Segoe UI', system-ui, sans-serif;
             touch-action: none;
             user-select: none;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: clamp(10px, 3vw, 28px);
-            box-sizing: border-box;
         }
 
         .sr-only {
@@ -36,50 +30,9 @@
             border: 0;
         }
 
-        /* Responsive shell keeps the board centered and capped on large desktops. */
-        .game-viewport {
-            width: min(1200px, 98vw);
-            height: clamp(540px, 88vh, 900px);
-            max-height: calc(100vh - clamp(48px, 8vh, 120px));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .game-frame {
-            width: 100%;
-            height: 100%;
-            display: grid;
-            place-items: center;
-        }
-
-        #game-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            max-width: clamp(340px, 95vw, 1200px);
-            max-height: clamp(520px, 90vh, 880px);
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
-        }
-
-        .fx-layer {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 16;
-            max-width: 100%;
-            max-height: 100%;
-        }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
 
         /* Audio Debug Console (diagnostic-only; safe to remove after triage) */
         #audio-debug-panel {
@@ -175,11 +128,10 @@
         .enemy-value { color: #9be3b4; font-weight: 800; font-size: 0.95rem; }
 
         .controls {
-            padding: clamp(14px, 3vh, 22px);
-            padding-bottom: clamp(30px, 8vh, 60px);
+            padding: 20px; padding-bottom: 40px;
             background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
             text-align: center; pointer-events: none;
-            display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 2vh, 18px);
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
         }
 
         .btn {
