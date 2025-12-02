@@ -97,14 +97,22 @@
             || (TutorialCallouts && TutorialCallouts.hideTileCallout);
 
         if (typeof showTileCallout === 'function') {
-            showTileCallout(gameState, rebelTile, {
+            const calloutOptions = {
                 title: 'By Imperial Decree:',
                 body: bodyHtml,
                 buttonText: 'Understood',
                 onConfirm: () => {
                     if (typeof hideTileCallout === 'function') hideTileCallout();
                 }
-            });
+            };
+
+            // uiBindings may pass the raw helper (expects game first) or a game-bound wrapper (tile first).
+            const expectsGameFirst = showTileCallout.length >= 3;
+            if (expectsGameFirst) {
+                showTileCallout(gameState, rebelTile, calloutOptions);
+            } else {
+                showTileCallout(rebelTile, calloutOptions);
+            }
             return;
         }
 
