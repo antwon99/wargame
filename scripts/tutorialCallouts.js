@@ -81,6 +81,7 @@
     /** Remove any active callout from the DOM. */
     function hideTileCallout() {
         clearAutoHideTimer();
+        if (typeof activeCallout?.cleanup === 'function') activeCallout.cleanup();
         if (activeCallout?.callout) activeCallout.callout.remove();
         if (activeCallout?.connector) activeCallout.connector.remove();
         activeCallout = null;
@@ -139,12 +140,44 @@
         positionCallout(callout, connector, resolveAnchorRect(game, tile));
 
         const tick = global.requestAnimationFrame || ((cb) => setTimeout(cb, 16));
+        const cancelTick = global.cancelAnimationFrame || global.clearTimeout || clearTimeout;
+        const resizeListener = () => positionCallout(callout, connector, resolveAnchorRect(game, tile));
+
+        // Keep the callout locked onto the anchor even as the camera or viewport moves.
+        const scheduleReflow = () => {
+            const frame = tick(() => {
+                if (!activeCallout) return;
+                positionCallout(callout, connector, resolveAnchorRect(game, tile));
+                scheduleReflow();
+            });
+            if (activeCallout) {
+                activeCallout.frame = frame;
+            }
+        };
+
         tick(() => {
             callout.classList.add('tile-callout--visible');
             connector.classList.add('visible');
         });
 
-        activeCallout = { callout, connector, autoHideTimer: null };
+        activeCallout = {
+            callout,
+            connector,
+            autoHideTimer: null,
+            frame: null,
+            cleanup() {
+                if (typeof global.removeEventListener === 'function') {
+                    global.removeEventListener('resize', resizeListener);
+                }
+                if (this.frame) cancelTick(this.frame);
+                this.frame = null;
+            }
+        };
+
+        if (typeof global.addEventListener === 'function') {
+            global.addEventListener('resize', resizeListener);
+        }
+        scheduleReflow();
 
         const duration = options.duration === undefined ? 5000 : options.duration;
         if (typeof duration === 'number' && duration > 0) {
