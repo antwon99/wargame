@@ -12,6 +12,7 @@
     let firstMandateRebelTileId = null;
     let firstMandateCompleted = false;
     let firstMandateReprimandShown = false; // prevents repeat reprimands if the player loses multiple times
+    let preferAnchoredDecree = true;
 
     function getTileKey(tile) {
         if (!tile) return null;
@@ -41,7 +42,7 @@
     }
 
     function renderImperialModal(config) {
-        const { title, lines, buttonLabel, onConfirm } = config;
+        const { title, lines, buttonLabel, onConfirm, duration } = config;
         if (typeof document === 'undefined') {
             if (typeof onConfirm === 'function') onConfirm();
             return;
@@ -60,18 +61,25 @@
 
         (lines || []).forEach((text) => panel.appendChild(createLineElement(text)));
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'imperial-modal-btn';
-        btn.innerText = buttonLabel || 'Understood';
-        btn.addEventListener('click', () => {
-            backdrop.remove();
-            if (typeof onConfirm === 'function') onConfirm();
-        });
-        panel.appendChild(btn);
+        if (buttonLabel !== null && buttonLabel !== false) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'imperial-modal-btn';
+            btn.innerText = buttonLabel || 'Understood';
+            btn.addEventListener('click', () => {
+                backdrop.remove();
+                if (typeof onConfirm === 'function') onConfirm();
+            });
+            panel.appendChild(btn);
+        }
 
         backdrop.appendChild(panel);
         document.body.appendChild(backdrop);
+
+        if (buttonLabel === null || buttonLabel === false) {
+            const timeout = typeof duration === 'number' ? duration : 4000;
+            setTimeout(() => backdrop.remove(), timeout);
+        }
     }
 
     function showImperialMessage(config, uiBindings) {
@@ -80,6 +88,37 @@
             return;
         }
         renderImperialModal(config);
+    }
+
+    const IMPERIAL_DECREE_POOL = [
+        ['By command of the Emperor, do not relent.'],
+        ['Rebel forces regroup in the shadows. Stay alert.'],
+        ['Expand, fortify, and remind them who owns these lands.'],
+        ['Imperial scribes note your progress. Continue the march.']
+    ];
+
+    function getImperialDecreeLines(lines) {
+        if (Array.isArray(lines) && lines.length) return lines;
+        const randomIndex = Math.floor(Math.random() * IMPERIAL_DECREE_POOL.length);
+        return IMPERIAL_DECREE_POOL[randomIndex];
+    }
+
+    /**
+     * Show a floating imperial decree using the standard renderer (no button, auto-dismiss).
+     * Falls back to a randomized imperial notice if no specific lines are provided.
+     * @param {string[]} [lines] decree body lines.
+     * @param {object} [uiBindings] optional UI helper overrides.
+     * @param {object} [options] optional renderer controls.
+     * @param {number} [options.duration] auto-dismiss override in milliseconds.
+     * @param {string} [options.title] override for the decree title.
+     */
+    function showStandardImperialDecree(lines, uiBindings, { duration, title = 'By Imperial Decree:' } = {}) {
+        showImperialMessage({
+            title,
+            lines: getImperialDecreeLines(lines),
+            buttonLabel: null,
+            duration
+        }, uiBindings);
     }
 
     /**
@@ -129,6 +168,21 @@
         }, uiBindings);
     }
 
+    function consumeAnchoredDecree() {
+        preferAnchoredDecree = false;
+    }
+
+    function presentInitialDecree(rebelTile, gameState, uiBindings, calloutOptions) {
+        if (preferAnchoredDecree && rebelTile) {
+            showRebelDecreeCallout(rebelTile, gameState, uiBindings, calloutOptions);
+            consumeAnchoredDecree();
+            return;
+        }
+
+        consumeAnchoredDecree();
+        showStandardImperialDecree(null, uiBindings);
+    }
+
     /**
      * Sets up the first imperial mandate if this is a new run.
      * Should be called once when a new game starts and the overworld loads.
@@ -146,7 +200,7 @@
 
         firstMandateRebelTileId = getTileKey(rebelTile);
         firstMandateActive = true;
-        showRebelDecreeCallout(rebelTile, gameState, uiBindings);
+        presentInitialDecree(rebelTile, gameState, uiBindings);
         if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
     }
 
@@ -167,11 +221,9 @@
         firstMandateCompleted = true;
         resetTrackedRebel(tile, gameState);
 
-        showImperialMessage({
-            title: 'The Emperor is pleased.',
-            lines: ['Expand the territory while the frontier is quiet.'],
-            buttonLabel: 'Continue'
-        }, uiBindings);
+        showStandardImperialDecree(['Expand the territory while the frontier is quiet.'], uiBindings, {
+            title: 'The Emperor is pleased.'
+        });
     }
 
     /**
@@ -190,11 +242,10 @@
 
         if ((outcome === 'DEFEAT' || outcome === 'REVIVE') && !firstMandateReprimandShown) {
             firstMandateReprimandShown = true;
-            showImperialMessage({
-                title: 'Imperial Reprimand',
-                lines: ['The frontier has been pushed back.', 'Regroup and destroy the encampment.'],
-                buttonLabel: 'We will not fail again'
-            }, uiBindings);
+            showStandardImperialDecree([
+                'The frontier has been pushed back.',
+                'Regroup and destroy the encampment.'
+            ], uiBindings, { title: 'Imperial Reprimand' });
             return;
         }
 
@@ -205,10 +256,16 @@
 
     /**
      * Introspection helper primarily for tests.
-     * @returns {{ firstMandateActive: boolean, firstMandateRebelTileId: string|null, firstMandateCompleted: boolean }}
+     * @returns {{ firstMandateActive: boolean, firstMandateRebelTileId: string|null, firstMandateCompleted: boolean, preferAnchoredDecree: boolean }}
      */
     function getMandateState() {
-        return { firstMandateActive, firstMandateRebelTileId, firstMandateCompleted, firstMandateReprimandShown };
+        return {
+            firstMandateActive,
+            firstMandateRebelTileId,
+            firstMandateCompleted,
+            firstMandateReprimandShown,
+            preferAnchoredDecree
+        };
     }
 
     /** Reset internal flags for deterministic tests. */
@@ -217,6 +274,7 @@
         firstMandateRebelTileId = null;
         firstMandateCompleted = false;
         firstMandateReprimandShown = false;
+        preferAnchoredDecree = true;
     }
 
     const api = {
