@@ -246,7 +246,7 @@ const Game = {
 
         window.addEventListener('intro:begin', () => {
             if (this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
-                ImperialMandates.initializeImperialIntro(this, { showRebelHint: this.showRebelHint });
+                ImperialMandates.initializeImperialIntro(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
                 this.shouldRunImperialIntro = false;
             }
         });
@@ -360,7 +360,7 @@ const Game = {
         if (ImperialMandates?.resetMandateState) ImperialMandates.resetMandateState();
         this.shouldRunImperialIntro = typeof document !== 'undefined';
         if (!this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
-            ImperialMandates.initializeImperialIntro(this, { showRebelHint: this.showRebelHint });
+            ImperialMandates.initializeImperialIntro(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
         }
     },
 

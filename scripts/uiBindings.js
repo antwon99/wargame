@@ -32,7 +32,8 @@ export function applyUIBindings(game, deps = {}) {
     game.showWarTip = () => showWarTip(dependencies);
     game.hideWarTip = () => hideWarTip();
     game.showOverworldUI = () => showOverworldUI();
-    game.showRebelHint = (tile) => showRebelHint(game, tile);
+    game.showTileCallout = (tile, opts) => showTileCallout(game, tile, opts);
+    game.hideTileCallout = () => hideTileCallout();
 }
 
 /**
@@ -351,22 +352,31 @@ function showFloatingText(game, x, y, txt, cssClass) {
 }
 
 /**
- * Drop a temporary hint near a rebel camp so players see where to strike.
- * @param {object} game live game singleton.
- * @param {object} tile rebel tile to highlight.
+ * Resolve the shared tutorial callout helper regardless of module system.
  */
-function showRebelHint(game, tile) {
-    const layer = document.getElementById('tile-action-layer') || document.getElementById('fx-layer');
-    if (!layer || !tile) return;
-    const hint = document.createElement('div');
-    hint.className = 'rebel-hint';
-    hint.innerText = '⬆ The rebel camp is here';
+function getCalloutHelper() {
+    if (typeof TutorialCallouts !== 'undefined') return TutorialCallouts;
+    if (typeof window !== 'undefined' && window.TutorialCallouts) return window.TutorialCallouts;
+    return null;
+}
 
-    const pos = game.projectHexToScreen(tile.hex || tile);
-    hint.style.left = `${pos.x - 64}px`;
-    hint.style.top = `${pos.y - 86}px`;
-    layer.appendChild(hint);
-    setTimeout(() => hint.remove(), 10000);
+/**
+ * Display a tile-anchored callout using the shared tutorial helper so game logic stays DOM-agnostic.
+ * @param {object} game live game singleton.
+ * @param {object} tile tile to anchor against.
+ * @param {object} options passthrough options for TutorialCallouts.showTileCallout.
+ */
+function showTileCallout(game, tile, options) {
+    const helper = getCalloutHelper();
+    if (!helper || typeof helper.showTileCallout !== 'function') return null;
+    return helper.showTileCallout(game, tile, options);
+}
+
+/** Hide the active tile-anchored callout when the player acknowledges the prompt. */
+function hideTileCallout() {
+    const helper = getCalloutHelper();
+    if (!helper || typeof helper.hideTileCallout !== 'function') return;
+    helper.hideTileCallout();
 }
 
 function triggerCameraShake(game) {
