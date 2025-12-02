@@ -5,6 +5,8 @@
 (function (global) {
     const RebelSystem = (global.RebelSystem)
         || (typeof require === 'function' ? require('./rebelSystem.js') : {});
+    const TutorialCallouts = (global.TutorialCallouts)
+        || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
 
     let firstMandateActive = false;
     let firstMandateRebelTileId = null;
@@ -72,39 +74,48 @@
         document.body.appendChild(backdrop);
     }
 
-    /**
-     * Lightweight directional hint for the first rebel camp; shown near the
-     * targeted hex instead of blocking the screen with another modal.
-     * @param {object} rebelTile rebel tile reference.
-     * @param {object} gameState live game state for projection helpers.
-     */
-    function renderFrontierHint(rebelTile, gameState) {
-        if (typeof document === 'undefined' || !rebelTile) return;
-        const layer = document.getElementById('tile-action-layer') || document.body;
-        const hint = document.createElement('div');
-        hint.className = 'rebel-hint';
-        hint.innerText = '⬆ The rebel camp is here';
-
-        let pos = { x: window.innerWidth * 0.5, y: window.innerHeight * 0.35 };
-        const hex = rebelTile.hex || rebelTile;
-        if (typeof gameState?.projectHexToScreen === 'function') {
-            pos = gameState.projectHexToScreen(hex);
-        } else if (hex && typeof hex.toPixel === 'function') {
-            pos = hex.toPixel({ origin: { x: 0, y: 0 }, size: 30, f0: Math.sqrt(3), f1: Math.sqrt(3) / 2, f2: 0, f3: 1.5 });
-        }
-
-        hint.style.left = `${pos.x - 64}px`;
-        hint.style.top = `${pos.y - 86}px`;
-        layer.appendChild(hint);
-        setTimeout(() => hint.remove(), 10000);
-    }
-
     function showImperialMessage(config, uiBindings) {
         if (uiBindings?.showImperialModal) {
             uiBindings.showImperialModal(config);
             return;
         }
         renderImperialModal(config);
+    }
+
+    /**
+     * Present the initial imperial decree as a spatially anchored callout next to the rebel camp.
+     * Falls back to the modal renderer when callouts are unavailable (tests/headless environments).
+     * @param {object} rebelTile tile the callout should point toward.
+     * @param {object} gameState live game state for projection helpers.
+     * @param {object} uiBindings optional UI helper overrides.
+     */
+    function showRebelDecreeCallout(rebelTile, gameState, uiBindings) {
+        const bodyHtml = ['Patrol the frontier.', 'Rebels have been sighted nearby.', 'Expand the Empire’s reach — and survive the rebels beyond the fog.'].join('<br>');
+        const showTileCallout = uiBindings?.showTileCallout
+            || (TutorialCallouts && TutorialCallouts.showTileCallout);
+        const hideTileCallout = uiBindings?.hideTileCallout
+            || (TutorialCallouts && TutorialCallouts.hideTileCallout);
+
+        if (typeof showTileCallout === 'function') {
+            showTileCallout(gameState, rebelTile, {
+                title: 'By Imperial Decree:',
+                body: bodyHtml,
+                buttonText: 'Understood',
+                onConfirm: () => {
+                    if (typeof hideTileCallout === 'function') hideTileCallout();
+                }
+            });
+            return;
+        }
+
+        showImperialMessage({
+            title: 'By Imperial Decree:',
+            lines: bodyHtml.split('<br>'),
+            buttonLabel: 'Understood',
+            onConfirm: () => {
+                if (typeof hideTileCallout === 'function') hideTileCallout();
+            }
+        }, uiBindings);
     }
 
     /**
@@ -116,32 +127,16 @@
     function initializeImperialIntro(gameState, uiBindings = {}) {
         if (firstMandateCompleted || firstMandateActive) return;
         firstMandateReprimandShown = false;
-        const opener = {
-            title: 'By Imperial Decree:',
-            lines: [
-                'Patrol the frontier.',
-                'Rebels have been sighted nearby.',
-                'Expand the Empire’s reach — and survive the rebels beyond the fog.'
-            ],
-            buttonLabel: 'Understood',
-            onConfirm: () => {
-                const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
-                if (!rebelTile) {
-                    console.warn('Imperial mandate could not place a rebel camp.');
-                    return;
-                }
-                firstMandateRebelTileId = getTileKey(rebelTile);
-                firstMandateActive = true;
-                if (uiBindings?.showRebelHint) {
-                    uiBindings.showRebelHint(rebelTile);
-                } else {
-                    renderFrontierHint(rebelTile, gameState);
-                }
-                if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
-            }
-        };
+        const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
+        if (!rebelTile) {
+            console.warn('Imperial mandate could not place a rebel camp.');
+            return;
+        }
 
-        showImperialMessage(opener, uiBindings);
+        firstMandateRebelTileId = getTileKey(rebelTile);
+        firstMandateActive = true;
+        showRebelDecreeCallout(rebelTile, gameState, uiBindings);
+        if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
     }
 
     /**
