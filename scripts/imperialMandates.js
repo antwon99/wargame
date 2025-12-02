@@ -1,6 +1,8 @@
 /**
- * Imperial mandate flow for introducing the rebel threat. Handles the first decree,
- * spawns a rebel camp, and listens for its destruction to provide narrative closure.
+ * King controller for imperial mandates.
+ * Coordinates the lifecycle for the first rebel order (destroy_first_rebel_camp),
+ * orchestrating issuance, reprimands, and completion messaging through the UI layer.
+ * Public API: issueInitialMandate, handleBattleOutcome, resetForNewCampaign, getKingState.
  */
 (function (global) {
     const RebelSystem = (global.RebelSystem)
@@ -8,11 +10,29 @@
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
 
-    let firstMandateActive = false;
-    let firstMandateRebelTileId = null;
-    let firstMandateCompleted = false;
-    let firstMandateReprimandShown = false; // prevents repeat reprimands if the player loses multiple times
+    /**
+     * Enumerated lifecycle states for mandates governed by the King.
+     * The flow currently only uses NOT_ISSUED → ACTIVE → COMPLETED for the rebel order,
+     * but FAILED is reserved for future mandates.
+     */
+    const MandateStatus = {
+        NOT_ISSUED: 'NOT_ISSUED',
+        ACTIVE: 'ACTIVE',
+        COMPLETED: 'COMPLETED',
+        FAILED: 'FAILED'
+    };
+
+    const kingState = {
+        firstRebelMandate: {
+            id: 'destroy_first_rebel_camp',
+            status: MandateStatus.NOT_ISSUED,
+            targetTileKey: null,
+            reprimandShown: false
+        }
+    };
+
     let preferAnchoredDecree = true;
+    let initialMandatePending = false;
 
     function getTileKey(tile) {
         if (!tile) return null;
@@ -122,24 +142,26 @@
     }
 
     /**
-     * Present the initial imperial decree as a spatially anchored callout next to the rebel camp.
-     * Falls back to the modal renderer when callouts are unavailable (tests/headless environments).
-     * @param {object} rebelTile tile the callout should point toward.
-     * @param {object} gameState live game state for projection helpers.
-     * @param {object} uiBindings optional UI helper overrides.
-     * @param {object} [calloutOptions] optional callout controls.
-     * @param {boolean} [calloutOptions.autoHide=false] whether to auto-dismiss the decree after 5 seconds.
+     * Render an anchored callout pointing to the rebel camp tile.
+     * Compatible with both game-bound and raw helper signatures from the tutorial system.
+     * @param {object} rebelTile tile to anchor the callout.
+     * @param {object} gameState live game state for helper signatures.
+     * @param {object} uiBindings optional UI helpers.
+     * @param {object} [options] renderer controls such as autoHide.
      */
-    function showRebelDecreeCallout(rebelTile, gameState, uiBindings, { autoHide = false } = {}) {
-        const bodyHtml = ['Patrol the frontier.', 'Rebels have been sighted nearby.', 'Expand the Empire’s reach — and survive the rebels beyond the fog.'].join('<br>');
-        const showTileCallout = uiBindings?.showTileCallout
+    function showRebelDecreeCallout(rebelTile, gameState, uiBindings = {}, options = {}) {
+        const { autoHide = false, title = 'By Imperial Decree:' } = options;
+        const bodyHtml = options.body
+            || 'Patrol the frontier.<br>Rebels have been sighted nearby.<br>Expand the Empire\'s reach — and survive the rebels beyond the fog.';
+
+        const showTileCallout = uiBindings.showTileCallout
             || (TutorialCallouts && TutorialCallouts.showTileCallout);
-        const hideTileCallout = uiBindings?.hideTileCallout
+        const hideTileCallout = uiBindings.hideTileCallout
             || (TutorialCallouts && TutorialCallouts.hideTileCallout);
 
         if (typeof showTileCallout === 'function') {
             const calloutOptions = {
-                title: 'By Imperial Decree:',
+                title,
                 body: bodyHtml,
                 buttonText: 'Understood',
                 duration: autoHide ? 5000 : null,
@@ -148,7 +170,6 @@
                 }
             };
 
-            // uiBindings may pass the raw helper (expects game first) or a game-bound wrapper (tile first).
             const expectsGameFirst = showTileCallout.length >= 3;
             if (expectsGameFirst) {
                 showTileCallout(gameState, rebelTile, calloutOptions);
@@ -159,7 +180,7 @@
         }
 
         showImperialMessage({
-            title: 'By Imperial Decree:',
+            title,
             lines: bodyHtml.split('<br>'),
             buttonLabel: 'Understood',
             onConfirm: () => {
@@ -183,65 +204,58 @@
         showStandardImperialDecree(null, uiBindings);
     }
 
-    /**
-     * Sets up the first imperial mandate if this is a new run.
-     * Should be called once when a new game starts and the overworld loads.
-     * @param {object} gameState live game state.
-     * @param {object} [uiBindings] optional UI helpers for modal rendering.
-     */
-    function initializeImperialIntro(gameState, uiBindings = {}) {
-        if (firstMandateCompleted || firstMandateActive) return;
-        firstMandateReprimandShown = false;
+    function issueFirstRebelMandate(gameState, uiBindings) {
+        initialMandatePending = false;
+        if (kingState.firstRebelMandate.status !== MandateStatus.NOT_ISSUED
+            || kingState.firstRebelMandate.targetTileKey) return;
+
         const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
         if (!rebelTile) {
             console.warn('Imperial mandate could not place a rebel camp.');
             return;
         }
 
-        firstMandateRebelTileId = getTileKey(rebelTile);
-        firstMandateActive = true;
-        presentInitialDecree(rebelTile, gameState, uiBindings);
+        kingState.firstRebelMandate.targetTileKey = getTileKey(rebelTile);
+        kingState.firstRebelMandate.status = MandateStatus.ACTIVE;
+        kingState.firstRebelMandate.reprimandShown = false;
+
+        const body = 'Patrol the frontier.\nRebels have been sighted nearby.\nExpand the Empire\'s reach — and survive the rebels beyond the fog.';
+        presentInitialDecree(rebelTile, gameState, uiBindings, {
+            body: body.replace(/\n/g, '<br>'),
+            title: 'By Imperial Decree:'
+        });
         if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
     }
 
     /**
-     * Called by combat/overworld code whenever a tile has been cleared of enemies.
-     * If the tile was the tracked rebel camp, completes the first mandate and shows
-     * the Emperor's response.
-     * @param {object} tile cleared tile payload.
-     * @param {object} gameState live game state reference.
-     * @param {object} [uiBindings] optional UI helper overrides.
+     * Public entry point for the opening mandate. Designed to be triggered once per
+     * fresh campaign after the player presses BEGIN.
+     * @param {object} gameState live game state.
+     * @param {object} [uiBindings] optional UI helpers for modal rendering.
      */
-    function handleTileCleared(tile, gameState, uiBindings = {}) {
-        if (!firstMandateActive) return;
-        const key = getTileKey(tile);
-        if (!key || key !== firstMandateRebelTileId) return;
-
-        firstMandateActive = false;
-        firstMandateCompleted = true;
-        resetTrackedRebel(tile, gameState);
-
-        showStandardImperialDecree(['Expand the territory while the frontier is quiet.'], uiBindings, {
-            title: 'The Emperor is pleased.'
-        });
+    function issueInitialMandate(gameState, uiBindings = {}) {
+        if (!initialMandatePending && kingState.firstRebelMandate.status === MandateStatus.NOT_ISSUED) return;
+        issueFirstRebelMandate(gameState, uiBindings);
     }
 
     /**
-     * Respond to the conclusion of a battle so mandate text can react to defeat
-     * or triumph against the first rebel camp without altering combat logic.
-     * @param {string} result outcome label (VICTORY|DEFEAT|RETREAT|REVIVE)
+     * Respond to the conclusion of a battle so the King can react to victory/defeat
+     * against the tracked rebel camp.
+     * @param {string} result outcome label (VICTORY|DEFEAT|RETREAT|REVIVE).
      * @param {object|null} targetTile overworld tile that triggered the war.
      * @param {object} gameState live game state.
      * @param {object} [uiBindings] optional UI helpers for modal rendering.
      */
-    function handleBattleEnd(result, targetTile, gameState, uiBindings = {}) {
+    function handleBattleOutcome(result, targetTile, gameState, uiBindings = {}) {
         const outcome = (result || '').toUpperCase();
         const key = getTileKey(targetTile);
-        const isTrackedBattle = firstMandateActive && key && key === firstMandateRebelTileId;
+        const trackedKey = kingState.firstRebelMandate.targetTileKey;
+        const isTrackedBattle = kingState.firstRebelMandate.status === MandateStatus.ACTIVE
+            && key && key === trackedKey;
         if (!isTrackedBattle) return;
 
-        if ((outcome === 'DEFEAT' || outcome === 'REVIVE') && !firstMandateReprimandShown) {
-            firstMandateReprimandShown = true;
+        if ((outcome === 'DEFEAT' || outcome === 'REVIVE') && !kingState.firstRebelMandate.reprimandShown) {
+            kingState.firstRebelMandate.reprimandShown = true;
             showStandardImperialDecree([
                 'The frontier has been pushed back.',
                 'Regroup and destroy the encampment.'
@@ -250,37 +264,81 @@
         }
 
         if (outcome === 'VICTORY') {
-            handleTileCleared(targetTile, gameState, uiBindings);
+            kingState.firstRebelMandate.status = MandateStatus.COMPLETED;
+            kingState.firstRebelMandate.targetTileKey = null;
+            resetTrackedRebel(targetTile, gameState);
+
+            showStandardImperialDecree([
+                'Expand the territory while the frontier is quiet.'
+            ], uiBindings, { title: 'The Emperor is pleased.' });
         }
     }
 
     /**
-     * Introspection helper primarily for tests.
-     * @returns {{ firstMandateActive: boolean, firstMandateRebelTileId: string|null, firstMandateCompleted: boolean, preferAnchoredDecree: boolean }}
+     * Convenience hook for overworld cleanup so existing listeners can forward clears
+     * without duplicating mandate completion logic.
+     * @param {object} tile cleared tile payload.
+     * @param {object} gameState live game state reference.
+     * @param {object} [uiBindings] optional UI helper overrides.
      */
-    function getMandateState() {
+    function handleTileCleared(tile, gameState, uiBindings = {}) {
+        handleBattleOutcome('VICTORY', tile, gameState, uiBindings);
+    }
+
+    /**
+     * Expose mandate-protected overworld keys so defeat penalties skip critical tiles.
+     * @returns {Set<string>} keys that should be immune to overworld loss.
+     */
+    function getProtectedOverworldKeys() {
+        const protectedKeys = new Set();
+        if (kingState.firstRebelMandate.status === MandateStatus.ACTIVE
+            && kingState.firstRebelMandate.targetTileKey) {
+            protectedKeys.add(kingState.firstRebelMandate.targetTileKey);
+        }
+        return protectedKeys;
+    }
+
+    /**
+     * Reset King state so a new campaign starts fresh and the intro mandate can re-arm.
+     * Also resets the anchored decree preference so the next issuance uses the tile callout.
+     */
+    function resetForNewCampaign() {
+        kingState.firstRebelMandate.status = MandateStatus.NOT_ISSUED;
+        kingState.firstRebelMandate.targetTileKey = null;
+        kingState.firstRebelMandate.reprimandShown = false;
+        preferAnchoredDecree = true;
+        initialMandatePending = true;
+    }
+
+    /**
+     * Introspection helper primarily for tests.
+     * @returns {{ firstRebelMandate: object, preferAnchoredDecree: boolean, initialMandatePending: boolean }} snapshot of mandate state.
+     */
+    function getKingState() {
         return {
-            firstMandateActive,
-            firstMandateRebelTileId,
-            firstMandateCompleted,
-            firstMandateReprimandShown,
-            preferAnchoredDecree
+            firstRebelMandate: { ...kingState.firstRebelMandate },
+            preferAnchoredDecree,
+            initialMandatePending
         };
     }
 
-    /** Reset internal flags for deterministic tests. */
-    function resetMandateState() {
-        firstMandateActive = false;
-        firstMandateRebelTileId = null;
-        firstMandateCompleted = false;
-        firstMandateReprimandShown = false;
-        preferAnchoredDecree = true;
-    }
+    // Legacy compatibility for older tests and helpers.
+    function resetMandateState() { resetForNewCampaign(); }
+    function getMandateState() { return getKingState(); }
+    function initializeImperialIntro(gameState, uiBindings = {}) { issueInitialMandate(gameState, uiBindings); }
+    function handleBattleEnd(result, targetTile, gameState, uiBindings = {}) { handleBattleOutcome(result, targetTile, gameState, uiBindings); }
 
     const api = {
-        initializeImperialIntro,
-        showRebelDecreeCallout,
+        MandateStatus,
+        issueInitialMandate,
+        handleBattleOutcome,
         handleTileCleared,
+        resetForNewCampaign,
+        getKingState,
+        getProtectedOverworldKeys,
+        showRebelDecreeCallout,
+        // legacy
+        initializeImperialIntro,
         handleBattleEnd,
         getMandateState,
         resetMandateState

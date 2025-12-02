@@ -245,10 +245,14 @@ const Game = {
         this.resetSession();
 
         window.addEventListener('intro:begin', () => {
-            if (this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
-                ImperialMandates.initializeImperialIntro(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
-                this.shouldRunImperialIntro = false;
+            if (!this.shouldRunImperialIntro) return;
+            if (ImperialMandates?.issueInitialMandate) {
+                ImperialMandates.issueInitialMandate(this, {
+                    showTileCallout: this.showTileCallout,
+                    hideTileCallout: this.hideTileCallout
+                });
             }
+            this.shouldRunImperialIntro = false;
         });
 
         const loaded = Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
@@ -357,10 +361,10 @@ const Game = {
         this.resetSession();
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
-        if (ImperialMandates?.resetMandateState) ImperialMandates.resetMandateState();
+        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
         this.shouldRunImperialIntro = typeof document !== 'undefined';
-        if (!this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
-            ImperialMandates.initializeImperialIntro(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
+        if (!this.shouldRunImperialIntro && ImperialMandates?.issueInitialMandate) {
+            ImperialMandates.issueInitialMandate(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
         }
     },
 
@@ -420,6 +424,7 @@ const Game = {
         Persistence.clearSnapshot();
         this.stats = { ...Persistence.DEFAULT_STATS };
         this.activeSaveSlot = '1';
+        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
         this.bootstrapNewWorld();
         this.updateLeaderboardUI();
         this.updateHUD();
@@ -427,7 +432,6 @@ const Game = {
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-        if (ImperialMandates?.resetMandateState) ImperialMandates.resetMandateState();
         if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
     },
 

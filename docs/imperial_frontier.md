@@ -13,19 +13,18 @@ The helper reuses the existing overworld tile map and Hex helpers; if no safe fr
 
 ## Imperial Mandates (`scripts/imperialMandates.js`)
 
-- Runs the first imperial tutorial mandate, coordinating messaging and rebel spawning.
-- Shows an opening decree, spawns a rebel camp through `rebelSystem`, then instructs the player to clear it.
-- Tracks the spawned camp by tile id and listens for that specific tile to be cleared.
-- On destruction, the Emperor acknowledges success with a final message and the camp is restored to its previous tile type.
+- Acts as the **King controller** that owns mandate lifecycles.
+- Uses a lightweight `MandateStatus` enum and a `kingState` object to track the first order: `destroy_first_rebel_camp`.
+- Exposes `issueInitialMandate`, `handleBattleOutcome`, `resetForNewCampaign`, and `getKingState` as the external API for the opening order.
+- Shields the tracked rebel camp from defeat penalties by exporting `getProtectedOverworldKeys()` for the combat engine.
 
 ### First Mandate Flow
 
-1. **Decree:** A modal reads “By Imperial Decree: Patrol the frontier. Rebels have been sighted nearby.”
-2. **Spawn:** When acknowledged, a rebel camp is spawned on a frontier tile via `spawnRebelCampNearFrontier`.
-3. **Orders:** A follow-up message alerts the player: “Scouts report a bandit encampment. Destroy it to secure the border.”
-4. **Completion:** When that camp is cleared, a closing message appears: “The Emperor is pleased. Expand the territory while the frontier is quiet.”
+1. **Issue:** `issueInitialMandate` spawns a rebel camp via `spawnRebelCampNearFrontier`, marks the camp as the target, and shows an anchored decree: “Patrol the frontier. Rebels have been sighted nearby. Expand the Empire’s reach — and survive the rebels beyond the fog.”
+2. **Reprimand:** Losing against that tile triggers a one-time reprimand decree (“Imperial Reprimand: The frontier has been pushed back. Regroup and destroy the encampment.”) while keeping the mandate ACTIVE and the rebel tile protected from overworld loss.
+3. **Completion:** Victory against the tracked tile promotes the status to COMPLETED, clears the rebel flags on that tile, and announces “The Emperor is pleased. Expand the territory while the frontier is quiet.”
 
 ### Notes
 
 - There is **no failure state or meta-Favor meter** tied to mandates yet; this is a linear introduction to the Emperor’s authority and the rebel threat.
-- Mandate state is internal to `imperialMandates`; it can be inspected through `getMandateState()` for debugging or tests.
+- Mandate state is internal to `imperialMandates`; it can be inspected through `getKingState()` for debugging or tests.
