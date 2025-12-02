@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { AudioManager, SFX_MANIFEST, AmbientConductor } = require('../scripts/audio.js');
+const { AudioManager, SFX_MANIFEST, AmbientConductor, enterCombat, exitCombat } = require('../scripts/audio.js');
 
 function createStubFactory(log) {
     return (src) => {
@@ -331,6 +331,57 @@ function testModeTransitionsSilencePreviousPlaylist() {
     assert.ok(log[1].paused, 'war track should be paused after territory transition fades');
 }
 
+function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
+    const log = [];
+    const manager = new AudioManager({
+        ambient: { src: 'ambient', isAmbient: true, cooldownMs: 0 },
+        wardrum: { src: 'wardrum', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = {
+        stopCurrentCalls: 0,
+        startArgs: null,
+        enterModes: [],
+        stopCurrent(args) { this.stopCurrentCalls += 1; this.stopArgs = args; },
+        clearTimers() { this.cleared = true; },
+        enterMode(mode) { this.enterModes.push(mode); },
+        start(args) { this.startArgs = args; }
+    };
+
+    enterCombat(manager, conductor);
+
+    assert.strictEqual(conductor.stopCurrentCalls, 1, 'ambient should be stopped immediately when entering combat');
+    assert.strictEqual(conductor.stopArgs.fadeMs, 0, 'combat entry should not wait on long fades');
+    assert.deepStrictEqual(conductor.enterModes[0], 'WAR', 'combat entry should switch the playlist to war');
+    assert.strictEqual(conductor.startArgs.fadeMs, 0, 'combat start should resume scheduler without a delay');
+    assert.ok(log.find((node) => node.src === 'wardrum'), 'wardrum stinger should play instantly');
+    const wardrumNode = log.find((node) => node.src === 'wardrum');
+    assert.strictEqual(wardrumNode.playCount, 1, 'wardrum should start playing right away');
+}
+
+function testExitCombatRehomesAmbientAndPlaysOutcome() {
+    const log = [];
+    const manager = new AudioManager({
+        victory: { src: 'victory', cooldownMs: 0 },
+        defeat: { src: 'defeat', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = {
+        enterModes: [],
+        startCalls: 0,
+        enterMode(mode) { this.enterModes.push(mode); },
+        start(args) { this.startArgs = args; this.startCalls += 1; }
+    };
+
+    exitCombat('victory', manager, conductor);
+    assert.strictEqual(conductor.enterModes[0], 'TERRITORY', 'victory should bounce ambience back to territory');
+    assert.strictEqual(conductor.startArgs.fadeMs, 0, 'victory should restart ambience without delays');
+    assert.ok(log.find((node) => node.src === 'victory'), 'victory stinger should play');
+
+    exitCombat('retreat', manager, conductor);
+    assert.ok(log.find((node) => node.src === 'defeat'), 'retreat fallback should reuse defeat sting');
+}
+
 function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
@@ -341,6 +392,8 @@ function run() {
     testStopCurrentPreservesActiveHandleIdentity();
     testModeTransitionsSilencePreviousPlaylist();
     testManifestIncludesNewEffects();
+    testEnterCombatStopsAmbientAndFiresWardrumImmediately();
+    testExitCombatRehomesAmbientAndPlaysOutcome();
     console.log('All audio tests passed.');
 }
 

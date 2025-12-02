@@ -600,12 +600,53 @@ const AMBIENT_STATES = {
 
 const AmbientSoundscape = new AmbientConductor(GameAudio, { initialMode: 'TERRITORY', states: AMBIENT_STATES });
 
+/**
+ * Immediately pivot the soundtrack into combat mode: silence whatever ambience is
+ * currently playing and trigger the wardrum stinger without waiting for slow fades.
+ *
+ * @param {AudioManager} audioManager optional override for tests
+ * @param {AmbientConductor} ambient optional override for tests
+ */
+function enterCombat(audioManager = GameAudio, ambient = AmbientSoundscape) {
+    if (ambient?.stopCurrent) ambient.stopCurrent({ fadeMs: 0 });
+    if (ambient?.clearTimers) ambient.clearTimers();
+    ambient?.enterMode?.('WAR');
+    ambient?.start?.({ fadeMs: 0 });
+
+    // Fire the war stinger immediately so players hear an instant transition.
+    audioManager?.stop?.(audioManager?.ambientKey);
+    audioManager?.play?.('wardrum', { allowOverlap: true, reset: true });
+}
+
+/**
+ * Return to overworld ambience after combat and play the appropriate resolution
+ * sting so battles feel conclusive.
+ *
+ * @param {('victory'|'defeat'|'retreat'|string)} outcome battle result hint
+ * @param {AudioManager} audioManager optional override for tests
+ * @param {AmbientConductor} ambient optional override for tests
+ */
+function exitCombat(outcome, audioManager = GameAudio, ambient = AmbientSoundscape) {
+    const label = (outcome || '').toLowerCase();
+    if (label === 'victory') {
+        audioManager?.play?.('victory');
+    } else if (label === 'defeat' || label === 'retreat') {
+        audioManager?.play?.('defeat');
+    }
+
+    // Ensure war ambience winds down and the overworld playlist resumes.
+    ambient?.enterMode?.('TERRITORY');
+    ambient?.start?.({ fadeMs: 0 });
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus };
+    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat };
 }
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;
     window.GameAudio = GameAudio;
     window.AmbientSoundscape = AmbientSoundscape;
     window.SFX_GROUPS = SFX_GROUPS;
+    window.enterCombat = enterCombat;
+    window.exitCombat = exitCombat;
 }

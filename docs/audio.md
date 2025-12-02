@@ -3,7 +3,7 @@
 The game routes every sound effect through `scripts/audio.js`, which exposes an `AudioManager` instance (`window.GameAudio`) backed by the `/sfx` mp3 library. Assets are grouped by role (`/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, `/sfx/system`) to match the manifest. The manager caches `Audio` elements, enforces per-sound cooldowns, and provides optional overlap playback for rapid-fire cues such as arrows. Variations are weighted so repeated actions sound lively instead of repetitive.
 
 ## Event Map
-- **wardrum.mp3** — sits inside the WAR playlist and fades in when battles begin.
+- **wardrum.mp3** — fired immediately by `enterCombat()` as a hard transition stinger and still lives inside the WAR playlist.
 - **sword*.mp3** — five weighted sword impacts selected randomly for melee attacks.
 - **arrow*.mp3** — four weighted bow shots for archer volleys.
 - **tower*.mp3** — three weighted blasts for towers/castles.
@@ -26,6 +26,7 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 - The `AudioBridge` in `scripts/script.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).
 - `armAmbientLoop()` locks the conductor into `TERRITORY` mode and begins scheduling the peaceful playlist.
 - `haltAmbientLoop()` clears the conductor so no playlists continue running in the background.
-- `startWar()` switches the conductor to `WAR` mode (with the wardrum track folded into the playlist); `endWar()` returns to `TERRITORY` and restarts the ambiance pipeline.
+- `enterCombat()` stops any active ambience immediately, plays `wardrum.mp3`, and moves the conductor into `WAR` mode.
+- `exitCombat(outcome)` plays the relevant stinger (`victory` or `defeat`) and returns the conductor to `TERRITORY` so the overworld ambience resumes after wins, losses, or retreats.
 - Per-sound cooldowns prevent excessive layering while keeping overlap enabled for rapid attacks.
 - To add a new effect, extend `SFX_MANIFEST` in `scripts/audio.js` with either a `src` or a `variations` array and trigger it via `AudioBridge.play()`.

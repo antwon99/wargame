@@ -466,8 +466,7 @@ export function startWar(game, clickEvt) {
         return;
     }
     game.gold -= cost;
-    window.AmbientSoundscape?.enterMode?.('WAR');
-    window.AmbientSoundscape?.start?.();
+    window.enterCombat?.();
     game.triggerCameraShake();
     game.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
     game.spawnParticleBurst(anchorX, anchorY, 8);
@@ -555,7 +554,10 @@ export function endWar(game, outcome, clickEvt) {
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
+    const normalizedOutcome = (outcome || '').toLowerCase();
     let result = outcome;
+
+    window.exitCombat?.(normalizedOutcome);
 
     if(outcome === 'DEFEAT' && game.research.lives > 0) {
         game.research.lives -= 1;
@@ -567,21 +569,18 @@ export function endWar(game, outcome, clickEvt) {
         game.difficulty++;
         game.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
-        game.playSound('victory');
     }
     else if(result === 'DEFEAT') {
         const lost = loseOverworldHexes(game, Math.floor(Math.random()*6)+5); // 5-10
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
-        game.playSound('defeat');
     }
     else if(result === 'RETREAT') {
         const lost = loseOverworldHexes(game, Math.floor(Math.random()*5)+1); // 1-5
         game.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
-        game.playSound('defeat');
     }
 
     recordWarEnd(game, result);
