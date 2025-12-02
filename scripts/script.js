@@ -22,6 +22,8 @@ import {
 } from './combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
+const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
+const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
@@ -85,7 +87,8 @@ const OVERWORLD_TILES = {
     CASTLE: { id: 'castle', color: '#445', char: '🏰', income: {gold:2, wood:1} },
     FIELD:  { id: 'field',  color: '#90be6d', char: '🌾', income: {} },
     FOREST: { id: 'forest', color: '#2d6a4f', char: '🌲', income: {wood:1} },
-    TOWN:   { id: 'town',   color: '#5e548e', char: '🏠', income: {gold:2} }
+    TOWN:   { id: 'town',   color: '#5e548e', char: '🏠', income: {gold:2} },
+    REBELCAMP: { id: 'rebelcamp', color: '#7f1d1d', char: '🏴', income: {} }
 };
 
 const TIPS = [
@@ -216,10 +219,12 @@ const Game = {
     activeSaveSlot: '1',
     voidClicks: 0,
     cam: { x: 0, y: 0, zoom: 1 },
+    Hex,
     deviceProfile: Platform.detectPlatformProfile(),
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shakeTimer: null,
     ambientLoopStarted: false,
+    pendingClearTile: null,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     fog: { time: 0 },
@@ -342,6 +347,9 @@ const Game = {
         this.resetSession();
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
+        if (ImperialMandates?.initializeImperialIntro) {
+            ImperialMandates.initializeImperialIntro(this);
+        }
     },
 
     /** Apply a hydrated snapshot to the live game state (overworld only). */
@@ -666,8 +674,18 @@ const Game = {
                 } else {
                     this.spawnTxt(hex, "Need Wood", '#f55');
                 }
+            } else if (this.overworld.hexes.has(key)) {
+                const tile = this.overworld.hexes.get(key);
+                if (RebelSystem?.isRebelCampTile?.(tile)) {
+                    this.pendingClearTile = tile;
+                    const previousState = this.state;
+                    this.startWar();
+                    if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
+                        this.pendingClearTile = null;
+                    }
+                }
             }
-        } 
+        }
         else if (this.state === 'COMBAT') {
             const tile = this.combat.territory.get(key);
             if(!this.isFrontier(key, 'player')) {
@@ -690,7 +708,13 @@ const Game = {
 
     spawnUnit(type, owner, hex) { return spawnUnit(this, type, owner, hex); },
 
-    startWar(clickEvt) { return startWar(this, clickEvt); },
+    startWar(clickEvt) {
+        const previousState = this.state;
+        startWar(this, clickEvt);
+        if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
+            this.pendingClearTile = null;
+        }
+    },
 
     /**
      * Trigger the non-blocking visual/audio feedback for war startup.
@@ -708,7 +732,16 @@ const Game = {
 
     loseOverworldHexes(count) { return loseOverworldHexes(this, count); },
 
-    endWar(outcome, clickEvt) { return endWar(this, outcome, clickEvt); },
+    endWar(outcome, clickEvt) {
+        const targetTile = this.pendingClearTile;
+        endWar(this, outcome, clickEvt);
+        if (outcome === 'VICTORY' && targetTile && ImperialMandates?.handleTileCleared) {
+            ImperialMandates.handleTileCleared(targetTile, this);
+            this.pendingClearTile = null;
+        }
+        if (outcome !== 'VICTORY') this.pendingClearTile = null;
+        return undefined;
+    },
 
     claimHexLogic(hex, free) {
         const r = Math.random();
