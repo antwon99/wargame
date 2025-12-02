@@ -23,6 +23,7 @@ export function applyUIBindings(game, deps = {}) {
     game.updateUpgradeMenu = () => updateUpgradeMenu(game);
     game.updateHUD = () => updateHUD(game);
     game.updateTileInspector = (tile) => updateTileInspector(game, tile);
+    game.updateTileAttackOverlay = (tile) => updateTileAttackOverlay(game, tile);
     game.showFloatingText = (x, y, txt, cssClass) => showFloatingText(game, x, y, txt, cssClass);
     game.triggerCameraShake = () => triggerCameraShake(game);
     game.spawnParticleBurst = (x, y, count, colors) => spawnParticleBurst(game, x, y, count, colors);
@@ -31,6 +32,7 @@ export function applyUIBindings(game, deps = {}) {
     game.showWarTip = () => showWarTip(dependencies);
     game.hideWarTip = () => hideWarTip();
     game.showOverworldUI = () => showOverworldUI();
+    game.showRebelHint = (tile) => showRebelHint(game, tile);
 }
 
 /**
@@ -40,11 +42,6 @@ export function applyUIBindings(game, deps = {}) {
 export function setupUIBindings(game) {
     const retreatBtn = document.getElementById('btn-retreat');
     if (retreatBtn) retreatBtn.onclick = (e) => game.endWar('RETREAT', e);
-
-    const attackBtn = document.getElementById('tile-attack-btn');
-    if (attackBtn) attackBtn.onclick = (e) => {
-        if (game.selectedOverworldTile) game.beginBattleFromTile(game.selectedOverworldTile, e);
-    };
 
     const upgradeBtn = document.getElementById('btn-upg');
     if (upgradeBtn) upgradeBtn.onclick = () => { document.getElementById('upgrade-menu').style.display = 'flex'; };
@@ -287,20 +284,19 @@ function updateHUD(game) {
 function updateTileInspector(game, tile) {
     const panel = document.getElementById('tile-inspector');
     const label = document.getElementById('tile-inspector-label');
-    const attackBtn = document.getElementById('tile-attack-btn');
-    if (!panel || !label || !attackBtn) return;
+    if (!panel || !label) return;
 
     const shouldHide = game.state !== 'OVERWORLD';
     panel.classList.toggle('hidden', shouldHide);
     if (shouldHide) {
-        attackBtn.style.display = 'none';
+        game.updateTileAttackOverlay?.(null);
         return;
     }
 
     if (!tile) {
         label.innerText = 'Select a tile to inspect';
-        attackBtn.style.display = 'none';
         panel.classList.remove('hostile');
+        game.updateTileAttackOverlay?.(null);
         return;
     }
 
@@ -310,7 +306,35 @@ function updateTileInspector(game, tile) {
 
     label.innerText = labelText.toUpperCase();
     panel.classList.toggle('hostile', !!isHostile);
-    attackBtn.style.display = isHostile ? 'inline-flex' : 'none';
+    game.updateTileAttackOverlay?.(isHostile ? tile : null);
+}
+
+/**
+ * Position the inline attack control directly on the selected rebel tile so the
+ * action stays anchored to the map instead of the HUD slab.
+ * @param {object} game live game singleton.
+ * @param {object|null} tile current selection.
+ */
+function updateTileAttackOverlay(game, tile) {
+    const layer = document.getElementById('tile-action-layer');
+    const btn = document.getElementById('tile-attack-overlay-btn');
+    if (!layer || !btn) return;
+
+    const isHostile = tile && (RebelSystem.isRebelCampTile?.(tile) || tile.owner === 'enemy');
+    const shouldHide = !tile || !isHostile || game.state !== 'OVERWORLD';
+    if (shouldHide) {
+        btn.style.display = 'none';
+        return;
+    }
+
+    const pos = game.projectHexToScreen(tile.hex || tile);
+    btn.style.display = 'inline-flex';
+    btn.style.left = `${pos.x - 30}px`;
+    btn.style.top = `${pos.y - 56}px`;
+    btn.onclick = (e) => {
+        e?.stopPropagation?.();
+        game.beginBattleFromTile(tile, e);
+    };
 }
 
 function showFloatingText(game, x, y, txt, cssClass) {
@@ -324,6 +348,25 @@ function showFloatingText(game, x, y, txt, cssClass) {
     el.style.top = `${y}px`;
     layer.appendChild(el);
     setTimeout(() => el.remove(), 820);
+}
+
+/**
+ * Drop a temporary hint near a rebel camp so players see where to strike.
+ * @param {object} game live game singleton.
+ * @param {object} tile rebel tile to highlight.
+ */
+function showRebelHint(game, tile) {
+    const layer = document.getElementById('tile-action-layer') || document.getElementById('fx-layer');
+    if (!layer || !tile) return;
+    const hint = document.createElement('div');
+    hint.className = 'rebel-hint';
+    hint.innerText = '⬆ The rebel camp is here';
+
+    const pos = game.projectHexToScreen(tile.hex || tile);
+    hint.style.left = `${pos.x - 64}px`;
+    hint.style.top = `${pos.y - 86}px`;
+    layer.appendChild(hint);
+    setTimeout(() => hint.remove(), 10000);
 }
 
 function triggerCameraShake(game) {

@@ -226,6 +226,7 @@ const Game = {
     ambientLoopStarted: false,
     pendingClearTile: null,
     selectedOverworldTile: null,
+    shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     fog: { time: 0 },
@@ -242,6 +243,13 @@ const Game = {
         window.addEventListener('resize', () => this.resize());
         this.setupInput();
         this.resetSession();
+
+        window.addEventListener('intro:begin', () => {
+            if (this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
+                ImperialMandates.initializeImperialIntro(this, { showRebelHint: this.showRebelHint });
+                this.shouldRunImperialIntro = false;
+            }
+        });
 
         const loaded = Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (loaded.state) {
@@ -349,8 +357,10 @@ const Game = {
         this.resetSession();
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
-        if (ImperialMandates?.initializeImperialIntro) {
-            ImperialMandates.initializeImperialIntro(this);
+        if (ImperialMandates?.resetMandateState) ImperialMandates.resetMandateState();
+        this.shouldRunImperialIntro = typeof document !== 'undefined';
+        if (!this.shouldRunImperialIntro && ImperialMandates?.initializeImperialIntro) {
+            ImperialMandates.initializeImperialIntro(this, { showRebelHint: this.showRebelHint });
         }
     },
 
@@ -369,6 +379,7 @@ const Game = {
         this.resetSession();
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
+        this.shouldRunImperialIntro = false;
     },
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
@@ -416,6 +427,8 @@ const Game = {
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
+        if (ImperialMandates?.resetMandateState) ImperialMandates.resetMandateState();
+        if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
     },
 
     loop(now) {
@@ -748,16 +761,11 @@ const Game = {
         }
     },
 
-    loseOverworldHexes(count) { return loseOverworldHexes(this, count); },
+    loseOverworldHexes(count, protectedKeys) { return loseOverworldHexes(this, count, protectedKeys); },
 
     endWar(outcome, clickEvt) {
-        const targetTile = this.pendingClearTile;
         endWar(this, outcome, clickEvt);
-        if (outcome === 'VICTORY' && targetTile && ImperialMandates?.handleTileCleared) {
-            ImperialMandates.handleTileCleared(targetTile, this);
-            this.pendingClearTile = null;
-        }
-        if (outcome !== 'VICTORY') this.pendingClearTile = null;
+        this.pendingClearTile = null;
         this.setSelectedOverworldTile(null);
         return undefined;
     },
@@ -795,6 +803,9 @@ const Game = {
     draw() {
         const ctx = this.ctx;
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
+        if (this.updateTileAttackOverlay) {
+            this.updateTileAttackOverlay(this.state === 'OVERWORLD' ? this.selectedOverworldTile : null);
+        }
         this.renderFogBackdrop(layout);
         if(this.state === 'COMBAT') this.drawCombat(layout); else this.drawOverworld(layout);
     },

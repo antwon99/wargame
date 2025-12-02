@@ -3,6 +3,9 @@
  * Functions accept the live game object so they can operate without owning
  * global state directly.
  */
+const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
+    ? window.ImperialMandates
+    : (typeof require === 'function' ? require('./imperialMandates.js') : {});
 
 /** Definitions for buildable structures in combat mode. */
 export const COMBAT_BUILDINGS = {
@@ -533,14 +536,17 @@ export function startWar(game, clickEvt) {
 }
 
 /**
- * Remove random overworld tiles as a defeat/retreat penalty.
+ * Remove random overworld tiles as a defeat/retreat penalty while honoring any
+ * protected coordinates that should survive the loss (e.g., the rebel camp
+ * that initiated the war).
  * @param {object} game current game object.
  * @param {number} count number of tiles to strip.
+ * @param {Set<string>} [protectedKeys] tile keys that cannot be removed.
  * @returns {number} actual number removed.
  */
-export function loseOverworldHexes(game, count) {
+export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
     const keys = Array.from(game.overworld.hexes.keys());
-    const candidates = keys.filter(k => game.overworld.hexes.get(k).type !== 'castle');
+    const candidates = keys.filter((k) => game.overworld.hexes.get(k).type !== 'castle' && !protectedKeys.has(k));
 
     let lost = 0;
     while(lost < count && candidates.length > 0) {
@@ -566,6 +572,9 @@ export function endWar(game, outcome, clickEvt) {
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
     const normalizedOutcome = (outcome || '').toLowerCase();
     let result = outcome;
+    const targetTile = game.pendingClearTile;
+    const targetKey = targetTile?.hex?.toString?.() || targetTile?.toString?.();
+    const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
 
     window.exitCombat?.(normalizedOutcome);
 
@@ -581,17 +590,21 @@ export function endWar(game, outcome, clickEvt) {
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
-        const lost = loseOverworldHexes(game, Math.floor(Math.random()*6)+5); // 5-10
+        const lost = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
         // TODO: In future, apply a gold loss penalty on defeat (lose battle = lose gold).
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
     }
     else if(result === 'RETREAT') {
-        const lost = loseOverworldHexes(game, Math.floor(Math.random()*5)+1); // 1-5
+        const lost = loseOverworldHexes(game, Math.floor(Math.random()*5)+1, protectedTargets); // 1-5
         game.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
+    }
+
+    if (ImperialMandates?.handleBattleEnd) {
+        ImperialMandates.handleBattleEnd(result, targetTile, game);
     }
 
     recordWarEnd(game, result);
