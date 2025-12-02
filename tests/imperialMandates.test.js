@@ -37,18 +37,19 @@ function testRebelSpawnMarksFrontierTile() {
 function testInitializeImperialIntroActivatesMandate() {
     const gameState = buildGameState();
     ImperialMandates.resetMandateState();
-    const modalTitles = [];
+    const callouts = [];
     const uiBindings = {
-        showImperialModal: (config) => {
-            modalTitles.push(config.title);
-            if (typeof config.onConfirm === 'function') config.onConfirm();
-        }
+        showTileCallout: (game, tile, options) => {
+            callouts.push({ tile, options });
+            if (typeof options.onConfirm === 'function') options.onConfirm();
+        },
+        hideTileCallout: () => callouts.push({ hidden: true })
     };
 
     ImperialMandates.initializeImperialIntro(gameState, uiBindings);
     const state = ImperialMandates.getMandateState();
 
-    assert.ok(modalTitles.includes('By Imperial Decree:'), 'opening decree should be shown');
+    assert.strictEqual(callouts[0].options.title, 'By Imperial Decree:', 'opening decree should be shown as a callout');
     assert.ok(state.firstMandateActive, 'mandate should be active after spawning rebel camp');
     assert.ok(state.firstMandateRebelTileId, 'tracked rebel tile id should be stored');
 }
@@ -58,13 +59,10 @@ function testHandleTileClearedCompletesMandate() {
     ImperialMandates.resetMandateState();
 
     const uiBindings = {
-        showImperialModal: (config) => {
-            if (typeof config.onConfirm === 'function') config.onConfirm();
-            return null;
-        }
+        showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
+        hideTileCallout: () => null
     };
 
-    RebelSystem.spawnRebelCampNearFrontier(gameState);
     ImperialMandates.initializeImperialIntro(gameState, uiBindings);
     const trackedId = ImperialMandates.getMandateState().firstMandateRebelTileId;
     const trackedTile = gameState.overworld.hexes.get(trackedId);

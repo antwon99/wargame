@@ -23,7 +23,7 @@
         .intro-overlay {
             position: fixed;
             inset: 0;
-            background: radial-gradient(circle at 50% 35%, rgba(40, 40, 48, 0.72), rgba(10, 10, 14, 0.94));
+            background: radial-gradient(circle at 50% 35%, rgba(40, 40, 48, 0.82), rgba(10, 10, 14, 0.96));
             color: #f8fafc;
             display: flex;
             flex-direction: column;
@@ -291,25 +291,46 @@
         }
         .tile-inspector.hostile { border-color: #f08b8b; box-shadow: 0 10px 20px rgba(255,0,0,0.25); }
 
-        .rebel-hint {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.7);
-            color: #ffd166;
-            padding: 8px 12px;
-            border-radius: 10px;
+        .tile-callout {
+            position: fixed;
+            max-width: min(320px, 88vw);
+            background: rgba(14, 16, 24, 0.94);
             border: 1px solid rgba(255, 255, 255, 0.12);
+            border-left: 3px solid var(--gold);
+            border-radius: 14px;
+            padding: 12px 14px 12px 16px;
+            color: #e2e8f0;
+            box-shadow: 0 14px 36px rgba(0,0,0,0.45);
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            z-index: 28;
+            pointer-events: auto;
+        }
+        .tile-callout--visible { opacity: 1; transform: translateY(0); }
+        .tile-callout__title { margin: 0 0 4px 0; color: var(--gold); letter-spacing: 0.5px; }
+        .tile-callout__body { margin: 0 0 8px 0; color: #cbd5e1; line-height: 1.35; }
+        .tile-callout__btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 10px;
+            color: #f8fafc;
+            padding: 8px 14px;
+            cursor: pointer;
             font-weight: 800;
             letter-spacing: 0.4px;
-            pointer-events: none;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.35);
-            animation: rebel-hint-fade 10s forwards;
         }
+        .tile-callout__btn:hover { background: rgba(255,255,255,0.12); }
 
-        @keyframes rebel-hint-fade {
-            0% { opacity: 1; transform: translateY(0); }
-            80% { opacity: 1; transform: translateY(-2px); }
-            100% { opacity: 0; transform: translateY(-6px); }
+        .tile-callout__connector {
+            position: fixed;
+            width: 2px;
+            background: linear-gradient(180deg, rgba(255,209,102,0.9), rgba(255,255,255,0.65));
+            z-index: 27;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
+        .tile-callout__connector.visible { opacity: 1; }
 
         /* Sidebar */
         .sidebar {
