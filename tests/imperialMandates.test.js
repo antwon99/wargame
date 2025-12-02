@@ -78,10 +78,31 @@ function testHandleTileClearedCompletesMandate() {
     assert.ok(!RebelSystem.isRebelCampTile(trackedTile), 'rebel flag should be removed after completion');
 }
 
+function testDecreeCalloutSupportsBoundHelpers() {
+    const gameState = buildGameState();
+    ImperialMandates.resetMandateState();
+
+    const callouts = [];
+    const uiBindings = {
+        showTileCallout: (tile, options) => {
+            callouts.push({ tile, options });
+            if (typeof options.onConfirm === 'function') options.onConfirm();
+        },
+        hideTileCallout: () => callouts.push({ hidden: true })
+    };
+
+    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
+    const state = ImperialMandates.getMandateState();
+    const trackedTile = gameState.overworld.hexes.get(state.firstMandateRebelTileId);
+
+    assert.strictEqual(callouts[0].tile, trackedTile, 'rebel camp tile should anchor bound callout helper');
+}
+
 function run() {
     testRebelSpawnMarksFrontierTile();
     testInitializeImperialIntroActivatesMandate();
     testHandleTileClearedCompletesMandate();
+    testDecreeCalloutSupportsBoundHelpers();
     console.log('All imperial mandate tests passed.');
 }
 
