@@ -14,6 +14,7 @@
         <div id="audio-debug"></div>
         <div id="debug-log"></div>
         <div id="tip-overlay"></div>
+        <button id="debug-toggle" class="debug-toggle" type="button" aria-pressed="false">Debug</button>
 
     <div class="hud">
         <div class="top-bar">
@@ -23,13 +24,11 @@
                         <div class="res gold"><span>💰</span><span id="gold">0</span></div>
                         <div class="res wood"><span>🌲</span><span id="wood">0</span></div>
                         <div class="res lives"><span>❤️</span><span id="lives-count">0</span></div>
+                        <div class="res enemy-level"><span class="enemy-label">Enemy</span><span id="lvl-txt" class="enemy-value">Lv.0</span></div>
                     </div>
                 </div>
-            <div class="top-right">
-                <div id="state-txt" style="color:#fff; font-weight:bold;">KINGDOM</div>
-                <div id="lvl-txt" class="lvl-badge">Enemy Lv.0</div>
-            </div>
         </div>
+        <div id="state-txt" class="sr-only" aria-live="polite">KINGDOM</div>
 
         <div class="controls">
             <!-- Overworld UI -->
@@ -163,6 +162,7 @@
 <script src="scripts/researchSystem.js"></script>
 <script src="scripts/voidEasterEgg.js"></script>
 <script src="scripts/platform.js"></script>
+<script src="scripts/debugToggle.js"></script>
 <script type="module" src="scripts/script.js"></script>
 </body>
 </html>

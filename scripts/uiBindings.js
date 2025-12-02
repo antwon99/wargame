@@ -273,7 +273,7 @@ function updateHUD(game) {
     document.getElementById('wood').innerText = Math.floor(game.wood);
     const lives = document.getElementById('lives-count');
     if (lives) lives.innerText = game.research.lives;
-    document.getElementById('lvl-txt').innerText = `Enemy Lv.${game.difficulty}`;
+    document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
 
     const cost = (game.difficulty + 1) * 25;
     document.getElementById('btn-war').innerText = `⚔️ WAR (${cost}g)`;
