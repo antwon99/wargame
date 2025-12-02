@@ -12,7 +12,7 @@ function createStubFactory(log) {
             paused: false,
             pauseCalls: 0,
             listeners: {},
-            play() { this.playCount++; return Promise.resolve(); },
+            play() { this.paused = false; this.playCount++; return Promise.resolve(); },
             pause() { this.paused = true; this.pauseCalls++; },
             addEventListener(event, fn) { this.listeners[event] = fn; },
             cloneNode() {
@@ -147,7 +147,7 @@ function testAmbientConductorModes() {
     assert.ok(log.find((n) => n.src === 'b'), 'war mode should swap playlist');
 }
 
-function testConductorLimitsOverlapAndCrossfades() {
+function testConductorLimitsFadeDurationsAndStopsOverlap() {
     const log = [];
     const scheduler = createManualScheduler();
     const manager = new AudioManager({
@@ -173,9 +173,9 @@ function testConductorLimitsOverlapAndCrossfades() {
     });
 
     conductor.playNextNow();
-    assert.strictEqual(conductor.activeHandle.fadeMs, 10000, 'fade duration should cap at maxOverlapMs');
+    assert.strictEqual(conductor.activeHandle.fadeMs, 10000, 'fade-in should cap at maxOverlapMs even when configured higher');
 
-    // Launch another track immediately to force a crossfade while the first is active.
+    // Launch another track immediately; previous one should fade out quickly while the new one fades in.
     conductor.states.TERRITORY.tracks = [{ key: 'war', fadeMs: 15000, startVolume: 0, volume: 0.6 }];
     conductor.playNextNow();
 
@@ -189,6 +189,8 @@ function testConductorLimitsOverlapAndCrossfades() {
 
     assert.ok(firstNode.paused, 'previous track should be paused after fade out');
     assert.ok(firstNode.pauseCalls >= 1, 'fade-out should explicitly pause the previous track');
+    const aliveAfter = log.filter((n) => !n.paused);
+    assert.strictEqual(aliveAfter.length, 1, 'only one ambient node should be audible at a time');
     assert.strictEqual(conductor.activeHandle.node, secondNode, 'new track should own the active handle');
 }
 
@@ -242,7 +244,9 @@ function testStopCurrentPreservesActiveHandleIdentity() {
 
     flushFades();
     const aliveAfterWar = log.filter((n) => !n.paused);
-    assert.strictEqual(conductor.activeHandle.node, log[1], 'war track should remain active after territory fade-out');
+    const warNode = log.find((n) => n.src === 'war');
+    assert.ok(warNode, 'war track should be created when entering war');
+    assert.strictEqual(conductor.activeHandle.node, warNode, 'war track should remain active after territory fade-out');
     assert.strictEqual(aliveAfterWar.length, 1, 'only one node should remain active after fading territory');
     assert.ok(firstNode.paused, 'territory track should be paused after its fade');
 
@@ -252,7 +256,9 @@ function testStopCurrentPreservesActiveHandleIdentity() {
 
     flushFades();
     const aliveAfterTerritory = log.filter((n) => !n.paused);
-    assert.strictEqual(conductor.activeHandle.node, log[2], 'territory track should remain active after war fade-out');
+    const territoryReturn = log.find((n) => n.src === 'territory' && n.playCount > 1);
+    assert.ok(territoryReturn, 'territory track should play again when re-entering');
+    assert.strictEqual(conductor.activeHandle.node, territoryReturn, 'territory track should remain active after war fade-out');
     assert.strictEqual(aliveAfterTerritory.length, 1, 'only one node should remain active after fading war');
 }
 
@@ -331,7 +337,7 @@ function run() {
     testAmbientLoop();
     testWeightedSelectionUsesRandomizer();
     testAmbientConductorModes();
-    testConductorLimitsOverlapAndCrossfades();
+    testConductorLimitsFadeDurationsAndStopsOverlap();
     testStopCurrentPreservesActiveHandleIdentity();
     testModeTransitionsSilencePreviousPlaylist();
     testManifestIncludesNewEffects();

@@ -77,6 +77,19 @@ const AudioDebugBus = {
 };
 if (typeof window !== 'undefined') window.AudioDebugBus = AudioDebugBus;
 
+// === AMBIENT MUSIC TUNING ===
+// These values shape the Minecraft-like ambience cadence. Adjust them to tweak
+// how gently music enters/leaves and how long the silence between tracks lasts.
+const AMBIENT_DEFAULTS = {
+    gentleStartVolume: 0.18,
+    fadeInMs: 1400,
+    fadeOutMs: 1600,
+    tailFadeMs: 1200,
+    minSilenceMs: 10000,
+    maxSilenceMs: 45000,
+    initialDelayRangeMs: [400, 4000]
+};
+
 /**
  * AudioManager centralizes playback for UI and combat events.
  * It wraps HTMLAudioElement creation with cooldowns, loop helpers,
@@ -269,6 +282,7 @@ class AmbientConductor {
         this.fallbackTimer = null;
         this.active = false;
         this.fadeIntervals = new Map();
+        this.defaults = { ...AMBIENT_DEFAULTS, ...(options.defaults || {}) };
     }
 
     /** Begin scheduling tracks for the current mode. Safe to call repeatedly. */
@@ -325,7 +339,7 @@ class AmbientConductor {
         if (!config) return;
         const delay = typeof customDelay === 'number'
             ? Math.max(0, customDelay)
-            : (immediate ? 0 : this.randomSilence(config));
+            : (immediate ? this.randomInitialDelay() : this.randomSilence(config));
         this.nextTimer = this.scheduler.setTimeout(() => this.launchTrack(), delay);
     }
 
@@ -341,11 +355,15 @@ class AmbientConductor {
 
         AudioDebugBus.reportIntent(track.key);
 
+        // Stop whatever might be lingering before starting a fresh track.
+        const transitionFade = Math.min(this.getFadeOutDuration(config, track), this.defaults.tailFadeMs);
+        this.stopCurrent({ fadeMs: transitionFade });
+
         const handle = this.audioManager.playWithHandle(track.key, {
-            allowOverlap: true,
+            allowOverlap: false,
             reset: true,
             loop: false,
-            volume: track.startVolume ?? 0
+            volume: typeof track.startVolume === 'number' ? track.startVolume : this.defaults.gentleStartVolume
         });
         if (!handle.attempted || !handle.node) {
             this.scheduleNext();
@@ -356,7 +374,7 @@ class AmbientConductor {
         this.activeHandle = {
             ...handle,
             targetVolume: track.volume ?? config.volume,
-            fadeMs: Math.min(track.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs),
+            fadeMs: this.getFadeInDuration(config, track),
             mode: this.currentMode
         };
         this.fadeTo(
@@ -365,14 +383,6 @@ class AmbientConductor {
             this.activeHandle.fadeMs,
             typeof track.startVolume === 'number' ? track.startVolume : handle.node.volume
         );
-
-        if (previousHandle?.node && previousHandle.node !== handle.node) {
-            const fadeOutMs = Math.min(previousHandle.fadeMs ?? config.fadeMs ?? 0, this.maxOverlapMs);
-            this.fadeTo(previousHandle.node, 0, fadeOutMs, previousHandle.node.volume, () => {
-                if (previousHandle.node.pause) previousHandle.node.pause();
-                if (typeof previousHandle.node.currentTime === 'number') previousHandle.node.currentTime = 0;
-            });
-        }
     }
 
     attachEndListeners(node, config) {
@@ -388,18 +398,22 @@ class AmbientConductor {
     handleTrackEnded(reason = 'ended') {
         const config = this.getConfig();
         if (!config) return;
-        const crossfade = this.random() < (config.crossfadeChance ?? 0);
-        const delay = crossfade
-            ? Math.min(config.overlapMs ?? config.fadeMs ?? 1200, config.fadeMs ?? 1200, this.maxOverlapMs)
-            : this.randomSilence(config);
-        this.stopCurrent({ fadeMs: config.fadeMs });
-        this.scheduleNext(false, delay);
+        if (this.fallbackTimer) {
+            this.scheduler.clearTimeout(this.fallbackTimer);
+            this.fallbackTimer = null;
+        }
+        this.stopCurrent({ fadeMs: this.getFadeOutDuration(config) });
+        this.scheduleNext(false, this.randomSilence(config));
     }
 
     stopCurrent(options = {}) {
         if (!this.activeHandle || !this.activeHandle.node) return;
         const handleRef = this.activeHandle;
         const node = handleRef.node;
+        if (this.fallbackTimer) {
+            this.scheduler.clearTimeout(this.fallbackTimer);
+            this.fallbackTimer = null;
+        }
         const fadeMs = Math.min(options.fadeMs ?? handleRef.fadeMs ?? 0, this.maxOverlapMs);
         if (fadeMs <= 0) {
             if (node.pause) node.pause();
@@ -448,7 +462,13 @@ class AmbientConductor {
     }
 
     randomSilence(config) {
-        const [min, max] = config.silenceRangeMs || [12000, 22000];
+        const [min, max] = config.silenceRangeMs || [this.defaults.minSilenceMs, this.defaults.maxSilenceMs];
+        const span = Math.max(0, max - min);
+        return min + Math.floor(this.random() * span);
+    }
+
+    randomInitialDelay() {
+        const [min, max] = this.defaults.initialDelayRangeMs;
         const span = Math.max(0, max - min);
         return min + Math.floor(this.random() * span);
     }
@@ -461,6 +481,16 @@ class AmbientConductor {
             this.trackSelectors.set(this.currentMode, selector);
         }
         return selector.pick(this.random);
+    }
+
+    getFadeInDuration(config, track) {
+        const candidate = track?.fadeMs ?? config?.fadeMs ?? this.defaults.fadeInMs;
+        return Math.min(candidate, this.maxOverlapMs);
+    }
+
+    getFadeOutDuration(config, track) {
+        const candidate = track?.fadeMs ?? config?.fadeMs ?? this.defaults.fadeOutMs;
+        return Math.min(candidate, this.maxOverlapMs);
     }
 }
 
@@ -550,10 +580,8 @@ const AMBIENT_STATES = {
             { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
             { key: 'ambiance_uplifting', weight: 1, volume: 0.55 }
         ],
-        silenceRangeMs: [20000, 42000],
-        fadeMs: 2200,
-        overlapMs: 1400,
-        crossfadeChance: 0.38,
+        silenceRangeMs: [14000, 42000],
+        fadeMs: 1600,
         maxTrackMs: 120000,
         volume: 0.55
     },
@@ -563,10 +591,8 @@ const AMBIENT_STATES = {
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
             { key: 'ambiance_dark', weight: 1, volume: 0.62 }
         ],
-        silenceRangeMs: [12000, 30000],
-        fadeMs: 2600,
-        overlapMs: 1800,
-        crossfadeChance: 0.5,
+        silenceRangeMs: [12000, 36000],
+        fadeMs: 1800,
         maxTrackMs: 110000,
         volume: 0.62
     }
