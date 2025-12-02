@@ -655,7 +655,7 @@ const Game = {
         }
     },
 
-    updateCombat(dt) { return updateCombat(this, dt); },
+    updateCombat(dt) { return updateCombat(this, dt, this.Hex); },
 
     /** Track leaderboard totals when the player lands a final blow. */
     registerKill(owner) { return registerKill(this, owner); },
@@ -669,7 +669,7 @@ const Game = {
 
     damageBuilding(key, amt) { return damageBuilding(this, key, amt); },
 
-    checkConnection(startHex, owner) { return checkConnection(this, startHex, owner); },
+    checkConnection(startHex, owner) { return checkConnection(this, startHex, owner, this.Hex); },
 
     scorchEarth(key) { return scorchEarth(this, key); },
 
@@ -730,7 +730,7 @@ const Game = {
         this.updateHUD();
     },
 
-    isFrontier(key, who) { return isFrontier(this, key, who); },
+    isFrontier(key, who) { return isFrontier(this, key, who, this.Hex); },
 
     buyBuilding(hex, type) { return buyBuilding(this, hex, type); },
 
@@ -740,7 +740,7 @@ const Game = {
 
     startWar(clickEvt) {
         const previousState = this.state;
-        startWar(this, clickEvt);
+        startWar(this, clickEvt, this.Hex);
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
         }
@@ -764,7 +764,7 @@ const Game = {
     loseOverworldHexes(count, protectedKeys) { return loseOverworldHexes(this, count, protectedKeys); },
 
     endWar(outcome, clickEvt) {
-        endWar(this, outcome, clickEvt);
+        endWar(this, outcome, clickEvt, this.Hex);
         this.pendingClearTile = null;
         this.setSelectedOverworldTile(null);
         return undefined;

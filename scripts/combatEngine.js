@@ -7,6 +7,24 @@ const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandat
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./imperialMandates.js') : {});
 
+const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
+    || (typeof global !== 'undefined' && global.Hex)
+    || null;
+
+/**
+ * Resolve the Hex dependency so callers can inject test doubles instead of relying
+ * on globals. Falls back to a global when available for backward compatibility.
+ * @param {object} game current game object that may expose a Hex constructor.
+ * @param {object} [hexImpl] optional override for the Hex implementation.
+ * @returns {object} Hex implementation.
+ * @throws {Error} when no Hex implementation can be found.
+ */
+function resolveHex(game, hexImpl) {
+    const impl = hexImpl || game?.Hex || GLOBAL_HEX;
+    if (!impl) throw new Error('Combat engine requires a Hex implementation');
+    return impl;
+}
+
 /** Definitions for buildable structures in combat mode. */
 export const COMBAT_BUILDINGS = {
     // Castle now has income:5 and prodRate:4.0
@@ -85,8 +103,10 @@ export function getSpawnRate(game, baseRate) {
  * Simulate combat state for one frame: production, targeting, AI purchases, and movement.
  * @param {object} game current game object.
  * @param {number} dt delta time in seconds.
+ * @param {object} [hexImpl] optional Hex implementation for spatial math.
  */
-export function updateCombat(game, dt) {
+export function updateCombat(game, dt, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
     for(let [k, b] of game.combat.buildings) {
         if(b.type === 'rocks') continue;
 
@@ -333,9 +353,11 @@ export function damageBuilding(game, key, amt) {
  * @param {object} game current game object.
  * @param {object} startHex hex to trace from.
  * @param {string} owner controlling side.
+ * @param {object} [hexImpl] optional Hex implementation for connectivity checks.
  * @returns {boolean} true if connected.
  */
-export function checkConnection(game, startHex, owner) {
+export function checkConnection(game, startHex, owner, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
     const castleHex = owner === 'player' ? game.combat.castles.player : game.combat.castles.enemy;
     if(!castleHex) return true;
     const queue = [startHex];
@@ -368,9 +390,11 @@ export function scorchEarth(game, key) {
  * @param {object} game current game object.
  * @param {string} key hex key.
  * @param {string} who faction id (player|enemy).
+ * @param {object} [hexImpl] optional Hex implementation for spatial checks.
  * @returns {boolean} true when buildable.
  */
-export function isFrontier(game, key, who) {
+export function isFrontier(game, key, who, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
     const tile = game.combat.territory.get(key);
     if(!tile || tile.owner !== who) return false;
     if(game.combat.buildings.has(key)) return false;
@@ -468,8 +492,10 @@ export function spawnUnit(game, type, owner, hex) {
  * Begin a new war instance if the player can afford it, seeding the map and UI state.
  * @param {object} game current game object.
  * @param {Event} clickEvt initiating click (optional).
+ * @param {object} [hexImpl] optional Hex implementation for grid generation.
  */
-export function startWar(game, clickEvt) {
+export function startWar(game, clickEvt, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
     const cost = computeWarEntryFee(game);
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.1;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.1;
@@ -565,8 +591,10 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
  * @param {object} game current game object.
  * @param {string} outcome VICTORY|DEFEAT|RETREAT label.
  * @param {Event} clickEvt initiating click (optional).
+ * @param {object} [hexImpl] optional Hex implementation for summary text anchors.
  */
-export function endWar(game, outcome, clickEvt) {
+export function endWar(game, outcome, clickEvt, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
