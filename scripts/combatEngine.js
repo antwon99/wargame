@@ -25,6 +25,16 @@ export const UNITS = {
 };
 
 /**
+ * Compute the entry fee for launching a war. Wars are currently free to start.
+ * Previous behavior: fee = (game.difficulty + 1) * 25;
+ * @param {object} game current game object (difficulty may influence future fees).
+ * @returns {number} gold required to initiate battle (zero by default).
+ */
+export function computeWarEntryFee(game) { // eslint-disable-line no-unused-vars
+    return 0;
+}
+
+/**
  * Compute a player's unit statistics with upgrade multipliers applied.
  * @param {object} game current game object containing upgrade levels.
  * @param {string} type unit id.
@@ -457,15 +467,15 @@ export function spawnUnit(game, type, owner, hex) {
  * @param {Event} clickEvt initiating click (optional).
  */
 export function startWar(game, clickEvt) {
-    const cost = (game.difficulty + 1) * 25;
+    const cost = computeWarEntryFee(game);
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.1;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.1;
-    if(game.gold < cost) {
+    if(cost > 0 && game.gold < cost) {
         game.spawnTxt(new Hex(0,0), `Need ${cost}g`, '#f55');
         game.showFloatingText(anchorX, anchorY, `Need ${cost}g`, 'alert-text');
         return;
     }
-    game.gold -= cost;
+    if (cost > 0) game.gold -= cost;
     window.enterCombat?.();
     game.triggerCameraShake();
     game.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
@@ -572,6 +582,7 @@ export function endWar(game, outcome, clickEvt) {
     }
     else if(result === 'DEFEAT') {
         const lost = loseOverworldHexes(game, Math.floor(Math.random()*6)+5); // 5-10
+        // TODO: In future, apply a gold loss penalty on defeat (lose battle = lose gold).
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
