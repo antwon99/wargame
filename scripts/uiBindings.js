@@ -22,6 +22,7 @@ export function applyUIBindings(game, deps = {}) {
     game.updateLeaderboardUI = () => updateLeaderboardUI(game);
     game.updateUpgradeMenu = () => updateUpgradeMenu(game);
     game.updateHUD = () => updateHUD(game);
+    game.updateTileInspector = (tile) => updateTileInspector(game, tile);
     game.showFloatingText = (x, y, txt, cssClass) => showFloatingText(game, x, y, txt, cssClass);
     game.triggerCameraShake = () => triggerCameraShake(game);
     game.spawnParticleBurst = (x, y, count, colors) => spawnParticleBurst(game, x, y, count, colors);
@@ -37,11 +38,13 @@ export function applyUIBindings(game, deps = {}) {
  * @param {object} game live game singleton.
  */
 export function setupUIBindings(game) {
-    const warBtn = document.getElementById('btn-war');
-    if (warBtn) warBtn.onclick = (e) => game.startWar(e);
-
     const retreatBtn = document.getElementById('btn-retreat');
     if (retreatBtn) retreatBtn.onclick = (e) => game.endWar('RETREAT', e);
+
+    const attackBtn = document.getElementById('tile-attack-btn');
+    if (attackBtn) attackBtn.onclick = (e) => {
+        if (game.selectedOverworldTile) game.beginBattleFromTile(game.selectedOverworldTile, e);
+    };
 
     const upgradeBtn = document.getElementById('btn-upg');
     if (upgradeBtn) upgradeBtn.onclick = () => { document.getElementById('upgrade-menu').style.display = 'flex'; };
@@ -274,9 +277,40 @@ function updateHUD(game) {
     const lives = document.getElementById('lives-count');
     if (lives) lives.innerText = game.research.lives;
     document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
+}
 
-    const cost = (game.difficulty + 1) * 25;
-    document.getElementById('btn-war').innerText = `⚔️ WAR (${cost}g)`;
+/**
+ * Update the tile inspector widget to surface contextual actions like Attack for hostile tiles.
+ * @param {object} game live game singleton.
+ * @param {object|null} tile currently selected overworld tile.
+ */
+function updateTileInspector(game, tile) {
+    const panel = document.getElementById('tile-inspector');
+    const label = document.getElementById('tile-inspector-label');
+    const attackBtn = document.getElementById('tile-attack-btn');
+    if (!panel || !label || !attackBtn) return;
+
+    const shouldHide = game.state !== 'OVERWORLD';
+    panel.classList.toggle('hidden', shouldHide);
+    if (shouldHide) {
+        attackBtn.style.display = 'none';
+        return;
+    }
+
+    if (!tile) {
+        label.innerText = 'Select a tile to inspect';
+        attackBtn.style.display = 'none';
+        panel.classList.remove('hostile');
+        return;
+    }
+
+    const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(tile);
+    const isHostile = isRebelTile || tile.owner === 'enemy';
+    const labelText = tile.type ? tile.type.toString().replace(/-/g, ' ') : 'Unknown Tile';
+
+    label.innerText = labelText.toUpperCase();
+    panel.classList.toggle('hostile', !!isHostile);
+    attackBtn.style.display = isHostile ? 'inline-flex' : 'none';
 }
 
 function showFloatingText(game, x, y, txt, cssClass) {

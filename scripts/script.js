@@ -225,6 +225,7 @@ const Game = {
     shakeTimer: null,
     ambientLoopStarted: false,
     pendingClearTile: null,
+    selectedOverworldTile: null,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     fog: { time: 0 },
@@ -256,6 +257,7 @@ const Game = {
         this.updateResearchUI();
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
+        if (this.updateTileInspector) this.updateTileInspector(null);
 
         setupUIBindings(this);
 
@@ -658,12 +660,34 @@ const Game = {
 
     scorchEarth(key) { return scorchEarth(this, key); },
 
+    /**
+     * Track the currently highlighted overworld tile and refresh the contextual inspector UI.
+     * Hostile tiles surface an Attack action while neutral/friendly tiles simply show details.
+     * @param {object|null} tile tile payload selected by the player.
+     */
+    setSelectedOverworldTile(tile) {
+        this.selectedOverworldTile = tile || null;
+        if (this.updateTileInspector) this.updateTileInspector(tile || null);
+    },
+
+    /**
+     * Tile-driven battle entry point that funnels hostile selections into the core war pipeline.
+     * Ensures the target tile is marked for clearing before deferring to startWar so hooks fire.
+     * @param {object} targetTile overworld tile being attacked.
+     * @param {Event} [clickEvt] originating click event for FX anchoring.
+     */
+    beginBattleFromTile(targetTile, clickEvt) {
+        if (targetTile) this.pendingClearTile = targetTile;
+        this.startWar(clickEvt);
+    },
+
     onClick(x, y) {
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
         const hex = Hex.fromPixel(layout, {x, y});
         const key = hex.toString();
 
         if(this.state === 'OVERWORLD') {
+            this.setSelectedOverworldTile(null);
             if(this.overworld.claimable.has(key)) {
                 const cost = this.overworld.claimable.get(key);
                 if(this.wood >= cost) {
@@ -676,14 +700,7 @@ const Game = {
                 }
             } else if (this.overworld.hexes.has(key)) {
                 const tile = this.overworld.hexes.get(key);
-                if (RebelSystem?.isRebelCampTile?.(tile)) {
-                    this.pendingClearTile = tile;
-                    const previousState = this.state;
-                    this.startWar();
-                    if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
-                        this.pendingClearTile = null;
-                    }
-                }
+                this.setSelectedOverworldTile(tile);
             }
         }
         else if (this.state === 'COMBAT') {
@@ -714,6 +731,7 @@ const Game = {
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
         }
+        if (this.state === 'COMBAT' && this.updateTileInspector) this.updateTileInspector(null);
     },
 
     /**
@@ -740,6 +758,7 @@ const Game = {
             this.pendingClearTile = null;
         }
         if (outcome !== 'VICTORY') this.pendingClearTile = null;
+        this.setSelectedOverworldTile(null);
         return undefined;
     },
 
