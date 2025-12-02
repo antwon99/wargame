@@ -36,6 +36,17 @@ function buildStubDom() {
     container.id = 'game-container';
     const body = createStubElement();
     body.appendChild = (child) => body.children.push(child);
+    const timers = [];
+    const stubSetTimeout = (cb, delay) => {
+        const timer = { cb, delay, cancelled: false };
+        timers.push(timer);
+        return timer;
+    };
+    const stubClearTimeout = (timer) => {
+        if (!timer) return;
+        const target = timers.find((t) => t === timer);
+        if (target) target.cancelled = true;
+    };
     const doc = {
         body,
         getElementById: (id) => (id === 'game-container' ? container : null),
@@ -44,7 +55,14 @@ function buildStubDom() {
             return createStubElement(rect);
         }
     };
-    const win = { innerWidth: 800, innerHeight: 600, requestAnimationFrame: (cb) => cb() };
+    const win = {
+        innerWidth: 800,
+        innerHeight: 600,
+        requestAnimationFrame: (cb) => cb(),
+        setTimeout: stubSetTimeout,
+        clearTimeout: stubClearTimeout,
+        __timers: timers
+    };
     return { anchorEl, container, body, document: doc, window: win };
 }
 
@@ -52,10 +70,14 @@ function withStubbedDom(cb) {
     const originalWindow = global.window;
     const originalDocument = global.document;
     const originalRAF = global.requestAnimationFrame;
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
     const env = buildStubDom();
     global.window = env.window;
     global.document = env.document;
     global.requestAnimationFrame = env.window.requestAnimationFrame;
+    global.setTimeout = env.window.setTimeout;
+    global.clearTimeout = env.window.clearTimeout;
     delete global.TutorialCallouts;
     delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
     const TutorialCallouts = require('../scripts/tutorialCallouts.js');
@@ -65,6 +87,8 @@ function withStubbedDom(cb) {
         global.window = originalWindow;
         global.document = originalDocument;
         global.requestAnimationFrame = originalRAF;
+        global.setTimeout = originalSetTimeout;
+        global.clearTimeout = originalClearTimeout;
         delete global.TutorialCallouts;
         delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
     }
@@ -108,10 +132,35 @@ function testOnConfirmRunsWithoutDom() {
     global.document = originalDocument;
 }
 
+function testAutoHideUsesDefaultDuration() {
+    withStubbedDom((TutorialCallouts, env) => {
+        TutorialCallouts.showTileCallout({}, { element: env.anchorEl }, { title: 'Timed' });
+        assert.strictEqual(env.window.__timers.length, 1, 'auto-hide timer should be scheduled');
+        const [timer] = env.window.__timers;
+        assert.strictEqual(timer.delay, 5000, 'default duration should be 5 seconds');
+        timer.cb();
+        const removalFlags = env.document.getElementById('game-container').children.map((child) => child.removed);
+        assert.ok(removalFlags.every(Boolean), 'auto-hide should remove callout elements');
+    });
+}
+
+function testDismissCancelsAutoHideTimer() {
+    withStubbedDom((TutorialCallouts, env) => {
+        TutorialCallouts.showTileCallout({}, { element: env.anchorEl }, { title: 'Cancelable timer' });
+        const callout = env.document.getElementById('game-container').children.find((el) => el.className === 'tile-callout');
+        const button = callout.children.find((el) => el.className === 'tile-callout__btn');
+        button.trigger('click');
+        const [timer] = env.window.__timers;
+        assert.ok(timer.cancelled, 'dismiss click should clear auto-hide timer');
+    });
+}
+
 function run() {
     testCalloutAnchorsAboveTile();
     testHideRemovesElements();
     testOnConfirmRunsWithoutDom();
+    testAutoHideUsesDefaultDuration();
+    testDismissCancelsAutoHideTimer();
     console.log('All tutorial callout tests passed.');
 }
 
