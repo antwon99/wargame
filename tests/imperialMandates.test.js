@@ -98,11 +98,28 @@ function testDecreeCalloutSupportsBoundHelpers() {
     assert.strictEqual(callouts[0].tile, trackedTile, 'rebel camp tile should anchor bound callout helper');
 }
 
+function testRebelDecreeCanRequestAutoHide() {
+    const gameState = buildGameState();
+    ImperialMandates.resetMandateState();
+
+    const callouts = [];
+    const uiBindings = {
+        showTileCallout: (game, tile, options) => { callouts.push({ game, tile, options }); },
+        hideTileCallout: () => null
+    };
+
+    const rebel = RebelSystem.spawnRebelCampNearFrontier(gameState);
+    ImperialMandates.showRebelDecreeCallout(rebel, gameState, uiBindings, { autoHide: true });
+
+    assert.strictEqual(callouts[0].options.duration, 5000, 'callout should opt into default auto-hide duration');
+}
+
 function run() {
     testRebelSpawnMarksFrontierTile();
     testInitializeImperialIntroActivatesMandate();
     testHandleTileClearedCompletesMandate();
     testDecreeCalloutSupportsBoundHelpers();
+    testRebelDecreeCanRequestAutoHide();
     console.log('All imperial mandate tests passed.');
 }
 

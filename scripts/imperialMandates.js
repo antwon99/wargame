@@ -88,8 +88,10 @@
      * @param {object} rebelTile tile the callout should point toward.
      * @param {object} gameState live game state for projection helpers.
      * @param {object} uiBindings optional UI helper overrides.
+     * @param {object} [calloutOptions] optional callout controls.
+     * @param {boolean} [calloutOptions.autoHide=false] whether to auto-dismiss the decree after 5 seconds.
      */
-    function showRebelDecreeCallout(rebelTile, gameState, uiBindings) {
+    function showRebelDecreeCallout(rebelTile, gameState, uiBindings, { autoHide = false } = {}) {
         const bodyHtml = ['Patrol the frontier.', 'Rebels have been sighted nearby.', 'Expand the Empire’s reach — and survive the rebels beyond the fog.'].join('<br>');
         const showTileCallout = uiBindings?.showTileCallout
             || (TutorialCallouts && TutorialCallouts.showTileCallout);
@@ -101,6 +103,7 @@
                 title: 'By Imperial Decree:',
                 body: bodyHtml,
                 buttonText: 'Understood',
+                duration: autoHide ? 5000 : null,
                 onConfirm: () => {
                     if (typeof hideTileCallout === 'function') hideTileCallout();
                 }
@@ -218,6 +221,7 @@
 
     const api = {
         initializeImperialIntro,
+        showRebelDecreeCallout,
         handleTileCleared,
         handleBattleEnd,
         getMandateState,

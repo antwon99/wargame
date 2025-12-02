@@ -10,6 +10,7 @@ Provided by `scripts/tutorialCallouts.js`:
   - `title`: heading text.
   - `body`: HTML-supported body copy.
   - `buttonText`: label for the acknowledgement button.
+  - `duration`: optional auto-hide timer in milliseconds (defaults to 5000). Set to `null` or `0` to keep the callout pinned.
   - `onConfirm`: callback fired after the player clicks the button.
 - `hideTileCallout()` removes any active callout.
 
@@ -28,6 +29,7 @@ TutorialCallouts.showTileCallout(game, rebelTile, {
     title: 'By Imperial Decree:',
     body: 'Secure the frontier before the rebels rally.',
     buttonText: 'Understood',
+    duration: 5000,
     onConfirm: () => TutorialCallouts.hideTileCallout()
 });
 ```

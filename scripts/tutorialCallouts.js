@@ -6,6 +6,13 @@
 (function (global) {
     let activeCallout = null;
 
+    function clearAutoHideTimer() {
+        if (!activeCallout?.autoHideTimer) return;
+        const clearTimer = global.clearTimeout || clearTimeout;
+        clearTimer(activeCallout.autoHideTimer);
+        activeCallout.autoHideTimer = null;
+    }
+
     function buildRectFromPoint(point, size = 48) {
         const half = size / 2;
         const left = (point?.x || 0) - half;
@@ -73,6 +80,7 @@
 
     /** Remove any active callout from the DOM. */
     function hideTileCallout() {
+        clearAutoHideTimer();
         if (activeCallout?.callout) activeCallout.callout.remove();
         if (activeCallout?.connector) activeCallout.connector.remove();
         activeCallout = null;
@@ -83,7 +91,7 @@
      * onConfirm callback fires immediately so logic relying on acknowledgement can proceed.
      * @param {object} game live game instance.
      * @param {object} tile overworld tile to anchor against.
-     * @param {object} options presentation options (title, body, buttonText, onConfirm).
+     * @param {object} options presentation options (title, body, buttonText, onConfirm, duration).
      */
     function showTileCallout(game, tile, options = {}) {
         if (typeof document === 'undefined') {
@@ -116,6 +124,7 @@
         btn.className = 'tile-callout__btn';
         btn.innerText = options.buttonText || 'Understood';
         btn.addEventListener('click', () => {
+            clearAutoHideTimer();
             hideTileCallout();
             if (typeof options.onConfirm === 'function') options.onConfirm();
         });
@@ -135,7 +144,15 @@
             connector.classList.add('visible');
         });
 
-        activeCallout = { callout, connector };
+        activeCallout = { callout, connector, autoHideTimer: null };
+
+        const duration = options.duration === undefined ? 5000 : options.duration;
+        if (typeof duration === 'number' && duration > 0) {
+            const setTimer = global.setTimeout || setTimeout;
+            activeCallout.autoHideTimer = setTimer(() => {
+                hideTileCallout();
+            }, duration);
+        }
         return activeCallout;
     }
 
