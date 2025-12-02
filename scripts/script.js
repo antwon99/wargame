@@ -222,7 +222,8 @@ const Game = {
     ambientLoopStarted: false,
     
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
-    combat: { 
+    fog: { time: 0 },
+    combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
         castles: { player: null, enemy: null }
@@ -411,7 +412,8 @@ const Game = {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
         try {
-            this.ctx.globalAlpha = 1.0; 
+            this.ctx.globalAlpha = 1.0;
+            this.fog.time += dt;
             if(this.state === 'OVERWORLD') this.updateOverworld(dt);
             else if(this.state === 'COMBAT') this.updateCombat(dt);
             
@@ -740,8 +742,8 @@ const Game = {
     },
     draw() {
         const ctx = this.ctx;
-        ctx.fillStyle = '#121218'; ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
+        this.renderFogBackdrop(layout);
         if(this.state === 'COMBAT') this.drawCombat(layout); else this.drawOverworld(layout);
     },
 
@@ -809,6 +811,73 @@ const Game = {
         for(let [k, cost] of this.overworld.claimable) {
             this.drawHex(layout, this.parseKey(k), 'rgba(255,255,255,0.05)', '#333', '', `${cost}w`);
         }
+    },
+
+    /**
+     * Paint a soft radial fog backdrop that darkens unexplored space while keeping
+     * explored tiles readable. The gradient subtly drifts to keep the scene from
+     * feeling static without impacting gameplay logic.
+     * @param {Object} layout active hex layout (origin + size)
+     */
+    renderFogBackdrop(layout) {
+        const ctx = this.ctx;
+        const baseColor = '#0b0b11';
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+
+        const center = this.getTerritoryScreenCenter(layout);
+        const drift = Math.sin(this.fog.time * 0.35) * 28;
+        const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
+        const innerRadius = Math.max(layout.size * 3, radius * 0.25);
+
+        const fogGradient = ctx.createRadialGradient(
+            center.x + drift,
+            center.y - drift,
+            innerRadius,
+            center.x,
+            center.y,
+            radius
+        );
+        fogGradient.addColorStop(0, 'rgba(38, 40, 50, 0.75)');
+        fogGradient.addColorStop(0.5, 'rgba(18, 20, 28, 0.82)');
+        fogGradient.addColorStop(1, 'rgba(4, 4, 8, 0.98)');
+        ctx.fillStyle = fogGradient;
+        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+
+        const rippleGradient = ctx.createRadialGradient(
+            center.x - drift * 0.4,
+            center.y + drift * 0.6,
+            0,
+            center.x - drift * 0.4,
+            center.y + drift * 0.6,
+            radius
+        );
+        rippleGradient.addColorStop(0, 'rgba(255,255,255,0.03)');
+        rippleGradient.addColorStop(0.25, 'rgba(120,120,140,0.02)');
+        rippleGradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = rippleGradient;
+        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        ctx.globalAlpha = 1.0;
+    },
+
+    /**
+     * Derive the average screen position for explored territory so the fog can
+     * fade out from the current kingdom instead of the viewport center.
+     * @param {Object} layout active hex layout
+     * @returns {{x:number, y:number}} screen-space center of explored space
+     */
+    getTerritoryScreenCenter(layout) {
+        const points = [];
+        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
+        maps.forEach(data => {
+            const hex = data.hex || data;
+            points.push(hex.toPixel(layout));
+        });
+        if (!points.length) return { x: this.viewport.width / 2, y: this.viewport.height / 2 };
+
+        const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+        return { x: sum.x / points.length, y: sum.y / points.length };
     },
     
     drawHex(layout, hex, fill, stroke, label, sub) {

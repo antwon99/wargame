@@ -19,6 +19,66 @@
             user-select: none;
         }
 
+        /* Intro Overlay */
+        .intro-overlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 35%, rgba(40, 40, 48, 0.72), rgba(10, 10, 14, 0.94));
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            z-index: 50;
+            text-align: center;
+            padding: 20px;
+            opacity: 1;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        .intro-overlay h1 {
+            margin: 0;
+            letter-spacing: 1px;
+            font-size: clamp(24px, 4vw, 36px);
+        }
+
+        .intro-overlay h2 {
+            margin: 0;
+            font-weight: 500;
+            opacity: 0.85;
+        }
+
+        .intro-overlay p {
+            margin: 10px 0 18px 0;
+            color: #dce0f0;
+            opacity: 0.9;
+            max-width: 640px;
+        }
+
+        .intro-overlay .intro-button {
+            background: #1f1f2b;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #f5f5f5;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s ease, background 0.2s ease;
+        }
+
+        .intro-overlay .intro-button:hover { background: rgba(255, 255, 255, 0.08); }
+        .intro-overlay .intro-button:active { transform: translateY(2px); }
+
+        .intro-overlay.intro-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
         .sr-only {
             position: absolute;
             width: 1px;
