@@ -187,7 +187,7 @@ export function updateCombat(game, dt, hexImpl) {
                 if(d < minDist) { minDist = d; target = other; }
             }
         });
-        if(!target || minDist > 2) {
+        if(!target || minDist > u.range) {
             for(let [bk, b] of game.combat.buildings) {
                 if(b.owner !== u.owner) {
                     const bHex = game.parseKey(bk);
