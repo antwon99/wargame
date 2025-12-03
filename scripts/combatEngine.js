@@ -606,12 +606,18 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const targetTile = game.pendingClearTile;
     const targetKey = targetTile?.hex?.toString?.() || targetTile?.toString?.();
     const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
+    const mandateProtected = ImperialMandates?.getProtectedOverworldKeys?.() || new Set();
+    mandateProtected.forEach((k) => protectedTargets.add(k));
 
     window.exitCombat?.(normalizedOutcome);
 
     if(outcome === 'DEFEAT' && game.research.lives > 0) {
         game.research.lives -= 1;
         result = 'REVIVE';
+    }
+
+    if (ImperialMandates?.handleBattleOutcome) {
+        ImperialMandates.handleBattleOutcome(result, targetTile, game);
     }
 
     if(result === 'VICTORY') {
@@ -632,10 +638,6 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
         game.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
-    }
-
-    if (ImperialMandates?.handleBattleEnd) {
-        ImperialMandates.handleBattleEnd(result, targetTile, game);
     }
 
     recordWarEnd(game, result);

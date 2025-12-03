@@ -1,6 +1,7 @@
 const assert = require('assert');
 const RebelSystem = require('../scripts/rebelSystem.js');
 const ImperialMandates = require('../scripts/imperialMandates.js');
+const { loseOverworldHexes } = require('../scripts/combatEngine.js');
 
 class Hex {
     constructor(q, r, s = -q - r) {
@@ -17,26 +18,24 @@ class Hex {
 }
 
 function buildGameState() {
-    const gameState = { Hex, overworld: { hexes: new Map() } };
+    const gameState = { Hex, overworld: { hexes: new Map() }, calcOverworldGhosts: () => {} };
     const addTile = (hex) => gameState.overworld.hexes.set(hex.toString(), { hex, type: 'field' });
     addTile(new Hex(0, 0));
     addTile(new Hex(1, 0));
     addTile(new Hex(0, 1));
+    addTile(new Hex(1, 1));
+    addTile(new Hex(-1, 0));
     return gameState;
 }
 
-function testRebelSpawnMarksFrontierTile() {
-    const gameState = buildGameState();
-    const rebel = RebelSystem.spawnRebelCampNearFrontier(gameState);
-    assert.ok(rebel, 'rebel camp should spawn on a frontier tile');
-    assert.ok(RebelSystem.isRebelCampTile(rebel), 'spawned tile should be marked as rebel camp');
-    const stored = gameState.overworld.hexes.get(rebel.hex.toString());
-    assert.ok(stored.isRebelCamp, 'map entry should persist rebel flag');
+function prepareMandate(gameState, uiBindings) {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandates.issueInitialMandate(gameState, uiBindings);
+    return gameState.overworld.hexes.get(ImperialMandates.getKingState().firstRebelMandate.targetTileKey);
 }
 
-function testInitializeImperialIntroActivatesMandate() {
+function testIssueInitialMandateActivatesAndStoresTarget() {
     const gameState = buildGameState();
-    ImperialMandates.resetMandateState();
     const callouts = [];
     const uiBindings = {
         showTileCallout: (game, tile, options) => {
@@ -46,66 +45,18 @@ function testInitializeImperialIntroActivatesMandate() {
         hideTileCallout: () => callouts.push({ hidden: true })
     };
 
-    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
-    const state = ImperialMandates.getMandateState();
+    const rebelTile = prepareMandate(gameState, uiBindings);
+    const state = ImperialMandates.getKingState();
 
-    assert.strictEqual(callouts[0].options.title, 'By Imperial Decree:', 'opening decree should be shown as a callout');
-    assert.ok(state.firstMandateActive, 'mandate should be active after spawning rebel camp');
-    assert.ok(state.firstMandateRebelTileId, 'tracked rebel tile id should be stored');
+    assert.ok(rebelTile, 'mandate should spawn a rebel camp');
+    assert.strictEqual(state.firstRebelMandate.status, ImperialMandates.MandateStatus.ACTIVE, 'mandate should become active');
+    assert.ok(state.firstRebelMandate.targetTileKey, 'tracked rebel tile id should be stored');
     assert.strictEqual(state.preferAnchoredDecree, false, 'anchored renderer should be consumed after first decree');
+    assert.strictEqual(callouts[0].options.title, 'By Imperial Decree:', 'opening decree should use anchored tile callout');
 }
 
-function testHandleTileClearedCompletesMandate() {
+function testReprimandTriggersOnceOnDefeat() {
     const gameState = buildGameState();
-    ImperialMandates.resetMandateState();
-
-    const modalConfigs = [];
-    const uiBindings = {
-        showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
-        hideTileCallout: () => null,
-        showImperialModal: (config) => modalConfigs.push(config)
-    };
-
-    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
-    const trackedId = ImperialMandates.getMandateState().firstMandateRebelTileId;
-    const trackedTile = gameState.overworld.hexes.get(trackedId);
-
-    // different tile should not complete
-    const neighborTile = { hex: new Hex(5, 5), type: 'field' };
-    ImperialMandates.handleTileCleared(neighborTile, gameState, uiBindings);
-    assert.ok(ImperialMandates.getMandateState().firstMandateActive, 'mandate remains active when other tiles cleared');
-
-    ImperialMandates.handleTileCleared(trackedTile, gameState, uiBindings);
-    const state = ImperialMandates.getMandateState();
-    assert.ok(state.firstMandateCompleted, 'mandate completes when rebel camp cleared');
-    assert.ok(!RebelSystem.isRebelCampTile(trackedTile), 'rebel flag should be removed after completion');
-    assert.strictEqual(modalConfigs[0].buttonLabel, null, 'follow-up decrees should use no-button renderer');
-}
-
-function testDecreeCalloutSupportsBoundHelpers() {
-    const gameState = buildGameState();
-    ImperialMandates.resetMandateState();
-
-    const callouts = [];
-    const uiBindings = {
-        showTileCallout: (tile, options) => {
-            callouts.push({ tile, options });
-            if (typeof options.onConfirm === 'function') options.onConfirm();
-        },
-        hideTileCallout: () => callouts.push({ hidden: true })
-    };
-
-    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
-    const state = ImperialMandates.getMandateState();
-    const trackedTile = gameState.overworld.hexes.get(state.firstMandateRebelTileId);
-
-    assert.strictEqual(callouts[0].tile, trackedTile, 'rebel camp tile should anchor bound callout helper');
-}
-
-function testReprimandUsesStandardImperialRenderer() {
-    const gameState = buildGameState();
-    ImperialMandates.resetMandateState();
-
     const decrees = [];
     const uiBindings = {
         showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
@@ -113,38 +64,57 @@ function testReprimandUsesStandardImperialRenderer() {
         showImperialModal: (config) => decrees.push(config)
     };
 
-    ImperialMandates.initializeImperialIntro(gameState, uiBindings);
-    const trackedTile = gameState.overworld.hexes.get(ImperialMandates.getMandateState().firstMandateRebelTileId);
+    const rebelTile = prepareMandate(gameState, uiBindings);
 
-    ImperialMandates.handleBattleEnd('DEFEAT', trackedTile, gameState, uiBindings);
+    ImperialMandates.handleBattleOutcome('DEFEAT', rebelTile, gameState, uiBindings);
+    ImperialMandates.handleBattleOutcome('DEFEAT', rebelTile, gameState, uiBindings);
 
-    assert.strictEqual(decrees[0].buttonLabel, null, 'imperial reprimand should render without confirmation button');
-    assert.ok(decrees[0].lines.includes('The frontier has been pushed back.'), 'reprimand text should be forwarded to renderer');
+    const state = ImperialMandates.getKingState();
+    assert.strictEqual(state.firstRebelMandate.status, ImperialMandates.MandateStatus.ACTIVE, 'mandate remains active after defeat');
+    assert.ok(state.firstRebelMandate.reprimandShown, 'reprimand flag should be set');
+    assert.strictEqual(decrees.length, 1, 'reprimand should only render once');
+    assert.strictEqual(decrees[0].title, 'Imperial Reprimand', 'reprimand title should be forwarded');
 }
 
-function testRebelDecreeCanRequestAutoHide() {
+function testVictoryCompletesMandateAndCleansRebelFlag() {
     const gameState = buildGameState();
-    ImperialMandates.resetMandateState();
-
-    const callouts = [];
+    const decrees = [];
     const uiBindings = {
-        showTileCallout: (game, tile, options) => { callouts.push({ game, tile, options }); },
-        hideTileCallout: () => null
+        showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
+        hideTileCallout: () => null,
+        showImperialModal: (config) => decrees.push(config)
     };
 
-    const rebel = RebelSystem.spawnRebelCampNearFrontier(gameState);
-    ImperialMandates.showRebelDecreeCallout(rebel, gameState, uiBindings, { autoHide: true });
+    const rebelTile = prepareMandate(gameState, uiBindings);
+    ImperialMandates.handleBattleOutcome('VICTORY', rebelTile, gameState, uiBindings);
 
-    assert.strictEqual(callouts[0].options.duration, 5000, 'callout should opt into default auto-hide duration');
+    const state = ImperialMandates.getKingState();
+    assert.strictEqual(state.firstRebelMandate.status, ImperialMandates.MandateStatus.COMPLETED, 'mandate should complete on victory');
+    assert.ok(!RebelSystem.isRebelCampTile(rebelTile), 'rebel flag should be removed after completion');
+    assert.strictEqual(decrees[0].title, 'The Emperor is pleased.', 'victory decree should use the Emperor acknowledgment');
+}
+
+function testProtectedKeysSurviveDefeatPenalty() {
+    const gameState = buildGameState();
+    const uiBindings = {
+        showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
+        hideTileCallout: () => null
+    };
+    const rebelTile = prepareMandate(gameState, uiBindings);
+    const trackedKey = ImperialMandates.getKingState().firstRebelMandate.targetTileKey;
+
+    const protectedKeys = ImperialMandates.getProtectedOverworldKeys();
+    assert.ok(protectedKeys.has(trackedKey), 'tracked rebel tile should be protected while active');
+
+    loseOverworldHexes(gameState, 10, protectedKeys);
+    assert.ok(gameState.overworld.hexes.has(trackedKey), 'protected rebel tile should survive overworld loss');
 }
 
 function run() {
-    testRebelSpawnMarksFrontierTile();
-    testInitializeImperialIntroActivatesMandate();
-    testHandleTileClearedCompletesMandate();
-    testDecreeCalloutSupportsBoundHelpers();
-    testRebelDecreeCanRequestAutoHide();
-    testReprimandUsesStandardImperialRenderer();
+    testIssueInitialMandateActivatesAndStoresTarget();
+    testReprimandTriggersOnceOnDefeat();
+    testVictoryCompletesMandateAndCleansRebelFlag();
+    testProtectedKeysSurviveDefeatPenalty();
     console.log('All imperial mandate tests passed.');
 }
 
