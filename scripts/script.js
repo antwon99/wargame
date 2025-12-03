@@ -671,7 +671,7 @@ const Game = {
 
     runAI() { return runAI(this); },
 
-    damageBuilding(key, amt) { return damageBuilding(this, key, amt); },
+    damageBuilding(key, amt, attackerOwner) { return damageBuilding(this, key, amt, attackerOwner); },
 
     checkConnection(startHex, owner) { return checkConnection(this, startHex, owner, this.Hex); },
 

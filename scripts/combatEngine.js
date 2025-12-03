@@ -204,7 +204,7 @@ export function updateCombat(game, dt, hexImpl) {
                 if (u.type === 'soldier') game.playSound('sword', { allowOverlap: true });
                 if (u.type === 'dragon') game.playSound('rare', { allowOverlap: true });
                 if(target.isBuilding) {
-                    damageBuilding(game, target.key, u.dmg);
+                    damageBuilding(game, target.key, u.dmg, u.owner);
                 } else {
                     damageUnit(game, target, u.dmg, u.owner);
                 }
@@ -328,8 +328,9 @@ export function runAI(game) {
  * @param {object} game current game object.
  * @param {string} key hex key of the building.
  * @param {number} amt incoming damage.
+ * @param {string} [attackerOwner] faction id of the attacker (player|enemy).
  */
-export function damageBuilding(game, key, amt) {
+export function damageBuilding(game, key, amt, attackerOwner) {
     const b = game.combat.buildings.get(key);
     if(!b) return;
     b.hp -= amt;
@@ -345,7 +346,10 @@ export function damageBuilding(game, key, amt) {
                 scorchEarth(game, key);
                 game.spawnTxt(hex, "SCORCHED!", '#000');
             } else {
-                if(b.owner === 'enemy') { game.wood += 5; game.spawnTxt(hex, "+5w", '#a67c52'); }
+                if(b.owner === 'enemy' && attackerOwner === 'player') {
+                    game.wood += 5;
+                    game.spawnTxt(hex, "+5w", '#a67c52');
+                }
             }
         }
     }
@@ -565,26 +569,60 @@ export function startWar(game, clickEvt, hexImpl) {
 }
 
 /**
- * Remove random overworld tiles as a defeat/retreat penalty while honoring any
- * protected coordinates that should survive the loss (e.g., the rebel camp
- * that initiated the war).
+ * Remove overworld tiles as a defeat/retreat penalty while honoring protected
+ * coordinates (e.g., the rebel camp that initiated the war). Tiles are removed
+ * deterministically from the current frontier first so we never delete
+ * interior pockets or already-removed positions.
  * @param {object} game current game object.
  * @param {number} count number of tiles to strip.
  * @param {Set<string>} [protectedKeys] tile keys that cannot be removed.
  * @returns {number} actual number removed.
  */
 export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
-    const keys = Array.from(game.overworld.hexes.keys());
-    const candidates = keys.filter((k) => game.overworld.hexes.get(k).type !== 'castle' && !protectedKeys.has(k));
+    const Hex = resolveHex(game);
+    const currentKeys = new Set(game.overworld.hexes.keys());
+    const removableKeys = new Set(
+        [...currentKeys].filter((k) => game.overworld.hexes.get(k).type !== 'castle' && !protectedKeys.has(k))
+    );
+
+    const parseKey = (key) => {
+        const [q, r] = key.split(',').map(Number);
+        return new Hex(q, r, -q - r);
+    };
+
+    const hexDistance = (hex) => {
+        const s = typeof hex.s === 'number' ? hex.s : -hex.q - hex.r;
+        return (Math.abs(hex.q) + Math.abs(hex.r) + Math.abs(s)) / 2;
+    };
+
+    const isFrontierKey = (key) => {
+        const hex = parseKey(key);
+        for (let i = 0; i < 6; i++) {
+            const neighborKey = Hex.neighbor(hex, i).toString();
+            if (!currentKeys.has(neighborKey)) return true;
+        }
+        return false;
+    };
 
     let lost = 0;
-    while(lost < count && candidates.length > 0) {
-        const index = Math.floor(Math.random() * candidates.length);
-        const keyToRemove = candidates[index];
+    while (lost < count && removableKeys.size > 0) {
+        const frontier = [...removableKeys].filter((k) => isFrontierKey(k));
+        const pool = frontier.length > 0 ? frontier : [...removableKeys];
+
+        const keyToRemove = pool
+            .map((k) => ({ key: k, hex: parseKey(k) }))
+            .sort((a, b) => {
+                const distDelta = hexDistance(b.hex) - hexDistance(a.hex);
+                if (distDelta !== 0) return distDelta;
+                return a.key.localeCompare(b.key);
+            })[0].key;
+
         game.overworld.hexes.delete(keyToRemove);
-        candidates.splice(index, 1);
+        removableKeys.delete(keyToRemove);
+        currentKeys.delete(keyToRemove);
         lost++;
     }
+
     game.calcOverworldGhosts();
     return lost;
 }
