@@ -29,7 +29,7 @@ async function testCalendarPillRenders() {
     const { updateHUD } = await import('../scripts/uiBindings.js');
     const { Timekeeper } = await import('../scripts/timekeeper.js');
 
-    const timekeeper = new Timekeeper({ startTick: 6 }); // Day 7
+    const timekeeper = new Timekeeper({ startTick: 6 }); // Day 7 in the new 8-day week
     const game = {
         gold: 42,
         wood: 9,
@@ -40,7 +40,7 @@ async function testCalendarPillRenders() {
     };
 
     updateHUD(game);
-    assert.strictEqual(doc.getElementById('calendar-readout').innerText, 'Month 1, Week 1, Day 7');
+    assert.strictEqual(doc.getElementById('calendar-readout').innerText, 'Month 1, Week 1 of 5, Day 7 of 8');
 }
 
 function testTemplateHasCalendarPill() {
