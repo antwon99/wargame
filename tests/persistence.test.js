@@ -42,11 +42,32 @@ function runTests() {
     };
 
     // Serialize
+    const mandateSnapshot = {
+        currentTick: 7,
+        lastIssuedTick: 6,
+        mandates: {
+            levy_tithed_gold: {
+                status: 'ACTIVE',
+                deadlineTick: 21,
+                issuedTick: 14,
+                metadata: { requiredGold: 180 }
+            }
+        }
+    };
+
+    const notificationStack = {
+        queue: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
+        visible: new Map([
+            ['v1', { item: { id: 'live', title: 'Live', lines: ['Active'], duration: 1500, tone: 'warning' } }]
+        ])
+    };
+
     const game = {
         gold: 100,
         wood: 50,
         difficulty: 2,
         imperialFavor: 7,
+        timekeeper: { ticks: 12, daysPerWeek: 5, weeksPerMonth: 3 },
         upgrades: { soldier: 1 },
         overworld: {
             hexes: new Map([
@@ -54,12 +75,18 @@ function runTests() {
                 ['1,0', { hex: new Hex(1, 0, -1), type: 'field' }]
             ])
         },
-        stats: { totalKills: 5 }
+        stats: { totalKills: 5 },
+        getNotificationStack: () => notificationStack,
+        imperialMandates: { serializeState: () => mandateSnapshot }
     };
     const snap = Persistence.serializeGameState(game);
     assert.strictEqual(snap.overworld.hexes.length, 2);
     assert.strictEqual(snap.stats.totalKills, 5);
     assert.strictEqual(snap.gold, 100);
+    assert.strictEqual(snap.timekeeper.ticks, 12);
+    assert.strictEqual(snap.timekeeper.daysPerWeek, 5);
+    assert.strictEqual(snap.notifications.length, 2, 'pending notifications should persist');
+    assert.strictEqual(snap.mandates.currentTick, mandateSnapshot.currentTick, 'mandate state should persist');
 
     // Deserialize
     const snapshot = {
@@ -69,7 +96,10 @@ function runTests() {
         upgrades: { soldier: 2 },
         imperialFavor: 3,
         overworld: { hexes: [{ q: 0, r: 0, s: 0, type: 'castle' }] },
-        stats: { totalKills: 3 }
+        stats: { totalKills: 3 },
+        timekeeper: { ticks: 4, daysPerWeek: 6, weeksPerMonth: 2 },
+        notifications: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
+        mandates: mandateSnapshot
     };
     const result = Persistence.deserializeGameState(snapshot, {
         hexFactory: (q, r, s) => new Hex(q, r, s)
@@ -79,6 +109,10 @@ function runTests() {
     assert.deepStrictEqual(only.hex.q, 0);
     assert.strictEqual(result.stats.totalKills, 3);
     assert.strictEqual(result.imperialFavor, 3);
+    assert.strictEqual(result.timekeeper.ticks, 4);
+    assert.strictEqual(result.timekeeper.daysPerWeek, 6);
+    assert.strictEqual(result.notifications.length, 1);
+    assert.strictEqual(result.mandates.currentTick, mandateSnapshot.currentTick);
 
     // Save/Load via mocked storage
     const saveGame = {
@@ -87,8 +121,21 @@ function runTests() {
         difficulty: 4,
         upgrades: { soldier: 3 },
         imperialFavor: 9,
+        timekeeper: { ticks: 8, daysPerWeek: 7, weeksPerMonth: 4 },
         overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
-        stats: { totalKills: 11, bestDifficulty: 2 }
+        stats: { totalKills: 11, bestDifficulty: 2 },
+        imperialMandates: { serializeState: () => ({
+            currentTick: 10,
+            lastIssuedTick: 8,
+            mandates: {
+                levy_tithed_gold: {
+                    status: 'ACTIVE',
+                    deadlineTick: 18,
+                    issuedTick: 11,
+                    metadata: { requiredGold: 140 }
+                }
+            }
+        }) }
     };
     Persistence.saveSnapshot(saveGame, 1);
     const loaded = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
@@ -96,6 +143,8 @@ function runTests() {
     assert.strictEqual(loaded.state.gold, 77);
     assert.strictEqual(loaded.stats.totalKills, 11);
     assert.strictEqual(loaded.state.imperialFavor, 9);
+    assert.strictEqual(loaded.state.timekeeper.ticks, 8);
+    assert.strictEqual(loaded.state.mandates.currentTick, 10);
 
     // Multi-slot isolation
     const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestDifficulty: 7 } };

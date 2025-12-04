@@ -13,8 +13,12 @@ The helper returns:
 - `month` (1-indexed)
 - `day` (running day counter)
 
+`Persistence.serializeGameState` captures the tick counter along with `daysPerWeek`/`weeksPerMonth` so reloads restore the same calendar math used during the prior session.
+
 ## Events
 `Timekeeper.emitChange()` dispatches a `time:changed` `CustomEvent` on `window` with `{ ticks, calendar }` and also notifies in-process listeners registered via `onChange()`.
 
 ## HUD integration
 `updateHUD` reads `game.timekeeper.formatCalendar()` and writes it into the `#calendar-readout` pill so players can always see the current day/week/month.
+
+The same Timekeeper values drive mandate deadlines (stored as ticks) and the HUD favor pill, so keeping the calendar in sync ensures mandate reminders and imperial favor changes align with the original timeline after a reload.

@@ -8,6 +8,8 @@ This prototype now ships with a lightweight persistence layer backed by `localSt
 
 ## What gets saved
 - Resources, difficulty, upgrades, and every discovered overworld hex.
+- **Imperial favor** and the **Timekeeper** state (ticks + calendar config) so the HUD calendar and favor pill resume where the player left off.
+- Pending HUD **notifications** and **imperial mandate timers** so deadline banners and decree reminders survive reloads.
 - Leaderboard stats: total kills, best kill streak per war, highest difficulty reached, wars played, and the last outcome.
 - Saves are taken from the overworld-facing snapshot; mid-combat state is intentionally omitted to avoid corrupting ongoing battles.
 

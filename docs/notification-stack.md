@@ -7,6 +7,7 @@ The notification stack provides lightweight, non-blocking decree cards that live
 - Each card auto-dismisses after `autoDismissMs` (default 5200 ms) unless a shorter `duration` is supplied per payload.
 - Manual dismissal promotes the next queued card, keeping the stack responsive during heavy notification bursts.
 - Pointer events are disabled on the stack container so canvas/tile interactions continue to flow, while the cards themselves remain clickable for dismissal.
+- Pending cards are serialized (queue + visible) during saves and replayed on load so mandate reminders and rewards remain visible after a reload.
 
 ## Integration
 - `NotificationStackApi` is registered on `globalThis` for non-module consumers and exposes `createNotificationStack`, `getSharedStack`, and `setSharedStack`.

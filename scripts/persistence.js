@@ -9,6 +9,11 @@
     const STORAGE_KEY = `${STORAGE_PREFIX}1`;
     const STATS_KEY = `${STATS_PREFIX}1`;
     const DEFAULT_IMPERIAL_FAVOR = 5;
+    const DEFAULT_TIMEKEEPER = {
+        ticks: 0,
+        daysPerWeek: 7,
+        weeksPerMonth: 4
+    };
     const DEFAULT_STATS = {
         totalKills: 0,
         bestKills: 0,
@@ -72,6 +77,60 @@
         return { slot: '1', options: slotOrOptions || {} };
     }
 
+    /** Normalize a raw timekeeper snapshot into a safe payload. */
+    function normalizeTimekeeperSnapshot(snapshot = {}) {
+        return {
+            ticks: Math.max(0, Number.isFinite(snapshot.ticks) ? snapshot.ticks : DEFAULT_TIMEKEEPER.ticks),
+            daysPerWeek: Math.max(1, Number.isFinite(snapshot.daysPerWeek) ? snapshot.daysPerWeek : DEFAULT_TIMEKEEPER.daysPerWeek),
+            weeksPerMonth: Math.max(1, Number.isFinite(snapshot.weeksPerMonth) ? snapshot.weeksPerMonth : DEFAULT_TIMEKEEPER.weeksPerMonth)
+        };
+    }
+
+    /**
+     * Merge queue + in-flight notification payloads into a minimal rehydration list.
+     * @param {object} game live game object that may expose a notification stack getter.
+     * @returns {Array<object>} normalized notification payloads safe for persistence.
+     */
+    function snapshotNotifications(game) {
+        if (!game || typeof game.getNotificationStack !== 'function') return [];
+        const stack = game.getNotificationStack();
+        if (!stack) return [];
+
+        const normalizePayload = (item) => {
+            if (!item) return null;
+            const lines = Array.isArray(item.lines)
+                ? item.lines
+                : (item.lines ? [item.lines] : []);
+            return {
+                id: item.id,
+                title: item.title,
+                lines,
+                duration: Number.isFinite(item.duration) ? item.duration : undefined,
+                tone: item.tone
+            };
+        };
+
+        const pending = [];
+        if (Array.isArray(stack.queue)) pending.push(...stack.queue);
+        if (stack.visible instanceof Map) {
+            stack.visible.forEach((entry) => {
+                if (entry?.item) pending.push(entry.item);
+                else if (entry) pending.push(entry);
+            });
+        }
+
+        const seen = new Set();
+        return pending
+            .map(normalizePayload)
+            .filter(Boolean)
+            .filter((item) => {
+                const id = item.id || `${item.title || ''}-${item.lines?.[0] || ''}`;
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            });
+    }
+
     /**
      * Serialize the current game state into a JSON-friendly snapshot.
      * Only serializes deterministic, overworld-friendly data (combat is excluded).
@@ -80,6 +139,9 @@
      */
     function serializeGameState(game) {
         const overwriteStats = game.stats || {};
+        const timekeeper = normalizeTimekeeperSnapshot(game.timekeeper);
+        const mandates = game.imperialMandates?.serializeState?.()
+            || global.ImperialMandates?.serializeState?.();
         return {
             gold: game.gold,
             wood: game.wood,
@@ -94,6 +156,7 @@
                 lives: game.research?.lives || 0
             },
             imperialFavor: clampImperialFavor(game.imperialFavor),
+            timekeeper,
             overworld: {
                 hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type, owner }) => ({
                     q: hex.q,
@@ -103,7 +166,9 @@
                     owner: owner ?? null
                 }))
             },
-            stats: { ...DEFAULT_STATS, ...overwriteStats }
+            stats: { ...DEFAULT_STATS, ...overwriteStats },
+            notifications: snapshotNotifications(game),
+            mandates
         };
     }
 
@@ -144,10 +209,13 @@
             wood: snapshot.wood ?? 0,
             difficulty: snapshot.difficulty ?? 0,
             imperialFavor: clampImperialFavor(snapshot.imperialFavor),
+            timekeeper: normalizeTimekeeperSnapshot(snapshot.timekeeper),
             upgrades: snapshot.upgrades || {},
             research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
-            stats: { ...DEFAULT_STATS, ...(snapshot.stats || {}) }
+            stats: { ...DEFAULT_STATS, ...(snapshot.stats || {}) },
+            notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
+            mandates: snapshot.mandates || null
         };
     }
 

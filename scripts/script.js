@@ -247,6 +247,7 @@ const Game = {
     selectedOverworldTile: null,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
+    imperialMandates: ImperialMandates,
     timekeeper: new Timekeeper(),
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
@@ -294,6 +295,8 @@ const Game = {
         if (this.updateTileInspector) this.updateTileInspector(null);
 
         setupUIBindings(this);
+
+        this.flushPendingNotifications();
 
         this.armAmbientLoop();
 
@@ -383,6 +386,7 @@ const Game = {
         this.resetSession();
         this.imperialFavor = DEFAULT_IMPERIAL_FAVOR;
         this.timekeeper.reset(0);
+        this.pendingNotifications = [];
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
@@ -406,7 +410,13 @@ const Game = {
         this.calcOverworldGhosts();
         this.resetSession();
         this.imperialFavor = clampImperialFavor(snapshot.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
-        this.timekeeper.reset(0);
+        this.timekeeper.daysPerWeek = snapshot.timekeeper?.daysPerWeek || this.timekeeper.daysPerWeek;
+        this.timekeeper.weeksPerMonth = snapshot.timekeeper?.weeksPerMonth || this.timekeeper.weeksPerMonth;
+        this.timekeeper.reset(snapshot.timekeeper?.ticks || 0);
+        if (ImperialMandates?.hydrateState) {
+            ImperialMandates.hydrateState(snapshot.mandates, this);
+        }
+        this.pendingNotifications = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
         this.shouldRunImperialIntro = false;
@@ -441,6 +451,7 @@ const Game = {
         this.updateResearchUI();
         this.updateLeaderboardUI();
         this.updateSaveSlotsUI();
+        this.flushPendingNotifications();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), `Loaded Slot ${this.activeSaveSlot}`, '#9be3b4');
     },
@@ -459,6 +470,17 @@ const Game = {
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
         if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
+    },
+
+    /**
+     * Replay persisted notifications after UI bindings exist.
+     * Safe to invoke multiple times; the backlog drains once per call when handlers exist.
+     */
+    flushPendingNotifications() {
+        if (!Array.isArray(this.pendingNotifications) || !this.pendingNotifications.length) return;
+        if (typeof this.enqueueNotification !== 'function') return;
+        this.pendingNotifications.forEach((note) => this.enqueueNotification(note));
+        this.pendingNotifications = [];
     },
 
     loop(now) {
