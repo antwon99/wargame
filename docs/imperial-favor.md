@@ -7,6 +7,7 @@ Imperial Favor tracks how pleased the capital is with the current stewardship. I
 ## Defaults and Clamping
 - New campaigns start at **5** favor, a neutral midpoint.
 - Values are clamped between **1** and **10** when written to the HUD or serialized so out-of-band adjustments cannot corrupt saves.
+- Mandates shift favor by **+1** on success and **-1** on failure, immediately updating the HUD pill while respecting the 1–10 bounds.
 
 ## Persistence Notes
 - The snapshot payload includes `imperialFavor` next to gold, wood, upgrades, and research.
