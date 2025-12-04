@@ -246,7 +246,7 @@
             const calloutOptions = {
                 title,
                 body: bodyHtml,
-                buttonText: 'Understood',
+                buttonText: options.buttonText || 'Understood',
                 duration: autoHide ? 5000 : null,
                 onConfirm: () => {
                     if (typeof hideTileCallout === 'function') hideTileCallout();
@@ -259,7 +259,7 @@
             } else {
                 showTileCallout(rebelTile, calloutOptions);
             }
-            return;
+            return true;
         }
 
         showImperialMessage({
@@ -270,6 +270,7 @@
                 if (typeof hideTileCallout === 'function') hideTileCallout();
             }
         }, uiBindings);
+        return false;
     }
 
     function snapshotMandate(entry) {
@@ -598,12 +599,12 @@
                     && typeof (uiBindings.showTileCallout || TutorialCallouts?.showTileCallout) === 'function';
                 mandate.runtime.metadata.preferAnchoredDecree = false;
 
-                if (shouldAnchorToTile) {
-                    showRebelDecreeCallout(rebelTile, gameState, uiBindings, {
-                        body: body.replace(/\n/g, '<br>'),
-                        title: 'By Imperial Decree:'
-                    });
-                } else {
+                const anchored = shouldAnchorToTile && showRebelDecreeCallout(rebelTile, gameState, uiBindings, {
+                    body: body.replace(/\n/g, '<br>'),
+                    title: 'By Imperial Decree:'
+                });
+
+                if (!anchored) {
                     showMandateBanner(body.split('\n'), uiBindings, 'By Imperial Decree:');
                 }
             },

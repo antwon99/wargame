@@ -144,6 +144,12 @@ async function testFirstDecreeAnchoredThenNotifications() {
 
     ImperialMandates.issuePendingMandates(gameState, bindings);
     assert.strictEqual(callouts.length, 1, 'first rebel camp should use anchored decree callout');
+    assert.strictEqual(notifications.length, 0, 'initial decree should avoid notification stack');
+
+    const options = callouts[0][callouts[0].length - 1];
+    assert.strictEqual(options.title, 'By Imperial Decree:', 'anchored callout should set the decree title');
+    assert.ok(options.body.includes('Patrol the frontier'), 'anchored callout should include the decree body');
+    assert.strictEqual(options.buttonText, 'Understood', 'anchored callout should include a dismissal button');
 
     const targetKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
     const rebelTile = gameState.overworld.hexes.get(targetKey);
