@@ -63,6 +63,7 @@ export function applyUIBindings(game, deps = {}) {
     game.showOverworldUI = () => showOverworldUI();
     game.showTileCallout = (tile, opts) => showTileCallout(game, tile, opts);
     game.hideTileCallout = () => hideTileCallout();
+    game.renderMandatesPanel = () => renderMandatesPanel();
     /**
      * Surface the shared notification stack so gameplay systems can enqueue toasts without
      * importing DOM code. Cards auto-fade and stack in the HUD corner.
@@ -189,10 +190,119 @@ function toggleMandatesPanel(forceState) {
     const panel = document.getElementById('mandates-panel');
     if (!panel) return;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
+    if (shouldOpen) renderMandatesPanel();
     panel.classList.toggle('open', shouldOpen);
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-mandates');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+function getImperialMandatesApi() {
+    if (typeof ImperialMandates !== 'undefined') return ImperialMandates;
+    if (typeof globalThis !== 'undefined' && globalThis.ImperialMandates) return globalThis.ImperialMandates;
+    return null;
+}
+
+function renderDeadlineMeta(mandate, api) {
+    const helper = api?.describeDeadlineTick;
+    if (typeof helper === 'function') return helper(mandate.deadlineTick);
+
+    const fallbackRemaining = Number.isFinite(mandate.deadlineTick)
+        ? mandate.deadlineTick - (api?.getKingState?.()?.currentTick || 0)
+        : null;
+    return {
+        label: Number.isFinite(mandate.deadlineTick) ? `Day ${mandate.deadlineTick}` : 'No fixed deadline',
+        remainingDays: fallbackRemaining
+    };
+}
+
+function getMandateBadgeTone(mandate, deadlineMeta = {}) {
+    const status = (mandate.status || '').toUpperCase();
+    if (status === 'SUCCEEDED') return 'completed';
+    if (status === 'FAILED' || status === 'EXPIRED') return 'failed';
+    if (typeof deadlineMeta.remainingDays === 'number' && deadlineMeta.remainingDays <= 2) return 'warning';
+    return 'active';
+}
+
+function formatRemainingDays(remaining) {
+    if (remaining === null || remaining === undefined) return 'No deadline';
+    if (remaining <= 0) return 'Past due';
+    if (remaining === 1) return '1 day remaining';
+    return `${remaining} days remaining`;
+}
+
+/**
+ * Render the current set of active imperial mandates into the HUD flyout.
+ * Pulls from ImperialMandates.getActiveMandates() to stay in sync with the
+ * authoritative state machine and keep map interactions live while open.
+ * @returns {Array<object>} mandates rendered for easier introspection in tests.
+ */
+export function renderMandatesPanel() {
+    if (typeof document === 'undefined') return [];
+    const body = document.getElementById('mandates-panel-body');
+    if (!body) return [];
+
+    const api = getImperialMandatesApi();
+    const activeMandates = api?.getActiveMandates?.() || [];
+
+    body.innerHTML = '';
+    if (!activeMandates.length) {
+        const empty = document.createElement('p');
+        empty.className = 'mandates-panel__empty';
+        empty.innerText = 'No active mandates yet.';
+        body.appendChild(empty);
+        return activeMandates;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'mandates-panel__list';
+    activeMandates.forEach((mandate) => {
+        const deadlineMeta = renderDeadlineMeta(mandate, api);
+        const badgeTone = getMandateBadgeTone(mandate, deadlineMeta);
+
+        const card = document.createElement('article');
+        card.className = 'mandate-card';
+
+        const header = document.createElement('div');
+        header.className = 'mandate-card__header';
+
+        const title = document.createElement('h4');
+        title.className = 'mandate-card__title';
+        title.innerText = mandate.title;
+
+        const badge = document.createElement('span');
+        badge.className = `mandate-badge mandate-badge--${badgeTone}`;
+        badge.innerText = badgeTone === 'warning' ? 'Warning' : badgeTone.charAt(0).toUpperCase() + badgeTone.slice(1);
+
+        header.appendChild(title);
+        header.appendChild(badge);
+
+        const desc = document.createElement('p');
+        desc.className = 'mandate-card__description';
+        desc.innerText = mandate.description;
+
+        const footer = document.createElement('div');
+        footer.className = 'mandate-card__deadline';
+
+        const deadlineLabel = document.createElement('span');
+        deadlineLabel.className = 'mandate-card__deadline-label';
+        deadlineLabel.innerText = deadlineMeta.label;
+
+        const remaining = document.createElement('span');
+        remaining.className = 'mandate-card__remaining';
+        remaining.innerText = formatRemainingDays(deadlineMeta.remainingDays);
+
+        footer.appendChild(deadlineLabel);
+        footer.appendChild(remaining);
+
+        card.appendChild(header);
+        card.appendChild(desc);
+        card.appendChild(footer);
+        list.appendChild(card);
+    });
+
+    body.appendChild(list);
+    return activeMandates;
 }
 
 function updateSaveStatus(msg) {

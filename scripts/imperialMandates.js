@@ -71,6 +71,29 @@
         return `Month ${cal.month}, Week ${cal.weekOfMonth}, Day ${cal.dayOfWeek}`;
     }
 
+    /**
+     * Convert an absolute mandate deadline into human-readable calendar text and
+     * a remaining-day delta for UI overlays.
+     *
+     * The helper defaults to the last observed game state for calendar pacing so
+     * HUD overlays remain accurate even when they are rendered from outside the
+     * mandate engine.
+     * @param {number|null|undefined} deadlineTick tick on which the mandate expires.
+     * @param {object} [gameState] optional live game reference for time config.
+     * @returns {{ label: string, remainingDays: number|null }}
+     */
+    function describeDeadlineTick(deadlineTick, gameState) {
+        if (!Number.isFinite(deadlineTick)) {
+            return { label: 'No fixed deadline', remainingDays: null };
+        }
+
+        const normalizedTick = Math.max(0, deadlineTick);
+        const ctx = gameState || state.lastGameState;
+        const label = formatCalendarLabel(Math.max(0, normalizedTick - 1), ctx);
+        const remainingDays = normalizedTick - state.currentTick;
+        return { label, remainingDays };
+    }
+
     function getMinimumMandateSpacing(gameState) {
         return getTimeConfig(gameState).daysPerWeek;
     }
@@ -759,6 +782,7 @@
         issuePendingMandates,
         recordEvent,
         getActiveMandates,
+        describeDeadlineTick,
         resetForNewCampaign,
         getKingState,
         getProtectedOverworldKeys,
