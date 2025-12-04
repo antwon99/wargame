@@ -28,33 +28,47 @@
 
     <div class="hud">
         <div class="top-bar">
-            <div class="top-bar__controls">
-                <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
-                <div class="pause-cluster" aria-live="polite">
-                    <button class="pause-toggle" id="btn-pause" type="button" aria-pressed="false">⏸️ Pause</button>
-                    <span class="pause-indicator" id="pause-indicator">Live</span>
+            <div class="top-bar__zones">
+                <div class="top-bar__zone top-bar__zone--left">
+                    <div class="top-bar__controls">
+                        <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
+                        <div class="pause-cluster" aria-live="polite">
+                            <button class="pause-toggle" id="btn-pause" type="button" aria-pressed="false">⏸️ Pause</button>
+                            <span class="pause-indicator" id="pause-indicator">Live</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="resource-cluster">
-                <div class="resource-pill">
-                    <div class="res-group">
-                        <div class="res gold"><span>💰</span><span id="gold">0</span></div>
-                        <div class="res wood"><span>🌲</span><span id="wood">0</span></div>
-                        <div class="res lives"><span>❤️</span><span id="lives-count">0</span></div>
+                <div class="top-bar__zone top-bar__zone--middle-left">
+                    <div class="resource-cluster">
+                        <div class="resource-pill">
+                            <div class="res-group">
+                                <div class="res gold"><span>💰</span><span id="gold">0</span></div>
+                                <div class="res wood"><span>🌲</span><span id="wood">0</span></div>
+                                <div class="res lives"><span>❤️</span><span id="lives-count">0</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="top-bar__zone top-bar__zone--middle">
+                    <div class="status-cluster">
                         <div class="res imperial-favor" title="Higher favor reduces taxes; lower favor increases pressure.">
                             <span class="favor-icon">🏛️</span><span class="favor-label">Favor</span><span id="imperial-favor" class="favor-value">5</span>
                         </div>
                         <div class="res enemy-level"><span class="enemy-label">Enemy</span><span id="lvl-txt" class="enemy-value">Lv.0</span></div>
                     </div>
-                    <div class="calendar-pill" aria-live="polite">
-                        <span class="calendar-icon">📅</span>
-                        <span id="calendar-readout" class="calendar-readout">Month 1, Week 1, Day 1</span>
+                </div>
+                <div class="top-bar__zone top-bar__zone--right">
+                    <div class="calendar-cluster">
+                        <div class="calendar-pill" aria-live="polite">
+                            <span class="calendar-icon">📅</span>
+                            <span id="calendar-readout" class="calendar-readout">Month 1, Week 1, Day 1</span>
+                        </div>
+                        <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel">
+                            <span class="mandates-button__primary">Tasks</span>
+                            <span class="mandates-button__secondary">Mandates</span>
+                        </button>
                     </div>
                 </div>
-                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel">
-                    <span class="mandates-button__primary">Tasks</span>
-                    <span class="mandates-button__secondary">Mandates</span>
-                </button>
             </div>
         </div>
         <div id="state-txt" class="sr-only" aria-live="polite">KINGDOM</div>
