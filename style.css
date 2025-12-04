@@ -213,6 +213,19 @@
         }
         .enemy-label { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.4px; opacity: 0.8; }
         .enemy-value { color: #9be3b4; font-weight: 800; font-size: 0.95rem; }
+        .calendar-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #cbd5f5;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .calendar-icon { opacity: 0.9; }
+        .calendar-readout { font-weight: 700; letter-spacing: 0.2px; }
 
         .controls {
             padding: 20px; padding-bottom: 40px;
