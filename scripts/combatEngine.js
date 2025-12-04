@@ -569,14 +569,16 @@ export function startWar(game, clickEvt, hexImpl) {
 }
 
 /**
- * Remove overworld tiles as a defeat/retreat penalty while honoring protected
- * coordinates (e.g., the rebel camp that initiated the war). Tiles are removed
- * deterministically from the current frontier first so we never delete
- * interior pockets or already-removed positions.
+ * Strip overworld control as a defeat/retreat penalty while honoring
+ * protected coordinates (e.g., the rebel camp that initiated the war).
+ * Frontier tiles are converted into either scorched ruins or rebel-owned
+ * territory (50/50 chance) instead of being deleted outright. We maintain the
+ * coordinates in the map for UI continuity while treating the converted tiles
+ * as "lost" for subsequent frontier calculations.
  * @param {object} game current game object.
- * @param {number} count number of tiles to strip.
- * @param {Set<string>} [protectedKeys] tile keys that cannot be removed.
- * @returns {number} actual number removed.
+ * @param {number} count number of tiles to convert.
+ * @param {Set<string>} [protectedKeys] tile keys that cannot be converted.
+ * @returns {number} actual number converted.
  */
 export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
     const Hex = resolveHex(game);
@@ -604,6 +606,15 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         return false;
     };
 
+    const convertTileToPenalty = (key) => {
+        const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
+        const fate = Math.random() < 0.5 ? 'scorched' : 'rebel';
+        tile.type = fate;
+        tile.owner = fate;
+        if (tile.isRebelCamp && fate !== 'rebelcamp') tile.isRebelCamp = false;
+        game.overworld.hexes.set(key, tile);
+    };
+
     let lost = 0;
     while (lost < count && removableKeys.size > 0) {
         const frontier = [...removableKeys].filter((k) => isFrontierKey(k));
@@ -617,7 +628,7 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
                 return a.key.localeCompare(b.key);
             })[0].key;
 
-        game.overworld.hexes.delete(keyToRemove);
+        convertTileToPenalty(keyToRemove);
         removableKeys.delete(keyToRemove);
         currentKeys.delete(keyToRemove);
         lost++;

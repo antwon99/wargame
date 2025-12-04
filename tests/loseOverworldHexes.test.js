@@ -27,18 +27,44 @@ function buildGameState(coords) {
     return gameState;
 }
 
-function testFrontierRecalculationRemovesOuterRingFirst() {
+function withMockedRandom(sequence, fn) {
+    const originalRandom = Math.random;
+    let index = 0;
+    Math.random = () => {
+        if (Array.isArray(sequence)) {
+            const value = sequence[Math.min(index, sequence.length - 1)];
+            index += 1;
+            return value;
+        }
+        return sequence;
+    };
+    try {
+        fn();
+    } finally {
+        Math.random = originalRandom;
+    }
+}
+
+function testFrontierConversionMarksOuterRingFirst() {
     const coords = [
         [0, 0], [1, 0], [2, 0], [3, 0], [4, 0]
     ];
     const gameState = buildGameState(coords);
 
-    const removed = loseOverworldHexes(gameState, 2);
-    assert.strictEqual(removed, 2, 'should remove requested number of tiles when available');
-    assert.ok(!gameState.overworld.hexes.has('4,0'), 'farthest frontier tile should be removed first');
-    assert.ok(!gameState.overworld.hexes.has('3,0'), 'frontier should be recomputed after each removal');
+    withMockedRandom([0.1, 0.9], () => {
+        const removed = loseOverworldHexes(gameState, 2);
+        assert.strictEqual(removed, 2, 'should convert requested number of tiles when available');
+    });
+
+    const scorchedFrontier = gameState.overworld.hexes.get('4,0');
+    const rebelFrontier = gameState.overworld.hexes.get('3,0');
+    assert.strictEqual(gameState.overworld.hexes.size, coords.length, 'converted tiles should remain on the map');
+    assert.strictEqual(scorchedFrontier.type, 'scorched', 'farthest frontier tile should be scorched first');
+    assert.strictEqual(scorchedFrontier.owner, 'scorched', 'scorched tiles should carry a matching owner flag');
+    assert.strictEqual(rebelFrontier.type, 'rebel', 'subsequent frontier should convert after recalculation');
+    assert.strictEqual(rebelFrontier.owner, 'rebel', 'rebel takeovers should mark ownership');
     assert.ok(gameState.overworld.hexes.has('2,0'), 'inner tiles should remain until they become exposed');
-    assert.ok(gameState.ghostsCalculated, 'overworld ghost recalculation should run after removals');
+    assert.ok(gameState.ghostsCalculated, 'overworld ghost recalculation should run after conversions');
 }
 
 function testProtectedTilesStopFurtherLoss() {
@@ -48,14 +74,17 @@ function testProtectedTilesStopFurtherLoss() {
     const gameState = buildGameState(coords);
     const protectedKeys = new Set(['1,0']);
 
-    const removed = loseOverworldHexes(gameState, 5, protectedKeys);
-    assert.strictEqual(removed, 1, 'removal should stop when only protected tiles remain');
-    assert.ok(gameState.overworld.hexes.has('1,0'), 'protected tiles must be preserved');
-    assert.ok(!gameState.overworld.hexes.has('2,0'), 'unprotected tiles can still be removed');
+    withMockedRandom(0.2, () => {
+        const removed = loseOverworldHexes(gameState, 5, protectedKeys);
+        assert.strictEqual(removed, 1, 'conversion should stop when only protected tiles remain');
+    });
+
+    assert.strictEqual(gameState.overworld.hexes.get('2,0').type, 'scorched', 'unprotected tiles can still be lost');
+    assert.strictEqual(gameState.overworld.hexes.get('1,0').type, 'field', 'protected tiles must be preserved');
 }
 
 function run() {
-    testFrontierRecalculationRemovesOuterRingFirst();
+    testFrontierConversionMarksOuterRingFirst();
     testProtectedTilesStopFurtherLoss();
     console.log('All loseOverworldHexes tests passed.');
 }
