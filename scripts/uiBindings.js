@@ -6,6 +6,13 @@ import { createNotificationStack, getSharedStack, setSharedStack } from './notif
  */
 
 let cachedNotificationStack = null;
+const DEFAULT_IMPERIAL_FAVOR = 5;
+
+/** Clamp imperial favor values to the HUD's 1–10 range for display. */
+function clampImperialFavor(value) {
+    const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+    return Math.min(10, Math.max(1, numeric));
+}
 
 /**
  * Lazily create (or return) the shared notification stack anchored to the game container.
@@ -302,11 +309,17 @@ function updateUpgradeMenu(game) {
     document.getElementById('buy-defense').innerText = `${game.getUpgradeCost('defense')}g`;
 }
 
-function updateHUD(game) {
+/**
+ * Refresh the HUD resource slab with the latest overworld economy and imperial favor.
+ * @param {object} game live game singleton exposing resource values and favor.
+ */
+export function updateHUD(game) {
     document.getElementById('gold').innerText = Math.floor(game.gold);
     document.getElementById('wood').innerText = Math.floor(game.wood);
     const lives = document.getElementById('lives-count');
     if (lives) lives.innerText = game.research.lives;
+    const imperialFavor = document.getElementById('imperial-favor');
+    if (imperialFavor) imperialFavor.innerText = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
     document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
 }
 

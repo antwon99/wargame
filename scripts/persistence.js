@@ -8,6 +8,7 @@
     const STATS_PREFIX = 'hexWar_stats_slot';
     const STORAGE_KEY = `${STORAGE_PREFIX}1`;
     const STATS_KEY = `${STATS_PREFIX}1`;
+    const DEFAULT_IMPERIAL_FAVOR = 5;
     const DEFAULT_STATS = {
         totalKills: 0,
         bestKills: 0,
@@ -16,6 +17,12 @@
         lastOutcome: 'N/A',
         lastSaveISO: null
     };
+
+    /** Clamp imperial favor to the 1–10 HUD range for persistence. */
+    function clampImperialFavor(value) {
+        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+        return Math.min(10, Math.max(1, numeric));
+    }
 
     /**
      * Safely parse JSON from storage.
@@ -86,6 +93,7 @@
                 })),
                 lives: game.research?.lives || 0
             },
+            imperialFavor: clampImperialFavor(game.imperialFavor),
             overworld: {
                 hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type, owner }) => ({
                     q: hex.q,
@@ -135,6 +143,7 @@
             gold: snapshot.gold ?? 0,
             wood: snapshot.wood ?? 0,
             difficulty: snapshot.difficulty ?? 0,
+            imperialFavor: clampImperialFavor(snapshot.imperialFavor),
             upgrades: snapshot.upgrades || {},
             research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
@@ -222,6 +231,7 @@
         STORAGE_PREFIX,
         STATS_KEY,
         STATS_PREFIX,
+        DEFAULT_IMPERIAL_FAVOR,
         DEFAULT_STATS,
         serializeGameState,
         deserializeGameState,
