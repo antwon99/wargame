@@ -160,6 +160,15 @@ function runTests() {
     assert.ok(meta.hasSave);
     assert.strictEqual(meta.slot, '2');
 
+    // Favor updates from gameplay systems should persist
+    const favorShiftGame = { ...saveGame, imperialFavor: 2 };
+    const favorSave = Persistence.saveSnapshot(favorShiftGame, 6);
+    assert.strictEqual(favorSave.payload.imperialFavor, 2, 'saves should capture the latest imperial favor value');
+
+    favorShiftGame.imperialFavor = 15;
+    const clampedFavorSave = Persistence.saveSnapshot(favorShiftGame, 7);
+    assert.strictEqual(clampedFavorSave.payload.imperialFavor, 10, 'favor persistence should honor clamp limits');
+
     // Persist scorched/rebel tiles and ensure they stay non-income when reloaded
     const penalizedGame = {
         gold: 0,

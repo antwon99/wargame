@@ -32,6 +32,37 @@
         lastUIBindings: {}
     };
 
+    const DEFAULT_IMPERIAL_FAVOR = 5;
+
+    /**
+     * Keep imperial favor bounded to the 1–10 HUD scale so mandate rewards and penalties
+     * cannot push saves outside the documented range.
+     * @param {number} value arbitrary favor value.
+     * @returns {number} clamped favor value (defaults to midpoint when invalid).
+     */
+    function clampImperialFavor(value) {
+        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+        return Math.min(10, Math.max(1, numeric));
+    }
+
+    /**
+     * Apply an imperial favor delta and refresh the HUD when bindings are provided.
+     * @param {object} gameState live game reference holding the favor meter.
+     * @param {object} uiBindings optional UI hooks that expose updateHUD.
+     * @param {number} delta change to apply (positive for rewards, negative for reprimands).
+     * @returns {number|null} updated favor value or null when game state is missing.
+     */
+    function applyImperialFavorDelta(gameState, uiBindings, delta = 0) {
+        if (!gameState) return null;
+        const current = Number.isFinite(gameState.imperialFavor)
+            ? gameState.imperialFavor
+            : DEFAULT_IMPERIAL_FAVOR;
+        const next = clampImperialFavor(current + delta);
+        gameState.imperialFavor = next;
+        if (typeof uiBindings?.updateHUD === 'function') uiBindings.updateHUD(gameState);
+        return next;
+    }
+
     /**
      * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
      * storing the authoritative timers in ticks.
@@ -410,6 +441,7 @@
         if (typeof entry.definition.onSuccess === 'function') {
             entry.definition.onSuccess({ ...ctx, mandate: entry, payload });
         }
+        applyImperialFavorDelta(ctx.gameState, ctx.uiBindings, entry.definition.successFavorDelta ?? 1);
     }
 
     function markFailure(entry, ctx, payload) {
@@ -418,6 +450,7 @@
         if (typeof entry.definition.onFailure === 'function') {
             entry.definition.onFailure({ ...ctx, mandate: entry, payload });
         }
+        applyImperialFavorDelta(ctx.gameState, ctx.uiBindings, entry.definition.failureFavorDelta ?? -1);
     }
 
     function issueMandate(entry, ctx) {

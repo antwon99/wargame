@@ -168,31 +168,40 @@ async function testTaxLevyDeadlinePaths() {
     const gameState = buildGameState();
     gameState.gold = 220;
     const earlyCycle = buildNotificationBindings();
-    ImperialMandates.issuePendingMandates(gameState, earlyCycle.uiBindings);
+    const hudUpdates = [];
+    const successBindings = { ...earlyCycle.uiBindings, updateHUD: (state) => hudUpdates.push(state.imperialFavor) };
+    ImperialMandates.issuePendingMandates(gameState, successBindings);
 
-    await advanceImperialTicks(10, gameState, earlyCycle.uiBindings);
+    await advanceImperialTicks(10, gameState, successBindings);
     const levyState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     const goldBeforePayment = gameState.gold;
     assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
 
-    await advanceImperialTicks(1, gameState, earlyCycle.uiBindings);
+    await advanceImperialTicks(1, gameState, successBindings);
     const resolvedLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(resolvedLevy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should succeed once funds are ready');
     assert.ok(gameState.gold < goldBeforePayment, 'levy payout should reduce total gold');
+    assert.strictEqual(gameState.imperialFavor, 6, 'successful levy should raise imperial favor');
+    assert.ok(hudUpdates.includes(6), 'HUD should refresh after favor increases');
 
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const struggling = buildGameState();
     struggling.gold = 130;
     const strugglingNotifications = buildNotificationBindings();
-    ImperialMandates.issuePendingMandates(struggling, strugglingNotifications.uiBindings);
-    await advanceImperialTicks(10, struggling, strugglingNotifications.uiBindings);
+    const failureHudUpdates = [];
+    const failureBindings = { ...strugglingNotifications.uiBindings, updateHUD: (state) => failureHudUpdates.push(state.imperialFavor) };
+    ImperialMandates.issuePendingMandates(struggling, failureBindings);
+    await advanceImperialTicks(10, struggling, failureBindings);
     const failingLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(failingLevy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate for struggling treasury');
-    await advanceImperialTicks(12, struggling, strugglingNotifications.uiBindings);
+    const favorBeforeDeadlines = struggling.imperialFavor ?? 5;
+    await advanceImperialTicks(12, struggling, failureBindings);
     const failedState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'levy should fail after deadline expires');
     assert.ok(struggling.gold <= 130, 'failure should seize part of the treasury');
+    assert.ok(struggling.imperialFavor <= favorBeforeDeadlines - 1, 'missed levy should lower imperial favor');
+    assert.ok(failureHudUpdates.includes(struggling.imperialFavor), 'HUD should refresh after favor penalties');
 }
 
 async function testExpansionRewardsAndExpiry() {
