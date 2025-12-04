@@ -26,6 +26,27 @@ async function run() {
     const formatted = tk.formatCalendar();
     assert.strictEqual(formatted, 'Month 2, Week 1 of 5, Day 1 of 8', 'formatCalendar should match calculated values');
 
+    const rollover = new Timekeeper({ daysPerWeek: 8, weeksPerMonth: 5, startTick: 39 });
+    const endOfMonth = rollover.getCalendar();
+    assert.deepStrictEqual(
+        endOfMonth,
+        { dayOfWeek: 8, weekOfMonth: 5, month: 1, day: 40, dayOfMonth: 40, daysPerMonth: 40 },
+        'calendar should recognize the final day of a 40-day month'
+    );
+
+    rollover.advance(1);
+    const secondMonth = rollover.getCalendar();
+    assert.strictEqual(secondMonth.month, 2, 'advancing past tick 39 should enter month two');
+    assert.strictEqual(secondMonth.weekOfMonth, 1, 'month rollover resets the week counter');
+    assert.strictEqual(secondMonth.dayOfWeek, 1, 'new month starts at day one of the week');
+
+    rollover.reset(4);
+    assert.strictEqual(
+        rollover.formatCalendar(),
+        'Month 1, Week 1 of 5, Day 5 of 8',
+        'reset should snap back to the revised cadence and formatting'
+    );
+
     console.log('Timekeeper tick conversion tests passed.');
 }
 

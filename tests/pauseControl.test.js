@@ -85,9 +85,42 @@ async function testUnpausedAppliesIncomeAndMandates() {
     assert.strictEqual(game.updateUpgradeMenuCalls, 1, 'upgrade UI should refresh after income ticks');
 }
 
+async function testPausePreservesTimerProgress() {
+    const { advanceOverworldTimer } = await import('../scripts/overworldTicks.js');
+
+    const game = {
+        paused: false,
+        overworld: { timer: 0, tickRate: 2, hexes: new Map() },
+        research: { bonuses: {} },
+        upgrades: {},
+        gold: 0,
+        wood: 0,
+        getIncomeMulti() { return 1; }
+    };
+
+    let mandateTicks = 0;
+    const options = { mandateManager: { advanceTick: () => { mandateTicks += 1; } } };
+
+    const beforePause = advanceOverworldTimer(game, 1, options);
+    assert.strictEqual(beforePause, false, 'timer should not tick until the cadence threshold is met');
+    assert.strictEqual(game.overworld.timer, 1, 'partial timer progress should be cached');
+
+    game.paused = true;
+    const whilePaused = advanceOverworldTimer(game, 1, options);
+    assert.strictEqual(whilePaused, false, 'paused flag should block tick application');
+    assert.strictEqual(game.overworld.timer, 1, 'pause should not discard cached timer progress');
+
+    game.paused = false;
+    const afterResume = advanceOverworldTimer(game, 1, options);
+    assert.strictEqual(afterResume, true, 'resume should apply the deferred tick');
+    assert.strictEqual(game.overworld.timer, 0, 'timer should reset after applying income');
+    assert.strictEqual(mandateTicks, 1, 'mandate manager should receive deferred ticks after resuming');
+}
+
 async function run() {
     await testPausedStopsOverworldTick();
     await testUnpausedAppliesIncomeAndMandates();
+    await testPausePreservesTimerProgress();
     console.log('Pause control tests passed.');
 }
 
