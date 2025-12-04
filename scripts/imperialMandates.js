@@ -27,9 +27,70 @@
         mandates: new Map(),
         currentTick: 0,
         events: [],
+        lastIssuedTick: null,
         lastGameState: null,
         lastUIBindings: {}
     };
+
+    /**
+     * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
+     * storing the authoritative timers in ticks.
+     */
+    const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
+    function getTimeConfig(gameState) {
+        const tk = gameState?.timekeeper;
+        return {
+            daysPerWeek: Number.isFinite(tk?.daysPerWeek) ? tk.daysPerWeek : DEFAULT_TIME_CONFIG.daysPerWeek,
+            weeksPerMonth: Number.isFinite(tk?.weeksPerMonth)
+                ? tk.weeksPerMonth
+                : DEFAULT_TIME_CONFIG.weeksPerMonth
+        };
+    }
+
+    function convertToTicks(units = {}, gameState) {
+        if (!units || typeof units !== 'object') return 0;
+        const config = getTimeConfig(gameState);
+        const monthsToDays = (units.months || 0) * config.weeksPerMonth * config.daysPerWeek;
+        const weeksToDays = (units.weeks || 0) * config.daysPerWeek;
+        return Math.max(0, (units.days || 0) + weeksToDays + monthsToDays);
+    }
+
+    function getCalendarForTick(tick, gameState) {
+        const config = getTimeConfig(gameState);
+        const safeTicks = Math.max(0, Number.isFinite(tick) ? tick : 0);
+        const day = safeTicks + 1;
+        const week = Math.floor((day - 1) / config.daysPerWeek);
+        const month = Math.floor(week / config.weeksPerMonth) + 1;
+        const weekOfMonth = (week % config.weeksPerMonth) + 1;
+        const dayOfWeek = ((day - 1) % config.daysPerWeek) + 1;
+        return { dayOfWeek, weekOfMonth, month, day };
+    }
+
+    function formatCalendarLabel(tick, gameState) {
+        const cal = getCalendarForTick(tick, gameState);
+        return `Month ${cal.month}, Week ${cal.weekOfMonth}, Day ${cal.dayOfWeek}`;
+    }
+
+    function getMinimumMandateSpacing(gameState) {
+        return getTimeConfig(gameState).daysPerWeek;
+    }
+
+    function getDurationTicks(entry, ctx) {
+        if (entry.definition.duration) return convertToTicks(entry.definition.duration, ctx.gameState);
+        if (entry.definition.durationTicks) return entry.definition.durationTicks;
+        return null;
+    }
+
+    function getEarliestIssueTick(entry, gameState) {
+        if (!entry.definition.earliestIssue) return 0;
+        return convertToTicks(entry.definition.earliestIssue, gameState);
+    }
+
+    function hasMandateSpacingElapsed(gameState) {
+        if (state.lastIssuedTick === null) return true;
+        const minGap = getMinimumMandateSpacing(gameState);
+        return (state.currentTick - state.lastIssuedTick) >= minGap;
+    }
 
     function getTileKey(tile) {
         if (!tile) return null;
@@ -270,6 +331,7 @@
     function resetForNewCampaign() {
         state.currentTick = 0;
         state.events = [];
+        state.lastIssuedTick = null;
         state.lastGameState = null;
         state.lastUIBindings = {};
         state.mandates.forEach(resetMandate);
@@ -294,28 +356,32 @@
     function issueMandate(entry, ctx) {
         entry.runtime.status = MandateStatus.ACTIVE;
         entry.runtime.issuedTick = state.currentTick;
-        if (entry.definition.durationTicks) {
-            entry.runtime.deadlineTick = state.currentTick + entry.definition.durationTicks;
+        const durationTicks = getDurationTicks(entry, ctx);
+        if (durationTicks) {
+            entry.runtime.durationTicks = durationTicks;
+            entry.runtime.deadlineTick = state.currentTick + durationTicks;
         }
+        state.lastIssuedTick = state.currentTick;
         if (typeof entry.definition.onIssue === 'function') {
             entry.definition.onIssue({ ...ctx, mandate: entry });
         }
     }
 
-    function getDeadlineWarningLines(entry, ticksRemaining) {
+    function getDeadlineWarningLines(entry, ticksRemaining, ctx) {
+        const deadlineLabel = formatCalendarLabel((entry.runtime.deadlineTick || state.currentTick) - 1, ctx.gameState);
         if (entry.definition.id === 'levy_tithed_gold') {
             return [
-                `Levy due in ${ticksRemaining} ticks.`,
+                `Levy due by ${deadlineLabel} (${ticksRemaining} days remaining).`,
                 'Secure the tithe before collectors arrive.'
             ];
         }
         if (entry.definition.id === 'push_the_frontier') {
             return [
-                `Frontier mandate expiring in ${ticksRemaining} ticks.`,
+                `Frontier mandate expires by ${deadlineLabel} (${ticksRemaining} days remaining).`,
                 'Claim new holdings before the order lapses.'
             ];
         }
-        return [`Mandate deadline in ${ticksRemaining} ticks.`];
+        return [`Mandate deadline by ${deadlineLabel} (${ticksRemaining} days remaining).`];
     }
 
     function checkDeadlines(ctx) {
@@ -330,7 +396,7 @@
             if (ticksRemaining > 0 && ticksRemaining <= 2 && !entry.runtime.metadata.deadlineWarned) {
                 entry.runtime.metadata.deadlineWarned = true;
                 showMandateBanner(
-                    getDeadlineWarningLines(entry, ticksRemaining),
+                    getDeadlineWarningLines(entry, ticksRemaining, ctx),
                     ctx.uiBindings,
                     'Imperial Reminder',
                     { duration: 4600, tone: 'warning' }
@@ -372,6 +438,8 @@
         const ctx = buildContext(gameState, uiBindings);
         state.mandates.forEach((entry) => {
             if (entry.runtime.status !== MandateStatus.PENDING) return;
+            if (!hasMandateSpacingElapsed(ctx.gameState)) return;
+            if (ctx.currentTick < getEarliestIssueTick(entry, ctx.gameState)) return;
             if (entry.definition.triggerPredicate && entry.definition.triggerPredicate({ ...ctx, mandate: entry })) {
                 issueMandate(entry, ctx);
             }
@@ -473,7 +541,7 @@
             id: 'destroy_first_rebel_camp',
             title: 'Frontier Sweep',
             description: 'Destroy the first rebel encampment seeded near the foggy frontier before the Emperor loses patience.',
-            durationTicks: 15,
+            duration: { weeks: 2, days: 1 },
             createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true, deadlineWarned: false }),
             triggerPredicate: ({ gameState }) => Boolean(gameState?.overworld?.hexes?.size),
             onIssue: ({ gameState, uiBindings, mandate }) => {
@@ -550,15 +618,16 @@
             id: 'levy_tithed_gold',
             title: 'Imperial Tax Levy',
             description: 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
-            durationTicks: 8,
+            duration: { weeks: 1, days: 1 },
             createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
-            triggerPredicate: ({ gameState, currentTick }) => currentTick >= 2 && (gameState?.gold || 0) >= 120,
+            earliestIssue: { weeks: 1 },
+            triggerPredicate: ({ gameState }) => (gameState?.gold || 0) >= 120,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const requiredGold = Math.max(150, Math.floor((gameState?.gold || 0) * 0.6));
                 mandate.runtime.metadata.requiredGold = requiredGold;
                 showMandateBanner([
                     `Levy announced: remit ${requiredGold} gold.`,
-                    `Collectors arrive in ${mandate.runtime.deadlineTick - state.currentTick} ticks.`
+                    `Collectors arrive by ${formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState)}.`
                 ], uiBindings, 'Imperial Tax Levy');
             },
             successPredicate: (eventType, payload, ctx) => {
@@ -600,9 +669,10 @@
             id: 'push_the_frontier',
             title: 'Push the Frontier',
             description: 'Claim additional territory before the frontier stagnates. Expansion proves loyalty.',
-            durationTicks: 12,
+            duration: { weeks: 1, days: 5 },
             createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0, deadlineWarned: false }),
-            triggerPredicate: ({ gameState, currentTick }) => currentTick >= 4 && (gameState?.overworld?.hexes?.size || 0) >= 4,
+            earliestIssue: { weeks: 2 },
+            triggerPredicate: ({ gameState }) => (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;
                 mandate.runtime.metadata.startingTerritory = currentTerritory;
