@@ -565,7 +565,6 @@
                 } else {
                     showMandateBanner(body.split('\n'), uiBindings, 'By Imperial Decree:');
                 }
-                if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
             },
             onEvent: (eventType, payload, ctx) => {
                 const targetKey = ctx.mandate.runtime.metadata.targetTileKey;
