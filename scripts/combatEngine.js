@@ -578,7 +578,8 @@ export function startWar(game, clickEvt, hexImpl) {
  * @param {object} game current game object.
  * @param {number} count number of tiles to convert.
  * @param {Set<string>} [protectedKeys] tile keys that cannot be converted.
- * @returns {number} actual number converted.
+ * @returns {{lost:number, conversions:Array<{key:string, fate:string, hex:object}>, counts:{scorched:number, rebel:number}, convertedKeys:Set<string>}}
+ *          report describing converted tiles.
  */
 export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
     const Hex = resolveHex(game);
@@ -611,9 +612,13 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         const fate = Math.random() < 0.5 ? 'scorched' : 'rebel';
         tile.type = fate;
         tile.owner = fate;
+        tile.hex = tile.hex || parseKey(key);
         if (tile.isRebelCamp && fate !== 'rebelcamp') tile.isRebelCamp = false;
         game.overworld.hexes.set(key, tile);
+        return { key, fate, hex: tile.hex };
     };
+
+    const conversions = [];
 
     let lost = 0;
     while (lost < count && removableKeys.size > 0) {
@@ -628,14 +633,64 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
                 return a.key.localeCompare(b.key);
             })[0].key;
 
-        convertTileToPenalty(keyToRemove);
+        conversions.push(convertTileToPenalty(keyToRemove));
         removableKeys.delete(keyToRemove);
         currentKeys.delete(keyToRemove);
         lost++;
     }
 
     game.calcOverworldGhosts();
-    return lost;
+
+    const counts = conversions.reduce(
+        (tally, conv) => ({ ...tally, [conv.fate]: (tally[conv.fate] || 0) + 1 }),
+        { scorched: 0, rebel: 0 }
+    );
+
+    return {
+        lost,
+        conversions,
+        counts,
+        convertedKeys: new Set(conversions.map((conv) => conv.key))
+    };
+}
+
+/**
+ * Summarize overworld losses for a given war outcome so UI overlays can surface
+ * a player-facing recap without duplicating string logic across branches.
+ * @param {string} outcomeLabel canonical outcome label (e.g., "Defeat").
+ * @param {{counts:{scorched:number, rebel:number}}} lossReport aggregated loss data.
+ * @returns {string} formatted summary sentence.
+ */
+export function formatLossSummary(outcomeLabel, lossReport = { counts: {} }) {
+    const counts = lossReport.counts || {};
+    const segments = [];
+    if (counts.scorched) segments.push(`${counts.scorched} tile${counts.scorched === 1 ? '' : 's'} scorched`);
+    if (counts.rebel) segments.push(`${counts.rebel} seized by rebels`);
+    const baseLabel = outcomeLabel || 'Outcome';
+    const prefix = `${baseLabel[0].toUpperCase()}${baseLabel.slice(1).toLowerCase()}`;
+    return segments.length > 0 ? `${prefix}: ${segments.join(', ')}` : `${prefix}: No land lost`;
+}
+
+/**
+ * Emit brief visual indicators at each converted overworld hex so players can
+ * locate the fallout of a defeat/retreat without opening new UI chrome.
+ * @param {object} game live game object containing FX helpers.
+ * @param {{conversions:Array<{hex:object, fate:string}>}} lossReport description of converted tiles.
+ */
+function flashOverworldLosses(game, lossReport = { conversions: [] }) {
+    const { conversions = [] } = lossReport;
+    if (!Array.isArray(conversions) || conversions.length === 0) return;
+
+    conversions.forEach(({ hex, fate }) => {
+        if (!hex || typeof game.projectHexToScreen !== 'function') return;
+        const pos = game.projectHexToScreen(hex);
+        if (!pos) return;
+
+        const colors = fate === 'rebel' ? ['#ef476f', '#ffd166'] : ['#9ca3af', '#6b7280'];
+        game.spawnParticleBurst?.(pos.x, pos.y, 6, colors);
+        const label = fate === 'rebel' ? 'Seized' : 'Scorched';
+        game.showFloatingText?.(pos.x, pos.y, label, 'alert-text');
+    });
 }
 
 /**
@@ -676,17 +731,19 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
-        const lost = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
+        const losses = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
         // TODO: In future, apply a gold loss penalty on defeat (lose battle = lose gold).
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
-        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
-        game.showFloatingText(anchorX, anchorY, 'Defeat...', 'alert-text');
+        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
+        flashOverworldLosses(game, losses);
+        game.showFloatingText(anchorX, anchorY, formatLossSummary('Defeat', losses), 'alert-text');
     }
     else if(result === 'RETREAT') {
-        const lost = loseOverworldHexes(game, Math.floor(Math.random()*5)+1, protectedTargets); // 1-5
+        const losses = loseOverworldHexes(game, Math.floor(Math.random()*5)+1, protectedTargets); // 1-5
         game.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
-        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${lost} LAND LOST`, '#f55'), 1500);
-        game.showFloatingText(anchorX, anchorY, 'Retreat!', 'alert-text');
+        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
+        flashOverworldLosses(game, losses);
+        game.showFloatingText(anchorX, anchorY, formatLossSummary('Retreat', losses), 'alert-text');
     }
 
     recordWarEnd(game, result);
