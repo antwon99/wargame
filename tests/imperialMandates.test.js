@@ -43,6 +43,16 @@ function addTerritory(gameState, count) {
     }
 }
 
+function buildNotificationBindings() {
+    const notifications = [];
+    return {
+        notifications,
+        uiBindings: {
+            enqueueNotification: (payload) => notifications.push(payload)
+        }
+    };
+}
+
 function waitForImperialTicks() {
     return new Promise((resolve) => setTimeout(resolve, 5));
 }
@@ -60,8 +70,8 @@ async function testMandateIssuanceAndDeadlines() {
     const gameState = buildGameState();
     gameState.gold = 200;
 
-    const uiMessages = [];
-    const uiBindings = { showImperialModal: (config) => uiMessages.push(config) };
+    const { notifications, uiBindings } = buildNotificationBindings();
+    uiBindings.showImperialModal = (config) => notifications.push(config);
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
 
     let state = ImperialMandates.getKingState().mandates;
@@ -79,18 +89,18 @@ async function testMandateIssuanceAndDeadlines() {
     state = ImperialMandates.getKingState().mandates;
     assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should issue after tick 4 with enough territory');
     assert.strictEqual(state.push_the_frontier.deadlineTick, state.push_the_frontier.issuedTick + 12, 'expansion deadline should be based on durationTicks');
-    assert.ok(uiMessages.length >= 1, 'imperial messaging should fire during mandate issuance');
+    assert.ok(notifications.length >= 1, 'imperial messaging should fire during mandate issuance');
 }
 
 async function testRebelMandateResolutionAndExpiry() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const gameState = buildGameState();
-    const messages = [];
+    const notificationBindings = buildNotificationBindings();
     const uiBindings = {
+        ...notificationBindings.uiBindings,
         showTileCallout: (game, tile, options) => { if (typeof options.onConfirm === 'function') options.onConfirm(); },
-        hideTileCallout: () => null,
-        showImperialModal: (config) => messages.push(config)
+        hideTileCallout: () => null
     };
 
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
@@ -105,7 +115,7 @@ async function testRebelMandateResolutionAndExpiry() {
     const finalState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
     assert.strictEqual(finalState.status, ImperialMandates.MandateStatus.SUCCEEDED, 'victory should complete the mandate');
     assert.ok(!RebelSystem.isRebelCampTile(rebelTile), 'rebel flag should be cleared after success');
-    assert.ok(messages.some((m) => m.title === 'Imperial Reprimand'), 'reprimand should render on defeat once');
+    assert.ok(notificationBindings.notifications.some((m) => m.title === 'Imperial Reprimand'), 'reprimand should render on defeat once');
 
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -121,14 +131,15 @@ async function testTaxLevyDeadlinePaths() {
     ImperialMandateManager.reset();
     const gameState = buildGameState();
     gameState.gold = 220;
-    ImperialMandates.issuePendingMandates(gameState);
+    const earlyCycle = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(gameState, earlyCycle.uiBindings);
 
-    await advanceImperialTicks(3, gameState);
+    await advanceImperialTicks(3, gameState, earlyCycle.uiBindings);
     const levyState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     const goldBeforePayment = gameState.gold;
     assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
 
-    await advanceImperialTicks(1, gameState);
+    await advanceImperialTicks(1, gameState, earlyCycle.uiBindings);
     const resolvedLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(resolvedLevy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should succeed once funds are ready');
     assert.ok(gameState.gold < goldBeforePayment, 'levy payout should reduce total gold');
@@ -137,11 +148,12 @@ async function testTaxLevyDeadlinePaths() {
     ImperialMandateManager.reset();
     const struggling = buildGameState();
     struggling.gold = 130;
-    ImperialMandates.issuePendingMandates(struggling);
-    await advanceImperialTicks(3, struggling);
+    const strugglingNotifications = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(struggling, strugglingNotifications.uiBindings);
+    await advanceImperialTicks(3, struggling, strugglingNotifications.uiBindings);
     const failingLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(failingLevy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate for struggling treasury');
-    await advanceImperialTicks(10, struggling);
+    await advanceImperialTicks(10, struggling, strugglingNotifications.uiBindings);
     const failedState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'levy should fail after deadline expires');
     assert.ok(struggling.gold <= 130, 'failure should seize part of the treasury');
@@ -151,13 +163,14 @@ async function testExpansionRewardsAndExpiry() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const gameState = buildGameState();
-    await advanceImperialTicks(5, gameState);
+    const { uiBindings } = buildNotificationBindings();
+    await advanceImperialTicks(5, gameState, uiBindings);
     const frontierState = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(frontierState.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should activate after early ticks');
     const target = frontierState.metadata.targetTerritory;
 
     addTerritory(gameState, Math.max(0, target - gameState.overworld.hexes.size));
-    await advanceImperialTicks(1, gameState);
+    await advanceImperialTicks(1, gameState, uiBindings);
     const completed = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(completed.status, ImperialMandates.MandateStatus.SUCCEEDED, 'expansion mandate should complete after adding territory');
     assert.ok(gameState.gold >= 75 && gameState.wood >= 40, 'completion should deliver signing bonuses');
@@ -165,10 +178,10 @@ async function testExpansionRewardsAndExpiry() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const stalled = buildGameState();
-    await advanceImperialTicks(6, stalled);
+    await advanceImperialTicks(6, stalled, uiBindings);
     const stalledMandate = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(stalledMandate.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should be active before expiry');
-    await advanceImperialTicks(12, stalled);
+    await advanceImperialTicks(12, stalled, uiBindings);
     const expired = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(expired.status, ImperialMandates.MandateStatus.FAILED, 'expansion mandate should fail when deadline passes without growth');
 }

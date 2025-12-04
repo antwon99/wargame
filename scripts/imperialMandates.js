@@ -11,6 +11,9 @@
         || (typeof require === 'function' ? require('./rebelSystem.js') : {});
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
+    function getNotificationStackApi() {
+        return global.NotificationStackApi || null;
+    }
 
     const MandateStatus = {
         PENDING: 'PENDING',
@@ -101,6 +104,30 @@
         renderImperialModal(config);
     }
 
+    function getNotificationEnqueue(uiBindings = {}) {
+        if (typeof uiBindings.enqueueNotification === 'function') return uiBindings.enqueueNotification;
+        if (typeof uiBindings.notificationManager?.enqueue === 'function') return uiBindings.notificationManager.enqueue;
+        if (typeof state.lastUIBindings.enqueueNotification === 'function') return state.lastUIBindings.enqueueNotification;
+        if (typeof state.lastUIBindings.notificationManager?.enqueue === 'function') {
+            return state.lastUIBindings.notificationManager.enqueue;
+        }
+        const shared = getNotificationStackApi()?.getSharedStack?.();
+        if (shared?.enqueue) return shared.enqueue.bind(shared);
+        return null;
+    }
+
+    function queueImperialNotification(lines, uiBindings, { title, duration, tone } = {}) {
+        const enqueue = getNotificationEnqueue(uiBindings);
+        if (!enqueue) return false;
+        enqueue({
+            title: title || 'By Imperial Decree:',
+            lines: Array.isArray(lines) ? lines : [lines],
+            duration,
+            tone
+        });
+        return true;
+    }
+
     const IMPERIAL_DECREE_POOL = [
         ['By command of the Emperor, do not relent.'],
         ['Rebel forces regroup in the shadows. Stay alert.'],
@@ -127,8 +154,21 @@
      * Lightweight helper for mandate banners that should not block gameplay.
      * Falls back to the standard decree overlay with a short timeout.
      */
-    function showMandateBanner(lines, uiBindings, title = 'By Imperial Decree:', duration = 4200) {
-        showStandardImperialDecree(lines, uiBindings, { title, duration });
+    function showMandateBanner(lines, uiBindings, title = 'By Imperial Decree:', durationOrOptions = 4200) {
+        const options = typeof durationOrOptions === 'object'
+            ? {
+                duration: typeof durationOrOptions.duration === 'number'
+                    ? durationOrOptions.duration
+                    : durationOrOptions.timeout,
+                tone: durationOrOptions.tone
+            }
+            : { duration: durationOrOptions };
+
+        const normalizedLines = Array.isArray(lines) ? lines : [lines];
+        const handled = queueImperialNotification(normalizedLines, uiBindings, { ...options, title });
+        if (!handled) {
+            showStandardImperialDecree(normalizedLines, uiBindings, { title, duration: options.duration });
+        }
     }
 
     function showRebelDecreeCallout(rebelTile, gameState, uiBindings = {}, options = {}) {
@@ -292,7 +332,8 @@
                 showMandateBanner(
                     getDeadlineWarningLines(entry, ticksRemaining),
                     ctx.uiBindings,
-                    'Imperial Reminder'
+                    'Imperial Reminder',
+                    { duration: 4600, tone: 'warning' }
                 );
             }
 
@@ -462,10 +503,10 @@
                     const result = (payload?.result || '').toUpperCase();
                     if ((result === 'DEFEAT' || result === 'REVIVE') && !ctx.mandate.runtime.reprimandShown) {
                         ctx.mandate.runtime.reprimandShown = true;
-                        showStandardImperialDecree([
+                        showMandateBanner([
                             'The frontier has been pushed back.',
                             'Regroup and destroy the encampment.'
-                        ], ctx.uiBindings, { title: 'Imperial Reprimand' });
+                        ], ctx.uiBindings, 'Imperial Reprimand', { tone: 'warning' });
                     }
                 }
             },
@@ -484,9 +525,9 @@
             onSuccess: ({ payload, gameState, uiBindings }) => {
                 const tile = payload?.targetTile || payload?.tile;
                 resetTrackedRebel(tile, gameState);
-                showStandardImperialDecree([
+                showMandateBanner([
                     'Expand the territory while the frontier is quiet.'
-                ], uiBindings, { title: 'The Emperor is pleased.' });
+                ], uiBindings, 'The Emperor is pleased.', { tone: 'success', duration: 5200 });
             },
             failurePredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;

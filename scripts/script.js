@@ -664,7 +664,11 @@ const Game = {
             if(goldInc > 0 || woodInc > 0) this.spawnTxt(new Hex(0,0), `+${goldInc}g  +${woodInc}w`, '#fff');
             this.updateHUD();
             this.updateUpgradeMenu();
-            const uiBindings = { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout };
+            const uiBindings = {
+                showTileCallout: this.showTileCallout,
+                hideTileCallout: this.hideTileCallout,
+                enqueueNotification: this.enqueueNotification
+            };
             if (ImperialMandateManager?.advanceTick) {
                 ImperialMandateManager.advanceTick(this, uiBindings);
             } else if (ImperialMandates?.recordEvent) {
