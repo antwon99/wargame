@@ -284,6 +284,46 @@
         };
     }
 
+    /**
+     * Generate a persistence-friendly snapshot of the mandate runtime state.
+     * @returns {{ mandates: object, currentTick: number, lastIssuedTick: number|null }}
+     */
+    function serializeState() {
+        const mandates = {};
+        state.mandates.forEach((entry) => { mandates[entry.definition.id] = snapshotMandate(entry); });
+        return {
+            mandates,
+            currentTick: state.currentTick,
+            lastIssuedTick: state.lastIssuedTick
+        };
+    }
+
+    /**
+     * Restore mandate runtime fields from a persisted snapshot.
+     * @param {object|null} snapshot hydrated payload from persistence.
+     * @param {object} [gameState] optional live game reference for immediate trigger evaluation.
+     */
+    function hydrateState(snapshot, gameState) {
+        resetForNewCampaign();
+        if (!snapshot) return;
+        state.currentTick = Math.max(0, Number.isFinite(snapshot.currentTick) ? snapshot.currentTick : 0);
+        state.lastIssuedTick = Number.isFinite(snapshot.lastIssuedTick) ? snapshot.lastIssuedTick : null;
+        const mandates = snapshot.mandates || {};
+        Object.keys(mandates).forEach((id) => {
+            const runtime = mandates[id];
+            const entry = state.mandates.get(id);
+            if (!entry) return;
+            resetMandate(entry);
+            entry.runtime.status = runtime.status || MandateStatus.PENDING;
+            entry.runtime.deadlineTick = Number.isFinite(runtime.deadlineTick) ? runtime.deadlineTick : null;
+            entry.runtime.issuedTick = Number.isFinite(runtime.issuedTick) ? runtime.issuedTick : null;
+            if (runtime.metadata && typeof runtime.metadata === 'object') {
+                entry.runtime.metadata = { ...entry.runtime.metadata, ...runtime.metadata };
+            }
+        });
+        if (gameState) state.lastGameState = gameState;
+    }
+
     function buildContext(gameState, uiBindings, payload) {
         if (gameState) state.lastGameState = gameState;
         if (uiBindings) state.lastUIBindings = { ...state.lastUIBindings, ...uiBindings };
@@ -531,7 +571,8 @@
         state.mandates.forEach((entry) => { mandates[entry.definition.id] = snapshotMandate(entry); });
         return {
             mandates,
-            currentTick: state.currentTick
+            currentTick: state.currentTick,
+            lastIssuedTick: state.lastIssuedTick
         };
     }
 
@@ -723,7 +764,9 @@
         showRebelDecreeCallout,
         handleBattleOutcome,
         handleTileCleared,
-        issueInitialMandate
+        issueInitialMandate,
+        serializeState,
+        hydrateState
     };
 
     global.ImperialMandates = api;
