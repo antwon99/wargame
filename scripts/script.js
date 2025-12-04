@@ -24,6 +24,9 @@ import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientL
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
+const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
+    ? window.ImperialMandateManager
+    : (typeof require === 'function' ? require('./imperialMandateManager.js') : null);
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
@@ -661,7 +664,10 @@ const Game = {
             if(goldInc > 0 || woodInc > 0) this.spawnTxt(new Hex(0,0), `+${goldInc}g  +${woodInc}w`, '#fff');
             this.updateHUD();
             this.updateUpgradeMenu();
-            if (ImperialMandates?.recordEvent) {
+            const uiBindings = { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout };
+            if (ImperialMandateManager?.advanceTick) {
+                ImperialMandateManager.advanceTick(this, uiBindings);
+            } else if (ImperialMandates?.recordEvent) {
                 ImperialMandates.recordEvent('tick', { ticks: 1, gameState: this });
             }
         }
