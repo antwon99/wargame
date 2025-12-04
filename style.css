@@ -161,6 +161,8 @@
             gap: 12px;
         }
 
+        .top-bar__controls { display: inline-flex; align-items: center; gap: 10px; }
+
         .resource-cluster {
             display: inline-flex;
             align-items: center;
@@ -220,6 +222,36 @@
         }
         .enemy-label { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.4px; opacity: 0.8; }
         .enemy-value { color: #9be3b4; font-weight: 800; font-size: 0.95rem; }
+        .pause-cluster {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 6px 10px;
+            border-radius: 12px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+        }
+        .pause-toggle {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .pause-toggle:hover { background: rgba(255,255,255,0.12); }
+        .pause-toggle:active { transform: translateY(1px); }
+        .pause-indicator {
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #9be3b4;
+            text-transform: uppercase;
+        }
+        .pause-indicator.paused { color: #ffd166; }
         .calendar-pill {
             display: inline-flex;
             align-items: center;

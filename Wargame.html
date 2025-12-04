@@ -28,7 +28,13 @@
 
     <div class="hud">
         <div class="top-bar">
-            <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
+            <div class="top-bar__controls">
+                <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
+                <div class="pause-cluster" aria-live="polite">
+                    <button class="pause-toggle" id="btn-pause" type="button" aria-pressed="false">⏸️ Pause</button>
+                    <span class="pause-indicator" id="pause-indicator">Live</span>
+                </div>
+            </div>
             <div class="resource-cluster">
                 <div class="resource-pill">
                     <div class="res-group">

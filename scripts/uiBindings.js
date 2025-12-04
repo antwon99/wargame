@@ -113,6 +113,9 @@ export function setupUIBindings(game) {
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
 
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) pauseBtn.onclick = () => game.togglePause();
+
     document.querySelectorAll('.slot-save').forEach((btn) => {
         btn.onclick = () => game.saveGame(btn.dataset.slot);
     });
@@ -456,6 +459,16 @@ export function updateHUD(game) {
     if (calendar) {
         const formatted = game.timekeeper?.formatCalendar?.() || 'Month 1, Week 1, Day 1';
         calendar.innerText = formatted;
+    }
+    const pauseToggle = document.getElementById('btn-pause');
+    if (pauseToggle) {
+        pauseToggle.innerText = game.paused ? '▶️ Resume' : '⏸️ Pause';
+        pauseToggle.setAttribute('aria-pressed', game.paused ? 'true' : 'false');
+    }
+    const pauseIndicator = document.getElementById('pause-indicator');
+    if (pauseIndicator) {
+        pauseIndicator.innerText = game.paused ? 'Paused' : 'Live';
+        pauseIndicator.classList.toggle('paused', !!game.paused);
     }
     document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
 }
