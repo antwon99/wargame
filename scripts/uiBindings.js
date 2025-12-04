@@ -320,6 +320,11 @@ export function updateHUD(game) {
     if (lives) lives.innerText = game.research.lives;
     const imperialFavor = document.getElementById('imperial-favor');
     if (imperialFavor) imperialFavor.innerText = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
+    const calendar = document.getElementById('calendar-readout');
+    if (calendar) {
+        const formatted = game.timekeeper?.formatCalendar?.() || 'Month 1, Week 1, Day 1';
+        calendar.innerText = formatted;
+    }
     document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
 }
 

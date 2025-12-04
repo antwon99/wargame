@@ -22,6 +22,7 @@ import {
 } from './combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
+import { Timekeeper } from './timekeeper.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -245,7 +246,9 @@ const Game = {
     pendingClearTile: null,
     selectedOverworldTile: null,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
-    
+
+    timekeeper: new Timekeeper(),
+
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
     fog: { time: 0 },
     combat: {
@@ -255,6 +258,7 @@ const Game = {
     },
 
     init() {
+        this.timekeeper.onChange(() => this.updateHUD());
         this.resize();
         AudioDebugConsole.init();
         this.bindVoidClickEasterEgg();
@@ -378,6 +382,7 @@ const Game = {
         this.updateResearchBonuses();
         this.resetSession();
         this.imperialFavor = DEFAULT_IMPERIAL_FAVOR;
+        this.timekeeper.reset(0);
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
@@ -401,6 +406,7 @@ const Game = {
         this.calcOverworldGhosts();
         this.resetSession();
         this.imperialFavor = clampImperialFavor(snapshot.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
+        this.timekeeper.reset(0);
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
         this.shouldRunImperialIntro = false;
@@ -677,6 +683,7 @@ const Game = {
             this.gold += goldInc;
             this.wood += woodInc;
             if(goldInc > 0 || woodInc > 0) this.spawnTxt(new Hex(0,0), `+${goldInc}g  +${woodInc}w`, '#fff');
+            this.timekeeper.advance(1);
             this.updateHUD();
             this.updateUpgradeMenu();
             const uiBindings = {
