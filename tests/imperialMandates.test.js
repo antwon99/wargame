@@ -54,7 +54,35 @@ async function advanceImperialTicks(count, gameState, uiBindings = {}) {
     await waitForImperialTicks();
 }
 
-async function testRebelMandateLifecycle() {
+async function testMandateIssuanceAndDeadlines() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    gameState.gold = 200;
+
+    const uiMessages = [];
+    const uiBindings = { showImperialModal: (config) => uiMessages.push(config) };
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    let state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.destroy_first_rebel_camp.status, ImperialMandates.MandateStatus.ACTIVE, 'rebel mandate should issue immediately when overworld exists');
+    assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.PENDING, 'levy should wait for early ticks before triggering');
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.PENDING, 'expansion mandate should wait for its trigger window');
+    assert.ok(state.destroy_first_rebel_camp.deadlineTick >= state.destroy_first_rebel_camp.issuedTick + 15 - 1, 'rebel mandate should set a deadline from issuance');
+
+    await advanceImperialTicks(2, gameState, uiBindings);
+    state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandate should issue after tick 2 when gold threshold is met');
+    assert.strictEqual(state.levy_tithed_gold.deadlineTick, state.levy_tithed_gold.issuedTick + 8, 'levy deadline should be based on durationTicks');
+
+    await advanceImperialTicks(2, gameState, uiBindings);
+    state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should issue after tick 4 with enough territory');
+    assert.strictEqual(state.push_the_frontier.deadlineTick, state.push_the_frontier.issuedTick + 12, 'expansion deadline should be based on durationTicks');
+    assert.ok(uiMessages.length >= 1, 'imperial messaging should fire during mandate issuance');
+}
+
+async function testRebelMandateResolutionAndExpiry() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const gameState = buildGameState();
@@ -78,19 +106,27 @@ async function testRebelMandateLifecycle() {
     assert.strictEqual(finalState.status, ImperialMandates.MandateStatus.SUCCEEDED, 'victory should complete the mandate');
     assert.ok(!RebelSystem.isRebelCampTile(rebelTile), 'rebel flag should be cleared after success');
     assert.ok(messages.some((m) => m.title === 'Imperial Reprimand'), 'reprimand should render on defeat once');
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const stubbornGame = buildGameState();
+    ImperialMandates.issuePendingMandates(stubbornGame, uiBindings);
+    await advanceImperialTicks(16, stubbornGame, uiBindings);
+    const failedState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'rebel mandate should fail when deadline is exceeded');
 }
 
-async function testTaxLevyPaths() {
+async function testTaxLevyDeadlinePaths() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const gameState = buildGameState();
-    gameState.gold = 200;
+    gameState.gold = 220;
     ImperialMandates.issuePendingMandates(gameState);
 
     await advanceImperialTicks(3, gameState);
     const levyState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
-    assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
     const goldBeforePayment = gameState.gold;
+    assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
 
     await advanceImperialTicks(1, gameState);
     const resolvedLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
@@ -111,7 +147,7 @@ async function testTaxLevyPaths() {
     assert.ok(struggling.gold <= 130, 'failure should seize part of the treasury');
 }
 
-async function testExpansionRewards() {
+async function testExpansionRewardsAndExpiry() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
     const gameState = buildGameState();
@@ -125,6 +161,16 @@ async function testExpansionRewards() {
     const completed = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(completed.status, ImperialMandates.MandateStatus.SUCCEEDED, 'expansion mandate should complete after adding territory');
     assert.ok(gameState.gold >= 75 && gameState.wood >= 40, 'completion should deliver signing bonuses');
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const stalled = buildGameState();
+    await advanceImperialTicks(6, stalled);
+    const stalledMandate = ImperialMandates.getKingState().mandates.push_the_frontier;
+    assert.strictEqual(stalledMandate.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should be active before expiry');
+    await advanceImperialTicks(12, stalled);
+    const expired = ImperialMandates.getKingState().mandates.push_the_frontier;
+    assert.strictEqual(expired.status, ImperialMandates.MandateStatus.FAILED, 'expansion mandate should fail when deadline passes without growth');
 }
 
 async function testNonBlockingTickQueue() {
@@ -144,9 +190,10 @@ async function testNonBlockingTickQueue() {
 }
 
 async function run() {
-    await testRebelMandateLifecycle();
-    await testTaxLevyPaths();
-    await testExpansionRewards();
+    await testMandateIssuanceAndDeadlines();
+    await testRebelMandateResolutionAndExpiry();
+    await testTaxLevyDeadlinePaths();
+    await testExpansionRewardsAndExpiry();
     await testNonBlockingTickQueue();
     console.log('All imperial mandate tests passed.');
 }
