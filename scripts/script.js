@@ -644,6 +644,9 @@ const Game = {
             let goldInc = 0;
             let woodInc = 0;
             for(let [k, d] of this.overworld.hexes) {
+                const owner = (d.owner || '').toLowerCase();
+                if (owner === 'scorched' || owner === 'rebel') continue;
+
                 const def = OVERWORLD_TILES[d.type.toUpperCase()];
                 if(def.income.gold) goldInc += def.income.gold + (d.type === 'town' ? this.research.bonuses.townGoldBonus : 0);
                 if(def.income.wood) woodInc += def.income.wood + (d.type === 'forest' ? this.research.bonuses.forestWoodBonus : 0);

@@ -87,11 +87,12 @@
                 lives: game.research?.lives || 0
             },
             overworld: {
-                hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type }) => ({
+                hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type, owner }) => ({
                     q: hex.q,
                     r: hex.r,
                     s: hex.s,
-                    type
+                    type,
+                    owner: owner ?? null
                 }))
             },
             stats: { ...DEFAULT_STATS, ...overwriteStats }
@@ -123,9 +124,11 @@
             });
 
         const overworldHexes = new Map();
-        (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type }) => {
+        (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner }) => {
             const hex = makeHex(q, r, s);
-            overworldHexes.set(hex.toString(), { hex, type });
+            const payload = { hex, type };
+            if (owner !== undefined) payload.owner = owner;
+            overworldHexes.set(hex.toString(), payload);
         });
 
         return {
