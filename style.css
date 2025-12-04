@@ -411,12 +411,71 @@
             padding: 12px;
             color: #cbd5f5;
             min-height: 60px;
+            max-height: 360px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .mandates-panel__empty {
             margin: 0;
             color: #8d90a9;
             font-size: 0.9rem;
         }
+        .mandates-panel__list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .mandate-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 10px 12px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .mandate-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .mandate-card__title {
+            margin: 0;
+            font-size: 1rem;
+            color: #f1f3ff;
+            letter-spacing: 0.2px;
+        }
+        .mandate-card__description {
+            margin: 0 0 8px 0;
+            color: #c2c8e0;
+            line-height: 1.35;
+        }
+        .mandate-card__deadline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #aeb6d4;
+        }
+        .mandate-card__deadline-label { font-weight: 700; color: #d7e4ff; }
+        .mandate-card__remaining { font-weight: 700; color: #9be3b4; }
+
+        .mandate-badge {
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            font-weight: 800;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .mandate-badge--active { background: rgba(73, 160, 255, 0.18); color: #cbe1ff; }
+        .mandate-badge--warning { background: rgba(255, 166, 43, 0.2); color: #ffd166; }
+        .mandate-badge--failed { background: rgba(255, 99, 99, 0.18); color: #ffb3b3; }
+        .mandate-badge--completed { background: rgba(78, 201, 176, 0.2); color: #9be3b4; }
 
         .tile-callout {
             position: fixed;
