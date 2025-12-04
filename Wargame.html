@@ -63,28 +63,29 @@
                             <span class="calendar-icon">📅</span>
                             <span id="calendar-readout" class="calendar-readout">Month 1, Week 1, Day 1</span>
                         </div>
-                        <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel">
-                            <span class="mandates-button__primary">Tasks</span>
-                            <span class="mandates-button__secondary">Mandates</span>
-                        </button>
+                        <div class="mandates-zone">
+                            <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel">
+                                <span class="mandates-button__primary">Tasks</span>
+                                <span class="mandates-button__secondary">Mandates</span>
+                            </button>
+                            <div id="mandates-panel" class="mandates-panel" aria-hidden="true">
+                                <div class="mandates-panel__inner">
+                                    <div class="mandates-panel__header">
+                                        <div class="mandates-panel__eyebrow">Tasks</div>
+                                        <div class="mandates-panel__title">Imperial Mandates</div>
+                                        <button class="meta-btn mandates-panel__close" id="btn-mandates-close" type="button" aria-label="Close mandates panel">✕</button>
+                                    </div>
+                                    <div class="mandates-panel__body" id="mandates-panel-body">
+                                        <p class="mandates-panel__empty">No active mandates yet.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         <div id="state-txt" class="sr-only" aria-live="polite">KINGDOM</div>
-
-        <div id="mandates-panel" class="mandates-panel" aria-hidden="true">
-            <div class="mandates-panel__inner">
-                <div class="mandates-panel__header">
-                    <div class="mandates-panel__eyebrow">Tasks</div>
-                    <div class="mandates-panel__title">Imperial Mandates</div>
-                    <button class="meta-btn mandates-panel__close" id="btn-mandates-close" type="button" aria-label="Close mandates panel">✕</button>
-                </div>
-                <div class="mandates-panel__body" id="mandates-panel-body">
-                    <p class="mandates-panel__empty">No active mandates yet.</p>
-                </div>
-            </div>
-        </div>
 
         <div class="controls">
             <!-- Overworld UI -->
