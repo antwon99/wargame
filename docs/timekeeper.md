@@ -4,7 +4,7 @@ The Timekeeper owns the overworld calendar. It converts logical ticks (one tick 
 
 ## Calendar math
 - **Day:** `ticks + 1` (so a fresh campaign starts on Day 1).
-- **Week:** 8 days per week.
+- **Week:** 8 days per week (revised cadence to slow the overworld economy).
 - **Month:** 5 weeks per month (40-day months).
 
 The helper returns:
@@ -16,6 +16,8 @@ The helper returns:
 - `daysPerMonth` (40 with the default config)
 
 `Persistence.serializeGameState` captures the tick counter along with `daysPerWeek`/`weeksPerMonth` so reloads restore the same calendar math used during the prior session.
+
+Mandate durations also rely on this cadence: `ImperialMandates.describeDeadlineTick()` converts tick deadlines into month/week/day labels and remaining-day deltas for the Tasks panel so its badges and labels match the HUD calendar.
 
 ## Events
 `Timekeeper.emitChange()` dispatches a `time:changed` `CustomEvent` on `window` with `{ ticks, calendar }` and also notifies in-process listeners registered via `onChange()`.

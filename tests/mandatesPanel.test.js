@@ -86,8 +86,49 @@ async function testMandatesPanelRendersList() {
     }
 }
 
+async function testMandatesPanelEmptyStateAndWarnings() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    try {
+        const doc = createStubDocument();
+        const body = doc.register('mandates-panel-body');
+        global.document = doc;
+        global.ImperialMandates = {
+            describeDeadlineTick: (tick) => ({ label: `Month ${tick}`, remainingDays: tick - 1 }),
+            getActiveMandates: () => []
+        };
+
+        const { renderMandatesPanel } = await import('../scripts/uiBindings.js');
+        const renderedEmpty = renderMandatesPanel();
+
+        assert.strictEqual(renderedEmpty.length, 0, 'no mandates should return an empty list');
+        assert.strictEqual(body.children.length, 1, 'empty state should render a single paragraph');
+        assert.ok(body.children[0].innerText.includes('No active mandates'), 'empty copy should be clear to players');
+
+        global.ImperialMandates.getActiveMandates = () => [{
+            id: 'gamma',
+            title: 'Gamma Warning',
+            description: 'Finish before the fog closes in.',
+            status: 'ACTIVE',
+            deadlineTick: 2
+        }];
+
+        const renderedWarning = renderMandatesPanel();
+        assert.strictEqual(renderedWarning.length, 1, 'mandate should render after data is available');
+        const [list] = body.children;
+        const badge = list.children[0].children[0].children[1];
+        assert.ok(badge.className.includes('mandate-badge--warning'), 'warning badge should show when two days remain');
+        const deadlineLabel = list.children[0].children[2].children[0];
+        assert.ok(deadlineLabel.innerText.includes('Month 2'), 'deadline label should reflect describeDeadlineTick output');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+    }
+}
+
 async function run() {
     await testMandatesPanelRendersList();
+    await testMandatesPanelEmptyStateAndWarnings();
     console.log('Mandates panel UI tests passed.');
 }
 
