@@ -248,8 +248,8 @@ const Game = {
 
         window.addEventListener('intro:begin', () => {
             if (!this.shouldRunImperialIntro) return;
-            if (ImperialMandates?.issueInitialMandate) {
-                ImperialMandates.issueInitialMandate(this, {
+            if (ImperialMandates?.issuePendingMandates) {
+                ImperialMandates.issuePendingMandates(this, {
                     showTileCallout: this.showTileCallout,
                     hideTileCallout: this.hideTileCallout
                 });
@@ -365,8 +365,8 @@ const Game = {
         this.showOverworldUI();
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
         this.shouldRunImperialIntro = typeof document !== 'undefined';
-        if (!this.shouldRunImperialIntro && ImperialMandates?.issueInitialMandate) {
-            ImperialMandates.issueInitialMandate(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
+        if (!this.shouldRunImperialIntro && ImperialMandates?.issuePendingMandates) {
+            ImperialMandates.issuePendingMandates(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
         }
     },
 
@@ -661,6 +661,9 @@ const Game = {
             if(goldInc > 0 || woodInc > 0) this.spawnTxt(new Hex(0,0), `+${goldInc}g  +${woodInc}w`, '#fff');
             this.updateHUD();
             this.updateUpgradeMenu();
+            if (ImperialMandates?.recordEvent) {
+                ImperialMandates.recordEvent('tick', { ticks: 1, gameState: this });
+            }
         }
     },
 
