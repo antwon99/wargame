@@ -382,6 +382,51 @@ function testExitCombatRehomesAmbientAndPlaysOutcome() {
     assert.ok(log.find((node) => node.src === 'defeat'), 'retreat fallback should reuse defeat sting');
 }
 
+function testImperialQueuesAvoidWardrums() {
+    const modulePath = require.resolve('../scripts/imperialMandates.js');
+    const previousRebelSystem = global.RebelSystem;
+    const previousTutorial = global.TutorialCallouts;
+    delete require.cache[modulePath];
+
+    class Hex {
+        constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
+        toString() { return `${this.q},${this.r}`; }
+    }
+
+    global.RebelSystem = {
+        spawnRebelCampNearFrontier: (gameState) => {
+            const tile = { hex: new Hex(1, 0), type: 'rebelcamp', prevType: 'field', toString() { return this.hex.toString(); } };
+            gameState.overworld.hexes.set(tile.toString(), tile);
+            return tile;
+        }
+    };
+    global.TutorialCallouts = previousTutorial || {};
+
+    const ImperialMandates = require('../scripts/imperialMandates.js');
+    ImperialMandates.resetForNewCampaign();
+
+    const playLog = [];
+    const origin = new Hex(0, 0);
+    const gameState = {
+        Hex,
+        overworld: { hexes: new Map([[origin.toString(), { hex: origin, type: 'castle' }]]) },
+        gold: 240,
+        wood: 0,
+        calcOverworldGhosts: () => {},
+        playSound: (key) => playLog.push(key)
+    };
+    const uiBindings = { enqueueNotification: () => null, showImperialModal: () => null };
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    assert.strictEqual(playLog.includes('wardrum'), false, 'imperial mandate issuance should not trigger combat stingers');
+    assert.strictEqual(playLog.length, 0, 'imperial notifications should remain silent or use non-combat cues');
+
+    delete require.cache[modulePath];
+    if (typeof previousRebelSystem === 'undefined') delete global.RebelSystem; else global.RebelSystem = previousRebelSystem;
+    if (typeof previousTutorial === 'undefined') delete global.TutorialCallouts; else global.TutorialCallouts = previousTutorial;
+}
+
 function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
@@ -394,6 +439,7 @@ function run() {
     testManifestIncludesNewEffects();
     testEnterCombatStopsAmbientAndFiresWardrumImmediately();
     testExitCombatRehomesAmbientAndPlaysOutcome();
+    testImperialQueuesAvoidWardrums();
     console.log('All audio tests passed.');
 }
 
