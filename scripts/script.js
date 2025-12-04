@@ -68,6 +68,18 @@ const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
     b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
 
+const DEFAULT_IMPERIAL_FAVOR = 5;
+
+/**
+ * Keep imperial favor bounded to the 1–10 HUD scale so saves and UI stay consistent.
+ * @param {number} value arbitrary favor value from gameplay systems or persistence.
+ * @returns {number} sanitized favor value within 1–10 (defaults to midpoint when invalid).
+ */
+function clampImperialFavor(value) {
+    const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+    return Math.min(10, Math.max(1, numeric));
+}
+
 const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
     ? window.PlatformAdapter
     : {
@@ -216,6 +228,7 @@ const Game = {
 
     state: 'OVERWORLD',
     gold: 300, wood: 40,
+    imperialFavor: DEFAULT_IMPERIAL_FAVOR,
     difficulty: 0,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
     research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0 }, lives: 0 },
@@ -364,6 +377,7 @@ const Game = {
         this.research = this.buildResearchState();
         this.updateResearchBonuses();
         this.resetSession();
+        this.imperialFavor = DEFAULT_IMPERIAL_FAVOR;
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
@@ -386,6 +400,7 @@ const Game = {
         this.overworld.claimable = new Map();
         this.calcOverworldGhosts();
         this.resetSession();
+        this.imperialFavor = clampImperialFavor(snapshot.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
         this.shouldRunImperialIntro = false;

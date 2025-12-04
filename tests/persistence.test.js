@@ -46,6 +46,7 @@ function runTests() {
         gold: 100,
         wood: 50,
         difficulty: 2,
+        imperialFavor: 7,
         upgrades: { soldier: 1 },
         overworld: {
             hexes: new Map([
@@ -66,6 +67,7 @@ function runTests() {
         wood: 7,
         difficulty: 1,
         upgrades: { soldier: 2 },
+        imperialFavor: 3,
         overworld: { hexes: [{ q: 0, r: 0, s: 0, type: 'castle' }] },
         stats: { totalKills: 3 }
     };
@@ -76,6 +78,7 @@ function runTests() {
     const only = Array.from(result.overworld.hexes.values())[0];
     assert.deepStrictEqual(only.hex.q, 0);
     assert.strictEqual(result.stats.totalKills, 3);
+    assert.strictEqual(result.imperialFavor, 3);
 
     // Save/Load via mocked storage
     const saveGame = {
@@ -83,6 +86,7 @@ function runTests() {
         wood: 9,
         difficulty: 4,
         upgrades: { soldier: 3 },
+        imperialFavor: 9,
         overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
         stats: { totalKills: 11, bestDifficulty: 2 }
     };
@@ -91,15 +95,17 @@ function runTests() {
     assert.ok(loaded.state);
     assert.strictEqual(loaded.state.gold, 77);
     assert.strictEqual(loaded.stats.totalKills, 11);
+    assert.strictEqual(loaded.state.imperialFavor, 9);
 
     // Multi-slot isolation
-    const altGame = { ...saveGame, gold: 999, stats: { totalKills: 42, bestDifficulty: 7 } };
+    const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestDifficulty: 7 } };
     Persistence.saveSnapshot(altGame, 2);
     const slotOne = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     const slotTwo = Persistence.loadSnapshot(2, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     assert.strictEqual(slotOne.state.gold, 77);
     assert.strictEqual(slotTwo.state.gold, 999);
     assert.strictEqual(slotTwo.stats.bestDifficulty, 7);
+    assert.strictEqual(slotTwo.state.imperialFavor, 10, 'favor should clamp to 10 on persist/load');
 
     const meta = Persistence.getSlotMetadata(2);
     assert.ok(meta.hasSave);

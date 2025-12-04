@@ -5,7 +5,16 @@ const Persistence = require('../scripts/persistence.js');
 // Set up a barebones DOM + window environment so script.js can register the Game singleton.
 const capturedTexts = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}), addEventListener: () => {} };
-const genericElement = { style: {}, addEventListener: () => {}, onclick: null, dataset: {} };
+const genericElement = {
+    style: {},
+    addEventListener: () => {},
+    onclick: null,
+    dataset: {},
+    appendChild: () => {},
+    setAttribute: () => {},
+    className: '',
+    classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} }
+};
 
 const windowProxy = new Proxy({}, {
     set(target, prop, value) {
@@ -21,15 +30,21 @@ const windowProxy = new Proxy({}, {
     }
 });
 
+windowProxy.addEventListener = () => {};
+windowProxy.removeEventListener = () => {};
+
 global.window = windowProxy;
 global.document = {
     addEventListener(event, cb) { if (event === 'DOMContentLoaded') cb(); },
     getElementById(id) {
         if (id === 'canvas') return canvasStub;
         if (id === 'fx-layer') return { innerHTML: '' };
+        if (id === 'game-container') return genericElement;
         return genericElement;
     },
-    querySelectorAll() { return []; }
+    querySelectorAll() { return []; },
+    createElement: () => ({ ...genericElement }),
+    body: genericElement
 };
 global.performance = { now: () => 0 };
 global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {}, key: () => null, length: 0 };
