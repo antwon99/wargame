@@ -126,6 +126,32 @@ async function testRebelMandateResolutionAndExpiry() {
     assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'rebel mandate should fail when deadline is exceeded');
 }
 
+async function testFirstDecreeAnchoredThenNotifications() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    const { notifications, uiBindings } = buildNotificationBindings();
+    const callouts = [];
+    const bindings = {
+        ...uiBindings,
+        showTileCallout: (...args) => callouts.push(args),
+        hideTileCallout: () => null
+    };
+
+    ImperialMandates.issuePendingMandates(gameState, bindings);
+    assert.strictEqual(callouts.length, 1, 'first rebel camp should use anchored decree callout');
+
+    const targetKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const rebelTile = gameState.overworld.hexes.get(targetKey);
+    ImperialMandates.recordEvent('battle_outcome', { result: 'DEFEAT', targetTile: rebelTile }, gameState, bindings);
+    ImperialMandates.recordEvent('battle_outcome', { result: 'VICTORY', targetTile: rebelTile }, gameState, bindings);
+
+    assert.ok(notifications.length >= 2, 'reprimands and completion should enqueue follow-up notifications');
+    const titles = notifications.map((msg) => msg.title);
+    assert.ok(titles.includes('Imperial Reprimand'), 'reprimand should use the notification stack');
+    assert.ok(titles.includes('The Emperor is pleased.'), 'success message should route through the notification stack');
+}
+
 async function testTaxLevyDeadlinePaths() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -205,6 +231,7 @@ async function testNonBlockingTickQueue() {
 async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
+    await testFirstDecreeAnchoredThenNotifications();
     await testTaxLevyDeadlinePaths();
     await testExpansionRewardsAndExpiry();
     await testNonBlockingTickQueue();

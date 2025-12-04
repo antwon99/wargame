@@ -17,22 +17,27 @@ export class NotificationStack {
      * @param {number} [options.maxVisible=3] number of cards visible at once.
      * @param {number} [options.autoDismissMs=5200] default lifetime before auto-fade.
      * @param {boolean} [options.registerGlobal=true] set as the shared stack for other modules.
+     * @param {Document} [options.document] optional document reference for test harnesses.
      */
     constructor(options = {}) {
         this.maxVisible = options.maxVisible || 3;
         this.autoDismissMs = options.autoDismissMs || 5200;
-        this.enabled = typeof document !== 'undefined';
-        this.mountPoint = options.mountPoint || (this.enabled ? document.body : null);
+        this.document = options.document || (typeof document !== 'undefined' ? document : null);
+        this.enabled = Boolean(this.document);
+        this.mountPoint = options.mountPoint || (this.enabled ? this.document.body : null);
         this.registerGlobal = options.registerGlobal !== false;
 
         this.queue = [];
         this.visible = new Map();
         this.history = [];
         this.container = null;
+        this.overlayGuardHandler = null;
 
         if (this.enabled) {
             this.container = this.createContainer();
             if (this.mountPoint) this.mountPoint.appendChild(this.container);
+            this.syncIntroOverlayGuards();
+            this.bindIntroOverlayEvents();
         }
 
         if (this.registerGlobal) {
@@ -46,7 +51,8 @@ export class NotificationStack {
      * @returns {HTMLElement} stack wrapper element.
      */
     createContainer() {
-        const container = document.createElement('div');
+        const doc = this.document || document;
+        const container = doc.createElement('div');
         container.className = 'notification-stack';
         container.setAttribute('aria-live', 'polite');
         container.setAttribute('role', 'status');
@@ -124,7 +130,11 @@ export class NotificationStack {
         if (this.enabled && this.container) {
             entry.element = this.createCard(item);
             this.container.appendChild(entry.element);
-            requestAnimationFrame(() => entry.element.classList.add('visible'));
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => entry.element.classList.add('visible'));
+            } else {
+                entry.element.classList.add('visible');
+            }
         }
 
         entry.timer = setTimeout(() => this.dismiss(item.id), item.duration);
@@ -136,23 +146,24 @@ export class NotificationStack {
      * @returns {HTMLElement} fully constructed card element.
      */
     createCard(item) {
-        const card = document.createElement('div');
+        const doc = this.document || document;
+        const card = doc.createElement('div');
         card.className = `notification-card${item.tone ? ` notification-card--${item.tone}` : ''}`;
         card.dataset.id = item.id;
 
-        const heading = document.createElement('div');
+        const heading = doc.createElement('div');
         heading.className = 'notification-title';
         heading.innerText = item.title || 'Imperial Dispatch';
         card.appendChild(heading);
 
         (item.lines || []).forEach((line) => {
-            const bodyLine = document.createElement('p');
+            const bodyLine = doc.createElement('p');
             bodyLine.className = 'notification-line';
             bodyLine.innerText = line;
             card.appendChild(bodyLine);
         });
 
-        const closeBtn = document.createElement('button');
+        const closeBtn = doc.createElement('button');
         closeBtn.type = 'button';
         closeBtn.className = 'notification-close';
         closeBtn.setAttribute('aria-label', 'Dismiss notification');
@@ -181,6 +192,45 @@ export class NotificationStack {
         if (entry?.timer) clearTimeout(entry.timer);
         this.visible.delete(id);
         this.flush();
+    }
+
+    /**
+     * Keep the notification stack behind the intro overlay and non-interactive
+     * while the welcome gate is visible so it cannot block pointer events.
+     */
+    syncIntroOverlayGuards() {
+        if (!this.container) return;
+        const overlayActive = this.isIntroOverlayActive();
+        this.container.classList.toggle('notification-stack--blocked', overlayActive);
+    }
+
+    /**
+     * Determine whether the intro overlay is currently covering the viewport.
+     * @returns {boolean} true if the intro overlay is active and should occlude notifications.
+     */
+    isIntroOverlayActive() {
+        if (!this.enabled) return false;
+        const overlayFromDom = this.document.getElementById
+            ? this.document.getElementById('intro-overlay')
+            : null;
+        if (overlayFromDom && !overlayFromDom.classList.contains('intro-hidden')) return true;
+
+        if (typeof globalThis.IntroOverlay !== 'undefined' && globalThis.IntroOverlay?.active) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Listen for intro overlay lifecycle events so pointer guards stay in sync
+     * if the player restarts or dismisses the opening overlay.
+     */
+    bindIntroOverlayEvents() {
+        if (typeof window === 'undefined') return;
+        this.overlayGuardHandler = () => this.syncIntroOverlayGuards();
+        window.addEventListener('intro:begin', this.overlayGuardHandler);
+        window.addEventListener('intro:reset', this.overlayGuardHandler);
     }
 }
 
