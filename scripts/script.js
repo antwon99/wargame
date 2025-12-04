@@ -23,6 +23,8 @@ import {
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 import { Timekeeper } from './timekeeper.js';
+import { OVERWORLD_TILES } from './overworldConfig.js';
+import { advanceOverworldTimer } from './overworldTicks.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -97,17 +99,6 @@ const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatfor
             canvas.height = profile.viewportHeight;
         }
     };
-
-/** CONFIG */
-const OVERWORLD_TILES = {
-    CASTLE: { id: 'castle', color: '#445', char: '🏰', income: {gold:2, wood:1} },
-    FIELD:  { id: 'field',  color: '#90be6d', char: '🌾', income: {} },
-    FOREST: { id: 'forest', color: '#2d6a4f', char: '🌲', income: {wood:1} },
-    TOWN:   { id: 'town',   color: '#5e548e', char: '🏠', income: {gold:2} },
-    SCORCHED: { id: 'scorched', color: '#3b2a2a', char: '🔥', income: {} },
-    REBEL: { id: 'rebel', color: '#a4161a', char: '⚔️', income: {} },
-    REBELCAMP: { id: 'rebelcamp', color: '#7f1d1d', char: '🏴', income: {} }
-};
 
 const TIPS = [
     "SIEGE RULE: Build near Enemy structures (3-tile range) to attack.",
@@ -228,6 +219,7 @@ const Game = {
     fxLayer: document.getElementById('fx-layer'),
 
     state: 'OVERWORLD',
+    paused: false,
     gold: 300, wood: 40,
     imperialFavor: DEFAULT_IMPERIAL_FAVOR,
     difficulty: 0,
@@ -304,6 +296,22 @@ const Game = {
         requestAnimationFrame(t => this.loop(t));
     },
 
+    /**
+     * Toggle or force the paused state so overworld ticks can be frozen without blocking UI.
+     * @param {boolean} [forceState] optional desired pause value; defaults to inverse of current state.
+     * @returns {boolean} resulting paused value.
+     */
+    setPaused(forceState) {
+        const next = typeof forceState === 'boolean' ? forceState : !this.paused;
+        if (next === this.paused) return this.paused;
+        this.paused = next;
+        this.updateHUD();
+        return this.paused;
+    },
+
+    /** Toggle pause/play without needing an explicit state. */
+    togglePause() { return this.setPaused(!this.paused); },
+
     resize() {
         const previousProfile = this.deviceProfile;
         this.deviceProfile = Platform.detectPlatformProfile();
@@ -374,6 +382,7 @@ const Game = {
     /** Build the starting overworld state and clear any lingering combat/claimable data. */
     bootstrapNewWorld() {
         this.state = 'OVERWORLD';
+        this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
         this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
         this.overworld.hexes = new Map();
@@ -399,6 +408,7 @@ const Game = {
     /** Apply a hydrated snapshot to the live game state (overworld only). */
     applySnapshot(snapshot) {
         this.state = 'OVERWORLD';
+        this.paused = false;
         this.gold = snapshot.gold;
         this.wood = snapshot.wood;
         this.difficulty = snapshot.difficulty;
@@ -680,45 +690,19 @@ const Game = {
     getSpawnRate(baseRate) { return getSpawnRate(this, baseRate); },
 
     getIncomeMulti() {
-        return 1 + ((this.upgrades.mines - 1) * 0.2); 
+        return 1 + ((this.upgrades.mines - 1) * 0.2);
     },
 
     updateOverworld(dt) {
-        this.overworld.timer += dt;
-        if(this.overworld.timer >= this.overworld.tickRate) {
-            this.overworld.timer = 0;
-            let goldInc = 0;
-            let woodInc = 0;
-            for(let [k, d] of this.overworld.hexes) {
-                const owner = (d.owner || '').toLowerCase();
-                if (owner === 'scorched' || owner === 'rebel') continue;
-
-                const def = OVERWORLD_TILES[d.type.toUpperCase()];
-                if(def.income.gold) goldInc += def.income.gold + (d.type === 'town' ? this.research.bonuses.townGoldBonus : 0);
-                if(def.income.wood) woodInc += def.income.wood + (d.type === 'forest' ? this.research.bonuses.forestWoodBonus : 0);
-            }
-            
-            const multi = this.getIncomeMulti();
-            goldInc = Math.floor(goldInc * multi);
-            woodInc = Math.floor(woodInc * multi);
-
-            this.gold += goldInc;
-            this.wood += woodInc;
-            if(goldInc > 0 || woodInc > 0) this.spawnTxt(new Hex(0,0), `+${goldInc}g  +${woodInc}w`, '#fff');
-            this.timekeeper.advance(1);
-            this.updateHUD();
-            this.updateUpgradeMenu();
-            const uiBindings = {
+        advanceOverworldTimer(this, dt, {
+            mandateManager: ImperialMandateManager,
+            imperialMandates: ImperialMandates,
+            uiBindings: {
                 showTileCallout: this.showTileCallout,
                 hideTileCallout: this.hideTileCallout,
                 enqueueNotification: this.enqueueNotification
-            };
-            if (ImperialMandateManager?.advanceTick) {
-                ImperialMandateManager.advanceTick(this, uiBindings);
-            } else if (ImperialMandates?.recordEvent) {
-                ImperialMandates.recordEvent('tick', { ticks: 1, gameState: this });
             }
-        }
+        });
     },
 
     updateCombat(dt) { return updateCombat(this, dt, this.Hex); },
