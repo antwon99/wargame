@@ -457,8 +457,11 @@ export function updateHUD(game) {
     if (imperialFavor) imperialFavor.innerText = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
     const calendar = document.getElementById('calendar-readout');
     if (calendar) {
-        const formatted = game.timekeeper?.formatCalendar?.() || 'Month 1, Week 1, Day 1';
+        const formatted = game.timekeeper?.formatCalendar?.() || 'Month 1, Week 1 of 5, Day 1 of 8';
         calendar.innerText = formatted;
+        const weeksPerMonth = game.timekeeper?.weeksPerMonth || 5;
+        const daysPerWeek = game.timekeeper?.daysPerWeek || 8;
+        calendar.title = `${weeksPerMonth} weeks/month · ${daysPerWeek}-day weeks`;
     }
     const pauseToggle = document.getElementById('btn-pause');
     if (pauseToggle) {

@@ -242,7 +242,7 @@ const Game = {
     imperialMandates: ImperialMandates,
     timekeeper: new Timekeeper(),
 
-    overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.0 },
+    overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5 },
     fog: { time: 0 },
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],

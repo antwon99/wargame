@@ -3,9 +3,11 @@
 Mandate deadlines now align with the Timekeeper tick counter and persist across reloads.
 
 ## Duration and cadence
-- **Frontier Sweep (`destroy_first_rebel_camp`)**: issued as soon as the overworld exists; deadline is **2 weeks + 1 day** after issuance.
-- **Imperial Tax Levy (`levy_tithed_gold`)**: earliest issue after **Week 1** when gold ≥120; deadline is **1 week + 1 day** after issuance.
-- **Push the Frontier (`push_the_frontier`)**: earliest issue after **Week 2** once you own ≥4 tiles; deadline is **1 week + 5 days** after issuance.
+- **Frontier Sweep (`destroy_first_rebel_camp`)**: issued as soon as the overworld exists; deadline is **2 weeks + 5 days** (21 days) after issuance.
+- **Imperial Tax Levy (`levy_tithed_gold`)**: earliest issue after **Week 1 + 2 days** when gold ≥120; deadline is **1 week + 3 days** after issuance.
+- **Push the Frontier (`push_the_frontier`)**: earliest issue after **Week 2 + 4 days** once you own ≥4 tiles; deadline is **2 weeks + 1 day** after issuance.
+
+Mandates now respect a **minimum spacing of 1 week + 2 days** between issuances so decree spam slows down alongside the extended months.
 
 All deadlines are stored as absolute ticks using the current `daysPerWeek`/`weeksPerMonth` Timekeeper config. Reloads restore the same tick counter so reminder banners and expiry checks resume accurately.
 

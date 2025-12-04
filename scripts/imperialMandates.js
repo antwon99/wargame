@@ -36,7 +36,7 @@
      * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
      * storing the authoritative timers in ticks.
      */
-    const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
+    const DEFAULT_TIME_CONFIG = { daysPerWeek: 8, weeksPerMonth: 5 };
     function getTimeConfig(gameState) {
         const tk = gameState?.timekeeper;
         return {
@@ -63,12 +63,15 @@
         const month = Math.floor(week / config.weeksPerMonth) + 1;
         const weekOfMonth = (week % config.weeksPerMonth) + 1;
         const dayOfWeek = ((day - 1) % config.daysPerWeek) + 1;
-        return { dayOfWeek, weekOfMonth, month, day };
+        const daysPerMonth = config.daysPerWeek * config.weeksPerMonth;
+        const dayOfMonth = (weekOfMonth - 1) * config.daysPerWeek + dayOfWeek;
+        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth };
     }
 
     function formatCalendarLabel(tick, gameState) {
         const cal = getCalendarForTick(tick, gameState);
-        return `Month ${cal.month}, Week ${cal.weekOfMonth}, Day ${cal.dayOfWeek}`;
+        const config = getTimeConfig(gameState);
+        return `Month ${cal.month}, Week ${cal.weekOfMonth} of ${config.weeksPerMonth}, Day ${cal.dayOfWeek} of ${config.daysPerWeek}`;
     }
 
     /**
@@ -95,7 +98,7 @@
     }
 
     function getMinimumMandateSpacing(gameState) {
-        return getTimeConfig(gameState).daysPerWeek;
+        return convertToTicks({ weeks: 1, days: 2 }, gameState);
     }
 
     function getDurationTicks(entry, ctx) {
@@ -606,7 +609,7 @@
             id: 'destroy_first_rebel_camp',
             title: 'Frontier Sweep',
             description: 'Destroy the first rebel encampment seeded near the foggy frontier before the Emperor loses patience.',
-            duration: { weeks: 2, days: 1 },
+            duration: { weeks: 2, days: 5 },
             createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true, deadlineWarned: false }),
             triggerPredicate: ({ gameState }) => Boolean(gameState?.overworld?.hexes?.size),
             onIssue: ({ gameState, uiBindings, mandate }) => {
@@ -682,9 +685,9 @@
             id: 'levy_tithed_gold',
             title: 'Imperial Tax Levy',
             description: 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
-            duration: { weeks: 1, days: 1 },
+            duration: { weeks: 1, days: 3 },
             createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 1 },
+            earliestIssue: { weeks: 1, days: 2 },
             triggerPredicate: ({ gameState }) => (gameState?.gold || 0) >= 120,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const requiredGold = Math.max(150, Math.floor((gameState?.gold || 0) * 0.6));
@@ -733,9 +736,9 @@
             id: 'push_the_frontier',
             title: 'Push the Frontier',
             description: 'Claim additional territory before the frontier stagnates. Expansion proves loyalty.',
-            duration: { weeks: 1, days: 5 },
+            duration: { weeks: 2, days: 1 },
             createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 2 },
+            earliestIssue: { weeks: 2, days: 4 },
             triggerPredicate: ({ gameState }) => (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;

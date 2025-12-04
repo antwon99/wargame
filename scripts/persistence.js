@@ -11,8 +11,8 @@
     const DEFAULT_IMPERIAL_FAVOR = 5;
     const DEFAULT_TIMEKEEPER = {
         ticks: 0,
-        daysPerWeek: 7,
-        weeksPerMonth: 4
+        daysPerWeek: 8,
+        weeksPerMonth: 5
     };
     const DEFAULT_STATS = {
         totalKills: 0,
