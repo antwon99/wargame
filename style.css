@@ -161,6 +161,16 @@
             gap: 12px;
         }
 
+        .top-bar__zones {
+            display: grid;
+            grid-template-columns: auto auto 1fr auto;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+        }
+
+        .top-bar__zone { display: flex; align-items: center; }
+
         .top-bar__controls { display: inline-flex; align-items: center; gap: 10px; }
 
         .resource-cluster {
@@ -261,7 +271,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 14px;
             flex: 0 1 280px;
             max-width: 320px;
         }
