@@ -485,14 +485,17 @@
 
                 mandate.runtime.metadata.targetTileKey = getTileKey(rebelTile);
                 const body = 'Patrol the frontier.\nRebels have been sighted nearby.\nExpand the Empire\'s reach — and survive the rebels beyond the fog.';
-                if (mandate.runtime.metadata.preferAnchoredDecree) {
+                const shouldAnchorToTile = mandate.runtime.metadata.preferAnchoredDecree
+                    && typeof (uiBindings.showTileCallout || TutorialCallouts?.showTileCallout) === 'function';
+                mandate.runtime.metadata.preferAnchoredDecree = false;
+
+                if (shouldAnchorToTile) {
                     showRebelDecreeCallout(rebelTile, gameState, uiBindings, {
                         body: body.replace(/\n/g, '<br>'),
                         title: 'By Imperial Decree:'
                     });
-                    mandate.runtime.metadata.preferAnchoredDecree = false;
                 } else {
-                    showStandardImperialDecree(body.split('\n'), uiBindings);
+                    showMandateBanner(body.split('\n'), uiBindings, 'By Imperial Decree:');
                 }
                 if (typeof gameState?.playSound === 'function') gameState.playSound('wardrum', { allowOverlap: true });
             },

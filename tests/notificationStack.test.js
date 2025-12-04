@@ -4,6 +4,47 @@ async function loadStackModule() {
     return import('../scripts/notificationStack.js');
 }
 
+function createStubElement(id = null) {
+    const element = {
+        id,
+        children: [],
+        className: '',
+        dataset: {},
+        style: {},
+        innerText: '',
+        appendChild(child) { this.children.push(child); child.parentNode = this; },
+        setAttribute() {},
+        addEventListener() {},
+        remove() {}
+    };
+    const classes = new Set();
+    element.classList = {
+        add: (...tokens) => tokens.forEach((t) => classes.add(t)),
+        remove: (...tokens) => tokens.forEach((t) => classes.delete(t)),
+        contains: (token) => classes.has(token),
+        toggle: (token, force) => {
+            if (force === undefined) {
+                if (classes.has(token)) { classes.delete(token); return false; }
+                classes.add(token); return true;
+            }
+            if (force) { classes.add(token); return true; }
+            classes.delete(token); return false;
+        }
+    };
+    return element;
+}
+
+function createStubDocument() {
+    const elements = new Map();
+    const body = createStubElement('body');
+    return {
+        body,
+        createElement: () => createStubElement(),
+        getElementById: (id) => elements.get(id) || null,
+        registerElement: (id, el) => { elements.set(id, el); return el; }
+    };
+}
+
 async function testQueueingAndAutoDismiss() {
     const { NotificationStack } = await loadStackModule();
     const stack = new NotificationStack({ maxVisible: 2, autoDismissMs: 20, registerGlobal: false });
@@ -26,8 +67,27 @@ async function testQueueingAndAutoDismiss() {
     assert.strictEqual(stack.queue.length, 0, 'queue should empty after dismissals');
 }
 
+async function testIntroOverlayGuard() {
+    const { NotificationStack } = await loadStackModule();
+    const doc = createStubDocument();
+    const overlay = doc.registerElement('intro-overlay', createStubElement('intro-overlay'));
+    const stack = new NotificationStack({
+        maxVisible: 1,
+        autoDismissMs: 10,
+        registerGlobal: false,
+        document: doc
+    });
+
+    assert.ok(stack.container.classList.contains('notification-stack--blocked'), 'stack should block pointer events while overlay is active');
+
+    overlay.classList.add('intro-hidden');
+    stack.syncIntroOverlayGuards();
+    assert.ok(!stack.container.classList.contains('notification-stack--blocked'), 'stack should reactivate once overlay hides');
+}
+
 async function run() {
     await testQueueingAndAutoDismiss();
+    await testIntroOverlayGuard();
     console.log('Notification stack tests passed.');
 }
 
