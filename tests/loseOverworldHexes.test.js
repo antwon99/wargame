@@ -52,8 +52,9 @@ function testFrontierConversionMarksOuterRingFirst() {
     const gameState = buildGameState(coords);
 
     withMockedRandom([0.1, 0.9], () => {
-        const removed = loseOverworldHexes(gameState, 2);
-        assert.strictEqual(removed, 2, 'should convert requested number of tiles when available');
+        const report = loseOverworldHexes(gameState, 2);
+        assert.strictEqual(report.lost, 2, 'should convert requested number of tiles when available');
+        assert.strictEqual(report.conversions.length, 2, 'loss report should include each converted tile');
     });
 
     const scorchedFrontier = gameState.overworld.hexes.get('4,0');
@@ -75,17 +76,33 @@ function testProtectedTilesStopFurtherLoss() {
     const protectedKeys = new Set(['1,0']);
 
     withMockedRandom(0.2, () => {
-        const removed = loseOverworldHexes(gameState, 5, protectedKeys);
-        assert.strictEqual(removed, 1, 'conversion should stop when only protected tiles remain');
+        const report = loseOverworldHexes(gameState, 5, protectedKeys);
+        assert.strictEqual(report.lost, 1, 'conversion should stop when only protected tiles remain');
+        assert.ok(report.convertedKeys.has('2,0'), 'report should capture converted keys for UI hooks');
     });
 
     assert.strictEqual(gameState.overworld.hexes.get('2,0').type, 'scorched', 'unprotected tiles can still be lost');
     assert.strictEqual(gameState.overworld.hexes.get('1,0').type, 'field', 'protected tiles must be preserved');
 }
 
+function testLossReportTracksFates() {
+    const coords = [
+        [0, 0, 'castle'], [1, 0], [2, 0], [3, 0]
+    ];
+    const gameState = buildGameState(coords);
+
+    withMockedRandom([0.2, 0.7, 0.2], () => {
+        const report = loseOverworldHexes(gameState, 3);
+        assert.strictEqual(report.counts.scorched, 2, 'loss report should tally scorched tiles');
+        assert.strictEqual(report.counts.rebel, 1, 'loss report should tally rebel takeovers');
+        assert.strictEqual(report.conversions[0].hex.toString(), '3,0', 'report should carry converted hex references for FX');
+    });
+}
+
 function run() {
     testFrontierConversionMarksOuterRingFirst();
     testProtectedTilesStopFurtherLoss();
+    testLossReportTracksFates();
     console.log('All loseOverworldHexes tests passed.');
 }
 
