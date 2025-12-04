@@ -18,6 +18,29 @@ global.Hex = class Hex {
 const Persistence = require('../scripts/persistence.js');
 
 function runTests() {
+    const INCOME_TABLE = {
+        castle: { gold: 2, wood: 1 },
+        town: { gold: 2 },
+        forest: { wood: 1 },
+        field: {},
+        scorched: {},
+        rebel: {}
+    };
+
+    const calcIncome = (hexMap) => {
+        let gold = 0;
+        let wood = 0;
+        hexMap.forEach((tile) => {
+            const owner = (tile.owner || '').toLowerCase();
+            if (owner === 'scorched' || owner === 'rebel') return;
+            const type = typeof tile.type === 'string' ? tile.type.toLowerCase() : '';
+            const income = INCOME_TABLE[type] || {};
+            if (income.gold) gold += income.gold;
+            if (income.wood) wood += income.wood;
+        });
+        return { gold, wood };
+    };
+
     // Serialize
     const game = {
         gold: 100,
@@ -81,6 +104,35 @@ function runTests() {
     const meta = Persistence.getSlotMetadata(2);
     assert.ok(meta.hasSave);
     assert.strictEqual(meta.slot, '2');
+
+    // Persist scorched/rebel tiles and ensure they stay non-income when reloaded
+    const penalizedGame = {
+        gold: 0,
+        wood: 0,
+        difficulty: 0,
+        upgrades: {},
+        overworld: {
+            hexes: new Map([
+                ['0,0', { hex: new Hex(0, 0, 0), type: 'town', owner: 'rebel' }],
+                ['1,0', { hex: new Hex(1, 0, -1), type: 'scorched', owner: 'scorched' }]
+            ])
+        },
+        stats: {}
+    };
+    const savedPenalty = Persistence.saveSnapshot(penalizedGame, 5);
+    assert.strictEqual(savedPenalty.payload.overworld.hexes.length, 2);
+
+    const reloadedPenalty = Persistence.loadSnapshot(5, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.ok(reloadedPenalty.state);
+    assert.strictEqual(reloadedPenalty.state.overworld.hexes.size, 2);
+    const scorchedTile = reloadedPenalty.state.overworld.hexes.get('1,0');
+    assert.strictEqual(scorchedTile.type, 'scorched');
+    assert.strictEqual(scorchedTile.owner, 'scorched');
+
+    const rebelTile = reloadedPenalty.state.overworld.hexes.get('0,0');
+    assert.strictEqual(rebelTile.owner, 'rebel');
+    const income = calcIncome(reloadedPenalty.state.overworld.hexes);
+    assert.deepStrictEqual(income, { gold: 0, wood: 0 });
 
     console.log('All persistence tests passed.');
 }
