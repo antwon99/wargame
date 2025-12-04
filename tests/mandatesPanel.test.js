@@ -1,6 +1,8 @@
 const assert = require('assert');
+const fs = require('fs');
 
 function createStubElement(tag = 'div') {
+    const attributes = new Map();
     const element = {
         tag,
         children: [],
@@ -8,8 +10,24 @@ function createStubElement(tag = 'div') {
         style: {},
         _innerHTML: '',
         innerText: '',
+        addEventListener() {},
         appendChild(child) { this.children.push(child); },
-        setAttribute() {}
+        setAttribute(name, value) { attributes.set(name, value); },
+        getAttribute(name) { return attributes.get(name); }
+    };
+
+    element.classList = {
+        _list: new Set(),
+        add(...tokens) { tokens.forEach((token) => element.classList._list.add(token)); element.className = Array.from(element.classList._list).join(' '); },
+        remove(...tokens) { tokens.forEach((token) => element.classList._list.delete(token)); element.className = Array.from(element.classList._list).join(' '); },
+        toggle(token, force) {
+            const shouldAdd = typeof force === 'boolean' ? force : !element.classList._list.has(token);
+            if (shouldAdd) element.classList._list.add(token);
+            else element.classList._list.delete(token);
+            element.className = Array.from(element.classList._list).join(' ');
+            return element.classList._list.has(token);
+        },
+        contains(token) { return element.classList._list.has(token); }
     };
 
     Object.defineProperty(element, 'innerHTML', {
@@ -28,6 +46,7 @@ function createStubDocument() {
     return {
         createElement: (tag) => createStubElement(tag),
         getElementById: (id) => elements.get(id) || null,
+        querySelectorAll: () => [],
         register: (id, el = createStubElement()) => { elements.set(id, el); return el; }
     };
 }
@@ -126,9 +145,83 @@ async function testMandatesPanelEmptyStateAndWarnings() {
     }
 }
 
+async function testMandatesPanelToggleStates() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    try {
+        const doc = createStubDocument();
+        doc.body = createStubElement('body');
+        const panel = doc.register('mandates-panel');
+        const body = doc.register('mandates-panel-body');
+        const btn = doc.register('btn-mandates', createStubElement('button'));
+
+        global.document = doc;
+        global.ImperialMandates = {
+            describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
+            getActiveMandates: () => []
+        };
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        setupUIBindings({});
+
+        btn.onclick();
+        assert.ok(panel.classList.contains('open'), 'panel should toggle open on first click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'open panel should flip aria-hidden to false');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when panel opens');
+
+        btn.onclick();
+        assert.ok(!panel.classList.contains('open'), 'panel should close when clicking Tasks again');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'closing restores aria-hidden guard');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+    }
+}
+
+function testMandatesPanelTransformsAndPointerGuards() {
+    const css = fs.readFileSync('style.css', 'utf8');
+    assert.ok(css.includes('.mandates-panel {') && css.includes('transform: translateX(120%)'), 'closed mandates panel should be translated off-screen by default');
+    assert.ok(css.includes('.mandates-panel.open') && css.includes('transform: translateX(0);'), 'open class should reset transform to keep panel visible');
+    assert.ok(css.includes('pointer-events: none;') && css.includes('.mandates-panel__inner') && css.includes('pointer-events: auto;'), 'panel container should allow clicks to pass through to the map while inner content stays interactive');
+    assert.ok(css.includes('width: min(300px, 92vw);'), 'panel should clamp width for smaller viewports');
+}
+
+async function testRenderSurvivesDomRelocation() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    try {
+        const doc = createStubDocument();
+        const firstBody = doc.register('mandates-panel-body');
+        global.document = doc;
+        global.ImperialMandates = {
+            describeDeadlineTick: (tick) => ({ label: `Month ${tick}`, remainingDays: tick - 1 }),
+            getActiveMandates: () => [{ id: 'delta', title: 'Delta', description: 'Hold the line.', deadlineTick: 3 }]
+        };
+
+        const { renderMandatesPanel } = await import('../scripts/uiBindings.js');
+        renderMandatesPanel();
+        assert.strictEqual(firstBody.children.length, 1, 'initial body should receive rendered content');
+
+        const relocatedBody = createStubElement('section');
+        doc.register('mandates-panel-body', relocatedBody);
+
+        renderMandatesPanel();
+        const renderedTitle = relocatedBody.children[0]?.children[0]?.children[0]?.children[0]?.innerText;
+        assert.strictEqual(relocatedBody.children.length, 1, 'render should target the relocated body');
+        assert.ok(renderedTitle?.includes('Delta'), 'bindings should persist after relocation');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+    }
+}
+
 async function run() {
     await testMandatesPanelRendersList();
     await testMandatesPanelEmptyStateAndWarnings();
+    await testMandatesPanelToggleStates();
+    testMandatesPanelTransformsAndPointerGuards();
+    await testRenderSurvivesDomRelocation();
     console.log('Mandates panel UI tests passed.');
 }
 
