@@ -43,6 +43,7 @@ export function applyUIBindings(game, deps = {}) {
     game.bindVoidClickEasterEgg = () => bindVoidClickEasterEgg(game, dependencies);
     game.setupInput = () => setupInput(game);
     game.toggleSidebar = (forceState) => toggleSidebar(forceState);
+    game.toggleMandatesPanel = (forceState) => toggleMandatesPanel(forceState);
     game.updateSaveStatus = (msg) => updateSaveStatus(msg);
     game.updateSaveSlotsUI = () => updateSaveSlotsUI(game);
     game.toggleResearch = (forceOpen) => toggleResearch(game, forceOpen);
@@ -101,6 +102,12 @@ export function setupUIBindings(game) {
 
     const sidebarClose = document.getElementById('btn-sidebar-close');
     if (sidebarClose) sidebarClose.onclick = () => game.toggleSidebar(false);
+
+    const mandatesBtn = document.getElementById('btn-mandates');
+    if (mandatesBtn) mandatesBtn.onclick = () => toggleMandatesPanel();
+
+    const mandatesClose = document.getElementById('btn-mandates-close');
+    if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
@@ -171,6 +178,21 @@ function toggleSidebar(forceState) {
     if (!sidebar) return;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', shouldOpen);
+}
+
+/**
+ * Toggle the lightweight mandates/task flyout without blocking canvas pointer events.
+ * The container keeps pointer-events disabled so the map remains interactive while open.
+ * @param {boolean} [forceState] optional explicit open/close state.
+ */
+function toggleMandatesPanel(forceState) {
+    const panel = document.getElementById('mandates-panel');
+    if (!panel) return;
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
+    panel.classList.toggle('open', shouldOpen);
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    const trigger = document.getElementById('btn-mandates');
+    if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 }
 
 function updateSaveStatus(msg) {
