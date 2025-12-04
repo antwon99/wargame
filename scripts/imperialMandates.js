@@ -123,6 +123,14 @@
         }, uiBindings);
     }
 
+    /**
+     * Lightweight helper for mandate banners that should not block gameplay.
+     * Falls back to the standard decree overlay with a short timeout.
+     */
+    function showMandateBanner(lines, uiBindings, title = 'By Imperial Decree:', duration = 4200) {
+        showStandardImperialDecree(lines, uiBindings, { title, duration });
+    }
+
     function showRebelDecreeCallout(rebelTile, gameState, uiBindings = {}, options = {}) {
         const { autoHide = false, title = 'By Imperial Decree:' } = options;
         const bodyHtml = options.body
@@ -254,10 +262,41 @@
         }
     }
 
+    function getDeadlineWarningLines(entry, ticksRemaining) {
+        if (entry.definition.id === 'levy_tithed_gold') {
+            return [
+                `Levy due in ${ticksRemaining} ticks.`,
+                'Secure the tithe before collectors arrive.'
+            ];
+        }
+        if (entry.definition.id === 'push_the_frontier') {
+            return [
+                `Frontier mandate expiring in ${ticksRemaining} ticks.`,
+                'Claim new holdings before the order lapses.'
+            ];
+        }
+        return [`Mandate deadline in ${ticksRemaining} ticks.`];
+    }
+
     function checkDeadlines(ctx) {
         state.mandates.forEach((entry) => {
             if (entry.runtime.status !== MandateStatus.ACTIVE) return;
-            if (entry.runtime.deadlineTick && state.currentTick >= entry.runtime.deadlineTick) {
+
+            const deadlineTick = entry.runtime.deadlineTick;
+            if (!deadlineTick) return;
+
+            const ticksRemaining = deadlineTick - state.currentTick;
+
+            if (ticksRemaining > 0 && ticksRemaining <= 2 && !entry.runtime.metadata.deadlineWarned) {
+                entry.runtime.metadata.deadlineWarned = true;
+                showMandateBanner(
+                    getDeadlineWarningLines(entry, ticksRemaining),
+                    ctx.uiBindings,
+                    'Imperial Reminder'
+                );
+            }
+
+            if (state.currentTick >= deadlineTick) {
                 markFailure(entry, ctx);
             }
         });
@@ -394,7 +433,7 @@
             title: 'Frontier Sweep',
             description: 'Destroy the first rebel encampment seeded near the foggy frontier before the Emperor loses patience.',
             durationTicks: 15,
-            createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true }),
+            createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true, deadlineWarned: false }),
             triggerPredicate: ({ gameState }) => Boolean(gameState?.overworld?.hexes?.size),
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
@@ -454,11 +493,10 @@
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ uiBindings }) => {
-                showImperialMessage({
-                    title: 'Imperial Patience Wanes',
-                    lines: ['The encampment festers.', 'Expect harsher levies until it is destroyed.'],
-                    buttonLabel: 'We will answer'
-                }, uiBindings);
+                showMandateBanner([
+                    'The encampment festers beyond the frontier.',
+                    'Expect harsher levies until it is destroyed.'
+                ], uiBindings, 'Imperial Patience Wanes');
             }
         };
     }
@@ -469,19 +507,15 @@
             title: 'Imperial Tax Levy',
             description: 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
             durationTicks: 8,
-            createInitialState: () => ({ requiredGold: 0 }),
+            createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
             triggerPredicate: ({ gameState, currentTick }) => currentTick >= 2 && (gameState?.gold || 0) >= 120,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const requiredGold = Math.max(150, Math.floor((gameState?.gold || 0) * 0.6));
                 mandate.runtime.metadata.requiredGold = requiredGold;
-                showImperialMessage({
-                    title: 'Imperial Tax Levy',
-                    lines: [
-                        `Remit ${requiredGold} gold within ${mandate.runtime.deadlineTick - state.currentTick} ticks.`,
-                        'Prompt delivery will be rewarded with imperial favor.'
-                    ],
-                    buttonLabel: 'Begin collection'
-                }, uiBindings);
+                showMandateBanner([
+                    `Levy announced: remit ${requiredGold} gold.`,
+                    `Collectors arrive in ${mandate.runtime.deadlineTick - state.currentTick} ticks.`
+                ], uiBindings, 'Imperial Tax Levy');
             },
             successPredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;
@@ -496,11 +530,10 @@
                     gameState.gold = Math.max(0, gameState.gold);
                     gameState.gold += Math.floor(required * 0.4);
                 }
-                showImperialMessage({
-                    title: 'Levy Received',
-                    lines: ['Couriers return with supplies worth 40% of the tithe.', 'Imperial trust in your stewardship grows.'],
-                    buttonLabel: 'Continue'
-                }, uiBindings);
+                showMandateBanner([
+                    'Levy received. Couriers return with 40% of the tithe.',
+                    'Imperial trust in your stewardship grows.'
+                ], uiBindings, 'Levy Received');
             },
             failurePredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;
@@ -510,11 +543,10 @@
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - Math.floor(mandate.runtime.metadata.requiredGold * 0.35));
                 }
-                showImperialMessage({
-                    title: 'Levy Missed',
-                    lines: ['Treasury agents seize local stores.', 'Future levies will be stricter if delays continue.'],
-                    buttonLabel: 'Understood'
-                }, uiBindings);
+                showMandateBanner([
+                    'Levy missed. Treasury agents seize local stores.',
+                    'Future levies will be stricter if delays continue.'
+                ], uiBindings, 'Levy Missed');
             }
         };
     }
@@ -525,20 +557,16 @@
             title: 'Push the Frontier',
             description: 'Claim additional territory before the frontier stagnates. Expansion proves loyalty.',
             durationTicks: 12,
-            createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0 }),
+            createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0, deadlineWarned: false }),
             triggerPredicate: ({ gameState, currentTick }) => currentTick >= 4 && (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;
                 mandate.runtime.metadata.startingTerritory = currentTerritory;
                 mandate.runtime.metadata.targetTerritory = currentTerritory + 3;
-                showImperialMessage({
-                    title: 'Push the Frontier',
-                    lines: [
-                        `Add ${mandate.runtime.metadata.targetTerritory - currentTerritory} new holdings before the fog closes in.`,
-                        'New towns will earn a small signing bonus.'
-                    ],
-                    buttonLabel: 'Survey'
-                }, uiBindings);
+                showMandateBanner([
+                    `Add ${mandate.runtime.metadata.targetTerritory - currentTerritory} holdings before the fog closes in.`,
+                    'New towns will earn a small signing bonus.'
+                ], uiBindings, 'Push the Frontier');
             },
             successPredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;
@@ -548,22 +576,20 @@
             onSuccess: ({ gameState, uiBindings, mandate }) => {
                 if (typeof gameState?.gold === 'number') gameState.gold += 75;
                 if (typeof gameState?.wood === 'number') gameState.wood += 40;
-                showImperialMessage({
-                    title: 'Frontier Secured',
-                    lines: ['Imperial cartographers commend your expansion.', 'Supplies arrive: +75 gold, +40 wood.'],
-                    buttonLabel: 'Claim rewards'
-                }, uiBindings);
+                showMandateBanner([
+                    'Frontier secured. Imperial cartographers commend your expansion.',
+                    'Supplies arrive: +75 gold, +40 wood.'
+                ], uiBindings, 'Frontier Secured');
             },
             failurePredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ uiBindings }) => {
-                showImperialMessage({
-                    title: 'Frontier Stalls',
-                    lines: ['Scouts report hesitation at the border.', 'Expect stronger rebel pressure until expansion resumes.'],
-                    buttonLabel: 'We will move'
-                }, uiBindings);
+                showMandateBanner([
+                    'Frontier mandate stalled. Scouts report hesitation at the border.',
+                    'Expect stronger rebel pressure until expansion resumes.'
+                ], uiBindings, 'Frontier Stalls');
             }
         };
     }
