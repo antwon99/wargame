@@ -1,7 +1,26 @@
+import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
+
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
  * These functions keep script.js focused on core game logic.
  */
+
+let cachedNotificationStack = null;
+
+/**
+ * Lazily create (or return) the shared notification stack anchored to the game container.
+ * Keeping a single instance prevents duplicate DOM overlays when the UI bindings are
+ * re-applied after a reset or test harness initialization.
+ * @returns {import('./notificationStack.js').NotificationStack|null}
+ */
+function getOrCreateNotificationStack() {
+    if (cachedNotificationStack) return cachedNotificationStack;
+    if (typeof document === 'undefined') return null;
+    const mountPoint = document.getElementById('game-container') || document.body;
+    cachedNotificationStack = createNotificationStack({ mountPoint });
+    setSharedStack(cachedNotificationStack);
+    return cachedNotificationStack;
+}
 
 /**
  * Bind UI helper methods onto the provided game object so gameplay code can
@@ -11,6 +30,8 @@
  */
 export function applyUIBindings(game, deps = {}) {
     const dependencies = { ...deps };
+
+    const notificationStack = getOrCreateNotificationStack();
 
     game.bindVoidClickEasterEgg = () => bindVoidClickEasterEgg(game, dependencies);
     game.setupInput = () => setupInput(game);
@@ -34,6 +55,18 @@ export function applyUIBindings(game, deps = {}) {
     game.showOverworldUI = () => showOverworldUI();
     game.showTileCallout = (tile, opts) => showTileCallout(game, tile, opts);
     game.hideTileCallout = () => hideTileCallout();
+    /**
+     * Surface the shared notification stack so gameplay systems can enqueue toasts without
+     * importing DOM code. Cards auto-fade and stack in the HUD corner.
+     */
+    game.enqueueNotification = (payload) => notificationStack?.enqueue(payload);
+    /**
+     * Allow direct programmatic dismissal for cases where a notification is superseded
+     * (e.g., mandate resolved before the reminder expires).
+     */
+    game.dismissNotification = (id) => notificationStack?.dismiss(id);
+    /** Retrieve the underlying stack instance for advanced UI integration. */
+    game.getNotificationStack = () => getSharedStack();
 }
 
 /**
