@@ -275,6 +275,11 @@
             flex: 0 1 280px;
             max-width: 320px;
         }
+        .mandates-zone {
+            position: relative;
+            display: inline-flex;
+            align-items: stretch;
+        }
         .calendar-pill {
             display: inline-flex;
             align-items: center;
@@ -412,18 +417,19 @@
 
         .mandates-panel {
             position: absolute;
-            top: 82px;
-            right: 18px;
+            top: calc(100% + 10px);
+            right: 0;
             width: min(300px, 92vw);
             pointer-events: none;
             opacity: 0;
-            transform: translateY(-10px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transform: translateX(120%);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            transform-origin: top right;
             z-index: 20;
         }
         .mandates-panel.open {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(0);
         }
         .mandates-panel__inner {
             pointer-events: auto;
