@@ -33,6 +33,7 @@
     };
 
     const DEFAULT_IMPERIAL_FAVOR = 5;
+    const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
 
     /**
      * Keep imperial favor bounded to the 1–10 HUD scale so mandate rewards and penalties
@@ -43,6 +44,24 @@
     function clampImperialFavor(value) {
         const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
         return Math.min(10, Math.max(1, numeric));
+    }
+
+    /**
+     * Prevent decree presenters from invoking overlap-prone combat cues so messaging remains UI-only.
+     * @param {object} [uiBindings] hooks that may include a playSound delegate.
+     * @returns {object} shallow copy with guarded audio hooks.
+     */
+    function sanitizeUIBindings(uiBindings = {}) {
+        if (!uiBindings || typeof uiBindings !== 'object') return {};
+        if (typeof uiBindings.playSound !== 'function') return uiBindings;
+
+        const safeBindings = { ...uiBindings };
+        const originalPlay = uiBindings.playSound;
+        safeBindings.playSound = (key, options) => {
+            if (!key || UI_ONLY_AUDIO_GUARD.has(key)) return null;
+            return originalPlay(key, options);
+        };
+        return safeBindings;
     }
 
     /**
@@ -253,6 +272,24 @@
         ['Imperial scribes note your progress. Continue the march.']
     ];
 
+    const DEFAULT_REBEL_DECREE_LINES = [
+        'Patrol the frontier.',
+        'Rebels have been sighted nearby.',
+        "Expand the Empire's reach — and survive the rebels beyond the fog."
+    ];
+    const DEFAULT_REBEL_DECREE_BODY = DEFAULT_REBEL_DECREE_LINES.join('<br>');
+
+    /**
+     * Normalize decree body copy so empty or undefined inputs still render informative text.
+     * @param {string|null|undefined} candidate caller-provided body copy.
+     * @returns {string} sanitized body HTML.
+     */
+    function normalizeDecreeBody(candidate) {
+        const trimmed = typeof candidate === 'string' ? candidate.trim() : '';
+        const resolved = trimmed || DEFAULT_REBEL_DECREE_BODY;
+        return resolved.replace(/\n/g, '<br>');
+    }
+
     function getImperialDecreeLines(lines) {
         if (Array.isArray(lines) && lines.length) return lines;
         const randomIndex = Math.floor(Math.random() * IMPERIAL_DECREE_POOL.length);
@@ -291,8 +328,7 @@
 
     function showRebelDecreeCallout(rebelTile, gameState, uiBindings = {}, options = {}) {
         const { autoHide = false, title = 'By Imperial Decree:' } = options;
-        const bodyHtml = options.body
-            || 'Patrol the frontier.<br>Rebels have been sighted nearby.<br>Expand the Empire\'s reach — and survive the rebels beyond the fog.';
+        const bodyHtml = normalizeDecreeBody(options.body);
 
         const showTileCallout = uiBindings.showTileCallout
             || (TutorialCallouts && TutorialCallouts.showTileCallout);
@@ -303,6 +339,7 @@
             const calloutOptions = {
                 title,
                 body: bodyHtml,
+                defaultBody: DEFAULT_REBEL_DECREE_BODY,
                 buttonText: options.buttonText || 'Understood',
                 duration: autoHide ? 5000 : null,
                 onConfirm: () => {
@@ -384,7 +421,9 @@
 
     function buildContext(gameState, uiBindings, payload) {
         if (gameState) state.lastGameState = gameState;
-        if (uiBindings) state.lastUIBindings = { ...state.lastUIBindings, ...uiBindings };
+        if (uiBindings) {
+            state.lastUIBindings = { ...state.lastUIBindings, ...sanitizeUIBindings(uiBindings) };
+        }
         return {
             gameState: state.lastGameState,
             uiBindings: state.lastUIBindings,
@@ -653,7 +692,7 @@
                 }
 
                 mandate.runtime.metadata.targetTileKey = getTileKey(rebelTile);
-                const body = 'Patrol the frontier.\nRebels have been sighted nearby.\nExpand the Empire\'s reach — and survive the rebels beyond the fog.';
+                const body = DEFAULT_REBEL_DECREE_LINES.join('\n');
                 const shouldAnchorToTile = mandate.runtime.metadata.preferAnchoredDecree
                     && typeof (uiBindings.showTileCallout || TutorialCallouts?.showTileCallout) === 'function';
                 mandate.runtime.metadata.preferAnchoredDecree = false;

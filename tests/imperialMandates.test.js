@@ -162,6 +162,28 @@ async function testFirstDecreeAnchoredThenNotifications() {
     assert.ok(titles.includes('The Emperor is pleased.'), 'success message should route through the notification stack');
 }
 
+function testEmptyBodyDecreeDefaultsAndSilencesAudio() {
+    ImperialMandates.resetForNewCampaign();
+    const playLog = [];
+    const callouts = [];
+    const gameState = buildGameState();
+    gameState.playSound = (key) => playLog.push(key);
+
+    const rebelTile = { hex: new Hex(0, 0), type: 'rebelcamp' };
+    const uiBindings = {
+        playSound: (key) => playLog.push(key),
+        showTileCallout: (...args) => callouts.push(args),
+        hideTileCallout: () => null
+    };
+
+    const rendered = ImperialMandates.showRebelDecreeCallout(rebelTile, gameState, uiBindings, { body: '', autoHide: true });
+    assert.ok(rendered, 'tile callout should render when bindings are present');
+    const calloutOptions = callouts[0]?.[callouts[0].length - 1] || {};
+    assert.ok(calloutOptions.body.includes('Patrol the frontier'), 'empty bodies should fall back to default decree copy');
+    assert.strictEqual(playLog.includes('wardrum'), false, 'decrees should not trigger combat cues');
+    assert.strictEqual(playLog.length, 0, 'imperial decree rendering should be UI-only with no audio overlap');
+}
+
 async function testTaxLevyDeadlinePaths() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -252,6 +274,7 @@ async function testNonBlockingTickQueue() {
 async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
+    testEmptyBodyDecreeDefaultsAndSilencesAudio();
     await testFirstDecreeAnchoredThenNotifications();
     await testTaxLevyDeadlinePaths();
     await testExpansionRewardsAndExpiry();
