@@ -16,3 +16,12 @@ The overworld map uses a small, icon-driven vocabulary so tiles are immediately 
 | Ruin | 🏚️ | `#6c757d` | +1 gold | — | Has a 20% chance each tick to award +10 bonus gold (with a floating text callout). |
 
 The hooks are driven by `OVERWORLD_TILES` in `scripts/overworldConfig.js` and consumed by overworld claim/income logic so persistence and gameplay stay in sync.
+
+## Tile inspector and cluster bonuses
+The tile inspector mirrors the HUD’s 28-day pacing by showing per-tick adjacency bonuses for the selected tile and hiding itself whenever the player is in combat. Cluster data comes from `overworldAdjacency.js` and remains cached on `game.overworld.clusterBonuses` so the inspector and mandates panel both read the same numbers even after a pause/resume.
+
+| State | Displayed label | Bonus line | Overlay behavior |
+| --- | --- | --- | --- |
+| No selection (OVERWORLD) | “Select a tile to inspect” | “Cluster bonuses appear…” or “Paused — cluster bonuses frozen…” depending on the pause toggle | Attack overlay cleared |
+| Hostile/rebel selection | Uppercased tile type | `+Xg +Yw — N-tile …` plus adjacency/reclamation tooltip | Attack overlay anchored to tile |
+| Non-OVERWORLD states (e.g., combat) | Inspector hidden | Bonus/tooltip cleared | Attack overlay cleared |

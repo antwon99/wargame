@@ -85,9 +85,28 @@ async function testIntroOverlayGuard() {
     assert.ok(!stack.container.classList.contains('notification-stack--blocked'), 'stack should reactivate once overlay hides');
 }
 
+async function testAutoPromotionAfterScheduledDismiss() {
+    const { NotificationStack } = await loadStackModule();
+    const stack = new NotificationStack({ maxVisible: 1, autoDismissMs: 12, registerGlobal: false });
+
+    stack.enqueue({ id: 'first', title: 'First', duration: 10 });
+    stack.enqueue({ id: 'second', title: 'Second', duration: 14 });
+
+    assert.strictEqual(stack.visible.size, 1, 'only the first notification should render initially');
+    assert.strictEqual(stack.queue.length, 1, 'second notification should queue until space frees up');
+
+    await new Promise((resolve) => setTimeout(resolve, 18));
+    assert.ok(stack.visible.has('second'), 'second notification should auto-promote after the first dismisses');
+    assert.strictEqual(stack.queue.length, 0, 'queue should be empty after the auto-promotion');
+
+    await new Promise((resolve) => setTimeout(resolve, 18));
+    assert.strictEqual(stack.visible.size, 0, 'scheduled dismiss should also clear the promoted notification');
+}
+
 async function run() {
     await testQueueingAndAutoDismiss();
     await testIntroOverlayGuard();
+    await testAutoPromotionAfterScheduledDismiss();
     console.log('Notification stack tests passed.');
 }
 

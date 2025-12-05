@@ -8,6 +8,21 @@ The HUD surfaces quick-read campaign data without opening menus. Layout now sits
 
 All HUD bindings still hydrate from live game state and persistence snapshots so favor, calendar position, and reminders remain aligned with the stored timeline.
 
+## Stateful HUD behaviors
+Each HUD pill is tied to the 28-day timeline described in `docs/timekeeper.md`. The calendar pill always formats Month → Week → Day, while pause and mandate toggles keep the slab readable even when the overworld loop is stopped.
+
+| Trigger | Calendar pill | Pause button | Pause indicator | Mandates panel |
+| --- | --- | --- | --- | --- |
+| Overworld tick (unpaused) | Updates `M: <Mon> Y# | W: #/4 | D: #/28` | Shows ⏸️ Pause | “Live”, no `paused` class | Can slide open; badge tones update from deadlines |
+| Toggle pause | Holds current calendar text (Timekeeper frozen) | Swaps to ▶️ Resume + `aria-pressed="true"` | “Paused” + `paused` class | Still readable; pointer-events remain off on the canvas |
+| Leave overworld (combat/intro) | Calendar persists from last tick | No change | No change | Flyout stays closed; tile inspector hides |
+
+```
+[Timekeeper.advance()] -> updateHUD() -> calendar text + tooltip refresh
+                                   -> pause button label + aria state
+                                   -> pause indicator text + class toggle
+```
+
 ## Mandates Panel
 
 Mandate notifications appear in a right-anchored, sliding panel. Cards enter from the right edge, stack downward, and can be replayed after UI bindings mount so reminders persist when players reload mid-mandate.

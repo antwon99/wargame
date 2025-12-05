@@ -72,9 +72,34 @@ async function testPauseStatusUpdatesInspector() {
     assert.ok(!liveText.toLowerCase().includes('paused'), 'resuming should clear the paused status message');
 }
 
+async function testInspectorHidesOutsideOverworld() {
+    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const overlayCalls = [];
+    const tile = { type: 'forest', owner: 'enemy', hex: { q: 0, r: 1, toString: () => '0,1' } };
+    const game = {
+        state: 'COMBAT',
+        paused: false,
+        overworld: { clusterBonuses: new Map() },
+        updateTileAttackOverlay: (arg) => overlayCalls.push(arg)
+    };
+
+    updateTileInspector(game, tile);
+    const panel = doc.getElementById('tile-inspector');
+    const bonus = doc.getElementById('tile-inspector-bonus');
+
+    assert.ok(panel.classList.contains('hidden'), 'tile inspector should hide outside overworld state');
+    assert.strictEqual(bonus.innerText, '');
+    assert.strictEqual(bonus.title, '');
+    assert.deepStrictEqual(overlayCalls, [null], 'attack overlay should clear when inspector hides');
+}
+
 async function run() {
     await testClusterBonusRenders();
     await testPauseStatusUpdatesInspector();
+    await testInspectorHidesOutsideOverworld();
     delete global.document;
     console.log('Tile inspector HUD tests passed.');
 }
