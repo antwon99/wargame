@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { AudioManager, SFX_MANIFEST, AmbientConductor, enterCombat, exitCombat } = require('../scripts/audio.js');
+const { AudioManager, SFX_MANIFEST, AmbientConductor, enterCombat, exitCombat, attachCombatStingerGuards } = require('../scripts/audio.js');
 
 function createStubFactory(log) {
     return (src) => {
@@ -492,6 +492,77 @@ function testImperialQueuesAvoidWardrums() {
     if (typeof previousTutorial === 'undefined') delete global.TutorialCallouts; else global.TutorialCallouts = previousTutorial;
 }
 
+function testImperialMessagingGuardsWardrumPlayback() {
+    const modulePath = require.resolve('../scripts/imperialMandates.js');
+    const previousRebelSystem = global.RebelSystem;
+    const previousTutorial = global.TutorialCallouts;
+    const previousGameAudio = global.GameAudio;
+    delete require.cache[modulePath];
+
+    const playLog = [];
+    const manager = attachCombatStingerGuards(new AudioManager({
+        wardrum: { src: 'wardrum', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(playLog) }));
+
+    class Hex {
+        constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
+        toString() { return `${this.q},${this.r}`; }
+    }
+
+    global.GameAudio = manager;
+    global.RebelSystem = {
+        spawnRebelCampNearFrontier: (gameState) => {
+            const tile = { hex: new Hex(1, 0), type: 'rebelcamp', prevType: 'field', toString() { return this.hex.toString(); } };
+            gameState.overworld.hexes.set(tile.toString(), tile);
+            return tile;
+        }
+    };
+    global.TutorialCallouts = previousTutorial || {};
+
+    const ImperialMandates = require('../scripts/imperialMandates.js');
+    ImperialMandates.resetForNewCampaign();
+
+    const origin = new Hex(0, 0);
+    const gameState = {
+        Hex,
+        overworld: { hexes: new Map([[origin.toString(), { hex: origin, type: 'castle' }]]) },
+        gold: 240,
+        wood: 0,
+        calcOverworldGhosts: () => {}
+    };
+
+    const uiBindings = {
+        enqueueNotification: () => manager.play('wardrum', { allowOverlap: true }),
+        showImperialModal: () => manager.play('wardrum', { allowOverlap: true })
+    };
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    assert.strictEqual(playLog.length, 0, 'imperial messaging should not trigger wardrum playback');
+
+    const conductor = {
+        stopCurrentCalls: 0,
+        stopArgs: null,
+        enterModes: [],
+        startArgs: null,
+        stopCurrent(args) { this.stopCurrentCalls += 1; this.stopArgs = args; },
+        clearTimers() { this.cleared = true; },
+        enterMode(mode) { this.enterModes.push(mode); },
+        start(args) { this.startArgs = args; }
+    };
+
+    enterCombat(manager, conductor);
+
+    const wardrumNode = playLog.find((node) => node.src === 'wardrum');
+    assert.ok(wardrumNode, 'combat entry should still fire wardrum immediately');
+    assert.strictEqual(wardrumNode.playCount, 1, 'wardrum should only play once during combat entry');
+
+    delete require.cache[modulePath];
+    if (typeof previousRebelSystem === 'undefined') delete global.RebelSystem; else global.RebelSystem = previousRebelSystem;
+    if (typeof previousTutorial === 'undefined') delete global.TutorialCallouts; else global.TutorialCallouts = previousTutorial;
+    if (typeof previousGameAudio === 'undefined') delete global.GameAudio; else global.GameAudio = previousGameAudio;
+}
+
 function run() {
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
@@ -507,7 +578,14 @@ function run() {
     testEnterCombatStopsAmbientAndFiresWardrumImmediately();
     testExitCombatRehomesAmbientAndPlaysOutcome();
     testImperialQueuesAvoidWardrums();
+    testImperialMessagingGuardsWardrumPlayback();
     console.log('All audio tests passed.');
 }
 
-run();
+try {
+    run();
+    process.exit(0);
+} catch (err) {
+    console.error(err);
+    process.exit(1);
+}

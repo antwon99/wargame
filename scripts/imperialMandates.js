@@ -36,6 +36,18 @@
     const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
 
     /**
+     * Shield decree/notification rendering from combat stingers so overlays do not
+     * stomp ambience or accidentally enter combat states while the UI is focused.
+     * @param {Function} fn callback to execute while the guard is active.
+     * @returns {*} return value from the guarded callback.
+     */
+    function withImperialAudioGuard(fn) {
+        const audio = global.GameAudio || (typeof window !== 'undefined' ? window.GameAudio : null);
+        if (audio?.runWithUiGuard) return audio.runWithUiGuard(fn);
+        return typeof fn === 'function' ? fn() : null;
+    }
+
+    /**
      * Keep imperial favor bounded to the 1–10 HUD scale so mandate rewards and penalties
      * cannot push saves outside the documented range.
      * @param {number} value arbitrary favor value.
@@ -205,51 +217,58 @@
 
     function renderImperialModal(config) {
         const { title, lines, buttonLabel, onConfirm, duration } = config;
-        if (typeof document === 'undefined') {
-            if (typeof onConfirm === 'function') onConfirm();
-            return;
-        }
-
-        const backdrop = document.createElement('div');
-        backdrop.className = 'imperial-modal-backdrop';
-
-        const panel = document.createElement('div');
-        panel.className = 'imperial-modal-panel';
-
-        const heading = document.createElement('h3');
-        heading.className = 'imperial-modal-title';
-        heading.innerText = title;
-        panel.appendChild(heading);
-
-        (lines || []).forEach((text) => panel.appendChild(createLineElement(text)));
-
-        if (buttonLabel !== null && buttonLabel !== false) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'imperial-modal-btn';
-            btn.innerText = buttonLabel || 'Understood';
-            btn.addEventListener('click', () => {
-                backdrop.remove();
+        const renderFn = () => {
+            if (typeof document === 'undefined') {
                 if (typeof onConfirm === 'function') onConfirm();
-            });
-            panel.appendChild(btn);
-        }
+                return;
+            }
 
-        backdrop.appendChild(panel);
-        document.body.appendChild(backdrop);
+            const backdrop = document.createElement('div');
+            backdrop.className = 'imperial-modal-backdrop';
 
-        if (buttonLabel === null || buttonLabel === false) {
-            const timeout = typeof duration === 'number' ? duration : 4000;
-            setTimeout(() => backdrop.remove(), timeout);
-        }
+            const panel = document.createElement('div');
+            panel.className = 'imperial-modal-panel';
+
+            const heading = document.createElement('h3');
+            heading.className = 'imperial-modal-title';
+            heading.innerText = title;
+            panel.appendChild(heading);
+
+            (lines || []).forEach((text) => panel.appendChild(createLineElement(text)));
+
+            if (buttonLabel !== null && buttonLabel !== false) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'imperial-modal-btn';
+                btn.innerText = buttonLabel || 'Understood';
+                btn.addEventListener('click', () => {
+                    backdrop.remove();
+                    if (typeof onConfirm === 'function') onConfirm();
+                });
+                panel.appendChild(btn);
+            }
+
+            backdrop.appendChild(panel);
+            document.body.appendChild(backdrop);
+
+            if (buttonLabel === null || buttonLabel === false) {
+                const timeout = typeof duration === 'number' ? duration : 4000;
+                setTimeout(() => backdrop.remove(), timeout);
+            }
+        };
+
+        withImperialAudioGuard(renderFn);
     }
 
     function showImperialMessage(config, uiBindings) {
-        if (uiBindings?.showImperialModal) {
-            uiBindings.showImperialModal(config);
-            return;
-        }
-        renderImperialModal(config);
+        const renderFn = () => {
+            if (uiBindings?.showImperialModal) {
+                uiBindings.showImperialModal(config);
+                return;
+            }
+            renderImperialModal(config);
+        };
+        withImperialAudioGuard(renderFn);
     }
 
     function getNotificationEnqueue(uiBindings = {}) {
@@ -265,15 +284,17 @@
     }
 
     function queueImperialNotification(lines, uiBindings, { title, duration, tone } = {}) {
-        const enqueue = getNotificationEnqueue(uiBindings);
-        if (!enqueue) return false;
-        enqueue({
-            title: title || 'By Imperial Decree:',
-            lines: Array.isArray(lines) ? lines : [lines],
-            duration,
-            tone
+        return withImperialAudioGuard(() => {
+            const enqueue = getNotificationEnqueue(uiBindings);
+            if (!enqueue) return false;
+            enqueue({
+                title: title || 'By Imperial Decree:',
+                lines: Array.isArray(lines) ? lines : [lines],
+                duration,
+                tone
+            });
+            return true;
         });
-        return true;
     }
 
     const IMPERIAL_DECREE_POOL = [
