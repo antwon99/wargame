@@ -255,6 +255,160 @@ async function testExpansionRewardsAndExpiry() {
     assert.strictEqual(expired.status, ImperialMandates.MandateStatus.FAILED, 'expansion mandate should fail when deadline passes without growth');
 }
 
+async function testInfrastructureQuotaPaths() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    gameState.imperialFavor = 5;
+    gameState.gold = 260;
+    gameState.wood = 120;
+    const { uiBindings } = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(1, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    let quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
+    assert.strictEqual(quota.status, ImperialMandates.MandateStatus.ACTIVE, 'infrastructure quota should activate after stockpile trigger');
+
+    const { targetGold, targetWood } = quota.metadata;
+    gameState.gold = targetGold;
+    gameState.wood = targetWood;
+    await advanceImperialTicks(1, gameState, uiBindings);
+    quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
+    assert.strictEqual(quota.status, ImperialMandates.MandateStatus.SUCCEEDED, 'quota should succeed once targets are staged');
+    assert.ok(gameState.gold >= targetGold + 40, 'quota success should include a logistics stipend');
+    assert.strictEqual(gameState.imperialFavor, 7, 'quota success should boost imperial favor');
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const failing = buildGameState();
+    failing.imperialFavor = 5;
+    failing.gold = 200;
+    failing.wood = 90;
+    ImperialMandates.issuePendingMandates(failing, uiBindings);
+    await advanceImperialTicks(10, failing, uiBindings);
+    await advanceImperialTicks(10, failing, uiBindings);
+    await advanceImperialTicks(10, failing, uiBindings);
+    ImperialMandates.issuePendingMandates(failing, uiBindings);
+    await advanceImperialTicks(12, failing, uiBindings);
+    ImperialMandates.issuePendingMandates(failing, uiBindings);
+    const failedQuota = ImperialMandates.getKingState().mandates.infrastructure_quota;
+    assert.strictEqual(failedQuota.status, ImperialMandates.MandateStatus.FAILED, 'quota should fail if inspectors are ignored');
+    assert.ok((failing.imperialFavor || 0) <= 3, 'quota failure should reduce imperial favor');
+}
+
+async function testRotatingLevyMandate() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    addTerritory(gameState, 2);
+    gameState.gold = 180;
+    gameState.wood = 180;
+    const { uiBindings } = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    const rebelTarget = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const rebelTile = gameState.overworld.hexes.get(rebelTarget);
+    ImperialMandates.recordEvent('tile_cleared', { tile: rebelTile }, gameState, uiBindings);
+
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(1, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    let levy = ImperialMandates.getKingState().mandates.rotating_resource_levy;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.ACTIVE, 'rotating levy should activate once holdings and stockpiles qualify');
+    const { resourceType, requiredAmount } = levy.metadata;
+    gameState[resourceType] = requiredAmount;
+    const favorBeforeTribute = gameState.imperialFavor || 0;
+    await advanceImperialTicks(1, gameState, uiBindings);
+    levy = ImperialMandates.getKingState().mandates.rotating_resource_levy;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should resolve when the tribute is ready');
+    assert.strictEqual(gameState[resourceType], Math.floor(requiredAmount * 0.35), 'levy should deduct the tribute and return a rebate');
+    assert.ok(gameState.imperialFavor >= favorBeforeTribute + 1, 'levy success should lightly improve favor');
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const debtor = buildGameState();
+    addTerritory(debtor, 2);
+    debtor.gold = 220;
+    debtor.wood = 220;
+    ImperialMandates.issuePendingMandates(debtor, uiBindings);
+    const debtorRebel = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const debtorRebelTile = debtor.overworld.hexes.get(debtorRebel);
+    ImperialMandates.recordEvent('tile_cleared', { tile: debtorRebelTile }, debtor, uiBindings);
+    await advanceImperialTicks(10, debtor, uiBindings);
+    await advanceImperialTicks(1, debtor, uiBindings);
+    await advanceImperialTicks(10, debtor, uiBindings);
+    await advanceImperialTicks(10, debtor, uiBindings);
+    await advanceImperialTicks(10, debtor, uiBindings);
+    ImperialMandates.issuePendingMandates(debtor, uiBindings);
+    const failingLevy = ImperialMandates.getKingState().mandates.rotating_resource_levy;
+    const penaltyType = failingLevy.metadata.resourceType;
+    const reserveBeforeDefault = debtor[penaltyType];
+    const favorBeforeDefault = debtor.imperialFavor || 0;
+    await advanceImperialTicks(15, debtor, uiBindings);
+    const failed = ImperialMandates.getKingState().mandates.rotating_resource_levy;
+    const expectedPenalty = Math.max(30, Math.floor(failed.metadata.requiredAmount * 0.25));
+    assert.strictEqual(failed.status, ImperialMandates.MandateStatus.FAILED, 'levy should fail when tribute is missed');
+    assert.ok((reserveBeforeDefault - debtor[penaltyType]) >= expectedPenalty, 'levy failure should seize a sizable portion of the reserve');
+    assert.ok((debtor.imperialFavor || 0) <= favorBeforeDefault - 1, 'levy failure should lower favor');
+}
+
+async function testDiplomaticEnvoysMandate() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    gameState.gold = 160;
+    gameState.imperialFavor = 6;
+    const { uiBindings } = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    const envoyRebel = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const envoyRebelTile = gameState.overworld.hexes.get(envoyRebel);
+    ImperialMandates.recordEvent('tile_cleared', { tile: envoyRebelTile }, gameState, uiBindings);
+
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(1, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(10, gameState, uiBindings);
+    let envoys = ImperialMandates.getKingState().mandates.diplomatic_envoys;
+    assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.ACTIVE, 'diplomatic envoys mandate should activate when favor is high enough');
+    const { targetFavor, giftCost } = envoys.metadata;
+    const favorBeforeEnvoys = gameState.imperialFavor || 0;
+    gameState.imperialFavor = targetFavor;
+    gameState.gold = giftCost;
+    await advanceImperialTicks(1, gameState, uiBindings);
+    envoys = ImperialMandates.getKingState().mandates.diplomatic_envoys;
+    assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.SUCCEEDED, 'envoy mandate should succeed when favor and gifts align');
+    assert.strictEqual(gameState.gold, 0, 'envoy gifts should deduct the treasury');
+    assert.ok(gameState.wood >= 25, 'envoy success should return tribute timber');
+    assert.ok(gameState.imperialFavor >= favorBeforeEnvoys + 2, 'envoy success should add favor to the meter');
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const cooledRelations = buildGameState();
+    cooledRelations.gold = 120;
+    cooledRelations.imperialFavor = 6;
+    ImperialMandates.issuePendingMandates(cooledRelations, uiBindings);
+    const cooledRebel = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const cooledRebelTile = cooledRelations.overworld.hexes.get(cooledRebel);
+    ImperialMandates.recordEvent('tile_cleared', { tile: cooledRebelTile }, cooledRelations, uiBindings);
+    await advanceImperialTicks(10, cooledRelations, uiBindings);
+    await advanceImperialTicks(1, cooledRelations, uiBindings);
+    await advanceImperialTicks(10, cooledRelations, uiBindings);
+    await advanceImperialTicks(10, cooledRelations, uiBindings);
+    const favorBeforeEnvoyExpiry = cooledRelations.imperialFavor || 0;
+    cooledRelations.imperialFavor = 4;
+    await advanceImperialTicks(10, cooledRelations, uiBindings);
+    const failedEnvoys = ImperialMandates.getKingState().mandates.diplomatic_envoys;
+    assert.strictEqual(failedEnvoys.status, ImperialMandates.MandateStatus.FAILED, 'envoys should fail if favor drops before the deadline');
+    assert.ok((cooledRelations.imperialFavor || 0) <= favorBeforeEnvoyExpiry - 2, 'failed envoy mandate should reduce imperial favor');
+}
+
 async function testNonBlockingTickQueue() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -278,6 +432,9 @@ async function run() {
     await testFirstDecreeAnchoredThenNotifications();
     await testTaxLevyDeadlinePaths();
     await testExpansionRewardsAndExpiry();
+    await testInfrastructureQuotaPaths();
+    await testRotatingLevyMandate();
+    await testDiplomaticEnvoysMandate();
     await testNonBlockingTickQueue();
     console.log('All imperial mandate tests passed.');
 }
