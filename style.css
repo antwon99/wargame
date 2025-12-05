@@ -154,7 +154,7 @@
             background: linear-gradient(90deg, rgba(10,10,15,0.85), rgba(20,20,30,0.85));
             padding: 10px 16px;
             display: grid;
-            grid-template-columns: auto 1fr auto;
+            grid-template-columns: 1fr;
             align-items: center;
             border-bottom: 1px solid #333; pointer-events: auto;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
