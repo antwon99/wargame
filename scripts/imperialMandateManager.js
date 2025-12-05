@@ -40,15 +40,20 @@
      * @param {object} [uiBindings] optional UI hooks for decree rendering.
      */
     function advanceTick(gameState, uiBindings = {}) {
-        const ctx = cacheContext(gameState, uiBindings);
+        cacheContext(gameState, uiBindings);
         queuedTicks += 1;
         if (scheduled) return;
         scheduled = true;
 
-        if (typeof setTimeout === 'function') {
-            setTimeout(() => flushTicks(ctx.gameState, ctx.uiBindings), 0);
-        } else {
+        const dispatch = () => {
+            const ctx = cacheContext();
             flushTicks(ctx.gameState, ctx.uiBindings);
+        };
+
+        if (typeof setTimeout === 'function') {
+            setTimeout(dispatch, 0);
+        } else {
+            dispatch();
         }
     }
 

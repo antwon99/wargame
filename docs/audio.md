@@ -21,6 +21,13 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 - Music does **not** loop; instead, the conductor schedules the next track after a random silence window and sometimes crossfades by starting the next track before the previous fade-out ends.
 - Crossfades are capped to 10 seconds to avoid piling up multiple songs; only the outgoing track and the incoming track can overlap.
 - Default timing: territory silences range ~20–42s with gentle 2.2s fades; war silences range ~12–30s with 2.6s fades and slightly more aggressive crossfades.
+- The ambient loop honors the overworld’s 28-day cadence by keeping gaps short enough that at least one track lands every in-game week; the conductor pauses entirely during combat intros to let stingers breathe.
+
+| Mode | Entry trigger | Track length | Silence window | Behavior on transition |
+| --- | --- | --- | --- | --- |
+| TERRITORY | Overworld idle, post-combat | 25–48s variants | 20–42s | Resume gentle playlist, restart fade-in timer |
+| WAR | `enterCombat()` | 28–52s variants | 12–30s | Halt territory loop, play wardrum stinger first, then schedule war tracks |
+| Return to TERRITORY | `exitCombat()` | Fades tail of war track | 0–4s | Reset conductor, re-arm territory playlist and debug bus intent |
 
 ## Integration Notes
 - The `AudioBridge` in `scripts/script.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).

@@ -5,7 +5,7 @@ The notification stack provides lightweight, non-blocking decree cards that live
 ## Behavior
 - Cards queue when more than `maxVisible` (default 3) are requested. The queue automatically drains as visible cards fade out.
 - Each card auto-dismisses after `autoDismissMs` (default 5200 ms) unless a shorter `duration` is supplied per payload.
-- Manual dismissal promotes the next queued card, keeping the stack responsive during heavy notification bursts.
+- Manual dismissal promotes the next queued card, keeping the stack responsive during heavy notification bursts. Scheduled auto-dismissals trigger the same promotion path so reminders march forward without user input.
 - Pointer events are disabled on the stack container so canvas/tile interactions continue to flow, while the cards themselves remain clickable for dismissal.
 - Pending cards are serialized (queue + visible) during saves and replayed on load so mandate reminders and rewards remain visible after a reload.
 
