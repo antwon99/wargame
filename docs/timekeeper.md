@@ -23,7 +23,7 @@ Mandate durations also rely on this cadence: `ImperialMandates.describeDeadlineT
 `Timekeeper.emitChange()` dispatches a `time:changed` `CustomEvent` on `window` with `{ ticks, calendar }` and also notifies in-process listeners registered via `onChange()`.
 
 ## HUD integration
-`updateHUD` reads `game.timekeeper.formatCalendar()` and writes it into the `#calendar-readout` pill so players can always see the current day/week/month. The formatted string now includes the total weeks per month and days per week (e.g., `Month 1, Week 1 of 5, Day 7 of 8`), and the HUD adds a tooltip showing `5 weeks/month · 8-day weeks` to reinforce the slower cadence.
+`updateHUD` reads `game.timekeeper.formatCalendar()` and writes it into the `#calendar-readout` pill so players can always see the current day/week/month. The formatted string is compact (`M: 1 | W: 1/5 | D: 7/40`) while still encoding weeks-per-month and days-per-month, and the HUD adds a tooltip showing `5 weeks/month · 8-day weeks` to reinforce the slower cadence.
 
 The overworld tick interval defaults to **3.5 seconds per tick (day)** to match the elongated 40-day months.
 

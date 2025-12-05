@@ -4,7 +4,7 @@ The HUD surfaces quick-read campaign data without opening menus. Layout now sits
 
 - **Left**: System controls. The hamburger sidebar toggle and pause cluster stay pinned to the far left.
 - **Center**: Economy and threat. Gold, wood, lives, and a unified enemy level + imperial favor pill remain horizontally centered on the viewport.
-- **Right**: Imperial systems. Calendar/timekeeping and the Tasks/Mandates trigger anchor to the far right, with the mandates panel sliding in from this edge.
+- **Right**: Imperial systems. Calendar/timekeeping (compact `M | W | D` readout) and the Tasks/Mandates trigger anchor to the far right, with the mandates panel sliding in from this edge.
 
 All HUD bindings still hydrate from live game state and persistence snapshots so favor, calendar position, and reminders remain aligned with the stored timeline.
 
