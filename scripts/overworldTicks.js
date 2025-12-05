@@ -1,4 +1,5 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
+import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 
 /**
  * Calculate and apply overworld income for a single tick.
@@ -12,6 +13,12 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 export function applyOverworldIncome(game, options = {}) {
     if (!game?.overworld?.hexes) return;
 
+    const clusterBonuses = buildClusterBonusMap(game.overworld.hexes, {
+        baseRate: game.research?.bonuses?.clusterBaseRate ?? DEFAULT_CLUSTER_RATE,
+        reclamationRate: game.research?.bonuses?.landReclamationClusterBonus ?? 0
+    });
+    game.overworld.clusterBonuses = clusterBonuses;
+
     let goldInc = 0;
     let woodInc = 0;
     let favorInc = 0;
@@ -23,9 +30,12 @@ export function applyOverworldIncome(game, options = {}) {
         if (!def) continue;
         const townBonus = d.type === 'town' ? game.research?.bonuses?.townGoldBonus || 0 : 0;
         const forestBonus = d.type === 'forest' ? game.research?.bonuses?.forestWoodBonus || 0 : 0;
+        const cluster = clusterBonuses.get(d.hex?.toString?.() || `${d.hex?.q ?? 0},${d.hex?.r ?? 0}`);
+        const clusterGoldBonus = cluster?.goldBonus || 0;
+        const clusterWoodBonus = cluster?.woodBonus || 0;
 
-        if (def.income.gold) goldInc += def.income.gold + townBonus;
-        if (def.income.wood) woodInc += def.income.wood + forestBonus;
+        if (def.income.gold) goldInc += def.income.gold + townBonus + clusterGoldBonus;
+        if (def.income.wood) woodInc += def.income.wood + forestBonus + clusterWoodBonus;
         if (def.favor) favorInc += def.favor;
         if (typeof def.onIncome === 'function') def.onIncome(game, d.hex || d);
     }

@@ -1,0 +1,85 @@
+const assert = require('assert');
+
+function createStubElement(id) {
+    return {
+        id,
+        innerText: '',
+        title: '',
+        style: {},
+        classList: {
+            classes: new Set(),
+            add(cls) { this.classes.add(cls); },
+            remove(cls) { this.classes.delete(cls); },
+            toggle(cls, state) {
+                const shouldAdd = state === undefined ? !this.classes.has(cls) : Boolean(state);
+                if (shouldAdd) this.classes.add(cls); else this.classes.delete(cls);
+            },
+            contains(cls) { return this.classes.has(cls); }
+        },
+        setAttribute() {}
+    };
+}
+
+function createDocument(ids = []) {
+    const elements = new Map();
+    const doc = {
+        getElementById: (id) => elements.get(id) || null,
+        register: (id) => {
+            const el = createStubElement(id);
+            elements.set(id, el);
+            return el;
+        }
+    };
+    ids.forEach((id) => doc.register(id));
+    return doc;
+}
+
+async function testClusterBonusRenders() {
+    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const key = '0,0';
+    const cluster = { size: 3, goldBonus: 0, woodBonus: 2, adjacencyRate: 0.2, reclamationRate: 0.05 };
+    const tile = { type: 'forest', owner: 'player', hex: { q: 0, r: 0, toString: () => key }, clusterBonus: cluster };
+    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+
+    updateTileInspector(game, tile);
+
+    const bonusEl = doc.getElementById('tile-inspector-bonus');
+    assert.ok(bonusEl.innerText.includes('+2w'), 'cluster line should include bonus income');
+    assert.ok(bonusEl.innerText.includes('3-tile'), 'cluster size should be surfaced in the inspector');
+    assert.ok(bonusEl.title.includes('Adjacency'), 'cluster tooltip should explain the rate applied');
+}
+
+async function testPauseStatusUpdatesInspector() {
+    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const key = '1,0';
+    const cluster = { size: 2, goldBonus: 1, woodBonus: 0, adjacencyRate: 0.1, reclamationRate: 0 };
+    const tile = { type: 'town', owner: 'player', hex: { q: 1, r: 0, toString: () => key }, clusterBonus: cluster };
+    const game = { state: 'OVERWORLD', paused: true, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+
+    updateTileInspector(game, tile);
+    const pausedText = doc.getElementById('tile-inspector-bonus').innerText;
+    assert.ok(pausedText.toLowerCase().includes('paused'), 'paused HUD should warn that bonuses are frozen');
+
+    game.paused = false;
+    updateTileInspector(game, tile);
+    const liveText = doc.getElementById('tile-inspector-bonus').innerText;
+    assert.ok(!liveText.toLowerCase().includes('paused'), 'resuming should clear the paused status message');
+}
+
+async function run() {
+    await testClusterBonusRenders();
+    await testPauseStatusUpdatesInspector();
+    delete global.document;
+    console.log('Tile inspector HUD tests passed.');
+}
+
+run().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+});
