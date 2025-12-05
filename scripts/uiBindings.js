@@ -457,10 +457,10 @@ export function updateHUD(game) {
     if (imperialFavor) imperialFavor.innerText = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
     const calendar = document.getElementById('calendar-readout');
     if (calendar) {
-        const formatted = game.timekeeper?.formatCalendar?.() || 'M: 1 | W: 1/5 | D: 1/40';
+        const formatted = game.timekeeper?.formatCalendar?.() || 'M: Jan Y1 | W: 1/4 | D: 1/28';
         calendar.innerText = formatted;
-        const weeksPerMonth = game.timekeeper?.weeksPerMonth || 5;
-        const daysPerWeek = game.timekeeper?.daysPerWeek || 8;
+        const weeksPerMonth = game.timekeeper?.weeksPerMonth || 4;
+        const daysPerWeek = game.timekeeper?.daysPerWeek || 7;
         calendar.title = `${weeksPerMonth} weeks/month · ${daysPerWeek}-day weeks`;
     }
     const pauseToggle = document.getElementById('btn-pause');

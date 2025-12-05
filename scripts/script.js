@@ -960,7 +960,7 @@ const Game = {
                 const n = Hex.neighbor(d.hex, i);
                 if(!this.overworld.hexes.has(n.toString())) {
                     const dist = Hex.distance(new Hex(0,0), n);
-                    this.overworld.claimable.set(n.toString(), Math.floor(10 + dist*5));
+                    this.overworld.claimable.set(n.toString(), Math.floor(12 + dist * 6));
                 }
             }
         }

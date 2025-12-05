@@ -46,13 +46,34 @@ export const UNITS = {
 };
 
 /**
- * Compute the entry fee for launching a war. Wars are currently free to start.
- * Previous behavior: fee = (game.difficulty + 1) * 25;
+ * Compute the entry fee for launching a war.
+ * Scaling accounts for both difficulty and the current calendar month so long-run
+ * campaigns still feel the mounting logistical strain of mobilizing armies.
  * @param {object} game current game object (difficulty may influence future fees).
- * @returns {number} gold required to initiate battle (zero by default).
+ * @returns {number} gold required to initiate battle.
  */
 export function computeWarEntryFee(game) { // eslint-disable-line no-unused-vars
-    return 0;
+    const difficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
+    const month = Math.max(1, game?.timekeeper?.getCalendar?.().month || 1);
+    const halfMonthPressure = Math.floor((month - 1) / 2); // +1 fee every two weeks of campaign time
+    const yearPressure = Math.floor((month - 1) / 12) * 5; // bump when looping the calendar
+    const base = 10;
+    const fee = base + (difficulty * 12) + halfMonthPressure * 3 + yearPressure;
+    return Math.max(0, Math.floor(fee));
+}
+
+/**
+ * Calculate AI combat prep knobs that scale with campaign duration and difficulty.
+ * Exposed for tests to verify long-run pacing without wiring full DOM state.
+ * @param {object} game current game object.
+ * @returns {{ gold: number, nextMove: number }} derived starting gold pool and initial decision cadence.
+ */
+export function deriveAIPrep(game) {
+    const cal = game?.timekeeper?.getCalendar?.();
+    const monthPressure = Math.floor(((cal?.month || 1) - 1) / 2);
+    const gold = 320 + (Math.max(0, game?.difficulty || 0) * 140) + (monthPressure * 25);
+    const nextMove = Math.max(1.6, 2.6 - Math.min(1.0, (game?.difficulty || 0) * 0.08));
+    return { gold, nextMove };
 }
 
 /**
@@ -526,8 +547,10 @@ export function startWar(game, clickEvt, hexImpl) {
     game.combat.slots.clear();
     game.combat.units = [];
     game.combat.fx = [];
+    const aiPrep = deriveAIPrep(game);
     game.combat.ai.timer = 0;
-    game.combat.ai.gold = 300 + (game.difficulty * 100);
+    game.combat.ai.nextMove = aiPrep.nextMove;
+    game.combat.ai.gold = aiPrep.gold;
 
     const W = 4; const H = 9;
     for(let r = -H; r <= H; r++) {
@@ -609,7 +632,7 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
 
     const convertTileToPenalty = (key) => {
         const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
-        const fate = Math.random() < 0.5 ? 'scorched' : 'rebel';
+        const fate = Math.random() < 0.65 ? 'rebel' : 'scorched';
         tile.type = fate;
         tile.owner = fate;
         tile.hex = tile.hex || parseKey(key);
@@ -725,9 +748,14 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     }
 
     if(result === 'VICTORY') {
-        game.wood += 60;
+        const cal = game.timekeeper?.getCalendar?.();
+        const eraBonus = Math.floor(((cal?.month || 1) - 1) / 3);
+        const goldReward = 40 + (game.difficulty * 10) + (eraBonus * 5);
+        const woodReward = 50 + (game.difficulty * 8) + (eraBonus * 5);
+        game.gold += goldReward;
+        game.wood += woodReward;
         game.difficulty++;
-        game.spawnTxt(new Hex(0,0), "VICTORY!", '#fff');
+        game.spawnTxt(new Hex(0,0), `VICTORY +${goldReward}g +${woodReward}w`, '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
@@ -762,6 +790,7 @@ if (typeof module !== 'undefined') {
         COMBAT_BUILDINGS,
         UNITS,
         computeWarEntryFee,
+        deriveAIPrep,
         getUnitStats,
         getBuildingStats,
         getSpawnRate,
