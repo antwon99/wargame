@@ -74,6 +74,23 @@ const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
 
 const DEFAULT_IMPERIAL_FAVOR = 5;
 
+const CAMERA_MOTION_CONFIG = {
+    enabled: true,
+    amplitude: 9,
+    parallax: 0.65,
+    speed: 0.18
+};
+
+const FOG_VISUAL_CONFIG = {
+    enabled: true,
+    clusterGlowEnabled: true,
+    clusterIntensity: 0.32,
+    clusterRadiusMultiplier: 5.4,
+    parallaxAmplitude: 28,
+    parallaxSpeed: 0.35,
+    rippleOpacity: 0.5
+};
+
 /**
  * Keep imperial favor bounded to the 1–10 HUD scale so saves and UI stay consistent.
  * @param {number} value arbitrary favor value from gameplay systems or persistence.
@@ -245,6 +262,9 @@ const Game = {
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
     fog: { time: 0 },
+    featureToggles: { fog: { ...FOG_VISUAL_CONFIG }, camera: { ...CAMERA_MOTION_CONFIG } },
+    camBase: { x: 0, y: 0 },
+    camDrift: { time: 0 },
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
@@ -252,6 +272,7 @@ const Game = {
     },
 
     init() {
+        this.applyFeatureOverrides();
         this.timekeeper.onChange(() => this.updateHUD());
         this.resize();
         AudioDebugConsole.init();
@@ -313,6 +334,24 @@ const Game = {
     /** Toggle pause/play without needing an explicit state. */
     togglePause() { return this.setPaused(!this.paused); },
 
+    /**
+     * Allow tests to override ambient visuals (fog + camera drift) without mutating
+     * the core constants. Overrides can come from an explicit argument or global
+     * test scaffolding hooks injected into window.
+     */
+    applyFeatureOverrides(overrides = {}) {
+        const fogOverrides = overrides.fog
+            || (typeof window !== 'undefined' ? window.FOG_CONFIG_OVERRIDES : {})
+            || {};
+        const cameraOverrides = overrides.camera
+            || (typeof window !== 'undefined' ? window.CAMERA_CONFIG_OVERRIDES : {})
+            || {};
+        this.featureToggles = {
+            fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
+            camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides }
+        };
+    },
+
     resize() {
         const previousProfile = this.deviceProfile;
         this.deviceProfile = Platform.detectPlatformProfile();
@@ -323,8 +362,10 @@ const Game = {
 
         Platform.sizeCanvasForDisplay(this.canvas, this.ctx, this.deviceProfile);
 
-        this.cam.x = this.viewport.width / 2;
-        this.cam.y = this.viewport.height / 2;
+        this.camBase = { x: this.viewport.width / 2, y: this.viewport.height / 2 };
+        this.cam.x = this.camBase.x;
+        this.cam.y = this.camBase.y;
+        this.camDrift.time = 0;
 
         if (!previousProfile || previousProfile.isMobile !== this.deviceProfile.isMobile) {
             this.cam.zoom = this.deviceProfile.baseZoom;
@@ -502,6 +543,7 @@ const Game = {
         try {
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
+            this.updateCameraDrift(dt);
             if(this.state === 'OVERWORLD') this.updateOverworld(dt);
             else if(this.state === 'COMBAT') this.updateCombat(dt);
             
@@ -733,6 +775,28 @@ const Game = {
                 enqueueNotification: this.enqueueNotification
             }
         });
+    },
+
+    /**
+     * Keep the camera gently drifting around the viewport center so the overworld
+     * feels alive even when idle. The motion is bounded by configurable amplitude
+     * and speed and can be disabled for deterministic tests.
+     */
+    updateCameraDrift(dt) {
+        const config = this.featureToggles?.camera || CAMERA_MOTION_CONFIG;
+        if (!config?.enabled) {
+            this.cam.x = this.camBase.x;
+            this.cam.y = this.camBase.y;
+            return;
+        }
+
+        this.camDrift.time += dt;
+        const offsetX = Math.sin(this.camDrift.time * config.speed) * config.amplitude;
+        const offsetY = Math.cos(this.camDrift.time * config.speed * 0.75)
+            * config.amplitude * (config.parallax ?? 1);
+
+        this.cam.x = this.camBase.x + offsetX;
+        this.cam.y = this.camBase.y + offsetY;
     },
 
     updateCombat(dt) { return updateCombat(this, dt, this.Hex); },
@@ -993,11 +1057,15 @@ const Game = {
     renderFogBackdrop(layout) {
         const ctx = this.ctx;
         const baseColor = '#0b0b11';
+        const fogConfig = this.featureToggles?.fog || FOG_VISUAL_CONFIG;
         ctx.fillStyle = baseColor;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        if (fogConfig.enabled === false) return;
 
         const center = this.getTerritoryScreenCenter(layout);
-        const drift = Math.sin(this.fog.time * 0.35) * 28;
+        const driftSpeed = fogConfig.parallaxSpeed ?? 0.35;
+        const driftAmplitude = fogConfig.parallaxAmplitude ?? 28;
+        const drift = Math.sin(this.fog.time * driftSpeed) * driftAmplitude;
         const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
         const innerRadius = Math.max(layout.size * 3, radius * 0.25);
 
@@ -1009,7 +1077,8 @@ const Game = {
             center.y,
             radius
         );
-        fogGradient.addColorStop(0, 'rgba(38, 40, 50, 0.75)');
+        const innerOpacity = 0.75 - Math.min(0.25, (fogConfig.clusterIntensity || 0) * 0.25);
+        fogGradient.addColorStop(0, `rgba(38, 40, 50, ${innerOpacity})`);
         fogGradient.addColorStop(0.5, 'rgba(18, 20, 28, 0.82)');
         fogGradient.addColorStop(1, 'rgba(4, 4, 8, 0.98)');
         ctx.fillStyle = fogGradient;
@@ -1026,10 +1095,34 @@ const Game = {
         rippleGradient.addColorStop(0, 'rgba(255,255,255,0.03)');
         rippleGradient.addColorStop(0.25, 'rgba(120,120,140,0.02)');
         rippleGradient.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = fogConfig.rippleOpacity ?? 0.5;
         ctx.fillStyle = rippleGradient;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         ctx.globalAlpha = 1.0;
+
+        if (fogConfig.clusterGlowEnabled !== false) {
+            const clusters = this.collectExploredClusters(layout);
+            clusters.forEach((cluster) => {
+                const clusterRadius = Math.max(
+                    layout.size * 3,
+                    cluster.size * layout.size * (fogConfig.clusterRadiusMultiplier ?? 5)
+                );
+                const intensity = Math.min(0.7, (fogConfig.clusterIntensity ?? 0.32) * Math.log2(cluster.size + 1));
+                const spotlight = ctx.createRadialGradient(
+                    cluster.center.x,
+                    cluster.center.y,
+                    0,
+                    cluster.center.x,
+                    cluster.center.y,
+                    clusterRadius
+                );
+                spotlight.addColorStop(0, `rgba(180, 200, 230, ${intensity})`);
+                spotlight.addColorStop(0.65, 'rgba(80, 90, 120, 0.18)');
+                spotlight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = spotlight;
+                ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+            });
+        }
     },
 
     /**
@@ -1049,6 +1142,59 @@ const Game = {
 
         const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
         return { x: sum.x / points.length, y: sum.y / points.length };
+    },
+
+    /**
+     * Identify contiguous explored clusters so the fog can glow around player-owned
+     * territory. Only player/neutral tiles are considered to avoid spotlighting hostile land.
+     * @param {Object} layout active hex layout
+     * @returns {Array<{center:{x:number,y:number}, size:number}>}
+     */
+    collectExploredClusters(layout) {
+        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
+        const visited = new Set();
+        const clusters = [];
+        const eligible = (tile) => {
+            if (!tile) return false;
+            const owner = (tile.owner || 'player').toLowerCase();
+            return owner !== 'enemy' && owner !== 'scorched';
+        };
+
+        maps.forEach((tile, key) => {
+            if (visited.has(key) || !eligible(tile)) return;
+            const queue = [key];
+            const members = [];
+
+            while (queue.length) {
+                const currentKey = queue.shift();
+                if (visited.has(currentKey)) continue;
+                visited.add(currentKey);
+                const current = maps.get(currentKey);
+                if (!eligible(current)) continue;
+
+                const currentHex = current.hex || current;
+                members.push(currentHex);
+
+                for (let i = 0; i < 6; i += 1) {
+                    const neighbor = Hex.neighbor(currentHex, i);
+                    const neighborKey = neighbor.toString();
+                    if (!visited.has(neighborKey) && maps.has(neighborKey)) queue.push(neighborKey);
+                }
+            }
+
+            if (members.length) {
+                const sum = members.reduce((acc, hex) => {
+                    const p = hex.toPixel(layout);
+                    return { x: acc.x + p.x, y: acc.y + p.y };
+                }, { x: 0, y: 0 });
+                clusters.push({
+                    center: { x: sum.x / members.length, y: sum.y / members.length },
+                    size: members.length
+                });
+            }
+        });
+
+        return clusters;
     },
     
     drawHex(layout, hex, fill, stroke, label, sub) {

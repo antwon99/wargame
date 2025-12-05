@@ -90,6 +90,10 @@ const AMBIENT_DEFAULTS = {
     initialDelayRangeMs: [400, 4000]
 };
 
+const AMBIENT_FEATURE_FLAGS = {
+    bedsEnabled: true
+};
+
 /**
  * AudioManager centralizes playback for UI and combat events.
  * It wraps HTMLAudioElement creation with cooldowns, loop helpers,
@@ -270,6 +274,7 @@ class AmbientConductor {
         this.currentMode = options.initialMode || 'TERRITORY';
         this.states = options.states || {};
         this.maxOverlapMs = options.maxOverlapMs || 10000;
+        this.bedsEnabled = options.bedsEnabled ?? AMBIENT_FEATURE_FLAGS.bedsEnabled;
         this.scheduler = options.scheduler || {
             setTimeout: (...args) => setTimeout(...args),
             clearTimeout: (id) => clearTimeout(id),
@@ -278,6 +283,7 @@ class AmbientConductor {
         };
         this.trackSelectors = new Map();
         this.activeHandle = null;
+        this.activeBeds = new Map();
         this.nextTimer = null;
         this.fallbackTimer = null;
         this.active = false;
@@ -290,6 +296,7 @@ class AmbientConductor {
         this.active = true;
         this.clearTimers();
         this.stopCurrent({ fadeMs: options.fadeMs ?? this.getConfig()?.fadeMs });
+        this.startBedsForMode(this.currentMode, options.fadeMs);
         this.scheduleNext(true);
         return true;
     }
@@ -299,6 +306,7 @@ class AmbientConductor {
         this.active = false;
         this.clearTimers();
         this.stopCurrent({ fadeMs: this.getConfig()?.fadeMs });
+        this.stopBeds({ fadeMs: this.getConfig()?.fadeMs });
     }
 
     /** Switch playlists and restart scheduling. */
@@ -346,6 +354,7 @@ class AmbientConductor {
     launchTrack() {
         const config = this.getConfig();
         if (!config) return;
+        this.startBedsForMode(this.currentMode, config.fadeMs);
         const previousHandle = this.activeHandle;
         const track = this.pickTrack(config.tracks);
         if (!track) {
@@ -492,10 +501,70 @@ class AmbientConductor {
         const candidate = track?.fadeMs ?? config?.fadeMs ?? this.defaults.fadeOutMs;
         return Math.min(candidate, this.maxOverlapMs);
     }
+
+    startBedsForMode(mode = this.currentMode, fadeMs) {
+        if (!this.bedsEnabled) return;
+        const config = this.getConfig(mode);
+        if (!config?.beds?.length) {
+            this.stopBeds({ fadeMs });
+            return;
+        }
+
+        const keep = new Set();
+        config.beds.forEach((bed) => {
+            const handle = this.audioManager.playWithHandle(bed.key, {
+                allowOverlap: false,
+                loop: true,
+                reset: false,
+                volume: typeof bed.startVolume === 'number' ? bed.startVolume : bed.volume
+            });
+            if (!handle.attempted || !handle.node) return;
+
+            const targetVolume = bed.volume ?? config.volume ?? this.defaults.gentleStartVolume;
+            const fadeDuration = Math.min(bed.fadeMs ?? config.fadeMs ?? this.defaults.fadeInMs, this.maxOverlapMs);
+            this.fadeTo(handle.node, targetVolume, fadeDuration, typeof bed.startVolume === 'number' ? bed.startVolume : handle.node.volume);
+
+            this.activeBeds.set(bed.key, {
+                ...handle,
+                targetVolume,
+                fadeMs: fadeDuration
+            });
+            keep.add(bed.key);
+        });
+
+        this.activeBeds.forEach((handle, key) => {
+            if (keep.has(key)) return;
+            this.fadeTo(handle.node, 0, handle.fadeMs ?? fadeMs ?? this.defaults.fadeOutMs, handle.node.volume, () => {
+                if (handle.node.pause) handle.node.pause();
+                if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
+                this.activeBeds.delete(key);
+            });
+        });
+    }
+
+    stopBeds(options = {}) {
+        if (!this.activeBeds.size) return;
+        const fadeMs = Math.min(options.fadeMs ?? this.defaults.fadeOutMs, this.maxOverlapMs);
+        this.activeBeds.forEach((handle, key) => {
+            if (fadeMs <= 0) {
+                if (handle.node.pause) handle.node.pause();
+                if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
+                this.activeBeds.delete(key);
+                return;
+            }
+            this.fadeTo(handle.node, 0, fadeMs, handle.node.volume, () => {
+                if (handle.node.pause) handle.node.pause();
+                if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
+                this.activeBeds.delete(key);
+            });
+        });
+    }
 }
 
 const SFX_GROUPS = {
     ambientLoops: ['sfx/ambient/ambient.mp3'],
+    windBeds: ['sfx/ambient/ambient.mp3'],
+    warHornBeds: ['sfx/system/wardrum.mp3'],
     wardrums: ['sfx/system/wardrum.mp3'],
     city: ['sfx/territory/city.mp3'],
     swords: [
@@ -566,6 +635,8 @@ const SFX_MANIFEST = {
     city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
     choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
     ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0 },
+    ambient_bed_wind: { src: SFX_GROUPS.windBeds[0], loop: true, volume: 0.22, cooldownMs: 0 },
+    war_bed_horn: { src: SFX_GROUPS.warHornBeds[0], loop: true, volume: 0.42, cooldownMs: 0 },
     ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true },
     ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true },
     ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true },
@@ -580,6 +651,9 @@ const AMBIENT_STATES = {
             { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
             { key: 'ambiance_uplifting', weight: 1, volume: 0.55 }
         ],
+        beds: [
+            { key: 'ambient_bed_wind', weight: 1, startVolume: 0.14, volume: 0.22, fadeMs: 1400 }
+        ],
         silenceRangeMs: [14000, 42000],
         fadeMs: 1600,
         maxTrackMs: 120000,
@@ -590,6 +664,9 @@ const AMBIENT_STATES = {
             { key: 'wardrum', weight: 0.6, startVolume: 0.28, volume: 0.6, fadeMs: 1600 },
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
             { key: 'ambiance_dark', weight: 1, volume: 0.62 }
+        ],
+        beds: [
+            { key: 'war_bed_horn', weight: 1, startVolume: 0.16, volume: 0.42, fadeMs: 1200 }
         ],
         silenceRangeMs: [12000, 36000],
         fadeMs: 1800,
