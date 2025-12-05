@@ -3,10 +3,10 @@
  * Separated for reuse across core gameplay logic and node-based tests.
  */
 export const OVERWORLD_TILES = {
-    CASTLE: { id: 'castle', color: '#445', char: '🏰', income: { gold: 2, wood: 1 } },
+    CASTLE: { id: 'castle', color: '#445', char: '🏰', income: { gold: 3, wood: 1 } },
     FIELD: { id: 'field', color: '#90be6d', char: '🌾', income: {} },
-    FOREST: { id: 'forest', color: '#2d6a4f', char: '🌲', income: { wood: 1 } },
-    TOWN: { id: 'town', color: '#5e548e', char: '🏠', income: { gold: 2 } },
+    FOREST: { id: 'forest', color: '#2d6a4f', char: '🌲', income: { wood: 2 } },
+    TOWN: { id: 'town', color: '#5e548e', char: '🏠', income: { gold: 3 } },
     SCORCHED: { id: 'scorched', color: '#3b2a2a', char: '🔥', income: {} },
     REBEL: { id: 'rebel', color: '#a4161a', char: '⚔️', income: {} },
     REBELCAMP: { id: 'rebelcamp', color: '#7f1d1d', char: '🏴', income: {} },
@@ -14,11 +14,11 @@ export const OVERWORLD_TILES = {
         id: 'mine',
         color: '#7f5539',
         char: '⛏️',
-        income: { gold: 3 },
+        income: { gold: 4 },
         onClaim: (game, hex) => {
             if (!game) return;
-            game.gold = (game.gold || 0) + 35;
-            if (typeof game.spawnTxt === 'function') game.spawnTxt(hex, '+35g', '#ffd166');
+            game.gold = (game.gold || 0) + 40;
+            if (typeof game.spawnTxt === 'function') game.spawnTxt(hex, '+40g', '#ffd166');
             if (typeof game.playSound === 'function') game.playSound('gold');
         }
     },
@@ -40,7 +40,7 @@ export const OVERWORLD_TILES = {
         id: 'ruin',
         color: '#6c757d',
         char: '🏚️',
-        income: { gold: 1 },
+        income: { gold: 2 },
         onIncome: (game, hex) => {
             if (!game || !hex) return;
             const roll = Math.random();

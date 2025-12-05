@@ -86,7 +86,16 @@
      * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
      * storing the authoritative timers in ticks.
      */
-    const DEFAULT_TIME_CONFIG = { daysPerWeek: 8, weeksPerMonth: 5 };
+    const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function getMonthLabel(monthNumber) {
+        const safeMonth = Math.max(1, Number.isFinite(monthNumber) ? monthNumber : 1);
+        const monthIndex = safeMonth - 1;
+        const year = Math.floor(monthIndex / 12) + 1;
+        const name = MONTH_NAMES[monthIndex % MONTH_NAMES.length];
+        return { label: `${name} Y${year}`, name, year };
+    }
     function getTimeConfig(gameState) {
         const tk = gameState?.timekeeper;
         return {
@@ -115,13 +124,15 @@
         const dayOfWeek = ((day - 1) % config.daysPerWeek) + 1;
         const daysPerMonth = config.daysPerWeek * config.weeksPerMonth;
         const dayOfMonth = (weekOfMonth - 1) * config.daysPerWeek + dayOfWeek;
-        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth };
+        const monthMeta = getMonthLabel(month);
+        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth, monthName: monthMeta.name, year: monthMeta.year };
     }
 
     function formatCalendarLabel(tick, gameState) {
         const cal = getCalendarForTick(tick, gameState);
         const config = getTimeConfig(gameState);
-        return `M: ${cal.month} | W: ${cal.weekOfMonth}/${config.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
+        const label = getMonthLabel(cal.month).label;
+        return `M: ${label} | W: ${cal.weekOfMonth}/${config.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
     }
 
     /**

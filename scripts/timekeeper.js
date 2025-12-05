@@ -2,16 +2,18 @@
  * Calendar helper that converts overworld ticks into a readable in-game date.
  * The module is intentionally small so it can run in browsers and Node tests.
  */
+export const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export class Timekeeper {
     /**
      * @param {object} [config] optional configuration values.
-     * @param {number} [config.daysPerWeek=8] how many ticks make up a week.
-     * @param {number} [config.weeksPerMonth=5] how many weeks make up a month.
+     * @param {number} [config.daysPerWeek=7] how many ticks make up a week.
+     * @param {number} [config.weeksPerMonth=4] how many weeks make up a month.
      * @param {number} [config.startTick=0] initial tick counter (0 = Day 1).
      */
     constructor(config = {}) {
-        this.daysPerWeek = Number.isFinite(config.daysPerWeek) ? config.daysPerWeek : 8;
-        this.weeksPerMonth = Number.isFinite(config.weeksPerMonth) ? config.weeksPerMonth : 5;
+        this.daysPerWeek = Number.isFinite(config.daysPerWeek) ? config.daysPerWeek : 7;
+        this.weeksPerMonth = Number.isFinite(config.weeksPerMonth) ? config.weeksPerMonth : 4;
         this.ticks = Math.max(0, config.startTick || 0);
         this.listeners = new Set();
     }
@@ -52,7 +54,7 @@ export class Timekeeper {
     /**
      * Convert a tick counter into month/week/day components.
      * @param {number} [ticks=this.ticks] tick value to convert.
-     * @returns {{ dayOfWeek: number, weekOfMonth: number, month: number, day: number, dayOfMonth: number, daysPerMonth: number }}
+     * @returns {{ dayOfWeek: number, weekOfMonth: number, month: number, day: number, dayOfMonth: number, daysPerMonth: number, monthName: string, year: number }}
      */
     getCalendar(ticks = this.ticks) {
         const safeTicks = Math.max(0, Number.isFinite(ticks) ? ticks : 0);
@@ -63,7 +65,10 @@ export class Timekeeper {
         const dayOfWeek = ((day - 1) % this.daysPerWeek) + 1;
         const daysPerMonth = this.daysPerWeek * this.weeksPerMonth;
         const dayOfMonth = (weekOfMonth - 1) * this.daysPerWeek + dayOfWeek;
-        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth };
+        const monthIndex = month - 1;
+        const year = Math.floor(monthIndex / 12) + 1;
+        const monthName = MONTH_NAMES[monthIndex % MONTH_NAMES.length];
+        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth, monthName, year };
     }
 
     /**
@@ -73,7 +78,8 @@ export class Timekeeper {
      */
     formatCalendar(ticks = this.ticks) {
         const cal = this.getCalendar(ticks);
-        return `M: ${cal.month} | W: ${cal.weekOfMonth}/${this.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
+        const label = `${cal.monthName} Y${cal.year}`;
+        return `M: ${label} | W: ${cal.weekOfMonth}/${this.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
     }
 
     /** Notify listeners and DOM observers about a calendar change. */
