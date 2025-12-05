@@ -847,9 +847,203 @@
         };
     }
 
+    /**
+     * Infrastructure stockpile quota that pressures the player to bank materials for public works.
+     * Rewards a logistics stipend when enough resources are staged before the inspectors arrive.
+     */
+    function buildInfrastructureQuotaMandate() {
+        return {
+            id: 'infrastructure_quota',
+            title: 'Infrastructure Quota',
+            description: 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
+            duration: { weeks: 1, days: 1 },
+            createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false }),
+            earliestIssue: { weeks: 2, days: 3 },
+            triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
+            onIssue: ({ gameState, uiBindings, mandate }) => {
+                const baselineWood = Math.max(0, gameState?.wood || 0);
+                const baselineGold = Math.max(0, gameState?.gold || 0);
+                mandate.runtime.metadata.targetWood = baselineWood + 60;
+                mandate.runtime.metadata.targetGold = baselineGold + 45;
+                const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
+                showMandateBanner([
+                    `Stage ${mandate.runtime.metadata.targetWood} wood and ${mandate.runtime.metadata.targetGold} gold.`,
+                    `Inspectors arrive by ${deadlineLabel}.`
+                ], uiBindings, 'Infrastructure Quota');
+            },
+            successPredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                const wood = ctx.gameState?.wood || 0;
+                const gold = ctx.gameState?.gold || 0;
+                const { targetWood, targetGold } = ctx.mandate.runtime.metadata;
+                return wood >= targetWood && gold >= targetGold;
+            },
+            onSuccess: ({ gameState, uiBindings }) => {
+                if (typeof gameState?.gold === 'number') gameState.gold += 50;
+                if (typeof gameState?.wood === 'number') gameState.wood += 30;
+                showMandateBanner([
+                    'Materials staged. Imperial engineers send a logistics stipend.',
+                    'Supplies secured: +50 gold, +30 wood.'
+                ], uiBindings, 'Quota Cleared', { tone: 'success' });
+            },
+            failurePredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
+            },
+            onFailure: ({ gameState, uiBindings, mandate }) => {
+                if (typeof gameState?.wood === 'number') {
+                    gameState.wood = Math.max(0, gameState.wood - 35);
+                }
+                if (typeof gameState?.gold === 'number') {
+                    const seizeAmount = Math.floor((mandate.runtime.metadata.targetGold || 30) * 0.25);
+                    gameState.gold = Math.max(0, gameState.gold - seizeAmount);
+                }
+                showMandateBanner([
+                    'Inspectors found empty depots. Materials have been requisitioned elsewhere.',
+                    'Future quotas will draw heavier scrutiny.'
+                ], uiBindings, 'Quota Missed', { tone: 'warning' });
+            },
+            successFavorDelta: 2,
+            failureFavorDelta: -2
+        };
+    }
+
+    /**
+     * Rotating levy that alternates between gold and wood to keep frontier holdings paying into the capital.
+     * Each cycle demands a heavy portion of the chosen reserve but returns a modest rebate when satisfied early.
+     */
+    function buildRotatingLevyMandate() {
+        return {
+            id: 'rotating_resource_levy',
+            title: 'Rotating Imperial Levy',
+            description: 'Alternate between gold and timber tributes so the treasury stays balanced and the navy stays supplied.',
+            duration: { weeks: 1, days: 4 },
+            createInitialState: () => ({ requiredAmount: 0, resourceType: 'gold', deadlineWarned: false }),
+            earliestIssue: { weeks: 3 },
+            triggerPredicate: ({ gameState }) => {
+                const holdings = gameState?.overworld?.hexes?.size || 0;
+                const strongestReserve = Math.max(gameState?.gold || 0, gameState?.wood || 0);
+                return holdings >= 6 && strongestReserve >= 120;
+            },
+            onIssue: ({ gameState, uiBindings, mandate }) => {
+                const resourceType = state.currentTick % 2 === 0 ? 'gold' : 'wood';
+                const reserve = Math.max(0, gameState?.[resourceType] || 0);
+                const requiredAmount = Math.max(70, Math.floor(reserve * 0.5));
+                mandate.runtime.metadata.resourceType = resourceType;
+                mandate.runtime.metadata.requiredAmount = requiredAmount;
+                const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
+                showMandateBanner([
+                    `Deliver ${requiredAmount} ${resourceType} by ${deadlineLabel}.`,
+                    'Rotation shifts the next levy to the opposite reserve.'
+                ], uiBindings, 'Rotating Imperial Levy');
+            },
+            successPredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                const { resourceType, requiredAmount } = ctx.mandate.runtime.metadata;
+                const reserve = ctx.gameState?.[resourceType] || 0;
+                return reserve >= requiredAmount;
+            },
+            onSuccess: ({ gameState, uiBindings, mandate }) => {
+                const { resourceType, requiredAmount } = mandate.runtime.metadata;
+                if (typeof gameState?.[resourceType] === 'number') {
+                    gameState[resourceType] = Math.max(0, gameState[resourceType] - requiredAmount);
+                    gameState[resourceType] += Math.floor(requiredAmount * 0.35);
+                }
+                showMandateBanner([
+                    'Levy escorted to the capital. A rebate returns with the treasury seal.',
+                    `Refund received: +35% ${resourceType}.`
+                ], uiBindings, 'Levy Fulfilled', { tone: 'success' });
+            },
+            failurePredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
+            },
+            onFailure: ({ gameState, uiBindings, mandate }) => {
+                const { resourceType, requiredAmount } = mandate.runtime.metadata;
+                if (typeof gameState?.[resourceType] === 'number') {
+                    const penalty = Math.max(30, Math.floor(requiredAmount * 0.25));
+                    gameState[resourceType] = Math.max(0, gameState[resourceType] - penalty);
+                }
+                showMandateBanner([
+                    'Levy caravans never departed. Imperial auditors seize stores on-site.',
+                    'Local governors warned: rotation penalties will compound.'
+                ], uiBindings, 'Levy Defaulted', { tone: 'warning' });
+            },
+            successFavorDelta: 1,
+            failureFavorDelta: -2
+        };
+    }
+
+    /**
+     * Diplomacy-driven task that leverages imperial favor to smooth frontier relations.
+     * Requires gifts and goodwill within a strict window, rewarding additional favor on success.
+     */
+    function buildDiplomaticMandate() {
+        return {
+            id: 'diplomatic_envoys',
+            title: 'Dispatch Diplomatic Envoys',
+            description: 'Spend favor and coin to keep frontier courts aligned with the Empire.',
+            duration: { weeks: 1 },
+            createInitialState: () => ({ targetFavor: 0, giftCost: 0, deadlineWarned: false }),
+            earliestIssue: { weeks: 2, days: 2 },
+            triggerPredicate: ({ gameState }) => {
+                const favor = clampImperialFavor(gameState?.imperialFavor);
+                return favor >= 6 && (gameState?.gold || 0) >= 60;
+            },
+            onIssue: ({ gameState, uiBindings, mandate }) => {
+                const currentFavor = clampImperialFavor(gameState?.imperialFavor);
+                const targetFavor = Math.min(10, currentFavor + 2);
+                const giftCost = Math.max(45, Math.floor((gameState?.gold || 0) * 0.25));
+                mandate.runtime.metadata.targetFavor = targetFavor;
+                mandate.runtime.metadata.giftCost = giftCost;
+                const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
+                showMandateBanner([
+                    `Prepare envoys with ${giftCost} gold in gifts.`,
+                    `Secure favor ${targetFavor}+ by ${deadlineLabel}.`
+                ], uiBindings, 'Diplomatic Envoys');
+            },
+            successPredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                const favor = clampImperialFavor(ctx.gameState?.imperialFavor);
+                const gold = ctx.gameState?.gold || 0;
+                const { targetFavor, giftCost } = ctx.mandate.runtime.metadata;
+                return favor >= targetFavor && gold >= giftCost;
+            },
+            onSuccess: ({ gameState, uiBindings, mandate }) => {
+                const { giftCost } = mandate.runtime.metadata;
+                if (typeof gameState?.gold === 'number') {
+                    gameState.gold = Math.max(0, gameState.gold - giftCost);
+                }
+                if (typeof gameState?.wood === 'number') gameState.wood += 25;
+                showMandateBanner([
+                    'Envoys return with new pacts and trade scripts.',
+                    'Tributaries send timber in gratitude: +25 wood.'
+                ], uiBindings, 'Diplomatic Success', { tone: 'success' });
+            },
+            failurePredicate: (eventType, payload, ctx) => {
+                if (eventType !== 'tick') return false;
+                return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
+            },
+            onFailure: ({ gameState, uiBindings }) => {
+                if (typeof gameState?.gold === 'number') {
+                    gameState.gold = Math.max(0, gameState.gold - 30);
+                }
+                showMandateBanner([
+                    'Envoys stalled and were snubbed by local courts.',
+                    'Imperial patience thins; reparations paid from your treasury.'
+                ], uiBindings, 'Diplomatic Failure', { tone: 'warning' });
+            },
+            successFavorDelta: 2,
+            failureFavorDelta: -3
+        };
+    }
+
     registerMandate(buildRebelMandate());
     registerMandate(buildTaxLevyMandate());
     registerMandate(buildExpansionMandate());
+    registerMandate(buildInfrastructureQuotaMandate());
+    registerMandate(buildRotatingLevyMandate());
+    registerMandate(buildDiplomaticMandate());
 
     const api = {
         MandateStatus,

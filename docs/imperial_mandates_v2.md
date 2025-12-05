@@ -10,10 +10,15 @@
 - **Deadlines** are set during `issueMandate` as `deadlineTick = currentTick + durationTicks`. Deadline warnings fire when two ticks remain, and failure handlers execute once `currentTick >= deadlineTick`.
 - **Issuance checks** run on every event (including ticks) through `issuePendingMandates`, so newly satisfied triggers activate immediately after the governing event resolves.
 
-## Sample mandates
-- **Destroy First Rebel Camp**: issues as soon as any overworld hex exists, spawns a rebel camp near the frontier, and succeeds on a victory/tile clear against the tracked camp. Failure after 15 ticks.
-- **Imperial Tax Levy**: begins after tick 2 when the treasury holds at least 120 gold, requires a tithe (60% of current gold, minimum 150) by tick `issuedTick + 8`, and on success refunds 40% of the tithe while on failure seizes 35%.
-- **Push the Frontier**: available after tick 4 when at least four territories are owned, sets a target of three additional holdings, rewards +75 gold/+40 wood on success, and fails if the expansion goal is missed after 12 ticks.
+## Mandate timers and triggers
+| Mandate | Trigger | Earliest Issue | Deadline/Duration | Success Effects | Failure Effects |
+| --- | --- | --- | --- | --- | --- |
+| Destroy First Rebel Camp | Any overworld hex exists; spawns a nearby rebel camp | Immediate | 21 days (2w5d) | Clear the tracked camp; favor +1 | Deadline reached; favor -1 |
+| Imperial Tax Levy | Treasury at least 120 gold | 10 days (1w2d) | 11 days (1w3d) | Pay required gold, +40% refund; favor +1 | Seize 35% of required gold; favor -1 |
+| Push the Frontier | Own 4+ territories | 20 days (2w4d) | 17 days (2w1d) | Add 3 new holdings; +75 gold, +40 wood; favor +1 | Mandate expires; favor -1 |
+| Infrastructure Quota | Stockpile at least 70 gold and 80 wood | 19 days (2w3d) | 9 days (1w1d) | Stage target reserves; +50 gold, +30 wood; favor +2 | Lose 35 wood and 25% of target gold; favor -2 |
+| Rotating Imperial Levy | Hold 6+ tiles and at least 120 of a resource | 24 days (3w) | 12 days (1w4d) | Pay rotating tribute, receive 35% rebate; favor +1 | Reserve seized (~25%); favor -2 |
+| Dispatch Diplomatic Envoys | Imperial favor ≥ 6 and 60+ gold on hand | 18 days (2w2d) | 8 days (1w) | Deliver gifts and reach target favor; gain timber and favor +2 | Treasury pays 30 gold; favor -3 |
 
 ## API entry points for future events
 - `ImperialMandates.recordEvent(eventType, payload, gameState?, uiBindings?)`: primary dispatcher for tick, combat, economy, and map events that drive success/failure checks and issuance.
