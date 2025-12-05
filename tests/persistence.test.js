@@ -24,7 +24,10 @@ function runTests() {
         forest: { wood: 1 },
         field: {},
         scorched: {},
-        rebel: {}
+        rebel: {},
+        mine: { gold: 3 },
+        shrine: {},
+        ruin: { gold: 1 }
     };
 
     const calcIncome = (hexMap) => {
@@ -197,6 +200,33 @@ function runTests() {
     assert.strictEqual(rebelTile.owner, 'rebel');
     const income = calcIncome(reloadedPenalty.state.overworld.hexes);
     assert.deepStrictEqual(income, { gold: 0, wood: 0 });
+
+    // Preserve exotic tiles and keep income lookups intact across save/load
+    const exoticGame = {
+        gold: 12,
+        wood: 5,
+        difficulty: 0,
+        upgrades: {},
+        overworld: {
+            hexes: new Map([
+                ['0,0', { hex: new Hex(0, 0, 0), type: 'mine' }],
+                ['1,0', { hex: new Hex(1, 0, -1), type: 'shrine', owner: 'player' }],
+                ['1,-1', { hex: new Hex(1, -1, 0), type: 'ruin' }]
+            ])
+        },
+        stats: {},
+        imperialFavor: 4
+    };
+    const exoticSave = Persistence.saveSnapshot(exoticGame, 9);
+    assert.strictEqual(exoticSave.payload.overworld.hexes.length, 3, 'new tile ids should serialize');
+
+    const exoticReload = Persistence.loadSnapshot(9, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.ok(exoticReload.state);
+    assert.strictEqual(exoticReload.state.overworld.hexes.size, 3);
+    const exoticTypes = Array.from(exoticReload.state.overworld.hexes.values()).map(t => t.type).sort();
+    assert.deepStrictEqual(exoticTypes, ['mine', 'ruin', 'shrine']);
+    const exoticIncome = calcIncome(exoticReload.state.overworld.hexes);
+    assert.deepStrictEqual(exoticIncome, { gold: 4, wood: 0 }, 'income should honor saved mine/ruin data');
 
     console.log('All persistence tests passed.');
 }

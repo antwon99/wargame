@@ -821,14 +821,33 @@ const Game = {
     },
 
     claimHexLogic(hex, free) {
-        const r = Math.random();
-        let type = 'field'; if(r > 0.75) type = 'town'; else if(r > 0.5) type = 'forest';
-        this.addOverworldHex(hex, type);
-        if(!free) {
-            this.spawnTxt(hex, `${type.toUpperCase()}!`, '#fff');
-            if (type === 'town') this.playSound('city');
-            if (type === 'forest') this.playSound('choptree');
+        const weighted = [
+            { type: 'field', weight: 45 },
+            { type: 'forest', weight: 25 },
+            { type: 'town', weight: 18 },
+            { type: 'mine', weight: 7 },
+            { type: 'shrine', weight: 3 },
+            { type: 'ruin', weight: 2 }
+        ];
+        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+        let pick = Math.random() * totalWeight;
+        let type = 'field';
+        for (const entry of weighted) {
+            if (pick < entry.weight) { type = entry.type; break; }
+            pick -= entry.weight;
         }
+
+        this.addOverworldHex(hex, type);
+        const def = OVERWORLD_TILES[type.toUpperCase()];
+        if (!free) {
+            const label = def?.char ? `${def.char} ${type.toUpperCase()}!` : `${type.toUpperCase()}!`;
+            this.spawnTxt(hex, label, '#fff');
+            if (type === 'town') this.playSound('city');
+            else if (type === 'forest') this.playSound('choptree');
+            else if (type === 'mine') this.playSound('gold');
+            else if (type === 'shrine') this.playSound('holy');
+        }
+        if (def?.onClaim && !free) def.onClaim(this, hex);
     },
     addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type}); },
     calcOverworldGhosts() {
