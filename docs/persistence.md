@@ -3,8 +3,8 @@
 This prototype now ships with a lightweight persistence layer backed by `localStorage` and a personal leaderboard that summarizes your best runs.
 
 ## Storage keys
-- **`wargame-save-v1`**: JSON snapshot of overworld progress (resources, upgrades, claimable hexes, and stats at the time of save).
-- **`wargame-stats-v1`**: JSON copy of the leaderboard counters so total kills and bests survive format tweaks.
+- **`hexWar_slot{n}`**: JSON snapshot of overworld progress (resources, upgrades, claimable hexes, and stats at the time of save). `{n}` is the user-facing slot number (1–3 in the current UI, but the helpers accept any string/number).
+- **`hexWar_stats_slot{n}`**: JSON copy of the leaderboard counters tied to the same save slot so total kills and bests survive format tweaks.
 
 ## What gets saved
 - Resources, difficulty, upgrades, and every discovered overworld hex.
@@ -14,7 +14,7 @@ This prototype now ships with a lightweight persistence layer backed by `localSt
 - Saves are taken from the overworld-facing snapshot; mid-combat state is intentionally omitted to avoid corrupting ongoing battles.
 
 ## Behaviors
-- **Save/Load buttons**: write or read from the keys above. Saves stamp an ISO8601 timestamp for the UI.
+- **Save/Load buttons**: write or read from the keys above. Saves stamp an ISO8601 timestamp for the UI, which feeds the sidebar save-slot captions via `Persistence.getSlotMetadata`.
 - **Reset**: clears both keys and regenerates a fresh castle + frontier ring.
 - **Auto-save hooks**: completing a war (victory/defeat/retreat) refreshes stats and writes a snapshot so leaderboard progress is never lost.
 

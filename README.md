@@ -20,7 +20,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 ## Save/Load and Leaderboard
 
 - The overworld view now includes **Save**, **Load**, and **Reset** controls plus a personal leaderboard (best level, best war kills, total kills, wars fought).
-- Progress is stored in browser `localStorage` (`wargame-save-v1` and `wargame-stats-v1`). Saves are taken from overworld state; mid-war layouts are not preserved to avoid corrupt campaigns.
+- Progress is stored in browser `localStorage` (per-slot `hexWar_slot{n}` saves plus matching `hexWar_stats_slot{n}` leaderboard snapshots). Saves are taken from overworld state; mid-war layouts are not preserved to avoid corrupt campaigns.
 - Completing a war automatically records stats and refreshes the stored snapshot so you do not lose leaderboard progress between sessions.
 - See `docs/persistence.md` for the payload format and extension tips.
 
