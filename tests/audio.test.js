@@ -59,6 +59,8 @@ function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.tower?.variations?.length >= 3, 'tower/castle sound should include variations');
     assert.ok(SFX_MANIFEST.ambiance_dark, 'war ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
+    assert.ok(SFX_MANIFEST.ambient_bed_wind, 'overworld wind bed should be mapped');
+    assert.ok(SFX_MANIFEST.war_bed_horn, 'war horn bed should be mapped');
 }
 
 function testOverlapCreatesClone() {
@@ -331,6 +333,69 @@ function testModeTransitionsSilencePreviousPlaylist() {
     assert.ok(log[1].paused, 'war track should be paused after territory transition fades');
 }
 
+function testAmbientBedsFollowModeChanges() {
+    const scheduler = createManualScheduler();
+    const log = [];
+    const manager = new AudioManager({
+        wind: { src: 'wind', loop: true, cooldownMs: 0 },
+        horn: { src: 'horn', loop: true, cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = new AmbientConductor(manager, {
+        initialMode: 'TERRITORY',
+        random: () => 0.2,
+        scheduler,
+        states: {
+            TERRITORY: {
+                tracks: [],
+                beds: [{ key: 'wind', volume: 0.2, fadeMs: 0 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 0,
+                maxTrackMs: 50
+            },
+            WAR: {
+                tracks: [],
+                beds: [{ key: 'horn', volume: 0.3, fadeMs: 0 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 0,
+                maxTrackMs: 50
+            }
+        }
+    });
+
+    conductor.start({ fadeMs: 0 });
+    assert.ok(log.find((n) => n.src === 'wind'), 'wind bed should start with territory mode');
+
+    conductor.enterMode('WAR');
+    conductor.start({ fadeMs: 0 });
+    const hornNode = log.find((n) => n.src === 'horn');
+    assert.ok(hornNode, 'war horn bed should start when entering combat');
+
+    conductor.stopAll();
+    assert.ok(log.every((node) => node.paused), 'all bed nodes should pause after stopAll');
+}
+
+function testAmbientBedsCanBeDisabled() {
+    const log = [];
+    const manager = new AudioManager({ wind: { src: 'wind', loop: true, cooldownMs: 0 } }, { createAudio: createStubFactory(log) });
+    const conductor = new AmbientConductor(manager, {
+        initialMode: 'TERRITORY',
+        bedsEnabled: false,
+        states: {
+            TERRITORY: {
+                tracks: [],
+                beds: [{ key: 'wind', volume: 0.2, fadeMs: 0 }],
+                silenceRangeMs: [0, 0],
+                fadeMs: 0,
+                maxTrackMs: 10
+            }
+        }
+    });
+
+    conductor.start({ fadeMs: 0 });
+    assert.strictEqual(log.length, 0, 'beds should not start when disabled');
+}
+
 function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
     const log = [];
     const manager = new AudioManager({
@@ -436,6 +501,8 @@ function run() {
     testConductorLimitsFadeDurationsAndStopsOverlap();
     testStopCurrentPreservesActiveHandleIdentity();
     testModeTransitionsSilencePreviousPlaylist();
+    testAmbientBedsFollowModeChanges();
+    testAmbientBedsCanBeDisabled();
     testManifestIncludesNewEffects();
     testEnterCombatStopsAmbientAndFiresWardrumImmediately();
     testExitCombatRehomesAmbientAndPlaysOutcome();
