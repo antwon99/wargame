@@ -102,7 +102,7 @@
     function formatCalendarLabel(tick, gameState) {
         const cal = getCalendarForTick(tick, gameState);
         const config = getTimeConfig(gameState);
-        return `Month ${cal.month}, Week ${cal.weekOfMonth} of ${config.weeksPerMonth}, Day ${cal.dayOfWeek} of ${config.daysPerWeek}`;
+        return `M: ${cal.month} | W: ${cal.weekOfMonth}/${config.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
     }
 
     /**

@@ -24,7 +24,7 @@ async function run() {
     assert.strictEqual(newMonth.month, 2, 'tick math should advance the month counter');
 
     const formatted = tk.formatCalendar();
-    assert.strictEqual(formatted, 'Month 2, Week 1 of 5, Day 1 of 8', 'formatCalendar should match calculated values');
+    assert.strictEqual(formatted, 'M: 2 | W: 1/5 | D: 1/40', 'formatCalendar should match calculated values');
 
     const rollover = new Timekeeper({ daysPerWeek: 8, weeksPerMonth: 5, startTick: 39 });
     const endOfMonth = rollover.getCalendar();
@@ -43,7 +43,7 @@ async function run() {
     rollover.reset(4);
     assert.strictEqual(
         rollover.formatCalendar(),
-        'Month 1, Week 1 of 5, Day 5 of 8',
+        'M: 1 | W: 1/5 | D: 5/40',
         'reset should snap back to the revised cadence and formatting'
     );
 

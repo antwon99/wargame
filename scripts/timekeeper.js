@@ -73,7 +73,7 @@ export class Timekeeper {
      */
     formatCalendar(ticks = this.ticks) {
         const cal = this.getCalendar(ticks);
-        return `Month ${cal.month}, Week ${cal.weekOfMonth} of ${this.weeksPerMonth}, Day ${cal.dayOfWeek} of ${this.daysPerWeek}`;
+        return `M: ${cal.month} | W: ${cal.weekOfMonth}/${this.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
     }
 
     /** Notify listeners and DOM observers about a calendar change. */

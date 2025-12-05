@@ -40,7 +40,7 @@ async function testCalendarPillRenders() {
     };
 
     updateHUD(game);
-    assert.strictEqual(doc.getElementById('calendar-readout').innerText, 'Month 1, Week 1 of 5, Day 7 of 8');
+    assert.strictEqual(doc.getElementById('calendar-readout').innerText, 'M: 1 | W: 1/5 | D: 7/40');
 }
 
 function testTemplateHasCalendarPill() {
