@@ -163,13 +163,16 @@
 
         .top-bar__zones {
             display: grid;
-            grid-template-columns: auto auto 1fr auto;
+            grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
             align-items: center;
             gap: 14px;
             width: 100%;
         }
 
         .top-bar__zone { display: flex; align-items: center; }
+        .top-bar__zone--left { justify-self: start; }
+        .top-bar__zone--middle-left,
+        .top-bar__zone--middle { justify-self: center; }
 
         .top-bar__controls { display: inline-flex; align-items: center; gap: 10px; }
 
@@ -214,14 +217,27 @@
         .wood { color: var(--wood); }
         .lives { color: #f08b8b; }
         .imperial-favor {
+            display: inline-flex;
+            align-items: stretch;
+            gap: 12px;
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.08);
-            padding: 4px 10px;
-            border-radius: 10px;
+            padding: 8px 12px;
+            border-radius: 12px;
             color: #f5e0b7;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-            border-left: 1px solid rgba(255,255,255,0.12);
-            padding-left: 12px;
+        }
+        .imperial-status__section {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .imperial-status__divider {
+            width: 1px;
+            background: rgba(255,255,255,0.16);
+            border-radius: 999px;
+            opacity: 0.8;
         }
         .favor-label { font-size: 0.75rem; letter-spacing: 0.4px; text-transform: uppercase; opacity: 0.8; }
         .favor-value { color: #ffd166; font-weight: 800; }
@@ -266,6 +282,7 @@
         .top-bar__zone--right {
             display: flex;
             justify-content: flex-end;
+            justify-self: end;
         }
         .calendar-cluster {
             display: inline-flex;
@@ -283,18 +300,27 @@
         .calendar-pill {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
+            gap: 6px;
+            padding: 6px 12px;
             border-radius: 10px;
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.08);
             color: #cbd5f5;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-            max-width: 240px;
-            flex: 0 1 220px;
+            max-width: 220px;
+            flex: 0 1 200px;
         }
         .calendar-icon { opacity: 0.9; }
-        .calendar-readout { font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+        .calendar-readout {
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            font-size: 0.95rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+            max-width: 100%;
+        }
 
         .mandates-button {
             pointer-events: auto;
