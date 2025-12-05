@@ -14,6 +14,7 @@ export function applyOverworldIncome(game, options = {}) {
 
     let goldInc = 0;
     let woodInc = 0;
+    let favorInc = 0;
     for (const [, d] of game.overworld.hexes) {
         const owner = (d.owner || '').toLowerCase();
         if (owner === 'scorched' || owner === 'rebel') continue;
@@ -25,6 +26,8 @@ export function applyOverworldIncome(game, options = {}) {
 
         if (def.income.gold) goldInc += def.income.gold + townBonus;
         if (def.income.wood) woodInc += def.income.wood + forestBonus;
+        if (def.favor) favorInc += def.favor;
+        if (typeof def.onIncome === 'function') def.onIncome(game, d.hex || d);
     }
 
     const multi = typeof game.getIncomeMulti === 'function' ? game.getIncomeMulti() : 1;
@@ -33,10 +36,17 @@ export function applyOverworldIncome(game, options = {}) {
 
     game.gold += goldInc;
     game.wood += woodInc;
-    if ((goldInc > 0 || woodInc > 0) && typeof game.spawnTxt === 'function') {
+    if (favorInc) {
+        const baseFavor = Number.isFinite(game.imperialFavor) ? game.imperialFavor : 5;
+        const clamped = Math.min(10, Math.max(1, baseFavor + favorInc));
+        game.imperialFavor = clamped;
+    }
+    if ((goldInc > 0 || woodInc > 0 || favorInc !== 0) && typeof game.spawnTxt === 'function') {
         const Hex = game.Hex;
         const origin = typeof Hex === 'function' ? new Hex(0, 0) : { q: 0, r: 0, s: 0 };
-        game.spawnTxt(origin, `+${goldInc}g  +${woodInc}w`, '#fff');
+        const lines = [`+${goldInc}g  +${woodInc}w`];
+        if (favorInc) lines.push(`+${favorInc} Favor`);
+        game.spawnTxt(origin, lines.join('  '), '#fff');
     }
     if (game.timekeeper?.advance) game.timekeeper.advance(1);
     if (typeof game.updateHUD === 'function') game.updateHUD();
