@@ -51,16 +51,20 @@
                 </div>
                 <div class="top-bar__zone top-bar__zone--middle">
                         <div class="status-cluster">
-                            <div class="res enemy-level"><span class="enemy-label">Enemy</span><span id="lvl-txt" class="enemy-value">Lv.0</span></div>
-                            <div class="res imperial-favor" title="Higher favor reduces taxes; lower favor increases pressure.">
-                                <span class="favor-icon">🏛️</span><span class="favor-label">Favor</span><span id="imperial-favor" class="favor-value">5</span>
+                            <div class="imperial-favor imperial-status" title="Higher favor reduces taxes; lower favor increases pressure.">
+                                <div class="res enemy-level imperial-status__section">
+                                    <span class="enemy-label">Enemy Lvl.</span><span id="lvl-txt" class="enemy-value">Lv.0</span>
+                                </div>
+                                <div class="imperial-status__divider" aria-hidden="true"></div>
+                                <div class="res imperial-status__section">
+                                    <span class="favor-icon">🏛️</span><span class="favor-label">Favor</span><span id="imperial-favor" class="favor-value">5</span>
+                                </div>
                             </div>
                         </div>
                 </div>
                 <div class="top-bar__zone top-bar__zone--right">
                     <div class="calendar-cluster">
                         <div class="calendar-pill" aria-live="polite">
-                            <span class="calendar-icon">📅</span>
                             <span id="calendar-readout" class="calendar-readout">Month 1, Week 1, Day 1</span>
                         </div>
                         <div class="mandates-zone">
