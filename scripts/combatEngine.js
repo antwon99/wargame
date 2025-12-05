@@ -755,3 +755,31 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     game.updateHUD();
     game.armAmbientLoop();
 }
+
+// CommonJS compatibility for Node-based tests while preserving ESM exports for bundlers/browsers.
+if (typeof module !== 'undefined') {
+    module.exports = {
+        COMBAT_BUILDINGS,
+        UNITS,
+        computeWarEntryFee,
+        getUnitStats,
+        getBuildingStats,
+        getSpawnRate,
+        updateCombat,
+        registerKill,
+        recordWarEnd,
+        damageUnit,
+        runAI,
+        damageBuilding,
+        checkConnection,
+        scorchEarth,
+        isFrontier,
+        buyBuilding,
+        addBuilding,
+        spawnUnit,
+        startWar,
+        loseOverworldHexes,
+        formatLossSummary,
+        endWar
+    };
+}
