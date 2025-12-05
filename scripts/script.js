@@ -25,6 +25,7 @@ import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 import { Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
+import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -224,7 +225,7 @@ const Game = {
     imperialFavor: DEFAULT_IMPERIAL_FAVOR,
     difficulty: 0,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
-    research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0 }, lives: 0 },
+    research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0, clusterBaseRate: DEFAULT_CLUSTER_RATE, landReclamationClusterBonus: 0 }, lives: 0 },
     stats: { ...Persistence.DEFAULT_STATS },
     session: { warKills: 0 },
     activeSaveSlot: '1',
@@ -242,7 +243,7 @@ const Game = {
     imperialMandates: ImperialMandates,
     timekeeper: new Timekeeper(),
 
-    overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5 },
+    overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
     fog: { time: 0 },
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
@@ -390,6 +391,7 @@ const Game = {
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         this.calcOverworldGhosts();
+        this.refreshClusterBonuses();
         this.research = this.buildResearchState();
         this.updateResearchBonuses();
         this.resetSession();
@@ -418,6 +420,7 @@ const Game = {
         this.overworld.hexes = snapshot.overworld.hexes;
         this.overworld.claimable = new Map();
         this.calcOverworldGhosts();
+        this.refreshClusterBonuses();
         this.resetSession();
         this.imperialFavor = clampImperialFavor(snapshot.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
         this.timekeeper.daysPerWeek = snapshot.timekeeper?.daysPerWeek || this.timekeeper.daysPerWeek;
@@ -556,7 +559,12 @@ const Game = {
         const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
         return {
             technologies,
-            bonuses: { townGoldBonus: 0, forestWoodBonus: 0 },
+            bonuses: {
+                townGoldBonus: 0,
+                forestWoodBonus: 0,
+                clusterBaseRate: DEFAULT_CLUSTER_RATE,
+                landReclamationClusterBonus: 0
+            },
             lives: remainingLives
         };
     },
@@ -566,7 +574,12 @@ const Game = {
      * respecs remain deterministic.
      */
     updateResearchBonuses() {
-        this.research.bonuses = { townGoldBonus: 0, forestWoodBonus: 0 };
+        this.research.bonuses = {
+            townGoldBonus: 0,
+            forestWoodBonus: 0,
+            clusterBaseRate: DEFAULT_CLUSTER_RATE,
+            landReclamationClusterBonus: 0
+        };
         const livesTech = this.research.technologies.find(t => t.id === 'lives');
         const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
         this.research.lives = Math.min(this.research.lives || 0, purchasedLives);
@@ -575,6 +588,7 @@ const Game = {
             if (!tech.timesPurchased) return;
             if (tech.id === 'architecture') this.research.bonuses.townGoldBonus += tech.timesPurchased;
             if (tech.id === 'lumberjacks') this.research.bonuses.forestWoodBonus += tech.timesPurchased;
+            if (tech.id === 'land-reclamation') this.research.bonuses.landReclamationClusterBonus += tech.timesPurchased * 0.05;
         });
     },
 
@@ -625,6 +639,7 @@ const Game = {
         this.applyTechEffect(tech, optionId);
         ResearchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
+        this.refreshClusterBonuses();
         this.updateHUD();
         this.updateResearchUI();
     },
@@ -673,7 +688,10 @@ const Game = {
         if (fields.length === 0) return false;
         const choice = fields[Math.floor(Math.random() * fields.length)];
         choice.type = newType;
+        choice.owner = choice.owner || 'player';
+        choice.wasReclaimed = true;
         this.calcOverworldGhosts();
+        this.refreshClusterBonuses();
         this.spawnTxt(choice.hex, `${newType.toUpperCase()} BUILT`, newType === 'town' ? '#ffd166' : '#8ae7a8');
         return true;
     },
@@ -681,6 +699,18 @@ const Game = {
     /** True when at least one field can be reclaimed. */
     hasFieldToConvert() {
         return Array.from(this.overworld.hexes.values()).some(h => h.type === 'field');
+    },
+
+    /**
+     * Rebuild the adjacency bonus cache for overworld income and UI consumers.
+     * @returns {Map<string, object>} latest cluster bonus map keyed by hex key.
+     */
+    refreshClusterBonuses() {
+        const baseRate = this.research?.bonuses?.clusterBaseRate ?? DEFAULT_CLUSTER_RATE;
+        const reclamationRate = this.research?.bonuses?.landReclamationClusterBonus ?? 0;
+        const bonuses = buildClusterBonusMap(this.overworld?.hexes, { baseRate, reclamationRate });
+        this.overworld.clusterBonuses = bonuses;
+        return bonuses;
     },
 
     getUnitStats(type) { return getUnitStats(this, type); },
@@ -729,8 +759,16 @@ const Game = {
      * @param {object|null} tile tile payload selected by the player.
      */
     setSelectedOverworldTile(tile) {
-        this.selectedOverworldTile = tile || null;
-        if (this.updateTileInspector) this.updateTileInspector(tile || null);
+        const selection = tile || null;
+        if (selection && this.overworld) {
+            const clusterBonuses = (this.overworld.clusterBonuses && this.overworld.clusterBonuses.size > 0)
+                ? this.overworld.clusterBonuses
+                : this.refreshClusterBonuses();
+            const key = selection.hex?.toString?.() || `${selection.hex?.q ?? 0},${selection.hex?.r ?? 0}`;
+            if (key && clusterBonuses?.has(key)) selection.clusterBonus = clusterBonuses.get(key);
+        }
+        this.selectedOverworldTile = selection;
+        if (this.updateTileInspector) this.updateTileInspector(selection);
     },
 
     /**
@@ -848,8 +886,9 @@ const Game = {
             else if (type === 'shrine') this.playSound('holy');
         }
         if (def?.onClaim && !free) def.onClaim(this, hex);
+        this.refreshClusterBonuses();
     },
-    addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type}); },
+    addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type, owner: 'player'}); },
     calcOverworldGhosts() {
         this.overworld.claimable.clear();
         for(let [k, d] of this.overworld.hexes) {

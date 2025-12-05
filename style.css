@@ -439,6 +439,13 @@
             letter-spacing: 0.5px;
             text-transform: uppercase;
         }
+        .tile-inspector__bonus {
+            color: #9be3b4;
+            font-size: 0.9rem;
+            letter-spacing: 0.2px;
+            text-align: right;
+        }
+        .tile-inspector__bonus.paused { color: #f9c74f; }
         .tile-inspector.hostile { border-color: #f08b8b; box-shadow: 0 10px 20px rgba(255,0,0,0.25); }
 
         .mandates-panel {

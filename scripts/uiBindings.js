@@ -484,18 +484,30 @@ export function updateHUD(game) {
 function updateTileInspector(game, tile) {
     const panel = document.getElementById('tile-inspector');
     const label = document.getElementById('tile-inspector-label');
+    const bonus = document.getElementById('tile-inspector-bonus');
     if (!panel || !label) return;
 
     const shouldHide = game.state !== 'OVERWORLD';
     panel.classList.toggle('hidden', shouldHide);
     if (shouldHide) {
         game.updateTileAttackOverlay?.(null);
+        if (bonus) {
+            bonus.innerText = '';
+            bonus.title = '';
+        }
         return;
     }
 
     if (!tile) {
         label.innerText = 'Select a tile to inspect';
         panel.classList.remove('hostile');
+        if (bonus) {
+            bonus.classList.toggle('paused', !!game.paused);
+            bonus.innerText = game.paused
+                ? '⏸️ Paused — cluster bonuses frozen until you resume'
+                : 'Cluster bonuses appear when you select a tile.';
+            bonus.title = '';
+        }
         game.updateTileAttackOverlay?.(null);
         return;
     }
@@ -507,6 +519,25 @@ function updateTileInspector(game, tile) {
     label.innerText = labelText.toUpperCase();
     panel.classList.toggle('hostile', !!isHostile);
     game.updateTileAttackOverlay?.(isHostile ? tile : null);
+
+    if (bonus) {
+        const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
+        const clusterMap = game.overworld?.clusterBonuses;
+        const cluster = tile.clusterBonus || (key ? clusterMap?.get(key) : null);
+        const resourceParts = [];
+        if (cluster?.goldBonus) resourceParts.push(`+${cluster.goldBonus}g`);
+        if (cluster?.woodBonus) resourceParts.push(`+${cluster.woodBonus}w`);
+        const clusterLabel = cluster?.size ? `${cluster.size}-tile ${labelText.toLowerCase()} cluster` : 'No adjacency data';
+        const payload = resourceParts.length ? resourceParts.join(' ') : 'No bonus income';
+        const pauseSuffix = game.paused ? ' (paused)' : '';
+        bonus.innerText = `${payload} — ${clusterLabel}${pauseSuffix}`;
+
+        const tooltipParts = [];
+        if (cluster?.adjacencyRate) tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
+        if (cluster?.reclamationRate) tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
+        bonus.title = tooltipParts.length ? tooltipParts.join(' • ') : 'No adjacency modifiers';
+        bonus.classList.toggle('paused', !!game.paused);
+    }
 }
 
 /**
@@ -645,3 +676,5 @@ function showOverworldUI() {
     combat?.classList.remove('visible');
     if (stateTxt) stateTxt.innerText = 'KINGDOM';
 }
+
+export { updateTileInspector };
