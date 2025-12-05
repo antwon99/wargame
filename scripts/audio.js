@@ -643,7 +643,56 @@ const SFX_MANIFEST = {
     ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true }
 };
 
-const GameAudio = new AudioManager(SFX_MANIFEST);
+const COMBAT_STINGERS = new Set(['wardrum']);
+
+/**
+ * Wrap an audio manager with UI-aware guards so combat stingers (wardrum) only
+ * fire when explicitly permitted. The guards prevent decree/notification
+ * presenters from stomping ambient playback or firing combat cues.
+ * @param {AudioManager} manager audio manager instance to protect.
+ * @returns {AudioManager} guarded manager reference for chaining.
+ */
+function attachCombatStingerGuards(manager) {
+    if (!manager) return manager;
+
+    const guardState = { uiOverlayActive: false, allowCombatStinger: false };
+    const shouldBlockStinger = (key) => COMBAT_STINGERS.has(key)
+        && (!guardState.allowCombatStinger || guardState.uiOverlayActive);
+
+    const basePlay = manager.play.bind(manager);
+    manager.play = (key, options = {}) => {
+        if (shouldBlockStinger(key)) return false;
+        return basePlay(key, options);
+    };
+
+    const basePlayWithHandle = manager.playWithHandle.bind(manager);
+    manager.playWithHandle = (key, options = {}) => {
+        if (shouldBlockStinger(key)) return { attempted: false, node: null, variantKey: null };
+        return basePlayWithHandle(key, options);
+    };
+
+    manager.setUiOverlayGuard = (active) => { guardState.uiOverlayActive = !!active; };
+    manager.runWithUiGuard = (fn) => {
+        manager.setUiOverlayGuard(true);
+        try {
+            return typeof fn === 'function' ? fn() : null;
+        } finally {
+            manager.setUiOverlayGuard(false);
+        }
+    };
+    manager.allowCombatStingerOnce = (fn) => {
+        guardState.allowCombatStinger = true;
+        try {
+            return typeof fn === 'function' ? fn() : null;
+        } finally {
+            guardState.allowCombatStinger = false;
+        }
+    };
+
+    return manager;
+}
+
+const GameAudio = attachCombatStingerGuards(new AudioManager(SFX_MANIFEST));
 
 const AMBIENT_STATES = {
     TERRITORY: {
@@ -661,7 +710,6 @@ const AMBIENT_STATES = {
     },
     WAR: {
         tracks: [
-            { key: 'wardrum', weight: 0.6, startVolume: 0.28, volume: 0.6, fadeMs: 1600 },
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
             { key: 'ambiance_dark', weight: 1, volume: 0.62 }
         ],
@@ -692,7 +740,11 @@ function enterCombat(audioManager = GameAudio, ambient = AmbientSoundscape) {
 
     // Fire the war stinger immediately so players hear an instant transition.
     audioManager?.stop?.(audioManager?.ambientKey);
-    audioManager?.play?.('wardrum', { allowOverlap: true, reset: true });
+    if (typeof audioManager?.allowCombatStingerOnce === 'function') {
+        audioManager.allowCombatStingerOnce(() => audioManager.play('wardrum', { allowOverlap: true, reset: true }));
+    } else {
+        audioManager?.play?.('wardrum', { allowOverlap: true, reset: true });
+    }
 }
 
 /**
@@ -717,7 +769,7 @@ function exitCombat(outcome, audioManager = GameAudio, ambient = AmbientSoundsca
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat };
+    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat, attachCombatStingerGuards };
 }
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;

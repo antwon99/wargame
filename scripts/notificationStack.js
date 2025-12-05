@@ -8,6 +8,18 @@
 let sharedStack = null;
 
 /**
+ * Wrap notification mutations in a UI audio guard so combat stingers stay
+ * locked out while HUD toasts render.
+ * @param {Function} fn callback to run while guarded.
+ * @returns {*} callback result.
+ */
+function withNotificationAudioGuard(fn) {
+    const audio = (typeof window !== 'undefined' ? window.GameAudio : globalThis.GameAudio);
+    if (audio?.runWithUiGuard) return audio.runWithUiGuard(fn);
+    return typeof fn === 'function' ? fn() : null;
+}
+
+/**
  * Represents a stack of transient notifications anchored to the viewport.
  */
 export class NotificationStack {
@@ -70,23 +82,25 @@ export class NotificationStack {
      * @returns {string} identifier for the enqueued notification.
      */
     enqueue(payload) {
-        const normalized = typeof payload === 'string' ? { lines: [payload] } : { ...payload };
-        const id = normalized.id || `note-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const lines = Array.isArray(normalized.lines)
-            ? normalized.lines
-            : (normalized.lines ? [normalized.lines] : []);
+        return withNotificationAudioGuard(() => {
+            const normalized = typeof payload === 'string' ? { lines: [payload] } : { ...payload };
+            const id = normalized.id || `note-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const lines = Array.isArray(normalized.lines)
+                ? normalized.lines
+                : (normalized.lines ? [normalized.lines] : []);
 
-        const item = {
-            ...normalized,
-            id,
-            lines,
-            duration: typeof normalized.duration === 'number' ? normalized.duration : this.autoDismissMs
-        };
+            const item = {
+                ...normalized,
+                id,
+                lines,
+                duration: typeof normalized.duration === 'number' ? normalized.duration : this.autoDismissMs
+            };
 
-        this.queue.push(item);
-        this.history.push(item);
-        this.flush();
-        return id;
+            this.queue.push(item);
+            this.history.push(item);
+            this.flush();
+            return id;
+        });
     }
 
     /** Remove any existing notification by id (manual dismiss). */

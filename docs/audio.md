@@ -3,7 +3,7 @@
 The game routes every sound effect through `scripts/audio.js`, which exposes an `AudioManager` instance (`window.GameAudio`) backed by the `/sfx` mp3 library. Assets are grouped by role (`/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, `/sfx/system`) to match the manifest. The manager caches `Audio` elements, enforces per-sound cooldowns, and provides optional overlap playback for rapid-fire cues such as arrows. Variations are weighted so repeated actions sound lively instead of repetitive.
 
 ## Event Map
-- **wardrum.mp3** — fired immediately by `enterCombat()` as a hard transition stinger and still lives inside the WAR playlist.
+- **wardrum.mp3** — fired immediately by `enterCombat()` as a hard transition stinger but kept out of the WAR playlist to avoid re-triggering during UI overlays.
 - **sword*.mp3** — five weighted sword impacts selected randomly for melee attacks.
 - **arrow*.mp3** — four weighted bow shots for archer volleys.
 - **tower*.mp3** — three weighted blasts for towers/castles.
@@ -26,7 +26,7 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 | Mode | Entry trigger | Track length | Silence window | Behavior on transition |
 | --- | --- | --- | --- | --- |
 | TERRITORY | Overworld idle, post-combat | 25–48s variants | 20–42s | Resume gentle playlist, restart fade-in timer |
-| WAR | `enterCombat()` | 28–52s variants | 12–30s | Halt territory loop, play wardrum stinger first, then schedule war tracks |
+| WAR | `enterCombat()` | 28–52s variants | 12–30s | Halt territory loop, play wardrum stinger first, then schedule war tracks (wardrum is stinger-only) |
 | Return to TERRITORY | `exitCombat()` | Fades tail of war track | 0–4s | Reset conductor, re-arm territory playlist and debug bus intent |
 
 ## Integration Notes
