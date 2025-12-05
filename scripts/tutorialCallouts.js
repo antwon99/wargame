@@ -88,6 +88,18 @@
     }
 
     /**
+     * Normalize callout body text so presenters that omit copy still render helpful guidance.
+     * @param {object} options callout options possibly containing body/defaultBody.
+     * @returns {string} resolved body HTML.
+     */
+    function resolveBodyCopy(options = {}) {
+        const primary = typeof options.body === 'string' ? options.body.trim() : '';
+        if (primary) return primary;
+        const fallback = typeof options.defaultBody === 'string' ? options.defaultBody : '';
+        return fallback;
+    }
+
+    /**
      * Render a callout anchored to the provided tile. When a DOM is unavailable the
      * onConfirm callback fires immediately so logic relying on acknowledgement can proceed.
      * @param {object} game live game instance.
@@ -95,8 +107,9 @@
      * @param {object} options presentation options (title, body, buttonText, onConfirm, duration).
      */
     function showTileCallout(game, tile, options = {}) {
+        const calloutOptions = { ...options, body: resolveBodyCopy(options) };
         if (typeof document === 'undefined') {
-            if (typeof options.onConfirm === 'function') options.onConfirm();
+            if (typeof calloutOptions.onConfirm === 'function') calloutOptions.onConfirm();
             return null;
         }
 
@@ -106,28 +119,28 @@
         const callout = document.createElement('div');
         callout.className = 'tile-callout';
 
-        if (options.title) {
+        if (calloutOptions.title) {
             const heading = document.createElement('h4');
             heading.className = 'tile-callout__title';
-            heading.innerText = options.title;
+            heading.innerText = calloutOptions.title;
             callout.appendChild(heading);
         }
 
-        if (options.body) {
+        if (calloutOptions.body) {
             const body = document.createElement('p');
             body.className = 'tile-callout__body';
-            body.innerHTML = options.body;
+            body.innerHTML = calloutOptions.body;
             callout.appendChild(body);
         }
 
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'tile-callout__btn';
-        btn.innerText = options.buttonText || 'Understood';
+        btn.innerText = calloutOptions.buttonText || 'Understood';
         btn.addEventListener('click', () => {
             clearAutoHideTimer();
             hideTileCallout();
-            if (typeof options.onConfirm === 'function') options.onConfirm();
+            if (typeof calloutOptions.onConfirm === 'function') calloutOptions.onConfirm();
         });
         callout.appendChild(btn);
 
@@ -179,7 +192,7 @@
         }
         scheduleReflow();
 
-        const duration = options.duration === undefined ? 5000 : options.duration;
+        const duration = calloutOptions.duration === undefined ? 5000 : calloutOptions.duration;
         if (typeof duration === 'number' && duration > 0) {
             const setTimer = global.setTimeout || setTimeout;
             activeCallout.autoHideTimer = setTimer(() => {
