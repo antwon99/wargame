@@ -163,13 +163,16 @@
 
         .top-bar__zones {
             display: grid;
-            grid-template-columns: auto auto 1fr auto;
+            grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
             align-items: center;
             gap: 14px;
             width: 100%;
         }
 
         .top-bar__zone { display: flex; align-items: center; }
+        .top-bar__zone--left { justify-self: start; }
+        .top-bar__zone--middle-left,
+        .top-bar__zone--middle { justify-self: center; }
 
         .top-bar__controls { display: inline-flex; align-items: center; gap: 10px; }
 
@@ -266,6 +269,7 @@
         .top-bar__zone--right {
             display: flex;
             justify-content: flex-end;
+            justify-self: end;
         }
         .calendar-cluster {
             display: inline-flex;
