@@ -90,7 +90,7 @@ const FOG_VISUAL_CONFIG = {
     parallaxSpeed: 0.35,
     rippleEnabled: true,
     rippleOpacity: 0.5,
-    baseFillColor: '#0b0b11',
+    voidFill: '#0b0b11',
     fogGradientStops: {
         innerBase: '38, 40, 50',
         mid: 'rgba(18, 20, 28, 0.82)',
@@ -1077,9 +1077,9 @@ const Game = {
         const fogGradientStops = fogConfig.fogGradientStops || {};
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
-        const baseColor = fogConfig.baseFillColor || '#0b0b11';
+        const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
 
-        ctx.fillStyle = baseColor;
+        ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         if (fogConfig.enabled === false) return;
 
