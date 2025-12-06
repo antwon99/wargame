@@ -15,6 +15,19 @@ Two visual-only layers bolster early session identity without changing any game 
 - `renderFogBackdrop` now accepts optional tile-mask hooks (precomputed masks or providers) but ignores them for now. This keeps
   the visual output identical while offering a future entry point for tile-precise fog.
 
+## Tuning
+- `FOG_VISUAL_CONFIG` in `scripts/fogVisualConfig.mjs` centralizes presentation knobs:
+  - **Base colors:** `voidFill` for the canvas clear, `fogGradientStops` (inner/mid/outer) for the main fill, and `spotlightColors` for cluster glows.
+  - **Ripple control:** `rippleEnabled` toggles the secondary wave, while `rippleOpacity` fades its impact (the RGB stops live under `rippleGradientStops`).
+  - **Parallax drift:** `parallaxSpeed` and `parallaxAmplitude` control the sinusoidal offset used for the fog’s center drift.
+- `renderFogBackdrop(layout, options)` accepts tile-mask hooks for future tile-precise fog layering without altering current visuals: pass `tileMask`, a `tileMaskProvider({ layout, state, overworld, combat, frontierOnly, maskType })`, optional `frontierOnly` flags, and `onMaskResolved(payload)` callbacks for diagnostics.
+- The debug helper `attachFogParallaxDebugControls` exposes a `FogParallaxTuning` API on `window` (setters for speed/amplitude plus a getter), enabling live tweaks without code reloads.
+- Default layering order stays intact when overriding: the void fill draws first, then the main fog gradient, ripple (if enabled), and cluster spotlights; tiles and UI render afterward, and `drawTileFog` remains a no-op extension point.
+- Example overrides:
+  - Feature toggle override: `game.featureToggles.fog = { ...FOG_VISUAL_CONFIG, voidFill: '#05050a', rippleEnabled: false, parallaxSpeed: 0.5 };`
+  - Tile-mask hook: `renderFogBackdrop(layout, { frontierOnly: true, tileMask: new Set(frontierKeys), onMaskResolved: ({ maskType }) => console.debug('Fog mask', maskType) });`
+  - Console tuning: `FogParallaxTuning.setAmplitude(40); FogParallaxTuning.setSpeed(0.6);`
+
 ## Intro Overlay Behavior
 - Markup lives in `Wargame.html` with IDs `intro-overlay` and `btn-intro-begin`.
 - Styles in `style.css` use a dark radial background, centered text, and a simple uppercase Begin button. The `.intro-hidden` class drives the fade-out and disables pointer events.
