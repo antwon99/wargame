@@ -27,7 +27,7 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { resolveFogTileMask } from './fogMask.js';
-import { FOG_VISUAL_CONFIG, resolveFogInnerOpacity } from './fogVisualConfig.mjs';
+import { attachFogParallaxDebugControls, FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax } from './fogVisualConfig.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -37,6 +37,9 @@ const ImperialMandateManager = (typeof window !== 'undefined' && window.Imperial
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
 const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
+
+// Register debug controls early so devtools sliders/console can tweak fog drift live.
+attachFogParallaxDebugControls();
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -1074,9 +1077,8 @@ const Game = {
         if (fogConfig.enabled === false) return;
 
         const center = this.getTerritoryScreenCenter(layout);
-        const driftSpeed = fogConfig.parallaxSpeed ?? 0.35;
-        const driftAmplitude = fogConfig.parallaxAmplitude ?? 28;
-        const drift = Math.sin(this.fog.time * driftSpeed) * driftAmplitude;
+        const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
+        const drift = Math.sin(this.fog.time * parallaxSpeed) * parallaxAmplitude;
         const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
         const innerRadius = Math.max(layout.size * 3, radius * 0.25);
 
