@@ -27,6 +27,7 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { resolveFogTileMask } from './fogMask.js';
+import { FOG_VISUAL_CONFIG, resolveFogInnerOpacity } from './fogVisualConfig.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -80,33 +81,6 @@ const CAMERA_MOTION_CONFIG = {
     amplitude: 9,
     parallax: 0.65,
     speed: 0.18
-};
-
-const FOG_VISUAL_CONFIG = {
-    enabled: true,
-    clusterGlowEnabled: true,
-    clusterIntensity: 0.32,
-    clusterRadiusMultiplier: 5.4,
-    parallaxAmplitude: 28,
-    parallaxSpeed: 0.35,
-    rippleEnabled: true,
-    rippleOpacity: 0.5,
-    voidFill: '#0b0b11',
-    fogGradientStops: {
-        innerBase: '38, 40, 50',
-        mid: 'rgba(18, 20, 28, 0.82)',
-        outer: 'rgba(4, 4, 8, 0.98)'
-    },
-    rippleGradientStops: {
-        inner: 'rgba(255,255,255,0.03)',
-        mid: 'rgba(120,120,140,0.02)',
-        outer: 'rgba(0,0,0,0)'
-    },
-    spotlightColors: {
-        innerBase: '180, 200, 230',
-        mid: 'rgba(80, 90, 120, 0.18)',
-        outer: 'rgba(0, 0, 0, 0)'
-    }
 };
 
 /**
@@ -1114,7 +1088,7 @@ const Game = {
             center.y,
             radius
         );
-        const innerOpacity = 0.75 - Math.min(0.25, (fogConfig.clusterIntensity || 0) * 0.25);
+        const innerOpacity = resolveFogInnerOpacity(fogConfig);
         fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${innerOpacity})`);
         fogGradient.addColorStop(0.5, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
         fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
