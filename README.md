@@ -38,6 +38,10 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 - If you split the project into additional files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
 
+### Script bootstrap order
+
+- `scripts/script.js` relies on globals supplied by non-module scripts (`researchSystem.js`, `persistence.js`, `rebelSystem.js`, `imperialMandates.js`, `inputHelpers.js`, etc.) that are loaded above it in `Wargame.html`. The module checks `window` first, then falls back to `require()` for Node-based tests, so keep those `<script>` tags before the module entry when changing bundlers or build pipelines.
+
 ### Fog visuals
 
 - `scripts/fogVisualConfig.mjs` is the single source of truth for fog colors, opacities, ripple tuning, and parallax drift values used by the overworld and combat backdrops, and it is also where the `FogParallaxTuning` console API is attached for live speed/amplitude tweaks. Feature toggles in `scripts/script.js` read from this config (and explicit overrides) to decide whether fog is enabled, whether ripples render, and which gradients to apply.
