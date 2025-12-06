@@ -47,4 +47,73 @@ function resolveFogInnerOpacity(fogConfig = {}) {
     return Math.max(0, Math.min(1, opacity));
 }
 
-export { FOG_VISUAL_CONFIG, resolveFogInnerOpacity };
+/**
+ * Retrieve the fog drift parallax parameters in a single place so both runtime
+ * experiments and rendering can trust the same defaults. Callers may supply a
+ * partial config (e.g., from feature toggles) to override one or both values.
+ * @param {Object} [fogConfig] fog visual overrides or user preferences
+ * @param {number} [fogConfig.parallaxSpeed] speed multiplier for the drift
+ * @param {number} [fogConfig.parallaxAmplitude] amplitude multiplier for drift
+ * @returns {{parallaxSpeed: number, parallaxAmplitude: number}} effective values
+ */
+function resolveFogParallax(fogConfig = {}) {
+    const effective = { ...FOG_VISUAL_CONFIG, ...fogConfig };
+    return {
+        parallaxSpeed: effective.parallaxSpeed,
+        parallaxAmplitude: effective.parallaxAmplitude
+    };
+}
+
+/**
+ * Expose runtime hooks for tuning fog parallax without changing render logic.
+ * The returned API can be wired to debug sliders or invoked directly from the
+ * console (e.g., `FogParallaxTuning.setSpeed(0.5)`). Values persist in
+ * `FOG_VISUAL_CONFIG`, keeping a single source of truth for drift behavior.
+ * @param {Object} [globalTarget] object to attach the tuning API to
+ * @returns {Object|undefined} the attached API for chaining or undefined when skipped
+ */
+function attachFogParallaxDebugControls(globalTarget = typeof window !== 'undefined' ? window : undefined) {
+    if (!globalTarget) return undefined;
+
+    const api = {
+        /**
+         * Adjust the fog parallax speed multiplier at runtime. Invalid inputs
+         * are ignored to avoid corrupting the shared config.
+         * @param {number} speed new speed value
+         * @returns {number} resulting stored speed
+         */
+        setSpeed(speed) {
+            if (Number.isFinite(speed)) {
+                FOG_VISUAL_CONFIG.parallaxSpeed = speed;
+            }
+            return FOG_VISUAL_CONFIG.parallaxSpeed;
+        },
+
+        /**
+         * Adjust the fog parallax amplitude multiplier at runtime. Invalid
+         * inputs are ignored to keep the backing config stable.
+         * @param {number} amplitude new amplitude value
+         * @returns {number} resulting stored amplitude
+         */
+        setAmplitude(amplitude) {
+            if (Number.isFinite(amplitude)) {
+                FOG_VISUAL_CONFIG.parallaxAmplitude = amplitude;
+            }
+            return FOG_VISUAL_CONFIG.parallaxAmplitude;
+        },
+
+        /**
+         * Snapshot the current parallax tuning to wire into UI sliders without
+         * worrying about mutating the object reference.
+         * @returns {{parallaxSpeed: number, parallaxAmplitude: number}} copy of values
+         */
+        getValues() {
+            return resolveFogParallax();
+        }
+    };
+
+    globalTarget.FogParallaxTuning = api;
+    return api;
+}
+
+export { FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax, attachFogParallaxDebugControls };
