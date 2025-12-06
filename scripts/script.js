@@ -88,6 +88,7 @@ const FOG_VISUAL_CONFIG = {
     clusterRadiusMultiplier: 5.4,
     parallaxAmplitude: 28,
     parallaxSpeed: 0.35,
+    rippleEnabled: true,
     rippleOpacity: 0.5,
     baseFillColor: '#0b0b11',
     fogGradientStops: {
@@ -1104,21 +1105,24 @@ const Game = {
         ctx.fillStyle = fogGradient;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
 
-        const rippleGradient = ctx.createRadialGradient(
-            center.x - drift * 0.4,
-            center.y + drift * 0.6,
-            0,
-            center.x - drift * 0.4,
-            center.y + drift * 0.6,
-            radius
-        );
-        rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
-        rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
-        rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
-        ctx.globalAlpha = fogConfig.rippleOpacity ?? 0.5;
-        ctx.fillStyle = rippleGradient;
-        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        ctx.globalAlpha = 1.0;
+        if (fogConfig.rippleEnabled !== false) {
+            const rippleGradient = ctx.createRadialGradient(
+                center.x - drift * 0.4,
+                center.y + drift * 0.6,
+                0,
+                center.x - drift * 0.4,
+                center.y + drift * 0.6,
+                radius
+            );
+            rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
+            rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
+            rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
+            const rippleOpacity = fogConfig.rippleOpacity ?? FOG_VISUAL_CONFIG.rippleOpacity;
+            ctx.globalAlpha = rippleOpacity;
+            ctx.fillStyle = rippleGradient;
+            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+            ctx.globalAlpha = 1.0;
+        }
 
         if (fogConfig.clusterGlowEnabled !== false) {
             const clusters = this.collectExploredClusters(layout);
