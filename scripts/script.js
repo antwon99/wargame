@@ -37,6 +37,7 @@ import {
     resolveFogVisualConfig
 } from './fogVisualConfig.mjs';
 import './researchSystem.js';
+import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -46,6 +47,17 @@ const ImperialMandateManager = (typeof window !== 'undefined' && window.Imperial
 const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
     ? window.ResearchSystem
     : (typeof require === 'function' ? require('./researchSystem.js') : null);
+// Persistence is optional in headless test environments; load defensively so init can proceed without saves.
+const Persistence = (typeof window !== 'undefined' && window.Persistence)
+    ? window.Persistence
+    : (typeof require === 'function' ? require('./persistence.js') : null);
+const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
+    bestLevel: 0,
+    bestKills: 0,
+    totalKills: 0,
+    warsFought: 0,
+    lastSaveISO: null
+};
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
@@ -251,7 +263,7 @@ const Game = {
     difficulty: 0,
     upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
     research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0, clusterBaseRate: DEFAULT_CLUSTER_RATE, landReclamationClusterBonus: 0 }, lives: 0 },
-    stats: { ...Persistence.DEFAULT_STATS },
+    stats: { ...FALLBACK_STATS },
     session: { warKills: 0 },
     activeSaveSlot: '1',
     voidClicks: 0,
@@ -273,6 +285,7 @@ const Game = {
     featureToggles: { fog: { ...FOG_VISUAL_CONFIG }, camera: { ...CAMERA_MOTION_CONFIG } },
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
+    persistenceAvailable: true,
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
@@ -280,6 +293,15 @@ const Game = {
     },
 
     init() {
+        this.dependencyHealth = validateBootstrapDependencies({
+            researchSystem: ResearchSystem,
+            persistence: Persistence,
+            inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
+            canvas: this.canvas,
+            ctx: this.ctx,
+            debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
+        });
+        this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
         this.applyFeatureOverrides();
         this.timekeeper.onChange(() => this.updateHUD());
         this.resize();
@@ -300,7 +322,13 @@ const Game = {
             this.shouldRunImperialIntro = false;
         });
 
-        const loaded = Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+        if (!this.dependencyHealth.persistenceAvailable) {
+            this.logBootstrapWarning('Persistence unavailable; skipping save hydration and disabling save slots.');
+        }
+
+        const loaded = this.dependencyHealth.persistenceAvailable
+            ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
+            : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot };
         if (loaded.state) {
             try {
                 this.applySnapshot(loaded.state);
@@ -318,7 +346,9 @@ const Game = {
         this.updateUpgradeMenu();
         this.updateResearchUI();
         this.updateLeaderboardUI();
-        this.updateSaveSlotsUI();
+        if (this.dependencyHealth.persistenceAvailable) {
+            this.updateSaveSlotsUI();
+        }
         if (this.updateTileInspector) this.updateTileInspector(null);
 
         setupUIBindings(this);
@@ -491,6 +521,10 @@ const Game = {
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
     saveGame(slot = this.activeSaveSlot) {
+        if (!this.persistenceAvailable || !Persistence) {
+            this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
+            return;
+        }
         const targetSlot = String(slot || this.activeSaveSlot);
         const result = Persistence.saveSnapshot(this, targetSlot);
         this.activeSaveSlot = result.slot;
@@ -502,6 +536,10 @@ const Game = {
 
     /** Load a stored snapshot and refresh UI with the saved overworld. */
     loadGame(slot = this.activeSaveSlot) {
+        if (!this.persistenceAvailable || !Persistence) {
+            this.logBootstrapWarning('Load skipped: persistence helper unavailable in this environment.');
+            return;
+        }
         const targetSlot = String(slot || this.activeSaveSlot);
         const loaded = Persistence.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (!loaded.state) {
@@ -525,6 +563,10 @@ const Game = {
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
     resetProgress() {
+        if (!this.persistenceAvailable || !Persistence) {
+            this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
+            return;
+        }
         Persistence.clearSnapshot();
         this.stats = { ...Persistence.DEFAULT_STATS };
         this.activeSaveSlot = '1';

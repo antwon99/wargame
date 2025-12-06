@@ -314,6 +314,7 @@ function updateSaveStatus(msg) {
 }
 
 function updateSaveSlotsUI(game) {
+    if (typeof Persistence === 'undefined' || !Persistence.getSlotMetadata) return;
     const label = document.getElementById('active-slot-label');
     if (label) label.innerText = `Slot ${game.activeSaveSlot} Active`;
 
