@@ -28,6 +28,7 @@ import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { resolveFogTileMask } from './fogMask.js';
+import { buildResearchStateSafe } from './researchStateBuilder.mjs';
 import {
     attachFogParallaxDebugControls,
     FOG_VISUAL_CONFIG,
@@ -301,9 +302,14 @@ const Game = {
 
         const loaded = Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (loaded.state) {
-            this.applySnapshot(loaded.state);
-            this.stats = loaded.stats;
-            this.activeSaveSlot = loaded.slot || '1';
+            try {
+                this.applySnapshot(loaded.state);
+                this.stats = loaded.stats;
+                this.activeSaveSlot = loaded.slot || '1';
+            } catch (error) {
+                this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
+                this.bootstrapNewWorld();
+            }
         } else {
             this.bootstrapNewWorld();
         }
@@ -577,6 +583,24 @@ const Game = {
         }
     },
 
+    /**
+     * Emit a debug-friendly bootstrap warning without interrupting execution.
+     * @param {string} message human readable description of the fallback being used.
+     * @param {Error} [error] optional error context to surface in the debug overlay.
+     */
+    logBootstrapWarning(message, error) {
+        console.debug(message, error || '');
+        if (error) {
+            this.reportRecoverableError(message, error);
+            return;
+        }
+
+        const debugEl = typeof document !== 'undefined' ? document.getElementById('debug-log') : null;
+        if (!debugEl) return;
+        debugEl.classList.add('visible');
+        debugEl.textContent = `⚠️ ${message}`;
+    },
+
     loop(now) {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
@@ -633,20 +657,12 @@ const Game = {
      * @returns {{technologies: Array, bonuses: object, lives: number}}
      */
     buildResearchState(saved = {}) {
-        const technologies = ResearchSystem.instantiateTechnologies(saved.technologies || []);
-        const livesTech = technologies.find(t => t.id === 'lives');
-        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
-        const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
-        return {
-            technologies,
-            bonuses: {
-                townGoldBonus: 0,
-                forestWoodBonus: 0,
-                clusterBaseRate: DEFAULT_CLUSTER_RATE,
-                landReclamationClusterBonus: 0
-            },
-            lives: remainingLives
-        };
+        return buildResearchStateSafe({
+            researchSystem: ResearchSystem,
+            saved,
+            defaultClusterRate: DEFAULT_CLUSTER_RATE,
+            logDebug: (message, error) => this.logBootstrapWarning(message, error)
+        });
     },
 
     /**
