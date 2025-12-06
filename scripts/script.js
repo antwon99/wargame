@@ -35,11 +35,16 @@ import {
     resolveFogParallax,
     resolveFogVisualConfig
 } from './fogVisualConfig.mjs';
+import './researchSystem.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
     ? window.ImperialMandateManager
     : (typeof require === 'function' ? require('./imperialMandateManager.js') : null);
+// Cache the research system once so the Game bootstrap never throws on missing globals.
+const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
+    ? window.ResearchSystem
+    : (typeof require === 'function' ? require('./researchSystem.js') : null);
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
