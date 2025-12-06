@@ -6,6 +6,8 @@
 const BASE_CLUSTER_INTENSITY = 0.32;
 const DEFAULT_CORE_INNER_OPACITY = 0.75 - Math.min(0.25, BASE_CLUSTER_INTENSITY * 0.25);
 
+const MIN_CORE_INNER_OPACITY = 0.05;
+
 const FOG_VISUAL_CONFIG = {
     enabled: true,
     clusterGlowEnabled: true,
@@ -43,8 +45,32 @@ const FOG_VISUAL_CONFIG = {
  * @returns {number} normalized opacity between 0 and 1
  */
 function resolveFogInnerOpacity(fogConfig = {}) {
-    const opacity = fogConfig.coreInnerOpacity ?? FOG_VISUAL_CONFIG.coreInnerOpacity;
-    return Math.max(0, Math.min(1, opacity));
+    const opacity = Number.isFinite(fogConfig.coreInnerOpacity)
+        ? fogConfig.coreInnerOpacity
+        : FOG_VISUAL_CONFIG.coreInnerOpacity;
+    return Math.max(MIN_CORE_INNER_OPACITY, Math.min(1, opacity));
+}
+
+/**
+ * Combine caller overrides with the defaults while clamping user-facing opacities
+ * to reasonable values. Nested gradient stop collections are returned intact or
+ * fall back to defaults so downstream rendering never dereferences undefined.
+ * @param {Object} [fogConfig] optional overrides from feature toggles or saves
+ * @returns {Object} sanitized config that mirrors `FOG_VISUAL_CONFIG` shape
+ */
+function resolveFogVisualConfig(fogConfig = {}) {
+    const normalized = { ...FOG_VISUAL_CONFIG, ...(fogConfig || {}) };
+    normalized.coreInnerOpacity = resolveFogInnerOpacity(normalized);
+    const rippleOpacity = Number.isFinite(normalized.rippleOpacity)
+        ? normalized.rippleOpacity
+        : FOG_VISUAL_CONFIG.rippleOpacity;
+    normalized.rippleOpacity = Math.max(0, Math.min(1, rippleOpacity));
+
+    normalized.fogGradientStops = fogConfig?.fogGradientStops || FOG_VISUAL_CONFIG.fogGradientStops;
+    normalized.rippleGradientStops = fogConfig?.rippleGradientStops || FOG_VISUAL_CONFIG.rippleGradientStops;
+    normalized.spotlightColors = fogConfig?.spotlightColors || FOG_VISUAL_CONFIG.spotlightColors;
+
+    return normalized;
 }
 
 /**
@@ -116,4 +142,10 @@ function attachFogParallaxDebugControls(globalTarget = typeof window !== 'undefi
     return api;
 }
 
-export { FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax, attachFogParallaxDebugControls };
+export {
+    FOG_VISUAL_CONFIG,
+    resolveFogInnerOpacity,
+    resolveFogParallax,
+    resolveFogVisualConfig,
+    attachFogParallaxDebugControls
+};

@@ -28,7 +28,13 @@ import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { resolveFogTileMask } from './fogMask.js';
-import { attachFogParallaxDebugControls, FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax } from './fogVisualConfig.mjs';
+import {
+    attachFogParallaxDebugControls,
+    FOG_VISUAL_CONFIG,
+    resolveFogInnerOpacity,
+    resolveFogParallax,
+    resolveFogVisualConfig
+} from './fogVisualConfig.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -1095,7 +1101,7 @@ const Game = {
      */
     renderFogBackdrop(layout, fogMaskOptions = {}) {
         const ctx = this.ctx;
-        const fogConfig = this.featureToggles?.fog || FOG_VISUAL_CONFIG;
+        const fogConfig = resolveFogVisualConfig(this.featureToggles?.fog);
         const fogGradientStops = fogConfig.fogGradientStops || {};
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
@@ -1146,7 +1152,7 @@ const Game = {
             rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
             rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
             rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
-            const rippleOpacity = fogConfig.rippleOpacity ?? FOG_VISUAL_CONFIG.rippleOpacity;
+            const rippleOpacity = fogConfig.rippleOpacity;
             ctx.globalAlpha = rippleOpacity;
             ctx.fillStyle = rippleGradient;
             ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);

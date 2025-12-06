@@ -5,7 +5,8 @@ async function run() {
         attachFogParallaxDebugControls,
         FOG_VISUAL_CONFIG,
         resolveFogInnerOpacity,
-        resolveFogParallax
+        resolveFogParallax,
+        resolveFogVisualConfig
     } = await import('../scripts/fogVisualConfig.mjs');
 
     const originalParallax = resolveFogParallax();
@@ -28,6 +29,27 @@ async function run() {
         parallaxDefaults,
         originalParallax,
         'parallax defaults should come directly from FOG_VISUAL_CONFIG'
+    );
+
+    assert.doesNotThrow(() => resolveFogVisualConfig(), 'default resolution should not throw on undefined config');
+
+    const sanitizedFogConfig = resolveFogVisualConfig({
+        coreInnerOpacity: -0.5,
+        rippleOpacity: 1.5,
+        fogGradientStops: null,
+        rippleGradientStops: undefined,
+        spotlightColors: undefined
+    });
+    assert.strictEqual(
+        sanitizedFogConfig.coreInnerOpacity,
+        resolveFogInnerOpacity({ coreInnerOpacity: -0.5 }),
+        'core opacity should clamp to a non-zero floor'
+    );
+    assert.strictEqual(sanitizedFogConfig.rippleOpacity, 1, 'ripple opacity should clamp to 1 when exceeding range');
+    assert.strictEqual(
+        sanitizedFogConfig.fogGradientStops,
+        FOG_VISUAL_CONFIG.fogGradientStops,
+        'missing gradient stops should fall back to defaults to avoid dereferencing errors'
     );
 
     const parallaxOverride = resolveFogParallax({ parallaxSpeed: originalParallax.parallaxSpeed * 2 });
