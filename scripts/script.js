@@ -293,70 +293,83 @@ const Game = {
     },
 
     init() {
-        this.dependencyHealth = validateBootstrapDependencies({
-            researchSystem: ResearchSystem,
-            persistence: Persistence,
-            inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
-            canvas: this.canvas,
-            ctx: this.ctx,
-            debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
-        });
-        this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
-        this.applyFeatureOverrides();
-        this.timekeeper.onChange(() => this.updateHUD());
-        this.resize();
-        AudioDebugConsole.init();
-        this.bindVoidClickEasterEgg();
-        window.addEventListener('resize', () => this.resize());
-        this.setupInput();
-        this.resetSession();
+        try {
+            this.dependencyHealth = validateBootstrapDependencies({
+                researchSystem: ResearchSystem,
+                persistence: Persistence,
+                inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
+                canvas: this.canvas,
+                ctx: this.ctx,
+                debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
+            });
+            this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
+            this.applyFeatureOverrides();
+            this.timekeeper.onChange(() => this.updateHUD());
+            this.resize();
+            AudioDebugConsole.init();
+            this.bindVoidClickEasterEgg();
+            window.addEventListener('resize', () => this.resize());
+            this.setupInput();
+            this.resetSession();
 
-        window.addEventListener('intro:begin', () => {
-            if (!this.shouldRunImperialIntro) return;
-            if (ImperialMandates?.issuePendingMandates) {
-                ImperialMandates.issuePendingMandates(this, {
-                    showTileCallout: this.showTileCallout,
-                    hideTileCallout: this.hideTileCallout
-                });
+            window.addEventListener('intro:begin', () => {
+                if (!this.shouldRunImperialIntro) return;
+                if (ImperialMandates?.issuePendingMandates) {
+                    ImperialMandates.issuePendingMandates(this, {
+                        showTileCallout: this.showTileCallout,
+                        hideTileCallout: this.hideTileCallout
+                    });
+                }
+                this.shouldRunImperialIntro = false;
+            });
+
+            if (!this.dependencyHealth.persistenceAvailable) {
+                this.logBootstrapWarning('Persistence unavailable; skipping save hydration and disabling save slots.');
             }
-            this.shouldRunImperialIntro = false;
-        });
 
-        if (!this.dependencyHealth.persistenceAvailable) {
-            this.logBootstrapWarning('Persistence unavailable; skipping save hydration and disabling save slots.');
-        }
-
-        const loaded = this.dependencyHealth.persistenceAvailable
-            ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
-            : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot };
-        if (loaded.state) {
-            try {
-                this.applySnapshot(loaded.state);
-                this.stats = loaded.stats;
-                this.activeSaveSlot = loaded.slot || '1';
-            } catch (error) {
-                this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
+            const loaded = this.dependencyHealth.persistenceAvailable
+                ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
+                : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot };
+            if (loaded.state) {
+                try {
+                    this.applySnapshot(loaded.state);
+                    this.stats = loaded.stats;
+                    this.activeSaveSlot = loaded.slot || '1';
+                } catch (error) {
+                    this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
+                    this.bootstrapNewWorld();
+                }
+            } else {
                 this.bootstrapNewWorld();
             }
-        } else {
-            this.bootstrapNewWorld();
+
+            this.updateHUD();
+            this.updateUpgradeMenu();
+            this.updateResearchUI();
+            this.updateLeaderboardUI();
+            if (this.dependencyHealth.persistenceAvailable) {
+                this.updateSaveSlotsUI();
+            }
+            if (this.updateTileInspector) this.updateTileInspector(null);
+
+            setupUIBindings(this);
+
+            this.flushPendingNotifications();
+
+            this.armAmbientLoop();
+        } catch (error) {
+            this.reportRecoverableError('game bootstrap', error);
+            this.logBootstrapWarning('Bootstrap encountered recoverable issues; continuing render loop.');
+        } finally {
+            this.armRenderLoop();
         }
+    },
 
-        this.updateHUD();
-        this.updateUpgradeMenu();
-        this.updateResearchUI();
-        this.updateLeaderboardUI();
-        if (this.dependencyHealth.persistenceAvailable) {
-            this.updateSaveSlotsUI();
-        }
-        if (this.updateTileInspector) this.updateTileInspector(null);
-
-        setupUIBindings(this);
-
-        this.flushPendingNotifications();
-
-        this.armAmbientLoop();
-
+    /**
+     * Kick off the animation frame loop so rendering and fog layers stay alive
+     * even if initialization encounters recoverable errors.
+     */
+    armRenderLoop() {
         this.lastTime = performance.now();
         requestAnimationFrame(t => this.loop(t));
     },
@@ -1156,7 +1169,6 @@ const Game = {
      * @param {Hex} hex tile coordinate being rendered.
      */
     drawTileFog(hex) { /* extension point; no-op by default */ },
-    },
 
     /**
      * Paint a soft radial fog backdrop that darkens unexplored space while keeping
