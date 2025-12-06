@@ -88,7 +88,23 @@ const FOG_VISUAL_CONFIG = {
     clusterRadiusMultiplier: 5.4,
     parallaxAmplitude: 28,
     parallaxSpeed: 0.35,
-    rippleOpacity: 0.5
+    rippleOpacity: 0.5,
+    baseFillColor: '#0b0b11',
+    fogGradientStops: {
+        innerBase: '38, 40, 50',
+        mid: 'rgba(18, 20, 28, 0.82)',
+        outer: 'rgba(4, 4, 8, 0.98)'
+    },
+    rippleGradientStops: {
+        inner: 'rgba(255,255,255,0.03)',
+        mid: 'rgba(120,120,140,0.02)',
+        outer: 'rgba(0,0,0,0)'
+    },
+    spotlightColors: {
+        innerBase: '180, 200, 230',
+        mid: 'rgba(80, 90, 120, 0.18)',
+        outer: 'rgba(0, 0, 0, 0)'
+    }
 };
 
 /**
@@ -1056,8 +1072,12 @@ const Game = {
      */
     renderFogBackdrop(layout) {
         const ctx = this.ctx;
-        const baseColor = '#0b0b11';
         const fogConfig = this.featureToggles?.fog || FOG_VISUAL_CONFIG;
+        const fogGradientStops = fogConfig.fogGradientStops || {};
+        const rippleGradientStops = fogConfig.rippleGradientStops || {};
+        const spotlightColors = fogConfig.spotlightColors || {};
+        const baseColor = fogConfig.baseFillColor || '#0b0b11';
+
         ctx.fillStyle = baseColor;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         if (fogConfig.enabled === false) return;
@@ -1078,9 +1098,9 @@ const Game = {
             radius
         );
         const innerOpacity = 0.75 - Math.min(0.25, (fogConfig.clusterIntensity || 0) * 0.25);
-        fogGradient.addColorStop(0, `rgba(38, 40, 50, ${innerOpacity})`);
-        fogGradient.addColorStop(0.5, 'rgba(18, 20, 28, 0.82)');
-        fogGradient.addColorStop(1, 'rgba(4, 4, 8, 0.98)');
+        fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${innerOpacity})`);
+        fogGradient.addColorStop(0.5, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
+        fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
         ctx.fillStyle = fogGradient;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
 
@@ -1092,9 +1112,9 @@ const Game = {
             center.y + drift * 0.6,
             radius
         );
-        rippleGradient.addColorStop(0, 'rgba(255,255,255,0.03)');
-        rippleGradient.addColorStop(0.25, 'rgba(120,120,140,0.02)');
-        rippleGradient.addColorStop(1, 'rgba(0,0,0,0)');
+        rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
+        rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
+        rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
         ctx.globalAlpha = fogConfig.rippleOpacity ?? 0.5;
         ctx.fillStyle = rippleGradient;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
@@ -1116,9 +1136,9 @@ const Game = {
                     cluster.center.y,
                     clusterRadius
                 );
-                spotlight.addColorStop(0, `rgba(180, 200, 230, ${intensity})`);
-                spotlight.addColorStop(0.65, 'rgba(80, 90, 120, 0.18)');
-                spotlight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                spotlight.addColorStop(0, `rgba(${spotlightColors.innerBase || '180, 200, 230'}, ${intensity})`);
+                spotlight.addColorStop(0.65, spotlightColors.mid || 'rgba(80, 90, 120, 0.18)');
+                spotlight.addColorStop(1, spotlightColors.outer || 'rgba(0, 0, 0, 0)');
                 ctx.fillStyle = spotlight;
                 ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
             });
