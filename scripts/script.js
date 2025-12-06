@@ -533,16 +533,47 @@ const Game = {
         this.pendingNotifications = [];
     },
 
+    /**
+     * Route recoverable runtime errors to the console and debug overlay while
+     * allowing the render loop to continue running.
+     * @param {string} context friendly identifier for the failing subsystem
+     * @param {Error} error thrown error instance or message
+     */
+    reportRecoverableError(context, error) {
+        const debugEl = document.getElementById('debug-log');
+        const message = `RECOVERED: ${context} failed (${error?.message || error})`;
+        console.error(message, error);
+        if (!debugEl) return;
+
+        const stack = (error && typeof error.stack === 'string') ? `\n${error.stack}` : '';
+        debugEl.classList.add('visible');
+        debugEl.textContent = `⚠️ ${message}${stack}`;
+    },
+
+    /**
+     * Execute a callback with defensive error handling so non-fatal runtime
+     * errors do not interrupt rendering or input processing.
+     * @param {Function} fn callback to execute safely
+     * @param {string} label human readable label describing the callback
+     */
+    runSafely(fn, label) {
+        try {
+            fn();
+        } catch (error) {
+            this.reportRecoverableError(label, error);
+        }
+    },
+
     loop(now) {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
         try {
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
-            this.updateCameraDrift(dt);
-            if(this.state === 'OVERWORLD') this.updateOverworld(dt);
-            else if(this.state === 'COMBAT') this.updateCombat(dt);
-            
+            this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
+            if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
+            else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
+
             for(let i=this.combat.fx.length-1; i>=0; i--) {
                 this.combat.fx[i].life -= dt;
                 if(this.combat.fx[i].life <= 0) this.combat.fx.splice(i,1);
@@ -555,10 +586,8 @@ const Game = {
             this.draw();
             updateAudioDebug(dt, this.state);
         } catch (e) {
-            console.error(e);
-            document.getElementById('debug-log').style.display = 'block';
-            document.getElementById('debug-log').innerText = "CRASH RECOVERED: " + e.message;
-            this.endWar(false); 
+            this.reportRecoverableError('game loop', e);
+            this.endWar(false);
         }
         requestAnimationFrame(t => this.loop(t));
     },
