@@ -24,6 +24,7 @@ import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientL
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 import { Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
+import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { resolveFogTileMask } from './fogMask.js';
@@ -1034,13 +1035,20 @@ const Game = {
     },
 
     drawOverworld(layout) {
-        for(let [k, d] of this.overworld.hexes) {
-            const def = OVERWORLD_TILES[d.type.toUpperCase()];
-            if(def) this.drawHex(layout, d.hex, def.color, '#264653', def.char);
-        }
-        for(let [k, cost] of this.overworld.claimable) {
-            this.drawHex(layout, this.parseKey(k), 'rgba(255,255,255,0.05)', '#333', '', `${cost}w`);
-        }
+        drawOverworldTiles(this.overworld, {
+            layout,
+            drawHex: (...args) => this.drawHex(...args),
+            parseKey: (key) => this.parseKey(key),
+            drawTileFog: (hex) => this.drawTileFog(hex)
+        });
+    },
+
+    /**
+     * Overworld rendering extension point for future per-tile fog/shroud layers.
+     * Default implementation is intentionally empty to preserve current visuals.
+     * @param {Hex} hex tile coordinate being rendered.
+     */
+    drawTileFog(hex) { /* extension point; no-op by default */ },
     },
 
     /**
