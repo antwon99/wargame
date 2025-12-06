@@ -879,12 +879,10 @@
 
         #debug-log {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: rgba(120, 0, 0, 0.9);
+            inset: 0;
+            background: rgba(40, 0, 0, 0.92);
             color: #ffe0e0;
-            padding: 14px 18px;
+            padding: 24px 28px 28px;
             font-size: 14px;
             font-family: monospace;
             display: none;
@@ -896,6 +894,8 @@
             border-top: 2px solid rgba(255, 255, 255, 0.35);
             box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.45);
             line-height: 1.5;
+            box-sizing: border-box;
+            overflow-y: auto;
         }
 
         #debug-log.visible {

@@ -600,15 +600,22 @@ const Game = {
      */
     reportRecoverableError(context, error) {
         const debugEl = document.getElementById('debug-log');
-        const message = `Recoverable error in ${context}`;
+        const header = '⚠️ Recoverable error';
+        const contextLabel = context ? `Context: ${context}` : 'Context: (unspecified)';
         const errorMessage = error?.message || String(error || 'Unknown error');
         const stack = (error && typeof error.stack === 'string') ? error.stack : 'No stack trace available.';
 
-        console.error(`${message}: ${errorMessage}`, error);
+        console.error(`${contextLabel}: ${errorMessage}`, error);
         if (!debugEl) return;
 
         debugEl.classList.add('visible');
-        debugEl.textContent = `⚠️ ${message}\nError: ${errorMessage}\nStack trace:\n${stack}`;
+        debugEl.textContent = [
+            header,
+            contextLabel,
+            `Message: ${errorMessage}`,
+            'Stack trace:',
+            stack
+        ].join('\n');
     },
 
     /**
