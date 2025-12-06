@@ -12,6 +12,8 @@ Two visual-only layers bolster early session identity without changing any game 
   - A primary gradient lightens around the centroid of explored/occupied tiles and darkens toward the edges.
   - A low-opacity ripple gradient drifts using a sine timer (`fog.time`) to keep the fog from feeling static.
 - No gameplay data is mutated; the functions only read existing territory maps to position the visuals.
+- `renderFogBackdrop` now accepts optional tile-mask hooks (precomputed masks or providers) but ignores them for now. This keeps
+  the visual output identical while offering a future entry point for tile-precise fog.
 
 ## Intro Overlay Behavior
 - Markup lives in `Wargame.html` with IDs `intro-overlay` and `btn-intro-begin`.

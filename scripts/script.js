@@ -26,6 +26,7 @@ import { Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
+import { resolveFogTileMask } from './fogMask.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -1068,16 +1069,31 @@ const Game = {
     /**
      * Paint a soft radial fog backdrop that darkens unexplored space while keeping
      * explored tiles readable. The gradient subtly drifts to keep the scene from
-     * feeling static without impacting gameplay logic.
+     * feeling static without impacting gameplay logic. An optional tile mask can
+     * be passed (or lazily generated) for future tile-level fog handling without
+     * altering the current visuals.
      * @param {Object} layout active hex layout (origin + size)
+     * @param {Object} [fogMaskOptions] optional mask hooks for unexplored/frontier tiles
+     * @param {Set<string>|Array<string>|Map<string, *>} [fogMaskOptions.tileMask] precomputed tile mask keys
+     * @param {Function} [fogMaskOptions.tileMaskProvider] callback returning a mask when invoked with context
+     * @param {boolean} [fogMaskOptions.frontierOnly=false] whether the mask represents frontier tiles only
+     * @param {Function} [fogMaskOptions.onMaskResolved] callback fired with mask metadata once resolved
      */
-    renderFogBackdrop(layout) {
+    renderFogBackdrop(layout, fogMaskOptions = {}) {
         const ctx = this.ctx;
         const fogConfig = this.featureToggles?.fog || FOG_VISUAL_CONFIG;
         const fogGradientStops = fogConfig.fogGradientStops || {};
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
+
+        const tileMask = resolveFogTileMask(fogMaskOptions, {
+            layout,
+            state: this.state,
+            overworld: this.overworld.hexes,
+            combat: this.combat?.territory
+        });
+        this.fog.tileMask = tileMask;
 
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
