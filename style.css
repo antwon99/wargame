@@ -880,6 +880,12 @@
         #debug-log {
             position: absolute; bottom: 0; left: 0; color: red; background: rgba(0,0,0,0.8);
             padding: 10px; font-size: 12px; font-family: monospace; display: none; width: 100%; pointer-events: none; z-index: 100;
+            white-space: pre-wrap; opacity: 0; cursor: default;
+        }
+
+        #debug-log.visible {
+            display: block;
+            opacity: 1;
         }
 
         #audio-debug {
