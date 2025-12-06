@@ -547,13 +547,15 @@ const Game = {
      */
     reportRecoverableError(context, error) {
         const debugEl = document.getElementById('debug-log');
-        const message = `RECOVERED: ${context} failed (${error?.message || error})`;
-        console.error(message, error);
+        const message = `Recoverable error in ${context}`;
+        const errorMessage = error?.message || String(error || 'Unknown error');
+        const stack = (error && typeof error.stack === 'string') ? error.stack : 'No stack trace available.';
+
+        console.error(`${message}: ${errorMessage}`, error);
         if (!debugEl) return;
 
-        const stack = (error && typeof error.stack === 'string') ? `\n${error.stack}` : '';
         debugEl.classList.add('visible');
-        debugEl.textContent = `⚠️ ${message}${stack}`;
+        debugEl.textContent = `⚠️ ${message}\nError: ${errorMessage}\nStack trace:\n${stack}`;
     },
 
     /**
