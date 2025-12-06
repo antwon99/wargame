@@ -392,16 +392,12 @@ const Game = {
 
     /**
      * Allow tests to override ambient visuals (fog + camera drift) without mutating
-     * the core constants. Overrides can come from an explicit argument or global
-     * test scaffolding hooks injected into window.
+     * the core constants. Overrides must be supplied explicitly so runtime defaults
+     * stay aligned with the shared configs instead of transient diagnostics.
      */
     applyFeatureOverrides(overrides = {}) {
-        const fogOverrides = overrides.fog
-            || (typeof window !== 'undefined' ? window.FOG_CONFIG_OVERRIDES : {})
-            || {};
-        const cameraOverrides = overrides.camera
-            || (typeof window !== 'undefined' ? window.CAMERA_CONFIG_OVERRIDES : {})
-            || {};
+        const fogOverrides = overrides.fog || {};
+        const cameraOverrides = overrides.camera || {};
         this.featureToggles = {
             fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides }
