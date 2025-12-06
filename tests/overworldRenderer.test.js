@@ -29,6 +29,41 @@ async function run() {
         'draw:1,0'
     ], 'tile fog hook should run immediately after each tile draw');
 
+    const warnings = [];
+    const originalWarn = console.warn;
+    const noop = () => {};
+
+    try {
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        drawOverworldTiles({ hexes: new Map(), claimable: new Map() }, {
+            layout,
+            drawHex: noop,
+            parseKey,
+            drawTileFog: noop
+        });
+        drawOverworldTiles({ hexes: new Map(), claimable: new Map() }, {
+            layout,
+            drawHex: noop,
+            parseKey,
+            drawTileFog: noop
+        });
+
+        assert.strictEqual(warnings.length, 1, 'empty overworld draw should warn once per empty streak');
+
+        drawOverworldTiles(overworld, { layout, drawHex: noop, parseKey, drawTileFog: noop });
+        drawOverworldTiles({ hexes: new Map(), claimable: new Map() }, {
+            layout,
+            drawHex: noop,
+            parseKey,
+            drawTileFog: noop
+        });
+
+        assert.strictEqual(warnings.length, 2, 'warning should re-arm after a successful tile render');
+    } finally {
+        console.warn = originalWarn;
+    }
+
     console.log('Overworld renderer tests passed.');
 }
 
