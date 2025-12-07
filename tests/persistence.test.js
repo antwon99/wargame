@@ -143,6 +143,38 @@ function runTests() {
     assert.strictEqual(sanitized.overworld.hexes.get('2,0').owner, null, 'unknown owners should be coerced to null');
     assert.strictEqual(sanitized.overworld.hexes.get('3,0').owner, 'rebel', 'recognized owners should be normalized to lowercase');
 
+    // Validate overworld tiles against the configured tile catalog and clamp owners
+    const originalOverworldTiles = global.OVERWORLD_TILES;
+    global.OVERWORLD_TILES = {
+        CASTLE: { id: 'castle' },
+        CUSTOM: { id: 'customtile' },
+        REBEL: { id: 'rebel' }
+    };
+
+    const configLimitedSnapshot = {
+        overworld: {
+            hexes: [
+                { q: 0, r: 0, s: 0, type: 'CASTLE', owner: 'PLAYER' },
+                { q: 1, r: 0, s: -1, type: 'field', owner: 'player' },
+                { q: 2, r: 0, s: -2, type: 'customtile', owner: 'BANDIT' },
+                { q: 3, r: 0, s: -3, type: 'rebel', owner: 'SCORCHED' },
+                { q: 4, r: 0, s: -4, type: 'glitch', owner: 'rebel' }
+            ]
+        }
+    };
+
+    const configSanitized = Persistence.deserializeGameState(configLimitedSnapshot, {
+        hexFactory: (q, r, s) => new Hex(q, r, s)
+    });
+
+    assert.strictEqual(configSanitized.overworld.hexes.size, 3, 'only tiles present in OVERWORLD_TILES should persist');
+    assert.ok(configSanitized.overworld.hexes.has('0,0'), 'configured tile ids should survive case normalization');
+    assert.ok(configSanitized.overworld.hexes.has('2,0'), 'custom tile ids should be honored when configured');
+    assert.strictEqual(configSanitized.overworld.hexes.get('2,0').owner, null, 'unrecognized owners should be cleared');
+    assert.strictEqual(configSanitized.overworld.hexes.get('3,0').owner, 'scorched', 'recognized owners should persist in lowercase');
+
+    global.OVERWORLD_TILES = originalOverworldTiles;
+
     // Save/Load via mocked storage
     const saveGame = {
         gold: 77,

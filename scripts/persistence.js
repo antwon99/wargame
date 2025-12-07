@@ -212,11 +212,12 @@
 
         const fromGlobal = global.OVERWORLD_TILES && typeof global.OVERWORLD_TILES === 'object'
             ? Object.values(global.OVERWORLD_TILES)
-                .map(entry => entry?.id)
+                .map(entry => (typeof entry?.id === 'string' ? entry.id.toLowerCase() : null))
                 .filter(Boolean)
             : [];
 
-        return new Set([...fallback, ...fromGlobal]);
+        const source = fromGlobal.length ? fromGlobal : fallback;
+        return new Set(source);
     }
 
     /**
@@ -230,7 +231,7 @@
     function deserializeGameState(snapshot, options = {}) {
         if (!snapshot) return null;
         const allowedTileIds = getAllowedTileIds();
-        const allowedOwners = new Set([null, 'player', 'rebel', 'scorched', 'enemy', 'neutral']);
+        const allowedOwners = new Set([null, 'player', 'rebel', 'scorched']);
         const makeHex =
             options.hexFactory ||
             ((q, r, s) => {
