@@ -23,7 +23,7 @@ async function testEconomyOverMultipleMonths() {
         wood: 0,
         imperialFavor: 5,
         Hex,
-        timekeeper: new Timekeeper(),
+        timekeeper: new Timekeeper({ startTick: 0 }),
         overworld: { hexes: new Map(), clusterBonuses: new Map() },
         research: { bonuses: {} },
         spawnTxt: () => {},

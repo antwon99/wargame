@@ -4,17 +4,27 @@
  */
 export const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** Zero-based month index for new campaigns (April). */
+export const START_MONTH_INDEX = 3;
+
+/**
+ * Default tick offset that aligns the calendar to the configured start month.
+ * With 7-day weeks and 4-week months, April 1st occurs at tick 84.
+ */
+export const START_TICK = START_MONTH_INDEX * 7 * 4;
+
 export class Timekeeper {
     /**
      * @param {object} [config] optional configuration values.
      * @param {number} [config.daysPerWeek=7] how many ticks make up a week.
      * @param {number} [config.weeksPerMonth=4] how many weeks make up a month.
-     * @param {number} [config.startTick=0] initial tick counter (0 = Day 1).
+     * @param {number} [config.startTick=START_TICK] initial tick counter (0 = Day 1).
      */
     constructor(config = {}) {
         this.daysPerWeek = Number.isFinite(config.daysPerWeek) ? config.daysPerWeek : 7;
         this.weeksPerMonth = Number.isFinite(config.weeksPerMonth) ? config.weeksPerMonth : 4;
-        this.ticks = Math.max(0, config.startTick || 0);
+        const startTick = Number.isFinite(config.startTick) ? config.startTick : START_TICK;
+        this.ticks = Math.max(0, startTick);
         this.listeners = new Set();
     }
 
