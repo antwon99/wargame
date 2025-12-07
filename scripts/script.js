@@ -107,7 +107,7 @@ const CAMERA_MOTION_CONFIG = {
 };
 
 const AMBIENCE_CONFIG = {
-    enabled: true,
+    enabled: false,
     fadeRadiusFactor: 0.55,
     fadeFeather: 0.35,
     layers: [
@@ -490,6 +490,7 @@ const Game = {
         const cameraOverrides = overrides.camera || {};
         const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
+        const fogDisabled = fogOverrides.enabled === false;
         const ambienceEnabledOverride =
             typeof fogOverrides.ambienceLayersEnabled === 'boolean'
                 ? fogOverrides.ambienceLayersEnabled
@@ -500,7 +501,8 @@ const Game = {
             ambience: {
                 ...AMBIENCE_CONFIG,
                 ...ambienceOverrides,
-                ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {})
+                ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
+                ...(fogDisabled ? { enabled: false } : {})
             },
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
@@ -792,7 +794,8 @@ const Game = {
             const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
-            const ambienceLayersEnabled = fogConfig.ambienceEnabled !== false
+            const ambienceLayersEnabled = fogConfig.enabled !== false
+                && fogConfig.ambienceEnabled !== false
                 && fogConfig.ambienceLayersEnabled === true
                 && this.featureToggles?.ambience?.enabled !== false;
             if (this.ambienceRenderer && ambienceLayersEnabled) this.ambienceRenderer.update(dt);
@@ -1497,7 +1500,8 @@ const Game = {
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-        const ambienceCloudsEnabled = fogConfig.ambienceEnabled !== false
+        const ambienceCloudsEnabled = fogConfig.enabled !== false
+            && fogConfig.ambienceEnabled !== false
             && fogConfig.ambienceLayersEnabled === true
             && this.featureToggles?.ambience?.enabled !== false;
         const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;

@@ -1,7 +1,9 @@
 /**
  * AmbienceRenderer paints drifting grayscale cloud layers above the void fill so
  * the board feels alive without competing with gameplay UI. Layers repeat a
- * pre-baked noise texture and drift independently to avoid visible seams.
+ * pre-baked noise texture and drift independently to avoid visible seams. The
+ * renderer can be safely constructed while disabled so feature toggles or
+ * alternative atmospheric effects can enable it later without side effects.
  */
 export class AmbienceRenderer {
     /**
@@ -40,7 +42,7 @@ export class AmbienceRenderer {
      */
     resolveConfig(overrides = {}) {
         const defaultConfig = {
-            enabled: true,
+            enabled: false,
             fadeRadiusFactor: 0.55,
             fadeFeather: 0.35,
             layers: [
@@ -142,6 +144,7 @@ export class AmbienceRenderer {
      * @param {number} dt delta time in seconds.
      */
     update(dt = 0) {
+        if (!this.config.enabled) return;
         this.time += dt;
     }
 
