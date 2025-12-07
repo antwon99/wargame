@@ -537,7 +537,21 @@ function updateTileInspector(game, tile) {
     const panel = document.getElementById('tile-inspector');
     const label = document.getElementById('tile-inspector-label');
     const bonus = document.getElementById('tile-inspector-bonus');
+    const adjacency = document.getElementById('tile-inspector-adjacency');
+    const adjacencySummary = document.getElementById('tile-inspector-adjacency-summary');
+    const adjacencyDetail = document.getElementById('tile-inspector-adjacency-detail');
     if (!panel || !label) return;
+
+    const hideAdjacency = () => {
+        if (adjacency) adjacency.style.display = 'none';
+        if (adjacencySummary) adjacencySummary.innerText = '';
+        if (adjacencyDetail) adjacencyDetail.innerText = '';
+    };
+    const showAdjacency = (summary, detail) => {
+        if (adjacency) adjacency.style.display = 'block';
+        if (adjacencySummary) adjacencySummary.innerText = summary || '';
+        if (adjacencyDetail) adjacencyDetail.innerText = detail || '';
+    };
 
     const shouldHide = game.state !== 'OVERWORLD';
     panel.classList.toggle('hidden', shouldHide);
@@ -547,6 +561,7 @@ function updateTileInspector(game, tile) {
             bonus.innerText = '';
             bonus.title = '';
         }
+        hideAdjacency();
         return;
     }
 
@@ -560,6 +575,7 @@ function updateTileInspector(game, tile) {
                 : 'Cluster bonuses appear when you select a tile.';
             bonus.title = '';
         }
+        showAdjacency('No adjacency bonuses yet.', 'Select a tile to reveal cluster effects.');
         game.updateTileAttackOverlay?.(null);
         return;
     }
@@ -585,12 +601,16 @@ function updateTileInspector(game, tile) {
             const affordability = delta > 0 ? `${delta} more wood needed` : 'Affordable now';
             bonus.innerText = `${claimCost}w to claim — ${affordability}`;
             bonus.title = `You have ${currentWood} wood available.`;
+            hideAdjacency();
             return;
         }
 
         const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
         const clusterMap = game.overworld?.clusterBonuses;
         const cluster = tile.clusterBonus || (key ? clusterMap?.get(key) : null);
+        if (game.featureToggles?.debug?.logAdjacency && cluster) {
+            console.debug('Tile adjacency bonuses', { key, cluster });
+        }
         const resourceParts = [];
         if (cluster?.goldBonus) resourceParts.push(`+${cluster.goldBonus}g`);
         if (cluster?.woodBonus) resourceParts.push(`+${cluster.woodBonus}w`);
@@ -603,6 +623,20 @@ function updateTileInspector(game, tile) {
         if (cluster?.adjacencyRate) tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
         if (cluster?.reclamationRate) tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
         bonus.title = tooltipParts.length ? tooltipParts.join(' • ') : 'No adjacency modifiers';
+
+        const hasAdjacency = Boolean(cluster && (cluster.totalRate || cluster.goldBonus || cluster.woodBonus || cluster.size > 1));
+        if (hasAdjacency) {
+            const summary = resourceParts.length ? `Cluster bonuses: ${resourceParts.join(' ')}` : 'Cluster bonuses active';
+            const rateParts = [];
+            if (typeof cluster.totalRate === 'number') rateParts.push(`Total ${(cluster.totalRate * 100).toFixed(0)}%`);
+            if (cluster.adjacencyRate) rateParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
+            if (cluster.reclamationRate) rateParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
+            const detailParts = [clusterLabel];
+            if (rateParts.length) detailParts.push(rateParts.join(' • '));
+            showAdjacency(summary, detailParts.join(' — '));
+        } else {
+            showAdjacency('No adjacency bonuses', 'Isolated tile — cluster effects unavailable.');
+        }
     }
 }
 
