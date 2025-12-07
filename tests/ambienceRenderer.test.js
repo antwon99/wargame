@@ -26,6 +26,7 @@ async function run() {
     const renderer = new AmbienceRenderer({
         ctx,
         config: {
+            enabled: true,
             fadeRadiusFactor: 0.5,
             fadeFeather: 0.25,
             layers: [{ opacity: 0.5, drift: { x: 1, y: 0 }, scale: 100, density: 0.1 }]
@@ -65,6 +66,17 @@ async function run() {
         ['composite', 'destination-out'],
         'ambience mask should use destination-out compositing to punch a hole through the clouds'
     );
+
+    const opCountBeforeDisabled = ops.length;
+    const disabledRenderer = new AmbienceRenderer({
+        ctx,
+        config: { enabled: false, layers: [{ opacity: 0.3, drift: { x: 0, y: 0 }, scale: 100, density: 0.1 }] },
+        canvasFactory: () => null
+    });
+    disabledRenderer.update(2.5);
+    disabledRenderer.render({ center: { x: 0, y: 0 } });
+    assert.strictEqual(disabledRenderer.time, 0, 'disabled ambience renderer should not advance time');
+    assert.strictEqual(opCountBeforeDisabled, ops.length, 'disabled renderer should not emit draw commands');
 
     console.log('Ambience renderer tests passed.');
 }

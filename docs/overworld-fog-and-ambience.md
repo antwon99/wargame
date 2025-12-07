@@ -48,3 +48,14 @@ drawOverworldTiles(game.overworld, {
 });
 ```
 Visibility stays consistent regardless of ambience toggles; only the layered cloud rendering path is affected.
+
+## Reusable fog utilities
+- `scripts/ambienceRenderer.js`: exposes a standalone cloud-layer generator. It now defaults to `enabled: false` so tests and
+  alternative atmospheric effects can safely construct it without painting until a toggle flips it on. Enable it through
+  `featureToggles.fog.ambienceLayersEnabled` **and** `featureToggles.ambience.enabled`.
+- `scripts/fogVisualConfig.mjs`: provides `resolveFogParallax` and visual defaults that can be reused for non-fog parallax
+  experiments. The helpers work even when `fog.enabled === false`, allowing callers to share drift math without activating the
+  fog renderer.
+- `scripts/fogMask.js`: ships `resolveFogTileMask`, `buildTileVisibilityMap`, and `buildVisibilityMask` for any gameplay system
+  that needs consistent frontier/unseen tiles. These functions do not change rendering state and remain safe to call even when
+  fog layers are fully disabled.
