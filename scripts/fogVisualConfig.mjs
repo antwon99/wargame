@@ -10,8 +10,16 @@ const MIN_CORE_INNER_OPACITY = 0.05;
 
 const FOG_VISUAL_CONFIG = {
     enabled: true,
+    /** Toggle tile-level fog-of-war overlays without touching backdrop visuals. */
+    tileFogEnabled: true,
+    /** Toggle the drifting ambience cloud renderer independent of the backdrop. */
+    ambienceLayersEnabled: true,
+    /** Toggle the classic gradient/ripple/spotlight stack without impacting tile fog. */
+    legacyBackdropEnabled: true,
     /** Toggle ambient-driven fog flourishes (gradients, ripples, spotlights). */
     ambienceEnabled: true,
+    /** Enable or disable the radial gradient fill that anchors the backdrop. */
+    gradientEnabled: true,
     /** Fall back to a simple void fill when ambience is disabled. */
     baseFillOnlyWhenAmbienceDisabled: true,
     clusterGlowEnabled: true,
