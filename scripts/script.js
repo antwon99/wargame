@@ -36,6 +36,7 @@ import {
     resolveFogParallax,
     resolveFogVisualConfig
 } from './fogVisualConfig.mjs';
+import AmbienceRenderer from './ambienceRenderer.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
@@ -51,6 +52,9 @@ const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
 const Persistence = (typeof window !== 'undefined' && window.Persistence)
     ? window.Persistence
     : (typeof require === 'function' ? require('./persistence.js') : null);
+const AmbienceRendererClass = (typeof AmbienceRenderer !== 'undefined')
+    ? AmbienceRenderer
+    : (typeof window !== 'undefined' ? window.AmbienceRenderer : null);
 const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
     bestLevel: 0,
     bestKills: 0,
@@ -109,6 +113,17 @@ const CAMERA_MOTION_CONFIG = {
     amplitude: 9,
     parallax: 0.65,
     speed: 0.18
+};
+
+const AMBIENCE_CONFIG = {
+    enabled: true,
+    fadeRadiusFactor: 0.55,
+    fadeFeather: 0.35,
+    layers: [
+        { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18 },
+        { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22 },
+        { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14 }
+    ]
 };
 
 /**
@@ -283,7 +298,13 @@ const Game = {
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
     fog: { time: 0 },
-    featureToggles: { fog: { ...FOG_VISUAL_CONFIG }, camera: { ...CAMERA_MOTION_CONFIG }, overworld: { showClaimCosts: false } },
+    featureToggles: {
+        fog: { ...FOG_VISUAL_CONFIG },
+        camera: { ...CAMERA_MOTION_CONFIG },
+        ambience: { ...AMBIENCE_CONFIG },
+        overworld: { showClaimCosts: false }
+    },
+    ambienceRenderer: null,
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
     persistenceAvailable: true,
@@ -310,6 +331,13 @@ const Game = {
             this.applyFeatureOverrides();
             this.timekeeper.onChange(() => this.updateHUD());
             this.resize();
+            if (AmbienceRendererClass) {
+                this.ambienceRenderer = new AmbienceRendererClass({
+                    ctx: this.ctx,
+                    config: this.featureToggles.ambience
+                });
+                this.ambienceRenderer.resize(this.viewport);
+            }
             AudioDebugConsole.init();
             this.bindVoidClickEasterEgg();
             window.addEventListener('resize', () => this.resize());
@@ -407,10 +435,12 @@ const Game = {
     applyFeatureOverrides(overrides = {}) {
         const fogOverrides = overrides.fog || {};
         const cameraOverrides = overrides.camera || {};
+        const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
         this.featureToggles = {
             fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
+            ambience: { ...AMBIENCE_CONFIG, ...ambienceOverrides },
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
     },
@@ -435,6 +465,8 @@ const Game = {
         } else if (this.deviceProfile.isMobile && this.cam.zoom > this.deviceProfile.baseZoom) {
             this.cam.zoom = this.deviceProfile.baseZoom;
         }
+
+        if (this.ambienceRenderer) this.ambienceRenderer.resize(this.viewport);
     },
 
     /** Start or swap the peaceful ambiance conductor playlist. */
@@ -681,6 +713,7 @@ const Game = {
         try {
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
+            if (this.ambienceRenderer) this.ambienceRenderer.update(dt);
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
             if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
             else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
@@ -1385,9 +1418,11 @@ const Game = {
 
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        const ambienceCenter = this.getTerritoryScreenCenter(layout);
+        if (this.ambienceRenderer) this.ambienceRenderer.render({ center: ambienceCenter });
         if (fogConfig.enabled === false || baseFillOnly) return;
 
-        const center = this.getTerritoryScreenCenter(layout);
+        const center = ambienceCenter;
         const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
         const drift = Math.sin(this.fog.time * parallaxSpeed) * parallaxAmplitude;
         const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
