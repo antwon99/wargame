@@ -437,10 +437,18 @@ const Game = {
         const cameraOverrides = overrides.camera || {};
         const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
+        const ambienceEnabledOverride =
+            typeof fogOverrides.ambienceLayersEnabled === 'boolean'
+                ? fogOverrides.ambienceLayersEnabled
+                : undefined;
         this.featureToggles = {
             fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
-            ambience: { ...AMBIENCE_CONFIG, ...ambienceOverrides },
+            ambience: {
+                ...AMBIENCE_CONFIG,
+                ...ambienceOverrides,
+                ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {})
+            },
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
     },
@@ -711,9 +719,12 @@ const Game = {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
         try {
+            const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
-            if (this.ambienceRenderer) this.ambienceRenderer.update(dt);
+            const ambienceLayersEnabled = fogConfig.ambienceLayersEnabled !== false
+                && this.featureToggles?.ambience?.enabled !== false;
+            if (this.ambienceRenderer && ambienceLayersEnabled) this.ambienceRenderer.update(dt);
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
             if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
             else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
@@ -1298,6 +1309,18 @@ const Game = {
         return visibility;
     },
 
+    /**
+     * Resolve and cache the active fog visual configuration for the current frame.
+     * Consumers can read from `this.fog.visualConfig` without re-normalizing.
+     *
+     * @returns {Object} normalized fog configuration derived from feature toggles.
+     */
+    resolveFogConfig() {
+        const config = resolveFogVisualConfig(this.featureToggles?.fog);
+        this.fog.visualConfig = config;
+        return config;
+    },
+
     drawOverworld(layout) {
         const tileVisibility = this.fog?.visibility instanceof Map
             ? this.fog.visibility
@@ -1325,6 +1348,8 @@ const Game = {
     drawTileFog(hex, tile, visibility) {
         const layout = this.fog?.hexLayout;
         if (!layout || !hex || typeof hex.toPixel !== 'function') return;
+        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
+        if (fogConfig.enabled === false || fogConfig.tileFogEnabled === false) return;
 
         const state = visibility || this.resolveHexVisibility(hex);
         if (state === TILE_VISIBILITY.VISIBLE) return;
@@ -1396,14 +1421,17 @@ const Game = {
      */
     renderFogBackdrop(layout, fogMaskOptions = {}) {
         const ctx = this.ctx;
-        const fogConfig = resolveFogVisualConfig(this.featureToggles?.fog);
+        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
         const fogGradientStops = fogConfig.fogGradientStops || {};
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-        const ambienceEnabled = fogConfig.ambienceEnabled !== false;
+        const ambienceCloudsEnabled = fogConfig.ambienceLayersEnabled !== false
+            && this.featureToggles?.ambience?.enabled !== false;
+        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled !== false;
         // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
-        const baseFillOnly = !ambienceEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false;
+        const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
+            || !legacyBackdropEnabled;
 
         const tileVisibility = this.getTileVisibilityMap();
         const tileMask = resolveFogTileMask(fogMaskOptions, {
@@ -1419,8 +1447,10 @@ const Game = {
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         const ambienceCenter = this.getTerritoryScreenCenter(layout);
-        if (this.ambienceRenderer) this.ambienceRenderer.render({ center: ambienceCenter });
-        if (fogConfig.enabled === false || baseFillOnly) return;
+        if (this.ambienceRenderer && ambienceCloudsEnabled) {
+            this.ambienceRenderer.render({ center: ambienceCenter });
+        }
+        if (fogConfig.enabled === false || baseFillOnly || legacyBackdropEnabled === false) return;
 
         const center = ambienceCenter;
         const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
@@ -1428,21 +1458,23 @@ const Game = {
         const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
         const innerRadius = Math.max(layout.size * 3, radius * 0.25);
 
-        const fogGradient = ctx.createRadialGradient(
-            center.x + drift,
-            center.y - drift,
-            innerRadius,
-            center.x,
-            center.y,
-            radius
-        );
-        const innerOpacity = resolveFogInnerOpacity(fogConfig);
-        const softenedCenterOpacity = tileMask ? Math.max(innerOpacity * 0.82, innerOpacity - 0.12) : innerOpacity;
-        fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${softenedCenterOpacity})`);
-        fogGradient.addColorStop(0.48, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
-        fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
-        ctx.fillStyle = fogGradient;
-        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        if (fogConfig.gradientEnabled !== false) {
+            const fogGradient = ctx.createRadialGradient(
+                center.x + drift,
+                center.y - drift,
+                innerRadius,
+                center.x,
+                center.y,
+                radius
+            );
+            const innerOpacity = resolveFogInnerOpacity(fogConfig);
+            const softenedCenterOpacity = tileMask ? Math.max(innerOpacity * 0.82, innerOpacity - 0.12) : innerOpacity;
+            fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${softenedCenterOpacity})`);
+            fogGradient.addColorStop(0.48, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
+            fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
+            ctx.fillStyle = fogGradient;
+            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        }
 
         if (fogConfig.rippleEnabled !== false) {
             const rippleGradient = ctx.createRadialGradient(
