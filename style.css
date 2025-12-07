@@ -127,7 +127,7 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 6px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
-            z-index: 1000;
+            z-index: 12;
             pointer-events: auto;
             opacity: 0.92;
             display: none;
@@ -617,7 +617,7 @@
         .tile-callout__connector.visible { opacity: 1; }
 
         /* Sidebar */
-        .sidebar {
+        .sidebar { 
             position: absolute;
             top: 0; left: 0;
             width: min(360px, 90vw);
@@ -632,25 +632,83 @@
             pointer-events: auto;
         }
         .sidebar.open { transform: translateX(0); }
-        .sidebar-inner { padding: 16px; display: flex; flex-direction: column; gap: 16px; height: 100%; overflow-y: auto; }
+        .sidebar-inner { padding: 16px; display: flex; flex-direction: column; gap: 14px; height: 100%; overflow-y: auto; }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
         .sidebar h3 { margin: 0; letter-spacing: 0.5px; }
-        .sidebar-section { display: flex; flex-direction: column; gap: 12px; }
-        .save-grid { display: grid; gap: 12px; }
+        .sidebar-section { display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-section--scrollable { flex: 1 1 0; min-height: 180px; }
+        .save-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
         .save-slot {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.12);
             border-radius: 14px;
-            padding: 12px;
+            padding: 10px;
             box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .slot-meta { color: #cdd6f4; font-weight: 700; font-size: 0.95rem; }
+        .slot-caption { color: #8d8d9f; font-size: 0.82rem; }
+        .slot-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .sidebar-close { padding: 8px 12px; }
+
+        .settings-group {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 10px 12px;
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-        .slot-meta { color: #cdd6f4; font-weight: 700; }
-        .slot-caption { color: #8d8d9f; font-size: 0.85rem; }
-        .slot-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .sidebar-close { padding: 8px 12px; }
+
+        .settings-group__label {
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+        }
+
+        .setting {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            color: #e2e8f0;
+        }
+
+        .setting--toggle {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .setting--range input[type=range] {
+            width: 100%;
+            accent-color: var(--gold);
+        }
+
+        .setting__meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .setting__value {
+            color: #cbd5e1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .leaderboard-scroll {
+            max-height: 100%;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
 
         /* UPGRADE MENU */
         #upgrade-menu {
@@ -914,7 +972,7 @@
             color: #fff;
             padding: 8px 10px;
             border-radius: 6px;
-            z-index: 1000;
+            z-index: 12;
             font-family: monospace;
             line-height: 1.3;
             pointer-events: none;

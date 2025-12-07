@@ -118,7 +118,7 @@
                 <button class="meta-btn sidebar-close" id="btn-sidebar-close">✕</button>
             </div>
 
-            <div class="sidebar-section">
+            <div class="sidebar-section sidebar-section--save">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                     <h4 style="margin:0;">Save Manager</h4>
                     <span class="lvl-badge" id="active-slot-label">Slot 1 Active</span>
@@ -152,17 +152,67 @@
                 </div>
             </div>
 
-            <div class="sidebar-section">
-                <h4 style="margin:0;">Leaderboard / Stats</h4>
-                <div class="leaderboard" id="leaderboard">
-                    <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
-                    <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
-                    <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
-                    <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+            <div class="sidebar-section sidebar-section--settings">
+                <h4 style="margin:0;">Settings</h4>
+                <div class="settings-group" aria-label="Audio Settings">
+                    <div class="settings-group__label">Audio</div>
+                    <label class="setting setting--range">
+                        <div class="setting__meta">
+                            <span>Master Volume</span>
+                            <span class="setting__value" data-audio-readout="master">100%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="100" data-audio-setting="master" aria-label="Master Volume">
+                    </label>
+                    <label class="setting setting--range">
+                        <div class="setting__meta">
+                            <span>Music Volume</span>
+                            <span class="setting__value" data-audio-readout="music">100%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="100" data-audio-setting="music" aria-label="Music Volume">
+                    </label>
+                    <label class="setting setting--range">
+                        <div class="setting__meta">
+                            <span>SFX Volume</span>
+                            <span class="setting__value" data-audio-readout="sfx">100%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="100" data-audio-setting="sfx" aria-label="Sound Effects Volume">
+                    </label>
+                </div>
+
+                <div class="settings-group" aria-label="Visual Settings">
+                    <div class="settings-group__label">Visuals</div>
+                    <label class="setting setting--toggle">
+                        <input type="checkbox" data-visual-toggle="enabled" aria-label="Backdrop fog enabled">
+                        <span>Backdrop Fog</span>
+                    </label>
+                    <label class="setting setting--toggle">
+                        <input type="checkbox" data-visual-toggle="tileFogEnabled" aria-label="Tile fog overlays">
+                        <span>Tile Fog Overlays</span>
+                    </label>
+                    <label class="setting setting--toggle">
+                        <input type="checkbox" data-visual-toggle="ambienceLayersEnabled" aria-label="Ambience clouds enabled">
+                        <span>Ambience Clouds</span>
+                    </label>
+                    <label class="setting setting--toggle">
+                        <input type="checkbox" data-visual-toggle="ambienceEnabled" aria-label="Fog flourishes enabled">
+                        <span>Fog Flourishes</span>
+                    </label>
                 </div>
             </div>
 
-            <div class="sidebar-section">
+            <div class="sidebar-section sidebar-section--scrollable">
+                <h4 style="margin:0;">Leaderboard / Stats</h4>
+                <div class="leaderboard-scroll">
+                    <div class="leaderboard" id="leaderboard">
+                        <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
+                        <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
+                        <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
+                        <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section sidebar-section--actions">
                 <button class="meta-btn" id="btn-reset">🧹 Reset Campaign</button>
             </div>
         </div>

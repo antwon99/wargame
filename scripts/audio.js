@@ -38,6 +38,12 @@ class WeightedSelector {
     }
 }
 
+/** Clamp arbitrary volume values into the [0,1] range with a sane fallback. */
+function clampVolume(value, fallback = 1) {
+    const numeric = Number.isFinite(value) ? value : fallback;
+    return Math.max(0, Math.min(1, numeric));
+}
+
 // === AUDIO DEBUG BUS (diagnostic-only; remove after triage) ===
 const AudioDebugBus = {
     enabled: true,
@@ -114,7 +120,12 @@ class AudioManager {
         this.ambientKey = options.ambientKey || Object.keys(manifest).find((k) => manifest[k].isAmbient);
         this.random = options.random || Math.random;
         this.variantSelectors = new Map();
-        this.masterVolume = options.masterVolume ?? 1;
+        this.masterVolume = clampVolume(options.masterVolume ?? 1);
+        this.categoryVolumes = {
+            music: clampVolume(options.musicVolume ?? 1),
+            sfx: clampVolume(options.sfxVolume ?? 1)
+        };
+        this.liveNodes = new Map();
         AudioDebugBus.masterVolume = this.masterVolume;
     }
 
@@ -175,6 +186,118 @@ class AudioManager {
         return result;
     }
 
+    /**
+     * Determine which mixer category a manifest entry belongs to so sliders can
+     * scale ambience (music) independently from sound effects.
+     * @param {string} key manifest key being played
+     * @param {Object} variantDef resolved manifest definition
+     * @returns {('music'|'sfx')} resolved mixer category
+     */
+    resolveCategory(key, variantDef = {}) {
+        if (variantDef.category === 'music' || variantDef.isAmbient) return 'music';
+        const manifestCategory = this.manifest[key]?.category;
+        return manifestCategory === 'music' ? 'music' : 'sfx';
+    }
+
+    /**
+     * Clamp and apply the current mixer gains to a requested base volume.
+     * @param {number} baseVolume unscaled volume value from the manifest or caller
+     * @param {('music'|'sfx')} category mixer channel to use for scaling
+     * @returns {number} clamped, scaled volume ready to assign to an audio node
+     */
+    getScaledVolume(baseVolume = 1, category = 'sfx') {
+        const categoryVolume = this.categoryVolumes[category] ?? 1;
+        return clampVolume(baseVolume * this.masterVolume * categoryVolume);
+    }
+
+    /**
+     * Track a live audio node so mixer changes can refresh volumes mid-playback.
+     * @param {HTMLAudioElement|object} node audio node to track
+     * @param {('music'|'sfx')} category mixer channel the node belongs to
+     * @param {number} baseVolume unscaled volume used when playback started
+     */
+    trackNode(node, category = 'sfx', baseVolume = 1) {
+        if (!node) return;
+        this.liveNodes.set(node, { category, baseVolume });
+        const cleanup = () => { this.liveNodes.delete(node); };
+        if (typeof node.addEventListener === 'function') {
+            node.addEventListener('ended', cleanup);
+            node.addEventListener('pause', cleanup);
+        } else if (!node.onended) {
+            node.onended = cleanup;
+        }
+    }
+
+    /** Update the tracked base volume for a node so future mixer refreshes stay accurate. */
+    updateTrackedBaseVolume(node, baseVolume) {
+        if (!node) return;
+        const existing = this.liveNodes.get(node) || { category: 'sfx', baseVolume };
+        this.liveNodes.set(node, { ...existing, baseVolume });
+        node.__baseVolume = baseVolume;
+    }
+
+    /** Retrieve the base (unscaled) volume used for a node. */
+    getBaseVolumeForNode(node) {
+        if (!node) return 1;
+        return this.liveNodes.get(node)?.baseVolume ?? node.__baseVolume ?? node.volume ?? 1;
+    }
+
+    /** Resolve the mixer category for a live node. */
+    getNodeCategory(node) {
+        return this.liveNodes.get(node)?.category || 'sfx';
+    }
+
+    /** Re-apply the current mixer values to every tracked node. */
+    applyVolumeMix() {
+        this.liveNodes.forEach((meta, node) => {
+            const baseVolume = typeof meta.baseVolume === 'number' ? meta.baseVolume : this.getBaseVolumeForNode(node);
+            node.volume = this.getScaledVolume(baseVolume, meta.category);
+        });
+        AudioDebugBus.masterVolume = this.masterVolume;
+    }
+
+    /**
+     * Update the master gain slider and refresh all tracked nodes.
+     * @param {number} value desired master volume (0–1)
+     * @returns {number} resulting master volume
+     */
+    setMasterVolume(value) {
+        this.masterVolume = clampVolume(value, this.masterVolume);
+        this.applyVolumeMix();
+        return this.masterVolume;
+    }
+
+    /**
+     * Update the music channel volume and refresh live music tracks.
+     * @param {number} value desired music volume (0–1)
+     * @returns {number} resulting music volume
+     */
+    setMusicVolume(value) {
+        this.categoryVolumes.music = clampVolume(value, this.categoryVolumes.music);
+        this.applyVolumeMix();
+        return this.categoryVolumes.music;
+    }
+
+    /**
+     * Update the sound effects channel volume and refresh live effects.
+     * @param {number} value desired sfx volume (0–1)
+     * @returns {number} resulting sfx volume
+     */
+    setSfxVolume(value) {
+        this.categoryVolumes.sfx = clampVolume(value, this.categoryVolumes.sfx);
+        this.applyVolumeMix();
+        return this.categoryVolumes.sfx;
+    }
+
+    /** Surface the current mixer snapshot for UI bindings and debug overlays. */
+    getVolumeSnapshot() {
+        return {
+            master: this.masterVolume,
+            music: this.categoryVolumes.music,
+            sfx: this.categoryVolumes.sfx
+        };
+    }
+
     _playInternal(key, options, returnHandle) {
         const resolved = this.resolveForPlayback(key);
         if (!resolved) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
@@ -194,7 +317,14 @@ class AudioManager {
         if (!base) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
         const useClone = overlap && this.lastPlayed.has(key) && base.cloneNode;
         const node = useClone ? base.cloneNode() : base;
-        if (typeof volume !== 'undefined' && node.volume !== volume) node.volume = volume;
+        const category = this.resolveCategory(key, variantDef);
+        const baseVolume = typeof volume === 'number'
+            ? volume
+            : (typeof variantDef.volume === 'number' ? variantDef.volume : node.volume);
+        node.__baseVolume = baseVolume;
+        this.trackNode(node, category, baseVolume);
+        const scaledVolume = this.getScaledVolume(baseVolume, category);
+        if (typeof volume !== 'undefined' || node.volume !== scaledVolume) node.volume = scaledVolume;
         if (typeof loop !== 'undefined') node.loop = !!loop;
         if (reset && typeof node.currentTime === 'number') node.currentTime = 0;
 
@@ -204,7 +334,7 @@ class AudioManager {
         if (promise && typeof promise.catch === 'function') promise.catch(() => {});
 
         this.lastPlayed.set(key, now);
-        if (returnHandle) return { attempted: true, node, variantKey };
+        if (returnHandle) return { attempted: true, node, variantKey, category, baseVolume };
         return true;
     }
 
@@ -384,13 +514,16 @@ class AmbientConductor {
             ...handle,
             targetVolume: track.volume ?? config.volume,
             fadeMs: this.getFadeInDuration(config, track),
-            mode: this.currentMode
+            mode: this.currentMode,
+            category: handle.category || 'music'
         };
         this.fadeTo(
             handle.node,
             this.activeHandle.targetVolume ?? handle.node.volume,
             this.activeHandle.fadeMs,
-            typeof track.startVolume === 'number' ? track.startVolume : handle.node.volume
+            typeof track.startVolume === 'number' ? track.startVolume : handle.node.volume,
+            undefined,
+            this.activeHandle.category
         );
     }
 
@@ -432,24 +565,32 @@ class AmbientConductor {
             }
             return;
         }
-        this.fadeTo(node, 0, fadeMs, node.volume, () => {
+        this.fadeTo(node, 0, fadeMs, this.audioManager?.getBaseVolumeForNode?.(node), () => {
             if (node.pause) node.pause();
             if (typeof node.currentTime === 'number') node.currentTime = 0;
             if (this.activeHandle === handleRef || this.activeHandle?.node === node) {
                 this.activeHandle = null;
             }
-        });
+        }, handleRef.category || this.audioManager?.getNodeCategory?.(node));
     }
 
-    fadeTo(node, targetVolume = 1, durationMs = 1000, startVolume = node.volume, onDone) {
+    fadeTo(node, targetVolume = 1, durationMs = 1000, startVolume = node.volume, onDone, category) {
         if (!node) return;
         const steps = Math.max(1, Math.floor(durationMs / 60));
-        const delta = (targetVolume - startVolume) / steps;
+        const resolvedCategory = category || this.audioManager?.getNodeCategory?.(node) || 'sfx';
+        const baseStart = typeof startVolume === 'number'
+            ? startVolume
+            : this.audioManager?.getBaseVolumeForNode?.(node) ?? startVolume ?? 1;
+        const baseTarget = typeof targetVolume === 'number' ? targetVolume : baseStart;
+        this.audioManager?.updateTrackedBaseVolume?.(node, baseTarget);
+        const scaledStart = this.audioManager?.getScaledVolume?.(baseStart, resolvedCategory) ?? baseStart;
+        const scaledTarget = this.audioManager?.getScaledVolume?.(baseTarget, resolvedCategory) ?? baseTarget;
+        const delta = (scaledTarget - scaledStart) / steps;
         let step = 0;
 
         const applyStep = () => {
             step += 1;
-            const nextVol = Math.max(0, Math.min(1, startVolume + delta * step));
+            const nextVol = Math.max(0, Math.min(1, scaledStart + delta * step));
             node.volume = nextVol;
             if (step >= steps) {
                 const intervalId = this.fadeIntervals.get(node);
@@ -460,7 +601,7 @@ class AmbientConductor {
         };
 
         if (durationMs <= 0) {
-            node.volume = targetVolume;
+            node.volume = scaledTarget;
             if (onDone) onDone();
             return;
         }
@@ -522,23 +663,39 @@ class AmbientConductor {
 
             const targetVolume = bed.volume ?? config.volume ?? this.defaults.gentleStartVolume;
             const fadeDuration = Math.min(bed.fadeMs ?? config.fadeMs ?? this.defaults.fadeInMs, this.maxOverlapMs);
-            this.fadeTo(handle.node, targetVolume, fadeDuration, typeof bed.startVolume === 'number' ? bed.startVolume : handle.node.volume);
+            const bedCategory = handle.category
+                || this.audioManager?.resolveCategory?.(bed.key, this.audioManager?.manifest?.[bed.key])
+                || 'music';
+            this.fadeTo(
+                handle.node,
+                targetVolume,
+                fadeDuration,
+                typeof bed.startVolume === 'number' ? bed.startVolume : handle.node.volume,
+                undefined,
+                bedCategory
+            );
 
             this.activeBeds.set(bed.key, {
                 ...handle,
                 targetVolume,
-                fadeMs: fadeDuration
+                fadeMs: fadeDuration,
+                category: bedCategory
             });
             keep.add(bed.key);
         });
 
         this.activeBeds.forEach((handle, key) => {
             if (keep.has(key)) return;
-            this.fadeTo(handle.node, 0, handle.fadeMs ?? fadeMs ?? this.defaults.fadeOutMs, handle.node.volume, () => {
+            this.fadeTo(
+                handle.node,
+                0,
+                handle.fadeMs ?? fadeMs ?? this.defaults.fadeOutMs,
+                this.audioManager?.getBaseVolumeForNode?.(handle.node),
+                () => {
                 if (handle.node.pause) handle.node.pause();
                 if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
                 this.activeBeds.delete(key);
-            });
+            }, handle.category || this.audioManager?.getNodeCategory?.(handle.node));
         });
     }
 
@@ -552,11 +709,18 @@ class AmbientConductor {
                 this.activeBeds.delete(key);
                 return;
             }
-            this.fadeTo(handle.node, 0, fadeMs, handle.node.volume, () => {
-                if (handle.node.pause) handle.node.pause();
-                if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
-                this.activeBeds.delete(key);
-            });
+            this.fadeTo(
+                handle.node,
+                0,
+                fadeMs,
+                this.audioManager?.getBaseVolumeForNode?.(handle.node),
+                () => {
+                    if (handle.node.pause) handle.node.pause();
+                    if (typeof handle.node.currentTime === 'number') handle.node.currentTime = 0;
+                    this.activeBeds.delete(key);
+                },
+                handle.category || this.audioManager?.getNodeCategory?.(handle.node)
+            );
         });
     }
 }
@@ -634,13 +798,13 @@ const SFX_MANIFEST = {
     victory: { src: SFX_GROUPS.victory[0], cooldownMs: 400 },
     city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
     choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
-    ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0 },
-    ambient_bed_wind: { src: SFX_GROUPS.windBeds[0], loop: true, volume: 0.22, cooldownMs: 0 },
-    war_bed_horn: { src: SFX_GROUPS.warHornBeds[0], loop: true, volume: 0.42, cooldownMs: 0 },
-    ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true },
-    ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true },
-    ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true },
-    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true }
+    ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0, category: 'music' },
+    ambient_bed_wind: { src: SFX_GROUPS.windBeds[0], loop: true, volume: 0.22, cooldownMs: 0, category: 'music' },
+    war_bed_horn: { src: SFX_GROUPS.warHornBeds[0], loop: true, volume: 0.42, cooldownMs: 0, category: 'music' },
+    ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
+    ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
+    ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
+    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
 };
 
 const COMBAT_STINGERS = new Set(['wardrum']);
