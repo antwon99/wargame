@@ -722,7 +722,8 @@ const Game = {
             const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
-            const ambienceLayersEnabled = fogConfig.ambienceLayersEnabled !== false
+            const ambienceLayersEnabled = fogConfig.ambienceEnabled !== false
+                && fogConfig.ambienceLayersEnabled === true
                 && this.featureToggles?.ambience?.enabled !== false;
             if (this.ambienceRenderer && ambienceLayersEnabled) this.ambienceRenderer.update(dt);
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
@@ -1349,7 +1350,7 @@ const Game = {
         const layout = this.fog?.hexLayout;
         if (!layout || !hex || typeof hex.toPixel !== 'function') return;
         const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        if (fogConfig.enabled === false || fogConfig.tileFogEnabled === false) return;
+        if (fogConfig.enabled === false || fogConfig.tileFogEnabled !== true) return;
 
         const state = visibility || this.resolveHexVisibility(hex);
         if (state === TILE_VISIBILITY.VISIBLE) return;
@@ -1426,9 +1427,10 @@ const Game = {
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-        const ambienceCloudsEnabled = fogConfig.ambienceLayersEnabled !== false
+        const ambienceCloudsEnabled = fogConfig.ambienceEnabled !== false
+            && fogConfig.ambienceLayersEnabled === true
             && this.featureToggles?.ambience?.enabled !== false;
-        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled !== false;
+        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;
         // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
         const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
             || !legacyBackdropEnabled;
