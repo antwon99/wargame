@@ -191,7 +191,36 @@
     }
 
     /**
-     * Rebuild a snapshot into live data structures.
+     * Build a set of allowed overworld tile ids by pulling from live config when available
+     * and falling back to the default tiles used across the prototype. This guards against
+     * malformed save payloads injecting unexpected tile types during deserialization.
+     * @returns {Set<string>} all recognized overworld tile identifiers.
+     */
+    function getAllowedTileIds() {
+        const fallback = [
+            'castle',
+            'field',
+            'forest',
+            'town',
+            'scorched',
+            'rebel',
+            'rebelcamp',
+            'mine',
+            'shrine',
+            'ruin'
+        ];
+
+        const fromGlobal = global.OVERWORLD_TILES && typeof global.OVERWORLD_TILES === 'object'
+            ? Object.values(global.OVERWORLD_TILES)
+                .map(entry => entry?.id)
+                .filter(Boolean)
+            : [];
+
+        return new Set([...fallback, ...fromGlobal]);
+    }
+
+    /**
+     * Normalize potentially untrusted overworld tile data coming from persistence.
      * Accepts an optional hexFactory so tests can supply a stub Hex implementation.
      * @param {object} snapshot payload from storage.
      * @param {object} [options]
@@ -200,6 +229,8 @@
      */
     function deserializeGameState(snapshot, options = {}) {
         if (!snapshot) return null;
+        const allowedTileIds = getAllowedTileIds();
+        const allowedOwners = new Set([null, 'player', 'rebel', 'scorched', 'enemy', 'neutral']);
         const makeHex =
             options.hexFactory ||
             ((q, r, s) => {
@@ -216,9 +247,18 @@
 
         const overworldHexes = new Map();
         (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner }) => {
+            if (!Number.isFinite(q) || !Number.isFinite(r) || !Number.isFinite(s)) return;
+            const normalizedType = typeof type === 'string' ? type.toLowerCase() : null;
+            if (!normalizedType || !allowedTileIds.has(normalizedType)) return;
+
+            let normalizedOwner = null;
+            if (owner !== undefined && owner !== null) {
+                const lowerOwner = typeof owner === 'string' ? owner.toLowerCase() : null;
+                normalizedOwner = allowedOwners.has(lowerOwner) ? lowerOwner : null;
+            }
+
             const hex = makeHex(q, r, s);
-            const payload = { hex, type };
-            if (owner !== undefined) payload.owner = owner;
+            const payload = { hex, type: normalizedType, owner: normalizedOwner };
             overworldHexes.set(hex.toString(), payload);
         });
 

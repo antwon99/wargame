@@ -123,6 +123,26 @@ function runTests() {
     assert.strictEqual(result.notifications.length, 1);
     assert.strictEqual(result.mandates.currentTick, mandateSnapshot.currentTick);
 
+    // Guard against malformed overworld tiles sneaking into state
+    const malformedSnapshot = {
+        overworld: {
+            hexes: [
+                { q: 0, r: 0, s: 0, type: 'castle', owner: 'player' },
+                { q: 1, r: 0, s: -1, type: 'glitch', owner: 'cheater' },
+                { q: 2, r: 0, s: -2, type: 'field', owner: 'bandit' },
+                { q: 3, r: 0, s: -3, type: 'shrine', owner: 'REBEL' },
+                { q: 'x', r: 0, s: 0, type: 'town', owner: 'neutral' }
+            ]
+        },
+        stats: {}
+    };
+    const sanitized = Persistence.deserializeGameState(malformedSnapshot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.strictEqual(sanitized.overworld.hexes.size, 3, 'invalid hex entries should be skipped');
+    const sanitizedTypes = Array.from(sanitized.overworld.hexes.values()).map(t => t.type).sort();
+    assert.deepStrictEqual(sanitizedTypes, ['castle', 'field', 'shrine'], 'only valid tile ids should survive');
+    assert.strictEqual(sanitized.overworld.hexes.get('2,0').owner, null, 'unknown owners should be coerced to null');
+    assert.strictEqual(sanitized.overworld.hexes.get('3,0').owner, 'rebel', 'recognized owners should be normalized to lowercase');
+
     // Save/Load via mocked storage
     const saveGame = {
         gold: 77,
