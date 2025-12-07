@@ -27,7 +27,7 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
-import { buildTileVisibilityMap, resolveFogTileMask } from './fogMask.js';
+import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from './fogMask.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
 import {
     attachFogParallaxDebugControls,
@@ -1161,44 +1161,63 @@ const Game = {
 
     drawCombat(layout) {
         for(let [k, t] of this.combat.territory) {
+            const visibility = this.resolveHexVisibility(t.hex || k);
+            const visibleTile = visibility === TILE_VISIBILITY.VISIBLE;
+            const seenTile = visibility === TILE_VISIBILITY.SEEN;
+
             let fill = '#222';
             if(t.owner === 'player') fill = '#1b4332';
             else if(t.owner === 'enemy') fill = '#590d22';
             else if(t.owner === 'scorched') fill = '#111'; // Scorched Color
-            
+
+            if (!visibleTile) {
+                fill = seenTile ? 'rgba(28, 32, 38, 0.75)' : '#08090f';
+            }
+
             this.drawHex(layout, t.hex, fill, '#000');
-            if(this.isFrontier(k, 'player')) {
-                const type = this.combat.slots.get(k);
-                if(type) {
-                    const def = COMBAT_BUILDINGS[type.toUpperCase()];
-                    if(def) {
-                        this.ctx.globalAlpha = 0.5;
-                        this.drawHex(layout, t.hex, 'rgba(255,255,255,0.1)', '#fff', def.char, def.cost !== undefined ? `${def.cost}g` : '');
-                        this.ctx.globalAlpha = 1.0;
-                    }
+            const type = this.combat.slots.get(k);
+            if(type && this.isFrontier(k, 'player')) {
+                const def = COMBAT_BUILDINGS[type.toUpperCase()];
+                if(def) {
+                    this.ctx.globalAlpha = visibleTile ? 0.5 : 0.3;
+                    this.drawHex(layout, t.hex, 'rgba(255,255,255,0.1)', '#fff', def.char, def.cost !== undefined ? `${def.cost}g` : '');
+                    this.ctx.globalAlpha = 1.0;
                 }
             }
         }
         for(let [k, b] of this.combat.buildings) {
             const def = COMBAT_BUILDINGS[b.type.toUpperCase()];
             if(!def) continue;
+            const visibility = this.resolveHexVisibility(k);
+            if (visibility === TILE_VISIBILITY.UNSEEN) continue;
+            const muted = visibility === TILE_VISIBILITY.SEEN;
             let fill = b.owner === 'player' ? '#2d6a4f' : '#800f2f';
             if (b.type === 'lair') fill = '#4a004a';
+            if (muted) fill = 'rgba(74, 82, 94, 0.9)';
             if(b.pulse > 0) { b.pulse -= 0.05; fill = '#fff'; }
+            const originalAlpha = this.ctx.globalAlpha;
+            if (muted) this.ctx.globalAlpha = 0.55;
             this.drawHex(layout, this.parseKey(k), fill, '#fff', def.char);
+            this.ctx.globalAlpha = originalAlpha;
         }
         this.combat.units.forEach(u => {
             const def = UNITS[u.type];
             if(!def) return;
+            const visibility = this.resolveHexVisibility(u.pos);
+            if (visibility === TILE_VISIBILITY.UNSEEN) return;
+            const muted = visibility === TILE_VISIBILITY.SEEN;
             const p = (new Hex(u.pos.q, u.pos.r, u.pos.s)).toPixel(layout);
             const size = u.type === 'dragon' ? 16 * this.cam.zoom : 10 * this.cam.zoom;
-            this.ctx.fillStyle = u.owner === 'player' ? '#06d6a0' : '#ef476f';
-            if (u.type === 'dragon') this.ctx.fillStyle = '#d4f';
+            const originalAlpha = this.ctx.globalAlpha;
+            this.ctx.fillStyle = muted ? '#7a8694' : (u.owner === 'player' ? '#06d6a0' : '#ef476f');
+            if (u.type === 'dragon') this.ctx.fillStyle = muted ? '#9273b6' : '#d4f';
+            if (muted) this.ctx.globalAlpha = 0.55;
             this.ctx.beginPath(); this.ctx.arc(p.x, p.y, size, 0, Math.PI*2); this.ctx.fill();
             this.ctx.strokeStyle = '#fff'; this.ctx.stroke();
             this.ctx.font = `${(u.type==='dragon'?20:12)*this.cam.zoom}px sans-serif`;
             this.ctx.textAlign='center'; this.ctx.textBaseline='middle';
             this.ctx.fillText(def.char, p.x, p.y);
+            this.ctx.globalAlpha = originalAlpha;
         });
 
         // DRAW FX
@@ -1250,6 +1269,7 @@ const Game = {
         const tileVisibility = this.fog?.visibility instanceof Map
             ? this.fog.visibility
             : this.getTileVisibilityMap();
+        this.fog.hexLayout = layout;
         drawOverworldTiles(this.overworld, {
             layout,
             drawHex: (...args) => this.drawHex(...args),
@@ -1261,13 +1281,72 @@ const Game = {
     },
 
     /**
-     * Overworld rendering extension point for future per-tile fog/shroud layers.
-     * Default implementation is intentionally empty to preserve current visuals.
+     * Shade a single hex according to its visibility state. Unseen tiles receive
+     * an opaque mask, discovered-but-not-visible tiles get a desaturated dimmer,
+     * and visible tiles bypass the mask entirely so the base art shows through.
+     *
      * @param {Hex} hex tile coordinate being rendered.
      * @param {Object} tile raw tile payload from map iteration.
      * @param {string} visibility normalized tile visibility label.
      */
-    drawTileFog(hex, tile, visibility) { /* extension point; no-op by default */ },
+    drawTileFog(hex, tile, visibility) {
+        const layout = this.fog?.hexLayout;
+        if (!layout || !hex || typeof hex.toPixel !== 'function') return;
+
+        const state = visibility || this.resolveHexVisibility(hex);
+        if (state === TILE_VISIBILITY.VISIBLE) return;
+
+        const ctx = this.ctx;
+        const center = hex.toPixel(layout);
+        const maskSize = Math.max(4 * this.cam.zoom, layout.size - Math.max(2.5 * this.cam.zoom, layout.size * 0.08));
+
+        ctx.save();
+        ctx.beginPath();
+        for (let i = 0; i < 6; i += 1) {
+            const angle = 2 * Math.PI / 6 * (i + 0.5);
+            const x = center.x + maskSize * Math.cos(angle);
+            const y = center.y + maskSize * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        if (state === TILE_VISIBILITY.UNSEEN) {
+            ctx.fillStyle = 'rgba(5, 6, 12, 0.9)';
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        const gradient = ctx.createRadialGradient(center.x, center.y, maskSize * 0.1, center.x, center.y, maskSize);
+        gradient.addColorStop(0, 'rgba(32, 38, 46, 0.38)');
+        gradient.addColorStop(1, 'rgba(12, 14, 18, 0.6)');
+
+        const originalComposite = ctx.globalCompositeOperation;
+        const originalAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.globalCompositeOperation = 'saturation';
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = 'rgba(132, 138, 148, 1)';
+        ctx.fill();
+        ctx.globalAlpha = originalAlpha;
+        ctx.globalCompositeOperation = originalComposite;
+        ctx.restore();
+    },
+
+    /**
+     * Resolve the fog visibility state for a given hex or tile key. Defaults to
+     * visible when no map entry exists to keep rendering predictable.
+     *
+     * @param {Hex|string} hex hex coordinate or string key.
+     * @returns {string} visibility label (unseen|seen|visible).
+     */
+    resolveHexVisibility(hex) {
+        const key = typeof hex === 'string' ? hex : hex?.toString?.();
+        if (!key || !(this.fog?.visibility instanceof Map)) return TILE_VISIBILITY.VISIBLE;
+        return this.fog.visibility.get(key) || TILE_VISIBILITY.VISIBLE;
+    },
 
     /**
      * Paint a soft radial fog backdrop that darkens unexplored space while keeping
