@@ -10,6 +10,10 @@ const MIN_CORE_INNER_OPACITY = 0.05;
 
 const FOG_VISUAL_CONFIG = {
     enabled: true,
+    /** Toggle ambient-driven fog flourishes (gradients, ripples, spotlights). */
+    ambienceEnabled: true,
+    /** Fall back to a simple void fill when ambience is disabled. */
+    baseFillOnlyWhenAmbienceDisabled: true,
     clusterGlowEnabled: true,
     clusterIntensity: BASE_CLUSTER_INTENSITY,
     clusterRadiusMultiplier: 4.9,

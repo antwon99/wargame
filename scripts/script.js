@@ -1368,6 +1368,9 @@ const Game = {
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
+        const ambienceEnabled = fogConfig.ambienceEnabled !== false;
+        // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
+        const baseFillOnly = !ambienceEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false;
 
         const tileVisibility = this.getTileVisibilityMap();
         const tileMask = resolveFogTileMask(fogMaskOptions, {
@@ -1382,7 +1385,7 @@ const Game = {
 
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        if (fogConfig.enabled === false) return;
+        if (fogConfig.enabled === false || baseFillOnly) return;
 
         const center = this.getTerritoryScreenCenter(layout);
         const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
