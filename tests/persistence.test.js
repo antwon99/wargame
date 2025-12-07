@@ -85,6 +85,10 @@ function runTests() {
     const snap = Persistence.serializeGameState(game);
     assert.strictEqual(snap.overworld.hexes.length, 2);
     assert.strictEqual(snap.stats.totalKills, 5);
+    assert.strictEqual(snap.stats.bestKills, 0);
+    assert.strictEqual(snap.stats.bestLevel, 0);
+    assert.strictEqual(snap.stats.warsFought, 0);
+    assert.strictEqual(snap.stats.lastOutcome, 'N/A');
     assert.strictEqual(snap.gold, 100);
     assert.strictEqual(snap.timekeeper.ticks, 12);
     assert.strictEqual(snap.timekeeper.daysPerWeek, 5);
@@ -99,7 +103,7 @@ function runTests() {
         upgrades: { soldier: 2 },
         imperialFavor: 3,
         overworld: { hexes: [{ q: 0, r: 0, s: 0, type: 'castle' }] },
-        stats: { totalKills: 3 },
+        stats: { totalKills: 3, bestDifficulty: 4, warsPlayed: 6 },
         timekeeper: { ticks: 4, daysPerWeek: 6, weeksPerMonth: 2 },
         notifications: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
         mandates: mandateSnapshot
@@ -111,6 +115,8 @@ function runTests() {
     const only = Array.from(result.overworld.hexes.values())[0];
     assert.deepStrictEqual(only.hex.q, 0);
     assert.strictEqual(result.stats.totalKills, 3);
+    assert.strictEqual(result.stats.bestLevel, 4, 'legacy bestDifficulty should map to bestLevel');
+    assert.strictEqual(result.stats.warsFought, 6, 'legacy warsPlayed should map to warsFought');
     assert.strictEqual(result.imperialFavor, 3);
     assert.strictEqual(result.timekeeper.ticks, 4);
     assert.strictEqual(result.timekeeper.daysPerWeek, 6);
@@ -126,7 +132,7 @@ function runTests() {
         imperialFavor: 9,
         timekeeper: { ticks: 8, daysPerWeek: 7, weeksPerMonth: 4 },
         overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
-        stats: { totalKills: 11, bestDifficulty: 2 },
+        stats: { totalKills: 11, bestKills: 13, bestLevel: 2, warsFought: 8, lastOutcome: 'VICTORY' },
         imperialMandates: { serializeState: () => ({
             currentTick: 10,
             lastIssuedTick: 8,
@@ -145,18 +151,24 @@ function runTests() {
     assert.ok(loaded.state);
     assert.strictEqual(loaded.state.gold, 77);
     assert.strictEqual(loaded.stats.totalKills, 11);
+    assert.strictEqual(loaded.stats.bestKills, 13);
+    assert.strictEqual(loaded.stats.bestLevel, 2);
+    assert.strictEqual(loaded.stats.warsFought, 8);
+    assert.strictEqual(loaded.stats.lastOutcome, 'VICTORY');
+    assert.ok(loaded.stats.lastSaveISO, 'last save timestamp should be preserved');
     assert.strictEqual(loaded.state.imperialFavor, 9);
     assert.strictEqual(loaded.state.timekeeper.ticks, 8);
     assert.strictEqual(loaded.state.mandates.currentTick, 10);
 
     // Multi-slot isolation
-    const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestDifficulty: 7 } };
+    const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestLevel: 7, warsFought: 12 } };
     Persistence.saveSnapshot(altGame, 2);
     const slotOne = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     const slotTwo = Persistence.loadSnapshot(2, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     assert.strictEqual(slotOne.state.gold, 77);
     assert.strictEqual(slotTwo.state.gold, 999);
-    assert.strictEqual(slotTwo.stats.bestDifficulty, 7);
+    assert.strictEqual(slotTwo.stats.bestLevel, 7);
+    assert.strictEqual(slotTwo.stats.warsFought, 12);
     assert.strictEqual(slotTwo.state.imperialFavor, 10, 'favor should clamp to 10 on persist/load');
 
     const meta = Persistence.getSlotMetadata(2);

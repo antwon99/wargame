@@ -54,6 +54,7 @@ const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
     bestKills: 0,
     totalKills: 0,
     warsFought: 0,
+    lastOutcome: 'N/A',
     lastSaveISO: null
 };
 

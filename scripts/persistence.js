@@ -17,11 +17,29 @@
     const DEFAULT_STATS = {
         totalKills: 0,
         bestKills: 0,
-        bestDifficulty: 0,
-        warsPlayed: 0,
+        bestLevel: 0,
+        warsFought: 0,
         lastOutcome: 'N/A',
         lastSaveISO: null
     };
+
+    /**
+     * Normalize leaderboard stats and translate legacy save keys into the UI schema.
+     * @param {object} stats raw stats payload from the game or storage.
+     * @returns {object} stats hydrated with defaults and modern field names.
+     */
+    function normalizeStats(stats = {}) {
+        const normalized = { ...DEFAULT_STATS, ...stats };
+        const hasBestLevel = Object.prototype.hasOwnProperty.call(stats, 'bestLevel');
+        const hasWarsFought = Object.prototype.hasOwnProperty.call(stats, 'warsFought');
+        if (!hasBestLevel && Number.isFinite(stats.bestDifficulty)) {
+            normalized.bestLevel = stats.bestDifficulty;
+        }
+        if (!hasWarsFought && Number.isFinite(stats.warsPlayed)) {
+            normalized.warsFought = stats.warsPlayed;
+        }
+        return normalized;
+    }
 
     /** Clamp imperial favor to the 1–10 HUD range for persistence. */
     function clampImperialFavor(value) {
@@ -138,7 +156,7 @@
      * @returns {object} snapshot that can be persisted.
      */
     function serializeGameState(game) {
-        const overwriteStats = game.stats || {};
+        const overwriteStats = normalizeStats(game.stats || {});
         const timekeeper = normalizeTimekeeperSnapshot(game.timekeeper);
         const mandates = game.imperialMandates?.serializeState?.()
             || global.ImperialMandates?.serializeState?.();
@@ -166,7 +184,7 @@
                     owner: owner ?? null
                 }))
             },
-            stats: { ...DEFAULT_STATS, ...overwriteStats },
+            stats: overwriteStats,
             notifications: snapshotNotifications(game),
             mandates
         };
@@ -213,7 +231,7 @@
             upgrades: snapshot.upgrades || {},
             research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
-            stats: { ...DEFAULT_STATS, ...(snapshot.stats || {}) },
+            stats: normalizeStats(snapshot.stats),
             notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
             mandates: snapshot.mandates || null
         };
@@ -248,9 +266,10 @@
         const { slot, options: normalizedOptions } = normalizeSlotAndOptions(slotOrOptions, options);
         const rawState = readFromStorage(storageKeyForSlot(slot));
         const rawStats = readFromStorage(statsKeyForSlot(slot));
+        const stats = normalizeStats(rawStats || rawState?.stats);
         return {
             state: deserializeGameState(rawState, normalizedOptions),
-            stats: { ...DEFAULT_STATS, ...(rawStats || rawState?.stats || {}) },
+            stats,
             slot
         };
     }

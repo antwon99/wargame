@@ -445,10 +445,10 @@ function updateResearchUI(game) {
 
 function updateLeaderboardUI(game) {
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setTxt('stat-best-lvl', game.stats.bestDifficulty || 0);
+    setTxt('stat-best-lvl', game.stats.bestLevel || 0);
     setTxt('stat-best-kills', game.stats.bestKills || 0);
     setTxt('stat-total-kills', game.stats.totalKills || 0);
-    setTxt('stat-wars', game.stats.warsPlayed || 0);
+    setTxt('stat-wars', game.stats.warsFought || 0);
     if (game.stats.lastSaveISO) game.updateSaveStatus(`Last saved ${game.stats.lastSaveISO}`);
 }
 
