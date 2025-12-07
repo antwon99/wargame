@@ -117,6 +117,22 @@ function createWindowStub(document, overrides = {}) {
 }
 
 function createImportStubs() {
+    const defaultFogConfig = {
+        enabled: true,
+        ambienceEnabled: true,
+        baseFillOnlyWhenAmbienceDisabled: true,
+        rippleEnabled: true,
+        rippleOpacity: 0.5,
+        clusterGlowEnabled: true,
+        fogGradientStops: {},
+        rippleGradientStops: {},
+        spotlightColors: {},
+        voidFill: '#0b0b11',
+        parallaxAmplitude: 0,
+        parallaxSpeed: 0,
+        coreInnerOpacity: 1
+    };
+
     return {
         COMBAT_BUILDINGS: {},
         UNITS: {},
@@ -169,14 +185,36 @@ function createImportStubs() {
         advanceOverworldTimer: () => ({}),
         buildClusterBonusMap: () => new Map(),
         DEFAULT_CLUSTER_RATE: 0.25,
-        buildTileVisibilityMap: () => new Map(),
+        buildTileVisibilityMap: ({ overworld, claimable, combat, state = 'OVERWORLD' } = {}) => {
+            const visibility = new Map();
+            const promote = (key, level) => {
+                const current = visibility.get(key) || 'unseen';
+                const rank = { unseen: 0, seen: 1, visible: 2 };
+                if (rank[level] > rank[current]) visibility.set(key, level);
+            };
+
+            overworld?.forEach?.((_, key) => promote(key, 'visible'));
+            claimable?.forEach?.((_, key) => promote(key, 'seen'));
+
+            if (state === 'COMBAT') {
+                combat?.forEach?.((tile, key) => {
+                    const owner = (tile?.owner || '').toLowerCase();
+                    promote(key, owner === 'player' ? 'visible' : 'seen');
+                });
+            }
+
+            return visibility;
+        },
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         attachFogParallaxDebugControls: () => {},
-        FOG_VISUAL_CONFIG: {},
+        FOG_VISUAL_CONFIG: defaultFogConfig,
         resolveFogInnerOpacity: () => 1,
-        resolveFogParallax: () => 1,
-        resolveFogVisualConfig: () => ({}),
+        resolveFogParallax: (cfg = {}) => ({
+            parallaxSpeed: cfg.parallaxSpeed ?? defaultFogConfig.parallaxSpeed,
+            parallaxAmplitude: cfg.parallaxAmplitude ?? defaultFogConfig.parallaxAmplitude
+        }),
+        resolveFogVisualConfig: (cfg = {}) => ({ ...defaultFogConfig, ...cfg }),
         validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
 }
@@ -237,6 +275,38 @@ async function testTileFogMasks() {
     assert.strictEqual(unseenFills.length, 1, 'unseen tiles should draw a single opaque mask');
 }
 
+async function testFogBackdropFallsBackToVoidFillWhenAmbienceDisabled() {
+    const { window, context, recordingContext } = await loadGameModule();
+    const { Game, Hex } = window;
+    const { Layout, TILE_VISIBILITY } = context;
+
+    const layout = { origin: { x: 0, y: 0 }, size: 20, ...Layout };
+    Game.cam = { zoom: 1, x: 0, y: 0 };
+    Game.ctx = recordingContext;
+    Game.viewport = { width: 200, height: 200 };
+    Game.state = 'OVERWORLD';
+    Game.overworld = { hexes: new Map([['0,0', { hex: new Hex(0, 0), owner: 'player' }]]), claimable: new Map() };
+    Game.combat = { territory: new Map() };
+    Game.fog = { time: 0 };
+
+    Game.featureToggles.fog.ambienceEnabled = false;
+    Game.featureToggles.fog.baseFillOnlyWhenAmbienceDisabled = true;
+
+    recordingContext.operations.length = 0;
+    Game.renderFogBackdrop(layout);
+
+    const gradients = recordingContext.operations.filter(op => op === 'gradient');
+    const fills = recordingContext.operations.filter(op => op === 'fillRect');
+
+    assert.strictEqual(gradients.length, 0, 'ambience-off fog should skip gradient-based layers');
+    assert.ok(fills.length >= 1, 'ambience-off fog should still paint the void backdrop');
+    assert.strictEqual(
+        Game.fog.visibility.get('0,0'),
+        TILE_VISIBILITY.VISIBLE,
+        'tile visibility should resolve even when ambience visuals are disabled'
+    );
+}
+
 async function testCombatVisibilityFiltering() {
     const { window, context, recordingContext } = await loadGameModule();
     const { Game, Hex } = window;
@@ -291,6 +361,7 @@ async function testCombatVisibilityFiltering() {
 
 async function run() {
     await testTileFogMasks();
+    await testFogBackdropFallsBackToVoidFillWhenAmbienceDisabled();
     await testCombatVisibilityFiltering();
     console.log('Fog rendering tests passed.');
 }
