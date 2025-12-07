@@ -105,6 +105,7 @@ function createImportStubs() {
     return {
         COMBAT_BUILDINGS: {},
         UNITS: {},
+        TILE_VISIBILITY: { UNSEEN: 'unseen', SEEN: 'seen', VISIBLE: 'visible' },
         addBuilding: () => {},
         buyBuilding: () => {},
         checkConnection: () => {},
