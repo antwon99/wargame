@@ -441,6 +441,13 @@
             letter-spacing: 0.5px;
             text-transform: uppercase;
         }
+        .tile-inspector__meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            text-align: right;
+        }
         .tile-inspector__bonus {
             color: #9be3b4;
             font-size: 0.9rem;
@@ -448,6 +455,18 @@
             text-align: right;
         }
         .tile-inspector__bonus.paused { color: #f9c74f; }
+        .tile-inspector__adjacency {
+            color: #cfd8e3;
+            font-size: 0.8rem;
+            line-height: 1.1rem;
+            text-align: right;
+        }
+        .tile-inspector__adjacency-summary {
+            color: #dce0ff;
+        }
+        .tile-inspector__adjacency-detail {
+            color: #9baec8;
+        }
         .tile-inspector.hostile { border-color: #f08b8b; box-shadow: 0 10px 20px rgba(255,0,0,0.25); }
 
         .mandates-panel {

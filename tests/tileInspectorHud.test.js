@@ -35,7 +35,14 @@ function createDocument(ids = []) {
 }
 
 async function testClusterBonusRenders() {
-    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 
@@ -50,10 +57,23 @@ async function testClusterBonusRenders() {
     assert.ok(bonusEl.innerText.includes('+2w'), 'cluster line should include bonus income');
     assert.ok(bonusEl.innerText.includes('3-tile'), 'cluster size should be surfaced in the inspector');
     assert.ok(bonusEl.title.includes('Adjacency'), 'cluster tooltip should explain the rate applied');
+
+    const adjacencySummary = doc.getElementById('tile-inspector-adjacency-summary');
+    assert.ok(
+        adjacencySummary.innerText.toLowerCase().includes('cluster bonuses'),
+        'adjacency summary should highlight active bonuses'
+    );
 }
 
 async function testPauseStatusUpdatesInspector() {
-    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 
@@ -70,10 +90,23 @@ async function testPauseStatusUpdatesInspector() {
     updateTileInspector(game, tile);
     const liveText = doc.getElementById('tile-inspector-bonus').innerText;
     assert.ok(!liveText.toLowerCase().includes('paused'), 'resuming should clear the paused status message');
+
+    const adjacencyDetail = doc.getElementById('tile-inspector-adjacency-detail');
+    assert.ok(
+        adjacencyDetail.innerText.toLowerCase().includes('cluster'),
+        'adjacency detail should remain visible when live'
+    );
 }
 
 async function testInspectorHidesOutsideOverworld() {
-    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 
@@ -89,15 +122,24 @@ async function testInspectorHidesOutsideOverworld() {
     updateTileInspector(game, tile);
     const panel = doc.getElementById('tile-inspector');
     const bonus = doc.getElementById('tile-inspector-bonus');
+    const adjacency = doc.getElementById('tile-inspector-adjacency');
 
     assert.ok(panel.classList.contains('hidden'), 'tile inspector should hide outside overworld state');
     assert.strictEqual(bonus.innerText, '');
     assert.strictEqual(bonus.title, '');
+    assert.strictEqual(adjacency.style.display, 'none', 'adjacency details should hide when inspector is hidden');
     assert.deepStrictEqual(overlayCalls, [null], 'attack overlay should clear when inspector hides');
 }
 
 async function testClaimablePreviewShowsCost() {
-    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 
@@ -115,11 +157,13 @@ async function testClaimablePreviewShowsCost() {
     const labelEl = doc.getElementById('tile-inspector-label');
     const bonusEl = doc.getElementById('tile-inspector-bonus');
     const panel = doc.getElementById('tile-inspector');
+    const adjacency = doc.getElementById('tile-inspector-adjacency');
 
     assert.strictEqual(labelEl.innerText, 'UNCLAIMED FRONTIER');
     assert.ok(bonusEl.innerText.includes('20w'), 'claim preview should include wood cost');
     assert.ok(bonusEl.innerText.includes('5 more wood'), 'claim preview should surface affordability delta');
     assert.ok(!panel.classList.contains('hostile'), 'claimable previews should not mark the panel hostile');
+    assert.strictEqual(adjacency.style.display, 'none', 'adjacency details should hide for unclaimed tiles');
 }
 
 async function run() {

@@ -27,7 +27,7 @@ export const OVERWORLD_TILES = {
         color: '#c9ada7',
         char: '⛪',
         income: {},
-        favor: 1,
+        favor: 0.25,
         onClaim: (game, hex) => {
             if (!game) return;
             const base = Number.isFinite(game.imperialFavor) ? game.imperialFavor : 5;

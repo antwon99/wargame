@@ -663,6 +663,9 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
     }
 
     game.calcOverworldGhosts();
+    if (typeof game.refreshClusterBonuses === 'function') {
+        game.refreshClusterBonuses();
+    }
 
     const counts = conversions.reduce(
         (tally, conv) => ({ ...tally, [conv.fate]: (tally[conv.fate] || 0) + 1 }),
