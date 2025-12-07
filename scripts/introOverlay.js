@@ -7,6 +7,7 @@ const IntroOverlay = {
     overlayEl: null,
     beginBtn: null,
     active: true,
+    storageKey: 'hexWar_intro_seen',
 
     /**
      * Wire up the dismiss button and mark the overlay as ready. Accepts an
@@ -25,6 +26,19 @@ const IntroOverlay = {
                 this.overlayEl.style.display = 'none';
             }
         });
+
+        // Skip the fade when the intro was already acknowledged, but still
+        // broadcast the intro begin event so dependent systems stay in sync.
+        if (this.hasSeenIntro()) {
+            this.active = false;
+            this.overlayEl.classList.add('intro-hidden');
+            this.overlayEl.style.display = 'none';
+            this.dispatchIntroBegin();
+            return true;
+        }
+
+        this.active = true;
+        this.overlayEl.style.display = 'flex';
         return true;
     },
 
@@ -35,13 +49,12 @@ const IntroOverlay = {
     dismiss() {
         if (!this.overlayEl || !this.active) return;
         this.active = false;
+        this.markIntroSeen();
         this.overlayEl.classList.add('intro-hidden');
 
         // Notify downstream systems that the welcome gate has been cleared so
         // tutorial popups and mandate setup can begin.
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('intro:begin'));
-        }
+        this.dispatchIntroBegin();
     },
 
     /**
@@ -53,6 +66,51 @@ const IntroOverlay = {
         this.active = true;
         this.overlayEl.style.display = 'flex';
         this.overlayEl.classList.remove('intro-hidden');
+        this.dispatchIntroReset();
+    },
+
+    /**
+     * Check whether the intro has been acknowledged in a previous session.
+     * @returns {boolean} true when the overlay should auto-hide.
+     */
+    hasSeenIntro() {
+        const storage = this.getStorage();
+        if (!storage) return false;
+        return storage.getItem(this.storageKey) === '1';
+    },
+
+    /** Persist the dismissal flag so subsequent loads can skip the overlay. */
+    markIntroSeen() {
+        const storage = this.getStorage();
+        if (!storage) return;
+        storage.setItem(this.storageKey, '1');
+    },
+
+    /** Clear the stored flag so the next session will show the overlay. */
+    clearIntroSeenFlag() {
+        const storage = this.getStorage();
+        if (!storage) return;
+        storage.removeItem(this.storageKey);
+    },
+
+    /** Resolve the storage API defensively for browser + test environments. */
+    getStorage() {
+        if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return null;
+        return window.localStorage;
+    },
+
+    /** Dispatch the intro begin lifecycle event when the overlay is cleared. */
+    dispatchIntroBegin() {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('intro:begin'));
+        }
+    },
+
+    /** Dispatch the intro reset lifecycle event when the overlay reactivates. */
+    dispatchIntroReset() {
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('intro:reset'));
+        }
     }
 };
 
