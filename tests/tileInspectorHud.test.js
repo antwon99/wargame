@@ -96,10 +96,37 @@ async function testInspectorHidesOutsideOverworld() {
     assert.deepStrictEqual(overlayCalls, [null], 'attack overlay should clear when inspector hides');
 }
 
+async function testClaimablePreviewShowsCost() {
+    const doc = createDocument(['tile-inspector', 'tile-inspector-label', 'tile-inspector-bonus']);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const tile = { claimCost: 20, hex: { q: 0, r: 0, toString: () => '0,0' }, owner: 'neutral' };
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        wood: 15,
+        overworld: { clusterBonuses: new Map() },
+        updateTileAttackOverlay: () => {}
+    };
+
+    updateTileInspector(game, tile);
+
+    const labelEl = doc.getElementById('tile-inspector-label');
+    const bonusEl = doc.getElementById('tile-inspector-bonus');
+    const panel = doc.getElementById('tile-inspector');
+
+    assert.strictEqual(labelEl.innerText, 'UNCLAIMED FRONTIER');
+    assert.ok(bonusEl.innerText.includes('20w'), 'claim preview should include wood cost');
+    assert.ok(bonusEl.innerText.includes('5 more wood'), 'claim preview should surface affordability delta');
+    assert.ok(!panel.classList.contains('hostile'), 'claimable previews should not mark the panel hostile');
+}
+
 async function run() {
     await testClusterBonusRenders();
     await testPauseStatusUpdatesInspector();
     await testInspectorHidesOutsideOverworld();
+    await testClaimablePreviewShowsCost();
     delete global.document;
     console.log('Tile inspector HUD tests passed.');
 }

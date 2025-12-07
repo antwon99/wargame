@@ -274,6 +274,7 @@ const Game = {
     shakeTimer: null,
     ambientLoopStarted: false,
     pendingClearTile: null,
+    hoveredClaimableKey: null,
     selectedOverworldTile: null,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
@@ -282,7 +283,7 @@ const Game = {
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
     fog: { time: 0 },
-    featureToggles: { fog: { ...FOG_VISUAL_CONFIG }, camera: { ...CAMERA_MOTION_CONFIG } },
+    featureToggles: { fog: { ...FOG_VISUAL_CONFIG }, camera: { ...CAMERA_MOTION_CONFIG }, overworld: { showClaimCosts: false } },
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
     persistenceAvailable: true,
@@ -398,9 +399,11 @@ const Game = {
     applyFeatureOverrides(overrides = {}) {
         const fogOverrides = overrides.fog || {};
         const cameraOverrides = overrides.camera || {};
+        const overworldOverrides = overrides.overworld || {};
         this.featureToggles = {
             fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
-            camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides }
+            camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
+            overworld: { showClaimCosts: false, ...overworldOverrides }
         };
     },
 
@@ -948,6 +951,25 @@ const Game = {
     },
 
     /**
+     * Surface a contextual HUD preview for claimable frontier tiles without
+     * stamping text on the overworld map. The inspector communicates cost and
+     * affordability while keeping the board clean.
+     * @param {Hex|object} hex tile coordinate under the cursor.
+     * @param {number} cost wood required to claim the tile.
+     */
+    updateClaimPreview(hex, cost) {
+        if (typeof this.updateTileInspector !== 'function' || typeof cost !== 'number') return;
+        const normalized = hex instanceof Hex ? hex : new Hex(hex.q, hex.r, hex.s ?? -hex.q - hex.r);
+        this.updateTileInspector({ hex: normalized, type: 'Frontier', owner: 'neutral', claimCost: cost });
+    },
+
+    /** Restore the inspector to the actively selected tile or default placeholder text. */
+    clearClaimPreview() {
+        if (typeof this.updateTileInspector !== 'function') return;
+        this.updateTileInspector(this.selectedOverworldTile);
+    },
+
+    /**
      * Tile-driven battle entry point that funnels hostile selections into the core war pipeline.
      * Ensures the target tile is marked for clearing before deferring to startWar so hooks fire.
      * @param {object} targetTile overworld tile being attacked.
@@ -967,10 +989,14 @@ const Game = {
             this.setSelectedOverworldTile(null);
             if(this.overworld.claimable.has(key)) {
                 const cost = this.overworld.claimable.get(key);
+                this.hoveredClaimableKey = key;
+                this.updateClaimPreview(hex, cost);
                 if(this.wood >= cost) {
                     this.wood -= cost;
                     this.claimHexLogic(hex, false);
                     this.calcOverworldGhosts();
+                    this.hoveredClaimableKey = null;
+                    this.clearClaimPreview();
                     this.updateHUD();
                 } else {
                     this.spawnTxt(hex, "Need Wood", '#f55');
@@ -992,6 +1018,32 @@ const Game = {
             if(type) this.buyBuilding(hex, type);
         }
         this.updateHUD();
+    },
+
+    /**
+     * Live hover handler for claimable frontier tiles. Keeps the HUD inspector
+     * aligned with the tile under the cursor without altering selection state.
+     * @param {number} x pointer x coordinate.
+     * @param {number} y pointer y coordinate.
+     */
+    onHover(x, y) {
+        if (this.state !== 'OVERWORLD') return;
+        const hit = this.isPointerOnDrawnHex(x, y);
+        const hitHex = hit?.hex;
+        const key = hitHex?.toString?.() || (hitHex && `${hitHex.q ?? 0},${hitHex.r ?? 0}`);
+        if (key && this.overworld.claimable.has(key)) {
+            const cost = this.overworld.claimable.get(key);
+            if (this.hoveredClaimableKey !== key) {
+                this.hoveredClaimableKey = key;
+                this.updateClaimPreview(hitHex, cost);
+            }
+            return;
+        }
+
+        if (this.hoveredClaimableKey) {
+            this.hoveredClaimableKey = null;
+            this.clearClaimPreview();
+        }
     },
 
     isFrontier(key, who) { return isFrontier(this, key, who, this.Hex); },
@@ -1150,12 +1202,27 @@ const Game = {
         });
     },
 
+    /**
+     * Determine whether debug overlays should stamp claim costs onto frontier tiles.
+     * Defaults to off for normal play, but can be enabled via feature toggles or
+     * the global DebugToggles hook for development sessions.
+     * @returns {boolean} true when claim cost labels should render.
+     */
+    shouldShowClaimCostLabels() {
+        const toggle = this.featureToggles?.overworld?.showClaimCosts;
+        const debugToggle = (typeof window !== 'undefined' && window.DebugToggles)
+            ? window.DebugToggles.showClaimCosts
+            : false;
+        return Boolean(toggle || debugToggle);
+    },
+
     drawOverworld(layout) {
         drawOverworldTiles(this.overworld, {
             layout,
             drawHex: (...args) => this.drawHex(...args),
             parseKey: (key) => this.parseKey(key),
-            drawTileFog: (hex) => this.drawTileFog(hex)
+            drawTileFog: (hex) => this.drawTileFog(hex),
+            showClaimCosts: this.shouldShowClaimCostLabels()
         });
     },
 

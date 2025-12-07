@@ -6,6 +6,20 @@
 (function() {
     let debugPanel = null;
     let toggleButton = null;
+    let debugToggles = null;
+
+    /**
+     * Establish a shared DebugToggles object for ad-hoc developer flags.
+     * Defaults keep gameplay visuals clean unless explicitly flipped on.
+     */
+    function resolveDebugToggles() {
+        if (debugToggles) return debugToggles;
+        if (typeof window === 'undefined') return {};
+        const existing = window.DebugToggles || {};
+        debugToggles = { showClaimCosts: false, ...existing };
+        window.DebugToggles = debugToggles;
+        return debugToggles;
+    }
 
     /**
      * Ensure the debug panel element exists and update cached references.
@@ -38,8 +52,17 @@
         setDebugVisibility(shouldShow);
     }
 
+    /** Flip overworld claim cost stamps for debug sessions without affecting defaults. */
+    function toggleClaimCostLabels() {
+        const toggles = resolveDebugToggles();
+        toggles.showClaimCosts = !toggles.showClaimCosts;
+        const state = toggles.showClaimCosts ? 'enabled' : 'disabled';
+        console.info(`[DebugToggle] Claim cost overlays ${state}.`);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         resolvePanel();
+        resolveDebugToggles();
         setDebugVisibility(false);
 
         if (toggleButton) {
@@ -50,6 +73,9 @@
     document.addEventListener('keydown', event => {
         if (event.key === 'F3' || event.key === '`' || event.key === '~') {
             toggleDebug();
+        }
+        if (event.key === 'F8') {
+            toggleClaimCostLabels();
         }
     });
 })();
