@@ -1214,8 +1214,9 @@ const Game = {
             radius
         );
         const innerOpacity = resolveFogInnerOpacity(fogConfig);
-        fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${innerOpacity})`);
-        fogGradient.addColorStop(0.5, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
+        const softenedCenterOpacity = tileMask ? Math.max(innerOpacity * 0.82, innerOpacity - 0.12) : innerOpacity;
+        fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${softenedCenterOpacity})`);
+        fogGradient.addColorStop(0.48, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
         fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
         ctx.fillStyle = fogGradient;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
@@ -1246,7 +1247,8 @@ const Game = {
                     layout.size * 3,
                     cluster.size * layout.size * (fogConfig.clusterRadiusMultiplier ?? 5)
                 );
-                const intensity = Math.min(0.7, (fogConfig.clusterIntensity ?? 0.32) * Math.log2(cluster.size + 1));
+                const intensity = Math.min(0.78, (fogConfig.clusterIntensity ?? 0.32) * Math.log2(cluster.size + 1));
+                const coreBrightness = Math.min(1, intensity + (fogConfig.clusterCoreBoost ?? 0.18));
                 const spotlight = ctx.createRadialGradient(
                     cluster.center.x,
                     cluster.center.y,
@@ -1255,12 +1257,53 @@ const Game = {
                     cluster.center.y,
                     clusterRadius
                 );
-                spotlight.addColorStop(0, `rgba(${spotlightColors.innerBase || '180, 200, 230'}, ${intensity})`);
-                spotlight.addColorStop(0.65, spotlightColors.mid || 'rgba(80, 90, 120, 0.18)');
+                spotlight.addColorStop(0, `rgba(${spotlightColors.innerBase || '180, 200, 230'}, ${coreBrightness})`);
+                spotlight.addColorStop(0.6, spotlightColors.mid || 'rgba(80, 90, 120, 0.18)');
                 spotlight.addColorStop(1, spotlightColors.outer || 'rgba(0, 0, 0, 0)');
                 ctx.fillStyle = spotlight;
                 ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
             });
+        }
+
+        if (tileMask?.mask) {
+            const maskedOpacity = fogConfig.maskedFogOpacity ?? 0.82;
+            const overlayAlpha = Math.min(1, maskedOpacity + (tileMask.frontierOnly ? 0.05 : 0));
+            const maskKeys = Array.isArray(tileMask.mask)
+                ? tileMask.mask
+                : tileMask.mask instanceof Set
+                    ? Array.from(tileMask.mask)
+                    : tileMask.mask instanceof Map
+                        ? Array.from(tileMask.mask.keys())
+                        : [];
+
+            ctx.save();
+            ctx.globalAlpha = overlayAlpha;
+            maskKeys.forEach((key) => {
+                const hex = this.parseKey(key);
+                const position = hex.toPixel(layout);
+                const maskGradient = ctx.createRadialGradient(
+                    position.x,
+                    position.y,
+                    layout.size * 0.35,
+                    position.x,
+                    position.y,
+                    layout.size * 2.4
+                );
+                maskGradient.addColorStop(0, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
+                maskGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
+
+                ctx.beginPath();
+                for (let i = 0; i < 6; i += 1) {
+                    const angle = (2 * Math.PI / 6) * (i + 0.5);
+                    const x = position.x + layout.size * Math.cos(angle);
+                    const y = position.y + layout.size * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = maskGradient;
+                ctx.fill();
+            });
+            ctx.restore();
         }
     },
 

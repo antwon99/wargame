@@ -3,8 +3,8 @@
  * The defaults preserve the current presentation while allowing callers to
  * override specific values when experimenting with atmosphere.
  */
-const BASE_CLUSTER_INTENSITY = 0.32;
-const DEFAULT_CORE_INNER_OPACITY = 0.75 - Math.min(0.25, BASE_CLUSTER_INTENSITY * 0.25);
+const BASE_CLUSTER_INTENSITY = 0.42;
+const DEFAULT_CORE_INNER_OPACITY = 0.86 - Math.min(0.28, BASE_CLUSTER_INTENSITY * 0.18);
 
 const MIN_CORE_INNER_OPACITY = 0.05;
 
@@ -12,7 +12,8 @@ const FOG_VISUAL_CONFIG = {
     enabled: true,
     clusterGlowEnabled: true,
     clusterIntensity: BASE_CLUSTER_INTENSITY,
-    clusterRadiusMultiplier: 5.4,
+    clusterRadiusMultiplier: 4.9,
+    clusterCoreBoost: 0.18,
     coreInnerOpacity: DEFAULT_CORE_INNER_OPACITY,
     parallaxAmplitude: 28,
     parallaxSpeed: 0.35,
@@ -20,9 +21,9 @@ const FOG_VISUAL_CONFIG = {
     rippleOpacity: 0.5,
     voidFill: '#0b0b11',
     fogGradientStops: {
-        innerBase: '38, 40, 50',
-        mid: 'rgba(18, 20, 28, 0.82)',
-        outer: 'rgba(4, 4, 8, 0.98)'
+        innerBase: '56, 62, 76',
+        mid: 'rgba(32, 36, 46, 0.76)',
+        outer: 'rgba(6, 6, 10, 0.96)'
     },
     rippleGradientStops: {
         inner: 'rgba(255,255,255,0.03)',
@@ -30,8 +31,8 @@ const FOG_VISUAL_CONFIG = {
         outer: 'rgba(0,0,0,0)'
     },
     spotlightColors: {
-        innerBase: '180, 200, 230',
-        mid: 'rgba(80, 90, 120, 0.18)',
+        innerBase: '205, 225, 255',
+        mid: 'rgba(120, 150, 200, 0.22)',
         outer: 'rgba(0, 0, 0, 0)'
     }
 };

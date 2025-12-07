@@ -12,15 +12,17 @@ Two visual-only layers bolster early session identity without changing any game 
   - A primary gradient lightens around the centroid of explored/occupied tiles and darkens toward the edges.
   - A low-opacity ripple gradient drifts using a sine timer (`fog.time`) to keep the fog from feeling static.
 - No gameplay data is mutated; the functions only read existing territory maps to position the visuals.
-- `renderFogBackdrop` now accepts optional tile-mask hooks (precomputed masks or providers) but ignores them for now. This keeps
-  the visual output identical while offering a future entry point for tile-precise fog.
+- `renderFogBackdrop` accepts optional tile-mask hooks (precomputed masks or providers). When a mask is supplied, the base
+  gradient relaxes its center opacity for explored space and blends a stronger, localized fog only on masked frontier/
+  unexplored tiles. Without a mask, the renderer preserves the legacy full-screen blend (just with the brighter defaults below).
 
 ## Tuning
 - `FOG_VISUAL_CONFIG` in `scripts/fogVisualConfig.mjs` centralizes presentation knobs:
   - **Base colors:** `voidFill` for the canvas clear, `fogGradientStops` (inner/mid/outer) for the main fill, and `spotlightColors` for cluster glows.
   - **Ripple control:** `rippleEnabled` toggles the secondary wave, while `rippleOpacity` fades its impact (the RGB stops live under `rippleGradientStops`).
   - **Parallax drift:** `parallaxSpeed` and `parallaxAmplitude` control the sinusoidal offset used for the fog’s center drift.
-- `renderFogBackdrop(layout, options)` accepts tile-mask hooks for future tile-precise fog layering without altering current visuals: pass `tileMask`, a `tileMaskProvider({ layout, state, overworld, combat, frontierOnly, maskType })`, optional `frontierOnly` flags, and `onMaskResolved(payload)` callbacks for diagnostics.
+  - **Brightness defaults:** inner gradient and spotlight stops are lighter by default (`coreInnerOpacity`, brighter `innerBase`/mid stops, and a modest `clusterCoreBoost`) to keep starting clusters readable while keeping `voidFill` unchanged.
+- `renderFogBackdrop(layout, options)` now uses tile masks to concentrate opacity only where needed: pass `tileMask`, a `tileMaskProvider({ layout, state, overworld, combat, frontierOnly, maskType })`, optional `frontierOnly` flags, and `onMaskResolved(payload)` callbacks for diagnostics. The base gradient softens when a mask exists, but when the mask is omitted the legacy uniform blend renders unchanged (aside from the brighter defaults).
 - The debug helper `attachFogParallaxDebugControls` exposes a `FogParallaxTuning` API on `window` (setters for speed/amplitude plus a getter), enabling live tweaks without code reloads.
 - Default layering order stays intact when overriding: the void fill draws first, then the main fog gradient, ripple (if enabled), and cluster spotlights; tiles and UI render afterward, and `drawTileFog` remains a no-op extension point.
 - Example overrides:
