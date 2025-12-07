@@ -6,6 +6,7 @@
 const IntroOverlay = {
     overlayEl: null,
     beginBtn: null,
+    bodyEl: null,
     active: true,
     storageKey: 'hexWar_intro_seen',
 
@@ -18,7 +19,12 @@ const IntroOverlay = {
         if (!doc || this.overlayEl) return false;
         this.overlayEl = doc.getElementById('intro-overlay');
         this.beginBtn = doc.getElementById('btn-intro-begin');
+        this.bodyEl = doc.getElementById('intro-body');
         if (!this.overlayEl || !this.beginBtn) return false;
+
+        if (this.bodyEl) {
+            this.bodyEl.textContent = this.buildIntroCopy();
+        }
 
         this.beginBtn.addEventListener('click', () => this.dismiss());
         this.overlayEl.addEventListener('transitionend', () => {
@@ -91,6 +97,62 @@ const IntroOverlay = {
         const storage = this.getStorage();
         if (!storage) return;
         storage.removeItem(this.storageKey);
+    },
+
+    /**
+     * Build a short, season-aware intro line that references the spring start
+     * in April and the first deployments toward the frontier.
+     * @param {Date} [currentDate] optional date for deterministic tests
+     * @returns {string} intro copy tuned for the provided month
+     */
+    buildIntroCopy(currentDate = new Date()) {
+        const monthIndex = currentDate.getMonth();
+        const monthName = this.getMonthName(monthIndex);
+        const season = this.getSeason(monthIndex);
+
+        if (season === 'Spring') {
+            const springLead = monthName === 'April'
+                ? 'this April'
+                : `${monthName} after the April muster`;
+            return `Spring opens in April, and ${springLead} the first deployments are already rolling toward the frontier.`;
+        }
+
+        return `${season} follows the April spring start, and the first frontier deployments are still settling in as ${monthName} unfolds.`;
+    },
+
+    /**
+     * Resolve the season name based on the zero-indexed month.
+     * @param {number} monthIndex zero-indexed month from Date#getMonth()
+     * @returns {string} season label
+     */
+    getSeason(monthIndex) {
+        if (monthIndex >= 2 && monthIndex <= 4) return 'Spring';
+        if (monthIndex >= 5 && monthIndex <= 7) return 'Summer';
+        if (monthIndex >= 8 && monthIndex <= 10) return 'Autumn';
+        return 'Winter';
+    },
+
+    /**
+     * Resolve a friendly month name from a zero-indexed month.
+     * @param {number} monthIndex zero-indexed month from Date#getMonth()
+     * @returns {string} display month name
+     */
+    getMonthName(monthIndex) {
+        const months = [
+            'January',
+            'February',
+            'March',
+            'April',
+            'May',
+            'June',
+            'July',
+            'August',
+            'September',
+            'October',
+            'November',
+            'December'
+        ];
+        return months[monthIndex] || 'Unknown';
     },
 
     /** Resolve the storage API defensively for browser + test environments. */
