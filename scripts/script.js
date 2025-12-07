@@ -27,7 +27,7 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
-import { resolveFogTileMask } from './fogMask.js';
+import { buildTileVisibilityMap, resolveFogTileMask } from './fogMask.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
 import {
     attachFogParallaxDebugControls,
@@ -1229,13 +1229,34 @@ const Game = {
         return Boolean(toggle || debugToggle);
     },
 
+    /**
+     * Build a normalized visibility map spanning overworld/frontier and combat
+     * territories. Stored on the fog namespace so tile overlays and fog masks can
+     * share the same resolution each frame.
+     * @returns {Map<string, string>} keyed visibility states (unseen|seen|visible).
+     */
+    getTileVisibilityMap() {
+        const visibility = buildTileVisibilityMap({
+            state: this.state,
+            overworld: this.overworld?.hexes,
+            claimable: this.overworld?.claimable,
+            combat: this.combat?.territory
+        });
+        this.fog.visibility = visibility;
+        return visibility;
+    },
+
     drawOverworld(layout) {
+        const tileVisibility = this.fog?.visibility instanceof Map
+            ? this.fog.visibility
+            : this.getTileVisibilityMap();
         drawOverworldTiles(this.overworld, {
             layout,
             drawHex: (...args) => this.drawHex(...args),
             parseKey: (key) => this.parseKey(key),
-            drawTileFog: (hex) => this.drawTileFog(hex),
-            showClaimCosts: this.shouldShowClaimCostLabels()
+            drawTileFog: (hex, tile, visibility) => this.drawTileFog(hex, tile, visibility),
+            showClaimCosts: this.shouldShowClaimCostLabels(),
+            tileVisibility
         });
     },
 
@@ -1243,8 +1264,10 @@ const Game = {
      * Overworld rendering extension point for future per-tile fog/shroud layers.
      * Default implementation is intentionally empty to preserve current visuals.
      * @param {Hex} hex tile coordinate being rendered.
+     * @param {Object} tile raw tile payload from map iteration.
+     * @param {string} visibility normalized tile visibility label.
      */
-    drawTileFog(hex) { /* extension point; no-op by default */ },
+    drawTileFog(hex, tile, visibility) { /* extension point; no-op by default */ },
 
     /**
      * Paint a soft radial fog backdrop that darkens unexplored space while keeping
@@ -1267,13 +1290,16 @@ const Game = {
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
 
+        const tileVisibility = this.getTileVisibilityMap();
         const tileMask = resolveFogTileMask(fogMaskOptions, {
             layout,
             state: this.state,
             overworld: this.overworld.hexes,
-            combat: this.combat?.territory
+            combat: this.combat?.territory,
+            visibility: tileVisibility
         });
         this.fog.tileMask = tileMask;
+        this.fog.visibility = tileVisibility;
 
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);

@@ -155,6 +155,7 @@ function createImportStubs() {
         advanceOverworldTimer: () => ({}),
         buildClusterBonusMap: () => new Map(),
         DEFAULT_CLUSTER_RATE: 0.25,
+        buildTileVisibilityMap: () => new Map(),
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         attachFogParallaxDebugControls: () => {},
