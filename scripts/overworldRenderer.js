@@ -8,23 +8,31 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
  * without interrupting the render loop.
  * @param {{hexes: Map<string, {hex:Object, type:string}>, claimable: Map<string, number>}} overworld
  * map collection containing explored and claimable tiles.
- * @param {{layout:Object, drawHex:Function, parseKey:Function, drawTileFog?:Function, showClaimCosts?:boolean}} options
+ * @param {{layout:Object, drawHex:Function, parseKey:Function, drawTileFog?:Function, showClaimCosts?:boolean, tileVisibility?:Map<string,string>|Function}} options
  * drawing utilities and layout configuration for the current frame. The optional
  * showClaimCosts flag enables debug-only cost stamps on claimable borders; the
- * default rendering omits the labels to keep the map clean.
+ * default rendering omits the labels to keep the map clean. A tileVisibility map
+ * or resolver function can be provided to feed fog overlays with the current
+ * unseen/seen/visible state per coordinate.
  */
 export function drawOverworldTiles(
     overworld,
-    { layout, drawHex, parseKey, drawTileFog = () => {}, showClaimCosts = false }
+    { layout, drawHex, parseKey, drawTileFog = () => {}, showClaimCosts = false, tileVisibility }
 ) {
     let drawnTiles = 0;
+    const resolveTileVisibility = typeof tileVisibility === 'function'
+        ? tileVisibility
+        : (tile, key) => (tileVisibility instanceof Map ? tileVisibility.get(key) : tile?.visibility);
+
     overworld.hexes.forEach((tile) => {
         const def = OVERWORLD_TILES[tile.type.toUpperCase()];
+        const key = tile.hex?.toString ? tile.hex.toString() : undefined;
+        const visibility = resolveTileVisibility(tile, key) || 'visible';
         if (def) {
             drawHex(layout, tile.hex, def.color, '#264653', def.char);
             drawnTiles++;
         }
-        drawTileFog(tile.hex, tile);
+        drawTileFog(tile.hex, tile, visibility);
     });
 
     if (drawnTiles === 0) {

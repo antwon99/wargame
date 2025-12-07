@@ -5,8 +5,8 @@ async function run() {
 
     const overworld = {
         hexes: new Map([
-            ['castle', { hex: { id: 'castle' }, type: 'castle' }],
-            ['forest', { hex: { id: 'forest' }, type: 'forest' }]
+            ['castle', { hex: { id: 'castle', toString() { return this.id; } }, type: 'castle' }],
+            ['forest', { hex: { id: 'forest', toString() { return this.id; } }, type: 'forest' }]
         ]),
         claimable: new Map([
             ['1,0', 15]
@@ -21,15 +21,20 @@ async function run() {
         claimLabels.push(sub);
     };
     const parseKey = (key) => ({ id: key });
-    const drawTileFog = (hex) => events.push(`fog:${hex.id || hex}`);
+    const drawTileFog = (hex, _tile, visibility) => events.push(`fog:${hex.id || hex}:${visibility}`);
 
-    drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawTileFog });
+    const tileVisibility = new Map([
+        ['castle', 'visible'],
+        ['forest', 'seen']
+    ]);
+
+    drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawTileFog, tileVisibility });
 
     assert.deepStrictEqual(events, [
         'draw:castle',
-        'fog:castle',
+        'fog:castle:visible',
         'draw:forest',
-        'fog:forest',
+        'fog:forest:seen',
         'draw:1,0'
     ], 'tile fog hook should run immediately after each tile draw');
     assert.deepStrictEqual(claimLabels.filter(Boolean), [], 'claimable tiles should omit cost labels by default');
