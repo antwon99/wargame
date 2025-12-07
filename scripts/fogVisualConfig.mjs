@@ -1,7 +1,7 @@
 /**
  * Default fog visual parameters that drive the overworld/combat backdrops.
- * The defaults preserve the current presentation while allowing callers to
- * override specific values when experimenting with atmosphere.
+ * The defaults intentionally bias toward a dark void fill, leaving gradients
+ * and overlays opt-in for debug experimentation without impacting saves.
  */
 const BASE_CLUSTER_INTENSITY = 0.42;
 const DEFAULT_CORE_INNER_OPACITY = 0.86 - Math.min(0.28, BASE_CLUSTER_INTENSITY * 0.18);
@@ -11,25 +11,25 @@ const MIN_CORE_INNER_OPACITY = 0.05;
 const FOG_VISUAL_CONFIG = {
     enabled: true,
     /** Toggle tile-level fog-of-war overlays without touching backdrop visuals. */
-    tileFogEnabled: true,
+    tileFogEnabled: false,
     /** Toggle the drifting ambience cloud renderer independent of the backdrop. */
-    ambienceLayersEnabled: true,
+    ambienceLayersEnabled: false,
     /** Toggle the classic gradient/ripple/spotlight stack without impacting tile fog. */
-    legacyBackdropEnabled: true,
+    legacyBackdropEnabled: false,
     /** Toggle ambient-driven fog flourishes (gradients, ripples, spotlights). */
     ambienceEnabled: true,
     /** Enable or disable the radial gradient fill that anchors the backdrop. */
-    gradientEnabled: true,
+    gradientEnabled: false,
     /** Fall back to a simple void fill when ambience is disabled. */
     baseFillOnlyWhenAmbienceDisabled: true,
-    clusterGlowEnabled: true,
+    clusterGlowEnabled: false,
     clusterIntensity: BASE_CLUSTER_INTENSITY,
     clusterRadiusMultiplier: 4.9,
     clusterCoreBoost: 0.18,
     coreInnerOpacity: DEFAULT_CORE_INNER_OPACITY,
     parallaxAmplitude: 28,
     parallaxSpeed: 0.35,
-    rippleEnabled: true,
+    rippleEnabled: false,
     rippleOpacity: 0.5,
     voidFill: '#0b0b11',
     fogGradientStops: {
