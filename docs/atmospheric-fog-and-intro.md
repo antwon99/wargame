@@ -1,33 +1,32 @@
 # Atmospheric Fog + Intro Overlay
 
 ## Overview
-Two visual-only layers bolster early session identity without changing any game rules:
+Two visual-only layers exist, but the atmospheric flourishes are **opt-in** and ship disabled so the baseline is a quiet void fill:
 
-1. **Fog Backdrop (canvas rendering)** – unexplored space now renders as a soft radial fog that fades darker the farther it is from explored territory. The gradient drifts subtly over time so the map background feels alive without affecting interaction or tile logic.
-2. **Intro Overlay (UI block)** – a fullscreen overlay with a brief narrative setup and a Begin button that must be dismissed before interacting with the board. It fades away but does not reset or reload the game state.
+1. **Fog Backdrop (canvas rendering)** – legacy radial gradients/ripples are off by default. The canvas clears to the void color and stays static unless debug toggles are flipped for QA.
+2. **Intro Overlay (UI block)** – a fullscreen overlay with a brief narrative setup and a Begin button that must be dismissed before interacting with the board. It fades away but does not reset or reload the game state. Copy should mirror the in-game overlay: concise prompt plus a Begin/Start label.
 
 ## Fog Rendering Details
 - Implemented in `scripts/script.js` via `renderFogBackdrop` and `getTerritoryScreenCenter`.
-- The backdrop is drawn before any tiles using two radial gradients:
-  - A primary gradient lightens around the centroid of explored/occupied tiles and darkens toward the edges.
-  - A low-opacity ripple gradient drifts using a sine timer (`fog.time`) to keep the fog from feeling static.
-- No gameplay data is mutated; the functions only read existing territory maps to position the visuals.
-- `renderFogBackdrop` accepts optional tile-mask hooks (precomputed masks or providers). When a mask is supplied, the base
-  gradient relaxes its center opacity for explored space and blends a stronger, localized fog only on masked frontier/
-  unexplored tiles. Without a mask, the renderer preserves the legacy full-screen blend (just with the brighter defaults below).
+- Default behavior clears to `voidFill` only; gradients, ripples, and cluster glows remain off unless explicitly enabled for
+  debugging or future seasonal reuse (e.g., snow drift experiments).
+- No gameplay data is mutated; the functions only read existing territory maps to position visuals when requested.
+- `renderFogBackdrop` still accepts tile-mask hooks (precomputed masks or providers). When a mask is supplied and visuals are
+  toggled on, the base gradient relaxes its center opacity for explored space and blends localized fog on masked frontier/
+  unexplored tiles. With visuals off, the mask path becomes a noop while keeping mask utilities available for other systems.
 
 ## Tuning
-- `FOG_VISUAL_CONFIG` in `scripts/fogVisualConfig.mjs` centralizes presentation knobs:
+- `FOG_VISUAL_CONFIG` in `scripts/fogVisualConfig.mjs` still centralizes presentation knobs for anyone re-enabling visuals:
   - **Base colors:** `voidFill` for the canvas clear, `fogGradientStops` (inner/mid/outer) for the main fill, and `spotlightColors` for cluster glows.
-  - **Ripple control:** `rippleEnabled` toggles the secondary wave, while `rippleOpacity` fades its impact (the RGB stops live under `rippleGradientStops`).
-  - **Parallax drift:** `parallaxSpeed` and `parallaxAmplitude` control the sinusoidal offset used for the fog’s center drift.
-  - **Brightness defaults:** inner gradient and spotlight stops are lighter by default (`coreInnerOpacity`, brighter `innerBase`/mid stops, and a modest `clusterCoreBoost`) to keep starting clusters readable while keeping `voidFill` unchanged.
-- `renderFogBackdrop(layout, options)` now uses tile masks to concentrate opacity only where needed: pass `tileMask`, a `tileMaskProvider({ layout, state, overworld, combat, frontierOnly, maskType })`, optional `frontierOnly` flags, and `onMaskResolved(payload)` callbacks for diagnostics. The base gradient softens when a mask exists, but when the mask is omitted the legacy uniform blend renders unchanged (aside from the brighter defaults).
-- Default layering order stays intact when overriding: the void fill draws first, then the main fog gradient, ripple (if enabled), and cluster spotlights; tiles and UI render afterward, and `drawTileFog` remains a no-op extension point.
+  - **Ripple control:** `rippleEnabled` toggles the secondary wave, while `rippleOpacity` fades its impact (the RGB stops live under `rippleGradientStops`). Defaults leave these off.
+  - **Parallax drift:** `parallaxSpeed` and `parallaxAmplitude` control the sinusoidal offset used for the fog’s center drift when enabled; keep them at zero for a static void.
+  - **Brightness defaults:** inner gradient and spotlight stops remain documented for teams that intentionally bring the backdrop back for tests.
+- `renderFogBackdrop(layout, options)` keeps mask hooks: pass `tileMask`, a `tileMaskProvider({ layout, state, overworld, combat, frontierOnly, maskType })`, optional `frontierOnly` flags, and `onMaskResolved(payload)` callbacks for diagnostics. With visuals disabled, the mask path is inert but still useful for QA telemetry.
+- Layering order stays intact when re-enabled: the void fill draws first, then the main fog gradient, ripple (if enabled), and cluster spotlights; tiles and UI render afterward, and `drawTileFog` remains a no-op extension point.
 - Example overrides:
-  - Feature toggle override: `game.featureToggles.fog = { ...FOG_VISUAL_CONFIG, voidFill: '#05050a', rippleEnabled: false, parallaxSpeed: 0.5 };`
+  - Feature toggle override: `game.featureToggles.fog = { ...FOG_VISUAL_CONFIG, legacyBackdropEnabled: true, rippleEnabled: true, parallaxSpeed: 0.5 };`
   - Tile-mask hook: `renderFogBackdrop(layout, { frontierOnly: true, tileMask: new Set(frontierKeys), onMaskResolved: ({ maskType }) => console.debug('Fog mask', maskType) });`
-  - Runtime toggles: use the debug overlay (F3) to flip backdrop fog, tile fog, ambience clouds, or fog flourishes without touching console globals.
+  - Runtime toggles: use the debug overlay (F3) to flip backdrop fog, tile fog, ambience clouds, or fog flourishes without touching console globals; ship defaults keep everything dark.
 
 ## Intro Overlay Behavior
 - Markup lives in `Wargame.html` with IDs `intro-overlay` and `btn-intro-begin`.
