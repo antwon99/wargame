@@ -16,7 +16,8 @@ export class AmbienceRenderer {
         this.ctx = ctx;
         this.time = 0;
         this.viewport = { width: 0, height: 0 };
-        this.config = this.resolveConfig(config);
+        this.baseConfig = this.resolveConfig(config);
+        this.config = this.cloneConfig(this.baseConfig);
         this.canvasFactory = canvasFactory || (() => {
             if (typeof document === 'undefined') return null;
             const canvas = document.createElement('canvas');
@@ -25,10 +26,27 @@ export class AmbienceRenderer {
         });
         this.layers = this.config.layers.map((layerConfig, index) => ({
             config: layerConfig,
+            baseConfig: this.baseConfig.layers[index] || layerConfig,
             pattern: null,
             seed: index * 97 + 11
         }));
         this.rebuildTextures();
+    }
+
+    /**
+     * Deep copy the sanitized config so intensity modulation never mutates the
+     * shared defaults.
+     * @param {object} source base configuration to copy.
+     * @returns {object} cloned configuration with cloned layer objects.
+     */
+    cloneConfig(source = {}) {
+        return {
+            ...source,
+            layers: (source.layers || []).map(layer => ({
+                ...layer,
+                drift: { ...(layer.drift || {}) }
+            }))
+        };
     }
 
     /**
@@ -44,9 +62,9 @@ export class AmbienceRenderer {
             fadeRadiusFactor: 0.55,
             fadeFeather: 0.35,
             layers: [
-                { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18 },
-                { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22 },
-                { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14 }
+                { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18, whiteness: 1 },
+                { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22, whiteness: 1 },
+                { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14, whiteness: 1 }
             ]
         };
         const merged = {
@@ -63,7 +81,8 @@ export class AmbienceRenderer {
                 y: Number.isFinite(layer.drift?.y) ? layer.drift.y : -3
             },
             scale: Math.max(120, layer.scale || 512),
-            density: Math.max(0.05, Math.min(0.5, layer.density ?? 0.2))
+            density: Math.max(0.05, Math.min(0.5, layer.density ?? 0.2)),
+            whiteness: Math.max(0, Math.min(1.25, layer.whiteness ?? 1))
         }));
         return merged;
     }
@@ -73,20 +92,26 @@ export class AmbienceRenderer {
      * Invoked at construction and whenever density/scale inputs change.
      */
     rebuildTextures() {
-        this.layers.forEach(layer => {
-            const canvas = this.canvasFactory?.();
-            if (!canvas || typeof canvas.getContext !== 'function') {
-                layer.pattern = null;
-                return;
-            }
-            const size = layer.config.scale;
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, size, size);
-            this.seededNoise(ctx, size, layer.config.density, layer.seed);
-            layer.pattern = this.ctx?.createPattern ? this.ctx.createPattern(canvas, 'repeat') : null;
-        });
+        this.layers.forEach(layer => this.rebuildLayerTexture(layer));
+    }
+
+    /**
+     * Rebuild a single layer's repeating pattern based on its current config.
+     * @param {object} layer layer metadata containing the config to rebuild.
+     */
+    rebuildLayerTexture(layer) {
+        const canvas = this.canvasFactory?.();
+        if (!canvas || typeof canvas.getContext !== 'function') {
+            layer.pattern = null;
+            return;
+        }
+        const size = layer.config.scale;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, size, size);
+        this.seededNoise(ctx, size, layer.config.density, layer.seed, layer.config.whiteness);
+        layer.pattern = this.ctx?.createPattern ? this.ctx.createPattern(canvas, 'repeat') : null;
     }
 
     /**
@@ -97,7 +122,7 @@ export class AmbienceRenderer {
      * @param {number} density blot density from 0..1.
      * @param {number} seed deterministic seed to offset randomness per layer.
      */
-    seededNoise(ctx, size, density, seed = 1) {
+    seededNoise(ctx, size, density, seed = 1, whiteness = 1) {
         const blotCount = Math.max(8, Math.floor(size * density));
         for (let i = 0; i < blotCount; i += 1) {
             const localSeed = (seed + i * 37) % 7919;
@@ -106,7 +131,8 @@ export class AmbienceRenderer {
             const x = rng() * size;
             const y = rng() * size;
             const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+            const normalizedWhiteness = Math.max(0, Math.min(1.25, whiteness));
+            gradient.addColorStop(0, `rgba(255, 255, 255, ${0.12 * normalizedWhiteness})`);
             gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
@@ -143,6 +169,52 @@ export class AmbienceRenderer {
      */
     update(dt = 0) {
         this.time += dt;
+    }
+
+    /**
+     * Dynamically adjust ambience strength without mutating the base config so
+     * seasonal snowfall or debug knobs can fade clouds in and out smoothly.
+     *
+     * @param {object} profile resolved ambience profile.
+     * @param {number} [profile.intensity=1] normalized ambience strength.
+     * @param {number} [profile.opacityFloor=0] minimum opacity floor (useful for drift noise).
+     * @param {number} [profile.densityMultiplier=1] multiplier applied to blot density.
+     * @param {number} [profile.driftMultiplier=1] multiplier applied to drift speed.
+     * @param {number} [profile.scaleMultiplier=1] multiplier applied to blot scale.
+     * @param {number} [profile.whiteness=1] color strength multiplier for blot cores.
+     */
+    applyIntensityProfile(profile = {}) {
+        const intensity = Math.max(0, Math.min(1, profile.intensity ?? 1));
+        const opacityFloor = Math.max(0, Math.min(1, profile.opacityFloor ?? 0));
+        const densityMultiplier = Math.max(0.05, profile.densityMultiplier ?? 1);
+        const driftMultiplier = Math.max(0, profile.driftMultiplier ?? 1);
+        const scaleMultiplier = Math.max(0.35, profile.scaleMultiplier ?? 1);
+        const whiteness = Math.max(0, Math.min(1.25, profile.whiteness ?? 1));
+
+        this.config.enabled = this.baseConfig.enabled && (intensity > 0 || opacityFloor > 0);
+
+        this.layers.forEach((layer, index) => {
+            const baseLayer = this.baseConfig.layers[index] || this.baseConfig.layers[this.baseConfig.layers.length - 1];
+            const nextConfig = {
+                opacity: Math.max(opacityFloor, baseLayer.opacity * intensity),
+                drift: {
+                    x: baseLayer.drift.x * driftMultiplier,
+                    y: baseLayer.drift.y * driftMultiplier
+                },
+                scale: Math.max(90, baseLayer.scale * scaleMultiplier),
+                density: Math.max(0.02, baseLayer.density * densityMultiplier),
+                whiteness: Math.max(0, Math.min(1.25, (baseLayer.whiteness ?? 1) * whiteness))
+            };
+
+            const needsTexture =
+                Math.abs(nextConfig.scale - layer.config.scale) > 3
+                || Math.abs(nextConfig.density - layer.config.density) > 0.02
+                || Math.abs(nextConfig.whiteness - (layer.config.whiteness ?? 1)) > 0.05;
+
+            layer.config = nextConfig;
+            this.config.layers[index] = nextConfig;
+            if (needsTexture) this.rebuildLayerTexture(layer);
+        });
     }
 
     /**

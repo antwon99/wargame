@@ -66,6 +66,15 @@ async function run() {
         'ambience mask should use destination-out compositing to punch a hole through the clouds'
     );
 
+    renderer.applyIntensityProfile({ intensity: 0, opacityFloor: 0 });
+    assert.strictEqual(renderer.config.enabled, false, 'zero intensity should disable ambience rendering');
+
+    renderer.applyIntensityProfile({ intensity: 1, driftMultiplier: 2, densityMultiplier: 1.5, scaleMultiplier: 0.5, whiteness: 1.1 });
+    const modulatedLayer = renderer.layers[0];
+    assert.ok(modulatedLayer.config.opacity >= 0.5, 'full intensity should preserve or raise base opacity');
+    assert.ok(modulatedLayer.config.drift.x > modulatedLayer.baseConfig.drift.x, 'drift should speed up when driftMultiplier is applied');
+    assert.ok(modulatedLayer.config.whiteness >= modulatedLayer.baseConfig.whiteness, 'whiteness should scale up with intensity');
+
     console.log('Ambience renderer tests passed.');
 }
 

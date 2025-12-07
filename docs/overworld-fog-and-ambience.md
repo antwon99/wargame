@@ -18,7 +18,9 @@ fog hooks can branch without recomputing booleans:
 
 ## Ambience cloud layers
 The ambience renderer (see `scripts/ambienceRenderer.js`) layers grayscale cloud sheets between the backdrop fill and tile pass.
-Each layer drifts independently to avoid tiling artifacts and respects the active viewport size.
+Each layer drifts independently to avoid tiling artifacts and respects the active viewport size. Seasonal snowfall now modulates
+these layers: winter months raise density/opacity/whiteness and speed up the drift, while summer months mute ambience back to
+the original dark void unless a small noise floor is enabled for debug.
 
 Fog visuals pull their knobs from `scripts/fogVisualConfig.mjs` and `featureToggles.ambience`:
 - `ambienceEnabled`: master switch for ambience rendering.
@@ -26,7 +28,8 @@ Fog visuals pull their knobs from `scripts/fogVisualConfig.mjs` and `featureTogg
 - `baseFillOnlyWhenAmbienceDisabled`: when true, ambience-off frames still clear the canvas with the void color before tiles and
   tile fog draw.
 - `legacyBackdropEnabled`: keeps the gradient/ripple/cluster glows on; disable to rely solely on ambience clouds and the void
-  fill.
+  fill. The seasonal snowfall defaults this to **off** to preserve the stark winter void while keeping the legacy stack
+  available for debugging.
 
 ### Example toggle usage
 ```js

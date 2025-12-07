@@ -64,6 +64,11 @@ async function run() {
         'parallax override should fall back to config amplitude when omitted'
     );
 
+    const runtimeOverride = resolveFogVisualConfig({ gradientEnabled: true }, { rippleEnabled: false });
+    assert.strictEqual(runtimeOverride.gradientEnabled, true, 'config overrides should merge before runtime overrides');
+    assert.strictEqual(runtimeOverride.rippleEnabled, false, 'runtime overrides should apply last for seasonal toggles');
+    assert.strictEqual(FOG_VISUAL_CONFIG.legacyBackdropEnabled, false, 'legacy fog visuals should default to off for snow mode');
+
     const debugHarness = {};
     const parallaxTuning = attachFogParallaxDebugControls(debugHarness);
     assert.ok(parallaxTuning, 'debug controls should attach when a target is provided');

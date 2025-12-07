@@ -164,6 +164,22 @@ function createImportStubs() {
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: () => 1,
         resolveFogVisualConfig: () => ({}),
+        SeasonalSnowfallController: class {
+            constructor() {
+                this.profile = {
+                    intensity: 0,
+                    targetIntensity: 0,
+                    noiseFloor: 0,
+                    driftMultiplier: 1,
+                    densityMultiplier: 1,
+                    scaleMultiplier: 1,
+                    whiteness: 1,
+                    opacityFloor: 0
+                };
+            }
+            update() { return this.profile; }
+            attachDebugControls() {}
+        },
         validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
 }

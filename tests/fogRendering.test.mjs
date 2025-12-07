@@ -120,10 +120,13 @@ function createImportStubs() {
     const defaultFogConfig = {
         enabled: true,
         ambienceEnabled: true,
+        ambienceLayersEnabled: true,
         baseFillOnlyWhenAmbienceDisabled: true,
-        rippleEnabled: true,
+        legacyBackdropEnabled: false,
+        gradientEnabled: false,
+        rippleEnabled: false,
         rippleOpacity: 0.5,
-        clusterGlowEnabled: true,
+        clusterGlowEnabled: false,
         fogGradientStops: {},
         rippleGradientStops: {},
         spotlightColors: {},
@@ -215,6 +218,22 @@ function createImportStubs() {
             parallaxAmplitude: cfg.parallaxAmplitude ?? defaultFogConfig.parallaxAmplitude
         }),
         resolveFogVisualConfig: (cfg = {}) => ({ ...defaultFogConfig, ...cfg }),
+        SeasonalSnowfallController: class {
+            constructor() {
+                this.profile = {
+                    intensity: 0,
+                    targetIntensity: 0,
+                    noiseFloor: 0,
+                    driftMultiplier: 1,
+                    densityMultiplier: 1,
+                    scaleMultiplier: 1,
+                    whiteness: 1,
+                    opacityFloor: 0
+                };
+            }
+            update() { return this.profile; }
+            attachDebugControls() {}
+        },
         validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
 }

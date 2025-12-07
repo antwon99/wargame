@@ -37,6 +37,7 @@ import {
     resolveFogVisualConfig
 } from './fogVisualConfig.mjs';
 import AmbienceRenderer from './ambienceRenderer.js';
+import SeasonalSnowfallController from './seasonalSnowfall.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
@@ -120,9 +121,9 @@ const AMBIENCE_CONFIG = {
     fadeRadiusFactor: 0.55,
     fadeFeather: 0.35,
     layers: [
-        { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18 },
-        { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22 },
-        { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14 }
+        { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18, whiteness: 1 },
+        { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22, whiteness: 1 },
+        { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14, whiteness: 1 }
     ]
 };
 
@@ -297,13 +298,15 @@ const Game = {
     timekeeper: new Timekeeper(),
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
-    fog: { time: 0 },
+    fog: { time: 0, runtimeOverrides: {} },
     featureToggles: {
         fog: { ...FOG_VISUAL_CONFIG },
         camera: { ...CAMERA_MOTION_CONFIG },
         ambience: { ...AMBIENCE_CONFIG },
         overworld: { showClaimCosts: false }
     },
+    seasonalSnowfall: null,
+    seasonalAmbienceProfile: null,
     ambienceRenderer: null,
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
@@ -330,6 +333,8 @@ const Game = {
             this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
             this.applyFeatureOverrides();
             this.timekeeper.onChange(() => this.updateHUD());
+            this.seasonalSnowfall = new SeasonalSnowfallController({ timekeeper: this.timekeeper, noiseFloor: 0 });
+            this.seasonalSnowfall.attachDebugControls();
             this.resize();
             if (AmbienceRendererClass) {
                 this.ambienceRenderer = new AmbienceRendererClass({
@@ -337,6 +342,10 @@ const Game = {
                     config: this.featureToggles.ambience
                 });
                 this.ambienceRenderer.resize(this.viewport);
+                this.seasonalAmbienceProfile = this.seasonalSnowfall?.update(0);
+                if (this.seasonalAmbienceProfile) {
+                    this.ambienceRenderer.applyIntensityProfile(this.seasonalAmbienceProfile);
+                }
             }
             AudioDebugConsole.init();
             this.bindVoidClickEasterEgg();
@@ -715,15 +724,51 @@ const Game = {
         debugEl.textContent = `⚠️ ${message}`;
     },
 
+    /**
+     * Blend the seasonal snowfall intensity toward its target and forward the
+     * resulting profile into the ambience renderer + fog toggles.
+     * @param {number} dt delta time (seconds).
+     * @returns {object} resolved ambience profile for the current frame.
+     */
+    updateSeasonalAmbience(dt = 0) {
+        const fallbackProfile = {
+            intensity: 0,
+            targetIntensity: 0,
+            noiseFloor: 0,
+            driftMultiplier: 1,
+            densityMultiplier: 1,
+            scaleMultiplier: 1,
+            whiteness: 1,
+            opacityFloor: 0
+        };
+        const profile = this.seasonalSnowfall?.update(dt) || fallbackProfile;
+        this.seasonalAmbienceProfile = profile;
+        const ambienceAllowed = this.featureToggles?.ambience?.enabled !== false;
+        const ambienceActive = ambienceAllowed && (profile.intensity >= profile.noiseFloor || profile.opacityFloor > 0);
+        this.fog.runtimeOverrides = {
+            ...(this.fog.runtimeOverrides || {}),
+            ambienceLayersEnabled: ambienceActive
+        };
+        if (this.ambienceRenderer) {
+            this.ambienceRenderer.applyIntensityProfile({
+                ...profile,
+                intensity: ambienceActive ? profile.intensity : 0
+            });
+        }
+        return profile;
+    },
+
     loop(now) {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
         try {
+            const seasonalAmbience = this.updateSeasonalAmbience(dt);
             const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
             const ambienceLayersEnabled = fogConfig.ambienceLayersEnabled !== false
-                && this.featureToggles?.ambience?.enabled !== false;
+                && this.featureToggles?.ambience?.enabled !== false
+                && (seasonalAmbience?.intensity >= seasonalAmbience?.noiseFloor || seasonalAmbience?.opacityFloor > 0);
             if (this.ambienceRenderer && ambienceLayersEnabled) this.ambienceRenderer.update(dt);
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
             if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
@@ -1316,7 +1361,7 @@ const Game = {
      * @returns {Object} normalized fog configuration derived from feature toggles.
      */
     resolveFogConfig() {
-        const config = resolveFogVisualConfig(this.featureToggles?.fog);
+        const config = resolveFogVisualConfig(this.featureToggles?.fog, this.fog?.runtimeOverrides);
         this.fog.visualConfig = config;
         return config;
     },
@@ -1450,15 +1495,16 @@ const Game = {
         if (this.ambienceRenderer && ambienceCloudsEnabled) {
             this.ambienceRenderer.render({ center: ambienceCenter });
         }
-        if (fogConfig.enabled === false || baseFillOnly || legacyBackdropEnabled === false) return;
+        if (fogConfig.enabled === false) return;
 
+        const skipLegacyLayers = baseFillOnly || legacyBackdropEnabled === false;
         const center = ambienceCenter;
         const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
         const drift = Math.sin(this.fog.time * parallaxSpeed) * parallaxAmplitude;
         const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
         const innerRadius = Math.max(layout.size * 3, radius * 0.25);
 
-        if (fogConfig.gradientEnabled !== false) {
+        if (!skipLegacyLayers && fogConfig.gradientEnabled !== false) {
             const fogGradient = ctx.createRadialGradient(
                 center.x + drift,
                 center.y - drift,
@@ -1476,7 +1522,7 @@ const Game = {
             ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
         }
 
-        if (fogConfig.rippleEnabled !== false) {
+        if (!skipLegacyLayers && fogConfig.rippleEnabled !== false) {
             const rippleGradient = ctx.createRadialGradient(
                 center.x - drift * 0.4,
                 center.y + drift * 0.6,
@@ -1495,7 +1541,7 @@ const Game = {
             ctx.globalAlpha = 1.0;
         }
 
-        if (fogConfig.clusterGlowEnabled !== false) {
+        if (!skipLegacyLayers && fogConfig.clusterGlowEnabled !== false) {
             const clusters = this.collectExploredClusters(layout);
             clusters.forEach((cluster) => {
                 const clusterRadius = Math.max(

@@ -15,14 +15,14 @@ const FOG_VISUAL_CONFIG = {
     /** Toggle the drifting ambience cloud renderer independent of the backdrop. */
     ambienceLayersEnabled: true,
     /** Toggle the classic gradient/ripple/spotlight stack without impacting tile fog. */
-    legacyBackdropEnabled: true,
+    legacyBackdropEnabled: false,
     /** Toggle ambient-driven fog flourishes (gradients, ripples, spotlights). */
     ambienceEnabled: true,
     /** Enable or disable the radial gradient fill that anchors the backdrop. */
-    gradientEnabled: true,
+    gradientEnabled: false,
     /** Fall back to a simple void fill when ambience is disabled. */
     baseFillOnlyWhenAmbienceDisabled: true,
-    clusterGlowEnabled: true,
+    clusterGlowEnabled: false,
     clusterIntensity: BASE_CLUSTER_INTENSITY,
     clusterRadiusMultiplier: 4.9,
     clusterCoreBoost: 0.18,
@@ -69,10 +69,11 @@ function resolveFogInnerOpacity(fogConfig = {}) {
  * to reasonable values. Nested gradient stop collections are returned intact or
  * fall back to defaults so downstream rendering never dereferences undefined.
  * @param {Object} [fogConfig] optional overrides from feature toggles or saves
+ * @param {Object} [runtimeOverrides] ephemeral overrides (e.g., seasonal ambience) applied after config merges
  * @returns {Object} sanitized config that mirrors `FOG_VISUAL_CONFIG` shape
  */
-function resolveFogVisualConfig(fogConfig = {}) {
-    const normalized = { ...FOG_VISUAL_CONFIG, ...(fogConfig || {}) };
+function resolveFogVisualConfig(fogConfig = {}, runtimeOverrides = {}) {
+    const normalized = { ...FOG_VISUAL_CONFIG, ...(fogConfig || {}), ...(runtimeOverrides || {}) };
     normalized.coreInnerOpacity = resolveFogInnerOpacity(normalized);
     const rippleOpacity = Number.isFinite(normalized.rippleOpacity)
         ? normalized.rippleOpacity
