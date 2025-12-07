@@ -207,7 +207,6 @@ function createImportStubs() {
         },
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
-        attachFogParallaxDebugControls: () => {},
         FOG_VISUAL_CONFIG: defaultFogConfig,
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: (cfg = {}) => ({
@@ -260,6 +259,7 @@ async function testTileFogMasks() {
     Game.ctx = recordingContext;
     Game.viewport = { width: 200, height: 200 };
     Game.fog = { visibility: new mapCtor(), hexLayout: layout };
+    Game.featureToggles.fog.tileFogEnabled = true;
 
     recordingContext.operations.length = 0;
     const seenHex = new Hex(0, 0);

@@ -128,7 +128,7 @@
             border-radius: 6px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
             z-index: 1000;
-            pointer-events: none;
+            pointer-events: auto;
             opacity: 0.92;
             display: none;
         }
@@ -139,6 +139,8 @@
         }
         #audio-debug-panel .section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         #audio-debug-panel .label { color: #9be3b4; font-weight: 700; text-transform: uppercase; font-size: 10px; }
+        #audio-debug-panel .debug-toggle-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+        #audio-debug-panel .debug-toggle-row input { pointer-events: auto; }
         #audio-debug-panel ul { margin: 4px 0 0 14px; padding: 0; }
         #audio-debug-panel li { margin: 0; padding: 0; list-style: disc; }
 

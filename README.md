@@ -44,7 +44,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ### Fog visuals
 
-- `scripts/fogVisualConfig.mjs` is the single source of truth for fog colors, opacities, ripple tuning, and parallax drift values used by the overworld and combat backdrops, and it is also where the `FogParallaxTuning` console API is attached for live speed/amplitude tweaks. Feature toggles in `scripts/script.js` read from this config (and explicit overrides) to decide whether fog is enabled, whether ripples render, and which gradients to apply.
+- `scripts/fogVisualConfig.mjs` is the single source of truth for fog colors, opacities, ripple tuning, and parallax drift values used by the overworld and combat backdrops. Feature toggles in `scripts/script.js` read from this config (and explicit overrides) to decide whether fog is enabled, whether ripples render, and which gradients to apply. Temporary fog toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
 - Per-hex fog/shroud overlays can be supplied via the `drawTileFog` extension point passed into `drawOverworldTiles()`; the default implementation is a no-op, so custom tile fog can be layered on without changing the base renderer.
 
 
