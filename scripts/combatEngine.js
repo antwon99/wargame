@@ -271,7 +271,7 @@ export function registerKill(game, owner) {
  */
 export function recordWarEnd(game, outcome) {
     const normalized = outcome || 'RETREAT';
-    game.stats.bestDifficulty = Math.max(game.stats.bestDifficulty, game.difficulty);
+    game.stats.bestLevel = Math.max(game.stats.bestLevel, game.difficulty);
     game.stats.bestKills = Math.max(game.stats.bestKills, game.session.warKills);
     game.stats.lastOutcome = normalized;
     game.updateLeaderboardUI();
@@ -538,7 +538,7 @@ export function startWar(game, clickEvt, hexImpl) {
     game.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
     game.spawnParticleBurst(anchorX, anchorY, 8);
     game.resetSession();
-    game.stats.warsPlayed++;
+    game.stats.warsFought++;
     game.updateLeaderboardUI();
     game.state = 'COMBAT';
 

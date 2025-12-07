@@ -159,6 +159,7 @@ function createImportStubs() {
         buildTileVisibilityMap: () => new Map(),
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
+        START_TICK: 0,
         FOG_VISUAL_CONFIG: {},
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: () => 1,
@@ -205,8 +206,8 @@ async function testInitWithGlobalsPresent() {
             getAvailableTechs: () => []
         },
         Persistence: {
-            DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastSaveISO: null },
-            loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastSaveISO: null }, slot: '1' }),
+            DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null },
+            loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null }, slot: '1' }),
             saveSnapshot: () => {}
         }
     };
