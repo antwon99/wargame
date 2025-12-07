@@ -22,7 +22,7 @@ import {
 } from './combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
-import { Timekeeper } from './timekeeper.js';
+import { START_TICK, Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
@@ -347,7 +347,7 @@ const Game = {
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
     imperialMandates: ImperialMandates,
-    timekeeper: new Timekeeper(),
+    timekeeper: new Timekeeper({ startTick: START_TICK }),
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
     fog: { time: 0 },
@@ -612,7 +612,7 @@ const Game = {
         this.updateResearchBonuses();
         this.resetSession();
         this.imperialFavor = DEFAULT_IMPERIAL_FAVOR;
-        this.timekeeper.reset(0);
+        this.timekeeper.reset(START_TICK);
         this.pendingNotifications = [];
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();

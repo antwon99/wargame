@@ -1,16 +1,27 @@
 const assert = require('assert');
 
 async function run() {
-    const { Timekeeper } = await import('../scripts/timekeeper.js');
-    const tk = new Timekeeper();
+    const { MONTH_NAMES, START_MONTH_INDEX, START_TICK, Timekeeper } = await import('../scripts/timekeeper.js');
+    const tkDefault = new Timekeeper();
 
-    const start = tk.getCalendar();
+    assert.strictEqual(tkDefault.ticks, START_TICK, 'default start tick should align with the configured start month');
+    const start = tkDefault.getCalendar();
     assert.deepStrictEqual(
         start,
-        { dayOfWeek: 1, weekOfMonth: 1, month: 1, day: 1, dayOfMonth: 1, daysPerMonth: 28, monthName: 'Jan', year: 1 },
-        'fresh calendar should start on Day 1'
+        {
+            dayOfWeek: 1,
+            weekOfMonth: 1,
+            month: START_MONTH_INDEX + 1,
+            day: START_TICK + 1,
+            dayOfMonth: 1,
+            daysPerMonth: 28,
+            monthName: MONTH_NAMES[START_MONTH_INDEX],
+            year: 1
+        },
+        'fresh calendar should honor the configured starting month'
     );
 
+    const tk = new Timekeeper({ startTick: 0 });
     tk.advance(6); // Move to final day of first week (7-day week)
     const endOfWeek = tk.getCalendar();
     assert.strictEqual(endOfWeek.dayOfWeek, 7, 'day counter should land on final weekday');

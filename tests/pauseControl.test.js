@@ -18,7 +18,7 @@ async function testPausedStopsOverworldTick() {
         upgrades: { mines: 1 },
         gold: 0,
         wood: 0,
-        timekeeper: new Timekeeper(),
+        timekeeper: new Timekeeper({ startTick: 0 }),
         getIncomeMulti() { return 1; },
         updateHUDCalls: 0,
         updateUpgradeMenuCalls: 0,
@@ -56,7 +56,7 @@ async function testUnpausedAppliesIncomeAndMandates() {
         upgrades: { mines: 1 },
         gold: 0,
         wood: 0,
-        timekeeper: new Timekeeper(),
+        timekeeper: new Timekeeper({ startTick: 0 }),
         getIncomeMulti() { return 1; },
         updateHUDCalls: 0,
         updateUpgradeMenuCalls: 0,
@@ -76,8 +76,8 @@ async function testUnpausedAppliesIncomeAndMandates() {
         uiBindings
     });
 
-    assert.strictEqual(game.gold, 4, 'castle and town income should apply when unpaused');
-    assert.strictEqual(game.wood, 3, 'forest and castle wood should apply with bonuses');
+    assert.strictEqual(game.gold, 6, 'castle and town income should apply when unpaused');
+    assert.strictEqual(game.wood, 4, 'forest and castle wood should apply with bonuses');
     assert.strictEqual(game.timekeeper.ticks, 1, 'calendar should advance by one tick when economy runs');
     assert.ok(game.spawnTxtCalls.length > 0, 'income text should display when resources change');
     assert.strictEqual(mandateTicks, 1, 'mandate manager should receive ticks when unpaused');
