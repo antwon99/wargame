@@ -1,4 +1,5 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
+import { TILE_VISIBILITY } from './fogMask.js';
 
 /**
  * Render the overworld layer tiles and claimable borders while invoking a per-tile
@@ -17,7 +18,16 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
  */
 export function drawOverworldTiles(
     overworld,
-    { layout, drawHex, parseKey, drawTileFog = () => {}, showClaimCosts = false, tileVisibility }
+    {
+        layout,
+        drawHex,
+        parseKey,
+        drawTileFog = () => {},
+        showClaimCosts = false,
+        tileVisibility,
+        ambienceEnabled = true,
+        ambienceLayersEnabled = true
+    }
 ) {
     let drawnTiles = 0;
     const resolveTileVisibility = typeof tileVisibility === 'function'
@@ -27,12 +37,20 @@ export function drawOverworldTiles(
     overworld.hexes.forEach((tile) => {
         const def = OVERWORLD_TILES[tile.type.toUpperCase()];
         const key = tile.hex?.toString ? tile.hex.toString() : undefined;
-        const visibility = resolveTileVisibility(tile, key) || 'visible';
+        const visibility = resolveTileVisibility(tile, key) || TILE_VISIBILITY.VISIBLE;
+        const fogState = {
+            visibility,
+            isUnseen: visibility === TILE_VISIBILITY.UNSEEN,
+            isSeen: visibility === TILE_VISIBILITY.SEEN,
+            isVisible: visibility === TILE_VISIBILITY.VISIBLE,
+            ambienceEnabled: ambienceEnabled !== false,
+            ambienceLayersEnabled: ambienceLayersEnabled !== false
+        };
         if (def) {
             drawHex(layout, tile.hex, def.color, '#264653', def.char);
             drawnTiles++;
         }
-        drawTileFog(tile.hex, tile, visibility);
+        drawTileFog(tile.hex, tile, visibility, fogState);
     });
 
     if (drawnTiles === 0) {
