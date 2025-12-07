@@ -102,7 +102,7 @@ const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
     b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
 
-const DEFAULT_IMPERIAL_FAVOR = 5;
+    const DEFAULT_IMPERIAL_FAVOR = 5;
 
 const CAMERA_MOTION_CONFIG = {
     enabled: true,
@@ -295,6 +295,9 @@ const Game = {
 
     init() {
         try {
+            if (typeof window !== 'undefined' && window.IntroOverlay) {
+                window.IntroOverlay.init(document);
+            }
             this.dependencyHealth = validateBootstrapDependencies({
                 researchSystem: ResearchSystem,
                 persistence: Persistence,
@@ -315,12 +318,7 @@ const Game = {
 
             window.addEventListener('intro:begin', () => {
                 if (!this.shouldRunImperialIntro) return;
-                if (ImperialMandates?.issuePendingMandates) {
-                    ImperialMandates.issuePendingMandates(this, {
-                        showTileCallout: this.showTileCallout,
-                        hideTileCallout: this.hideTileCallout
-                    });
-                }
+                this.issueImperialIntroMandate();
                 this.shouldRunImperialIntro = false;
             });
 
@@ -363,6 +361,16 @@ const Game = {
             this.logBootstrapWarning('Bootstrap encountered recoverable issues; continuing render loop.');
         } finally {
             this.armRenderLoop();
+        }
+    },
+
+    /** Issue the opening imperial mandate sequence if the manager is available. */
+    issueImperialIntroMandate() {
+        if (ImperialMandates?.issuePendingMandates) {
+            ImperialMandates.issuePendingMandates(this, {
+                showTileCallout: this.showTileCallout,
+                hideTileCallout: this.hideTileCallout
+            });
         }
     },
 
@@ -497,9 +505,14 @@ const Game = {
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
+        if (typeof window !== 'undefined' && window.IntroOverlay) {
+            window.IntroOverlay.clearIntroSeenFlag?.();
+            window.IntroOverlay.reset();
+        }
         this.shouldRunImperialIntro = typeof document !== 'undefined';
-        if (!this.shouldRunImperialIntro && ImperialMandates?.issuePendingMandates) {
-            ImperialMandates.issuePendingMandates(this, { showTileCallout: this.showTileCallout, hideTileCallout: this.hideTileCallout });
+        if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
+            this.issueImperialIntroMandate();
+            this.shouldRunImperialIntro = false;
         }
     },
 
