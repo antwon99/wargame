@@ -49,6 +49,7 @@ export function applyUIBindings(game, deps = {}) {
     game.toggleResearch = (forceOpen) => toggleResearch(game, forceOpen);
     game.updateResearchUI = () => updateResearchUI(game);
     game.updateLeaderboardUI = () => updateLeaderboardUI(game);
+    game.updateSettingsUI = () => updateSettingsUI(game);
     game.updateUpgradeMenu = () => updateUpgradeMenu(game);
     game.updateHUD = () => updateHUD(game);
     game.updateTileInspector = (tile) => updateTileInspector(game, tile);
@@ -123,6 +124,20 @@ export function setupUIBindings(game) {
         btn.onclick = () => game.loadGame(btn.dataset.slot);
     });
 
+    document.querySelectorAll('[data-audio-setting]').forEach((input) => {
+        input.addEventListener('input', () => {
+            const channel = input.dataset.audioSetting;
+            const value = Number(input.value) / 100;
+            if (typeof game.setAudioVolume === 'function') game.setAudioVolume(channel, value);
+        });
+    });
+
+    document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
+        input.addEventListener('change', () => {
+            if (typeof game.setFogToggle === 'function') game.setFogToggle(input.dataset.visualToggle, input.checked);
+        });
+    });
+
     const soldierBtn = document.getElementById('buy-soldier');
     if (soldierBtn) soldierBtn.onclick = () => game.buyUpgrade('soldier');
     const archerBtn = document.getElementById('buy-archer');
@@ -133,6 +148,8 @@ export function setupUIBindings(game) {
     if (minesBtn) minesBtn.onclick = () => game.buyUpgrade('mines');
     const defenseBtn = document.getElementById('buy-defense');
     if (defenseBtn) defenseBtn.onclick = () => game.buyUpgrade('defense');
+
+    if (typeof game.updateSettingsUI === 'function') game.updateSettingsUI();
 }
 
 function bindVoidClickEasterEgg(game, deps) {
@@ -433,6 +450,37 @@ function updateLeaderboardUI(game) {
     setTxt('stat-total-kills', game.stats.totalKills || 0);
     setTxt('stat-wars', game.stats.warsPlayed || 0);
     if (game.stats.lastSaveISO) game.updateSaveStatus(`Last saved ${game.stats.lastSaveISO}`);
+}
+
+/**
+ * Synchronize the sidebar Settings UI with the live audio/visual preferences
+ * so sliders and toggles always mirror the current runtime state.
+ * @param {object} game live game singleton
+ */
+function updateSettingsUI(game) {
+    const audioSettings = typeof game.getAudioSettings === 'function'
+        ? game.getAudioSettings()
+        : { master: 1, music: 1, sfx: 1 };
+    const clampPercent = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
+    document.querySelectorAll('[data-audio-setting]').forEach((input) => {
+        const key = input.dataset.audioSetting;
+        const normalized = clampPercent(audioSettings[key]);
+        const percent = Math.round(normalized * 100);
+        input.value = percent;
+        const readout = document.querySelector(`[data-audio-readout="${key}"]`);
+        if (readout) readout.innerText = `${percent}%`;
+    });
+
+    const visuals = typeof game.getVisualSettings === 'function'
+        ? game.getVisualSettings()
+        : {};
+    document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
+        const key = input.dataset.visualToggle;
+        const desired = visuals && Object.prototype.hasOwnProperty.call(visuals, key)
+            ? visuals[key]
+            : false;
+        input.checked = Boolean(desired);
+    });
 }
 
 function updateUpgradeMenu(game) {

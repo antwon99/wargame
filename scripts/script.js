@@ -57,6 +57,12 @@ const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
     lastSaveISO: null
 };
 
+/** Clamp normalized slider values (0–1) while tolerating NaN input. */
+function clamp01(value, fallback = 1) {
+    const numeric = Number.isFinite(value) ? value : fallback;
+    return Math.max(0, Math.min(1, numeric));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
 const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
@@ -357,6 +363,8 @@ const Game = {
         ambience: { ...AMBIENCE_CONFIG },
         overworld: { showClaimCosts: false }
     },
+    settingsStorageKey: 'wargame:player-settings',
+    playerSettings: null,
     ambienceRenderer: null,
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
@@ -382,6 +390,7 @@ const Game = {
             });
             this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
             this.applyFeatureOverrides();
+            this.applyPlayerSettings(this.loadPlayerSettings());
             this.timekeeper.onChange(() => this.updateHUD());
             this.resize();
             if (AmbienceRendererClass) {
@@ -481,6 +490,144 @@ const Game = {
     togglePause() { return this.setPaused(!this.paused); },
 
     /**
+     * Build the default player-facing settings bundle for audio and visuals.
+     * Defaults mirror the fog/audio baselines so sliders start aligned with
+     * the current build's expected presentation.
+     * @returns {Object} default settings snapshot
+     */
+    defaultPlayerSettings() {
+        return {
+            audio: { master: 1, music: 1, sfx: 1 },
+            visuals: {
+                enabled: true,
+                tileFogEnabled: FOG_VISUAL_CONFIG.tileFogEnabled === true,
+                ambienceLayersEnabled: FOG_VISUAL_CONFIG.ambienceLayersEnabled === true,
+                ambienceEnabled: FOG_VISUAL_CONFIG.ambienceEnabled !== false
+            }
+        };
+    },
+
+    /**
+     * Load persisted slider/toggle preferences from localStorage while
+     * tolerating environments without storage (tests/headless sessions).
+     * @returns {Object} merged player settings
+     */
+    loadPlayerSettings() {
+        const defaults = this.defaultPlayerSettings();
+        if (typeof window === 'undefined' || !window.localStorage) return defaults;
+        const raw = window.localStorage.getItem(this.settingsStorageKey);
+        if (!raw) return defaults;
+        try {
+            const parsed = JSON.parse(raw);
+            return {
+                audio: { ...defaults.audio, ...(parsed.audio || {}) },
+                visuals: { ...defaults.visuals, ...(parsed.visuals || {}) }
+            };
+        } catch (error) {
+            this.reportRecoverableError?.('player settings parse', error);
+            return defaults;
+        }
+    },
+
+    /** Persist the current settings bundle to localStorage when available. */
+    persistPlayerSettings(settings = this.playerSettings) {
+        if (typeof window === 'undefined' || !window.localStorage || !settings) return;
+        try {
+            window.localStorage.setItem(this.settingsStorageKey, JSON.stringify(settings));
+        } catch (error) {
+            this.reportRecoverableError?.('player settings persist', error);
+        }
+    },
+
+    /**
+     * Apply player-facing audio + visual settings, propagate them to the
+     * runtime systems, and refresh the sidebar UI for the new values.
+     * @param {Object} settings partial settings payload
+     * @returns {Object} normalized settings that were applied
+     */
+    applyPlayerSettings(settings = {}) {
+        const defaults = this.defaultPlayerSettings();
+        const merged = {
+            audio: { ...defaults.audio, ...(settings.audio || {}) },
+            visuals: { ...defaults.visuals, ...(settings.visuals || {}) }
+        };
+        this.playerSettings = merged;
+        this.applyAudioSettings(merged.audio);
+        this.applyVisualSettings(merged.visuals);
+        this.persistPlayerSettings(merged);
+        this.updateSettingsUI?.();
+        return merged;
+    },
+
+    /**
+     * Push the audio mixer settings into the shared GameAudio manager so
+     * sliders immediately affect live music and effects.
+     * @param {Object} audioSettings desired audio settings
+     * @returns {Object} normalized audio settings
+     */
+    applyAudioSettings(audioSettings = this.defaultPlayerSettings().audio) {
+        const defaults = this.defaultPlayerSettings().audio;
+        const safe = { ...defaults, ...(audioSettings || {}) };
+        const manager = window.GameAudio;
+        manager?.setMasterVolume?.(clamp01(safe.master, defaults.master));
+        manager?.setMusicVolume?.(clamp01(safe.music, defaults.music));
+        manager?.setSfxVolume?.(clamp01(safe.sfx, defaults.sfx));
+        this.playerSettings = { ...this.playerSettings, audio: { ...safe, master: clamp01(safe.master), music: clamp01(safe.music), sfx: clamp01(safe.sfx) } };
+        return this.playerSettings.audio;
+    },
+
+    /** Return the currently active audio settings (merged with defaults). */
+    getAudioSettings() {
+        const defaults = this.defaultPlayerSettings().audio;
+        return { ...defaults, ...(this.playerSettings?.audio || {}) };
+    },
+
+    /** Normalize visual toggle preferences against the live fog feature toggles. */
+    getVisualSettings() {
+        const fog = this.featureToggles?.fog || {};
+        return {
+            enabled: fog.enabled !== false,
+            tileFogEnabled: fog.tileFogEnabled === true,
+            ambienceLayersEnabled: fog.ambienceLayersEnabled === true,
+            ambienceEnabled: fog.ambienceEnabled !== false
+        };
+    },
+
+    /**
+     * Push visual toggle preferences into the fog feature toggles and cache
+     * them for persistence.
+     * @param {Object} visualSettings fog/ambience preferences
+     * @returns {Object} resulting fog toggle collection
+     */
+    applyVisualSettings(visualSettings = this.defaultPlayerSettings().visuals) {
+        const defaults = this.defaultPlayerSettings().visuals;
+        const safe = { ...defaults, ...(visualSettings || {}) };
+        const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
+        const nextFog = {
+            ...fogToggles,
+            enabled: safe.enabled !== false,
+            tileFogEnabled: safe.tileFogEnabled === true,
+            ambienceLayersEnabled: safe.ambienceLayersEnabled === true,
+            ambienceEnabled: safe.ambienceEnabled !== false
+        };
+        this.featureToggles = { ...this.featureToggles, fog: nextFog };
+        this.playerSettings = { ...this.playerSettings, visuals: safe };
+        this.updateSettingsUI?.();
+        return nextFog;
+    },
+
+    /** Update an individual mixer channel from the settings sidebar. */
+    setAudioVolume(channel, value) {
+        const current = this.getAudioSettings();
+        if (!(channel in current)) return current;
+        const next = { ...current, [channel]: clamp01(value, current[channel]) };
+        this.applyAudioSettings(next);
+        this.persistPlayerSettings({ ...this.playerSettings, audio: next, visuals: this.playerSettings?.visuals });
+        this.updateSettingsUI?.();
+        return next;
+    },
+
+    /**
      * Allow tests to override ambient visuals (fog + camera drift) without mutating
      * the core constants. Overrides must be supplied explicitly so runtime defaults
      * stay aligned with the shared configs instead of transient diagnostics.
@@ -522,6 +669,10 @@ const Game = {
         const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
         const nextFog = { ...fogToggles, [key]: Boolean(isEnabled) };
         this.featureToggles = { ...this.featureToggles, fog: nextFog };
+        const visuals = { ...this.playerSettings?.visuals, [key]: Boolean(isEnabled) };
+        this.playerSettings = { ...this.playerSettings, visuals };
+        this.persistPlayerSettings();
+        this.updateSettingsUI?.();
         return nextFog;
     },
 
