@@ -2,13 +2,24 @@
  * Default fog visual parameters that drive the overworld/combat backdrops.
  * The defaults intentionally bias toward a dark void fill, leaving gradients
  * and overlays opt-in for debug experimentation without impacting saves.
+ *
+ * Visual modes:
+ * - `void` (default): pure dark canvas clear with no ambience or gradients.
+ * - `seasonalSnow`: opt-in, non-default hook for future seasonal/snow tests.
  */
 const BASE_CLUSTER_INTENSITY = 0.42;
 const DEFAULT_CORE_INNER_OPACITY = 0.86 - Math.min(0.28, BASE_CLUSTER_INTENSITY * 0.18);
 
 const MIN_CORE_INNER_OPACITY = 0.05;
 
+const FOG_VISUAL_MODES = {
+    VOID: 'void',
+    SEASONAL_SNOW: 'seasonalSnow'
+};
+
 const FOG_VISUAL_CONFIG = {
+    // Seasonal/month-based experiments remain opt-in; the default never auto-flips.
+    visualMode: FOG_VISUAL_MODES.VOID,
     enabled: true,
     /** Toggle tile-level fog-of-war overlays without touching backdrop visuals. */
     tileFogEnabled: false,
@@ -17,7 +28,7 @@ const FOG_VISUAL_CONFIG = {
     /** Toggle the classic gradient/ripple/spotlight stack without impacting tile fog. */
     legacyBackdropEnabled: false,
     /** Toggle ambient-driven fog flourishes (gradients, ripples, spotlights). */
-    ambienceEnabled: true,
+    ambienceEnabled: false,
     /** Enable or disable the radial gradient fill that anchors the backdrop. */
     gradientEnabled: false,
     /** Fall back to a simple void fill when ambience is disabled. */
@@ -73,6 +84,10 @@ function resolveFogInnerOpacity(fogConfig = {}) {
  */
 function resolveFogVisualConfig(fogConfig = {}) {
     const normalized = { ...FOG_VISUAL_CONFIG, ...(fogConfig || {}) };
+    const allowedModes = new Set(Object.values(FOG_VISUAL_MODES));
+    normalized.visualMode = allowedModes.has(normalized.visualMode)
+        ? normalized.visualMode
+        : FOG_VISUAL_CONFIG.visualMode;
     normalized.coreInnerOpacity = resolveFogInnerOpacity(normalized);
     const rippleOpacity = Number.isFinite(normalized.rippleOpacity)
         ? normalized.rippleOpacity
@@ -104,6 +119,7 @@ function resolveFogParallax(fogConfig = {}) {
 }
 
 export {
+    FOG_VISUAL_MODES,
     FOG_VISUAL_CONFIG,
     resolveFogInnerOpacity,
     resolveFogParallax,

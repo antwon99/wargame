@@ -16,6 +16,10 @@ Two visual-only layers exist, but the atmospheric flourishes are **opt-in** and 
   unexplored tiles. With visuals off, the mask path becomes a noop while keeping mask utilities available for other systems.
 
 ## Tuning
+- `visualMode` governs whether any ambience renders at all. The default `void` mode
+  clears the canvas and stops gradients/ambience regardless of debug toggles. Set
+  `fog.visualMode` to `seasonalSnow` (with the usual ambience/legacy backdrop flags)
+  for opt-in experimentation; no calendar/month logic auto-enables it.
 - `FOG_VISUAL_CONFIG` in `scripts/fogVisualConfig.mjs` still centralizes presentation knobs for anyone re-enabling visuals:
   - **Base colors:** `voidFill` for the canvas clear, `fogGradientStops` (inner/mid/outer) for the main fill, and `spotlightColors` for cluster glows.
   - **Ripple control:** `rippleEnabled` toggles the secondary wave, while `rippleOpacity` fades its impact (the RGB stops live under `rippleGradientStops`). Defaults leave these off.

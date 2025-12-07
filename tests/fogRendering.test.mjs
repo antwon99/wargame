@@ -137,6 +137,7 @@ function createImportStubs() {
         COMBAT_BUILDINGS: {},
         UNITS: {},
         TILE_VISIBILITY: { UNSEEN: 'unseen', SEEN: 'seen', VISIBLE: 'visible' },
+        START_TICK: 0,
         addBuilding: () => {},
         buyBuilding: () => {},
         checkConnection: () => {},
@@ -208,6 +209,7 @@ function createImportStubs() {
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         FOG_VISUAL_CONFIG: defaultFogConfig,
+        FOG_VISUAL_MODES: { VOID: 'void', SEASONAL_SNOW: 'seasonalSnow' },
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: (cfg = {}) => ({
             parallaxSpeed: cfg.parallaxSpeed ?? defaultFogConfig.parallaxSpeed,

@@ -29,7 +29,7 @@ import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from './fogMask.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
-import { FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from './fogVisualConfig.mjs';
+import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from './fogVisualConfig.mjs';
 import AmbienceRenderer from './ambienceRenderer.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
@@ -384,13 +384,7 @@ const Game = {
             this.applyFeatureOverrides();
             this.timekeeper.onChange(() => this.updateHUD());
             this.resize();
-            if (AmbienceRendererClass) {
-                this.ambienceRenderer = new AmbienceRendererClass({
-                    ctx: this.ctx,
-                    config: this.featureToggles.ambience
-                });
-                this.ambienceRenderer.resize(this.viewport);
-            }
+            this.ensureAmbienceRendererReady();
             AudioDebugConsole.init();
             this.bindVoidClickEasterEgg();
             window.addEventListener('resize', () => this.resize());
@@ -490,22 +484,26 @@ const Game = {
         const cameraOverrides = overrides.camera || {};
         const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
-        const fogDisabled = fogOverrides.enabled === false;
+        const resolvedFog = resolveFogVisualConfig({ ...FOG_VISUAL_CONFIG, ...fogOverrides });
+        const fogDisabled = resolvedFog.enabled === false;
         const ambienceEnabledOverride =
             typeof fogOverrides.ambienceLayersEnabled === 'boolean'
                 ? fogOverrides.ambienceLayersEnabled
                 : undefined;
+        const ambienceConfig = {
+            ...AMBIENCE_CONFIG,
+            ...ambienceOverrides,
+            ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
+            ...(fogDisabled || resolvedFog.visualMode === FOG_VISUAL_MODES.VOID ? { enabled: false } : {})
+        };
         this.featureToggles = {
-            fog: { ...FOG_VISUAL_CONFIG, ...fogOverrides },
+            fog: resolvedFog,
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
-            ambience: {
-                ...AMBIENCE_CONFIG,
-                ...ambienceOverrides,
-                ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
-                ...(fogDisabled ? { enabled: false } : {})
-            },
+            ambience: ambienceConfig,
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
+        // Recreate ambience renderer lazily so mode/flag changes cannot resurrect clouds in void-only mode.
+        this.ambienceRenderer = null;
     },
 
     /**
@@ -523,6 +521,59 @@ const Game = {
         const nextFog = { ...fogToggles, [key]: Boolean(isEnabled) };
         this.featureToggles = { ...this.featureToggles, fog: nextFog };
         return nextFog;
+    },
+
+    /**
+     * Determine whether the current fog visuals should remain a pure void clear.
+     * The check uses the resolved configuration so transient debug toggles cannot
+     * accidentally resurrect ambience layers without opting into a non-default
+     * visual mode.
+     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
+     * @returns {boolean} true when the visuals should remain void-only.
+     */
+    isVoidVisualMode(fogConfig) {
+        const config = fogConfig || this.fog?.visualConfig || resolveFogVisualConfig(this.featureToggles?.fog);
+        return (config?.visualMode || FOG_VISUAL_MODES.VOID) === FOG_VISUAL_MODES.VOID;
+    },
+
+    /**
+     * Decide whether ambience clouds should render this frame based on the visual
+     * mode and the combined fog/ambience feature flags.
+     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
+     * @returns {boolean} true when ambience clouds are allowed to render.
+     */
+    shouldRenderAmbience(fogConfig) {
+        const config = fogConfig || this.fog?.visualConfig || resolveFogVisualConfig(this.featureToggles?.fog);
+        if (this.isVoidVisualMode(config)) return false;
+        return config.enabled !== false
+            && config.ambienceEnabled !== false
+            && config.ambienceLayersEnabled === true
+            && this.featureToggles?.ambience?.enabled !== false;
+    },
+
+    /**
+     * Lazily construct (or tear down) the ambience renderer based on the active
+     * visual mode and feature flags. The renderer is never instantiated while
+     * the void baseline is active, ensuring no ambience bands appear by default.
+     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
+     */
+    ensureAmbienceRendererReady(fogConfig) {
+        const config = fogConfig || this.fog?.visualConfig || this.resolveFogConfig();
+        if (!this.shouldRenderAmbience(config)) {
+            this.ambienceRenderer = null;
+            return;
+        }
+
+        if (!this.ambienceRenderer && AmbienceRendererClass) {
+            this.ambienceRenderer = new AmbienceRendererClass({
+                ctx: this.ctx,
+                config: this.featureToggles.ambience
+            });
+        }
+
+        if (this.ambienceRenderer) {
+            this.ambienceRenderer.resize(this.viewport);
+        }
     },
 
     resize() {
@@ -794,11 +845,13 @@ const Game = {
             const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
             this.fog.time += dt;
-            const ambienceLayersEnabled = fogConfig.enabled !== false
-                && fogConfig.ambienceEnabled !== false
-                && fogConfig.ambienceLayersEnabled === true
-                && this.featureToggles?.ambience?.enabled !== false;
-            if (this.ambienceRenderer && ambienceLayersEnabled) this.ambienceRenderer.update(dt);
+            const ambienceLayersEnabled = this.shouldRenderAmbience(fogConfig);
+            if (ambienceLayersEnabled) {
+                this.ensureAmbienceRendererReady(fogConfig);
+                if (this.ambienceRenderer) this.ambienceRenderer.update(dt);
+            } else {
+                this.ambienceRenderer = null;
+            }
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
             if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
             else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
@@ -1481,11 +1534,11 @@ const Game = {
     },
 
     /**
-     * Paint a soft radial fog backdrop that darkens unexplored space while keeping
-     * explored tiles readable. The gradient subtly drifts to keep the scene from
-     * feeling static without impacting gameplay logic. An optional tile mask can
-     * be passed (or lazily generated) for future tile-level fog handling without
-     * altering the current visuals.
+     * Paint the fog backdrop. In the default void mode the function clears to the
+     * void color and returns immediately so ambience/gradients never render. When
+     * a non-default visual mode is explicitly selected, the legacy gradient stack
+     * remains available for experimentation.
+     *
      * @param {Object} layout active hex layout (origin + size)
      * @param {Object} [fogMaskOptions] optional mask hooks for unexplored/frontier tiles
      * @param {Set<string>|Array<string>|Map<string, *>} [fogMaskOptions.tileMask] precomputed tile mask keys
@@ -1496,18 +1549,11 @@ const Game = {
     renderFogBackdrop(layout, fogMaskOptions = {}) {
         const ctx = this.ctx;
         const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
+        const isVoidBaseline = this.isVoidVisualMode(fogConfig);
         const fogGradientStops = fogConfig.fogGradientStops || {};
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-        const ambienceCloudsEnabled = fogConfig.enabled !== false
-            && fogConfig.ambienceEnabled !== false
-            && fogConfig.ambienceLayersEnabled === true
-            && this.featureToggles?.ambience?.enabled !== false;
-        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;
-        // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
-        const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
-            || !legacyBackdropEnabled;
 
         const tileVisibility = this.getTileVisibilityMap();
         const tileMask = resolveFogTileMask(fogMaskOptions, {
@@ -1522,9 +1568,20 @@ const Game = {
 
         ctx.fillStyle = voidFill;
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
+        if (isVoidBaseline) return;
+
+        const ambienceCloudsEnabled = this.shouldRenderAmbience(fogConfig);
+        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;
+        // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
+        const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
+            || !legacyBackdropEnabled;
+
         const ambienceCenter = this.getTerritoryScreenCenter(layout);
-        if (this.ambienceRenderer && ambienceCloudsEnabled) {
-            this.ambienceRenderer.render({ center: ambienceCenter });
+        if (ambienceCloudsEnabled) {
+            this.ensureAmbienceRendererReady(fogConfig);
+            if (this.ambienceRenderer) {
+                this.ambienceRenderer.render({ center: ambienceCenter });
+            }
         }
         if (fogConfig.enabled === false || baseFillOnly || legacyBackdropEnabled === false) return;
 

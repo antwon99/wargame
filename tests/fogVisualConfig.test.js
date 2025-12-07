@@ -3,6 +3,7 @@ const assert = require('assert');
 async function run() {
     const {
         FOG_VISUAL_CONFIG,
+        FOG_VISUAL_MODES,
         resolveFogInnerOpacity,
         resolveFogParallax,
         resolveFogVisualConfig
@@ -12,6 +13,24 @@ async function run() {
 
     const defaultOpacity = resolveFogInnerOpacity();
     assert.strictEqual(defaultOpacity, FOG_VISUAL_CONFIG.coreInnerOpacity, 'default opacity should reflect config baseline');
+
+    assert.strictEqual(
+        FOG_VISUAL_CONFIG.visualMode,
+        FOG_VISUAL_MODES.VOID,
+        'default visual mode should keep the void-only baseline'
+    );
+    const seasonalMode = resolveFogVisualConfig({ visualMode: FOG_VISUAL_MODES.SEASONAL_SNOW });
+    assert.strictEqual(
+        seasonalMode.visualMode,
+        FOG_VISUAL_MODES.SEASONAL_SNOW,
+        'seasonal/snow experimentation should require an explicit opt-in mode'
+    );
+    const fallbackMode = resolveFogVisualConfig({ visualMode: 'anything-else' });
+    assert.strictEqual(
+        fallbackMode.visualMode,
+        FOG_VISUAL_MODES.VOID,
+        'invalid visual modes should fall back to the void baseline'
+    );
 
     const unaffectedByCluster = resolveFogInnerOpacity({ clusterIntensity: 0.9 });
     assert.strictEqual(
