@@ -8,10 +8,15 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
  * without interrupting the render loop.
  * @param {{hexes: Map<string, {hex:Object, type:string}>, claimable: Map<string, number>}} overworld
  * map collection containing explored and claimable tiles.
- * @param {{layout:Object, drawHex:Function, parseKey:Function, drawTileFog?:Function}} options
- * drawing utilities and layout configuration for the current frame.
+ * @param {{layout:Object, drawHex:Function, parseKey:Function, drawTileFog?:Function, showClaimCosts?:boolean}} options
+ * drawing utilities and layout configuration for the current frame. The optional
+ * showClaimCosts flag enables debug-only cost stamps on claimable borders; the
+ * default rendering omits the labels to keep the map clean.
  */
-export function drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawTileFog = () => {} }) {
+export function drawOverworldTiles(
+    overworld,
+    { layout, drawHex, parseKey, drawTileFog = () => {}, showClaimCosts = false }
+) {
     let drawnTiles = 0;
     overworld.hexes.forEach((tile) => {
         const def = OVERWORLD_TILES[tile.type.toUpperCase()];
@@ -31,8 +36,10 @@ export function drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawT
         drawOverworldTiles._warnedAboutEmptyTiles = false;
     }
 
+    const shouldStampCosts = Boolean(showClaimCosts);
     overworld.claimable.forEach((cost, key) => {
-        drawHex(layout, parseKey(key), 'rgba(255,255,255,0.05)', '#333', '', `${cost}w`);
+        const claimLabel = shouldStampCosts ? `${cost}w` : '';
+        drawHex(layout, parseKey(key), 'rgba(255,255,255,0.05)', '#333', '', claimLabel);
     });
 }
 

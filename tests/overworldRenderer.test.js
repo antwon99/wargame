@@ -14,8 +14,12 @@ async function run() {
     };
 
     const events = [];
+    const claimLabels = [];
     const layout = {};
-    const drawHex = (_layout, hex) => events.push(`draw:${hex.id || hex}`);
+    const drawHex = (_layout, hex, _fill, _stroke, _label, sub) => {
+        events.push(`draw:${hex.id || hex}`);
+        claimLabels.push(sub);
+    };
     const parseKey = (key) => ({ id: key });
     const drawTileFog = (hex) => events.push(`fog:${hex.id || hex}`);
 
@@ -28,6 +32,19 @@ async function run() {
         'fog:forest',
         'draw:1,0'
     ], 'tile fog hook should run immediately after each tile draw');
+    assert.deepStrictEqual(claimLabels.filter(Boolean), [], 'claimable tiles should omit cost labels by default');
+
+    const debugLabels = [];
+    drawOverworldTiles(overworld, {
+        layout,
+        drawHex: (_layout, hex, _fill, _stroke, _label, sub) => debugLabels.push({ hex: hex.id || hex, sub }),
+        parseKey,
+        drawTileFog,
+        showClaimCosts: true
+    });
+    assert.deepStrictEqual(debugLabels.filter((entry) => Boolean(entry.sub)), [
+        { hex: '1,0', sub: '15w' }
+    ], 'debug flag should opt claim cost stamps back in');
 
     const warnings = [];
     const originalWarn = console.warn;

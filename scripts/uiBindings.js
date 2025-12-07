@@ -160,7 +160,10 @@ function setupInput(game) {
     let start = { x: 0, y: 0 };
     let camStart = { x: 0, y: 0 };
     const onDown = (x, y) => { isDrag = true; start = { x, y }; camStart = { x: game.cam.x, y: game.cam.y }; };
-    const onMove = (x, y) => { if (isDrag) { game.cam.x = camStart.x + (x - start.x); game.cam.y = camStart.y + (y - start.y); } };
+    const onMove = (x, y) => {
+        if (isDrag) { game.cam.x = camStart.x + (x - start.x); game.cam.y = camStart.y + (y - start.y); }
+        else if (typeof game.onHover === 'function') { game.onHover(x, y); }
+    };
     const onUp = (x, y) => {
         if (isDrag) {
             isDrag = false;
@@ -513,15 +516,30 @@ function updateTileInspector(game, tile) {
         return;
     }
 
+    const claimCost = typeof tile.claimCost === 'number' ? tile.claimCost : null;
     const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(tile);
-    const isHostile = isRebelTile || tile.owner === 'enemy';
-    const labelText = tile.type ? tile.type.toString().replace(/-/g, ' ') : 'Unknown Tile';
+    const isHostile = !claimCost && (isRebelTile || tile.owner === 'enemy');
+    const labelText = claimCost !== null
+        ? 'Unclaimed Frontier'
+        : tile.type
+            ? tile.type.toString().replace(/-/g, ' ')
+            : 'Unknown Tile';
 
     label.innerText = labelText.toUpperCase();
     panel.classList.toggle('hostile', !!isHostile);
     game.updateTileAttackOverlay?.(isHostile ? tile : null);
 
     if (bonus) {
+        bonus.classList.toggle('paused', !!game.paused);
+        if (claimCost !== null) {
+            const currentWood = Math.max(0, Math.floor(game.wood ?? 0));
+            const delta = Math.max(0, claimCost - currentWood);
+            const affordability = delta > 0 ? `${delta} more wood needed` : 'Affordable now';
+            bonus.innerText = `${claimCost}w to claim — ${affordability}`;
+            bonus.title = `You have ${currentWood} wood available.`;
+            return;
+        }
+
         const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
         const clusterMap = game.overworld?.clusterBonuses;
         const cluster = tile.clusterBonus || (key ? clusterMap?.get(key) : null);
@@ -537,7 +555,6 @@ function updateTileInspector(game, tile) {
         if (cluster?.adjacencyRate) tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
         if (cluster?.reclamationRate) tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
         bonus.title = tooltipParts.length ? tooltipParts.join(' • ') : 'No adjacency modifiers';
-        bonus.classList.toggle('paused', !!game.paused);
     }
 }
 
