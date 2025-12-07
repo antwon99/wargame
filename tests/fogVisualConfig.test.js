@@ -2,7 +2,6 @@ const assert = require('assert');
 
 async function run() {
     const {
-        attachFogParallaxDebugControls,
         FOG_VISUAL_CONFIG,
         resolveFogInnerOpacity,
         resolveFogParallax,
@@ -63,24 +62,6 @@ async function run() {
         originalParallax.parallaxAmplitude,
         'parallax override should fall back to config amplitude when omitted'
     );
-
-    const debugHarness = {};
-    const parallaxTuning = attachFogParallaxDebugControls(debugHarness);
-    assert.ok(parallaxTuning, 'debug controls should attach when a target is provided');
-
-    parallaxTuning.setSpeed(0.5);
-    parallaxTuning.setAmplitude(40);
-    assert.strictEqual(FOG_VISUAL_CONFIG.parallaxSpeed, 0.5, 'runtime speed tuning should persist to config');
-    assert.strictEqual(FOG_VISUAL_CONFIG.parallaxAmplitude, 40, 'runtime amplitude tuning should persist to config');
-    assert.deepStrictEqual(
-        debugHarness.FogParallaxTuning.getValues(),
-        resolveFogParallax(),
-        'exposed API should reflect config-backed parallax values'
-    );
-
-    // Restore parallax config to protect downstream tests.
-    parallaxTuning.setSpeed(originalParallax.parallaxSpeed);
-    parallaxTuning.setAmplitude(originalParallax.parallaxAmplitude);
 
     console.log('Fog visual config tests passed.');
 }

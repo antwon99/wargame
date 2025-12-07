@@ -159,7 +159,6 @@ function createImportStubs() {
         buildTileVisibilityMap: () => new Map(),
         resolveFogTileMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
-        attachFogParallaxDebugControls: () => {},
         FOG_VISUAL_CONFIG: {},
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: () => 1,

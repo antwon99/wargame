@@ -29,13 +29,7 @@ import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from './fogMask.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
-import {
-    attachFogParallaxDebugControls,
-    FOG_VISUAL_CONFIG,
-    resolveFogInnerOpacity,
-    resolveFogParallax,
-    resolveFogVisualConfig
-} from './fogVisualConfig.mjs';
+import { FOG_VISUAL_CONFIG, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from './fogVisualConfig.mjs';
 import AmbienceRenderer from './ambienceRenderer.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
@@ -66,9 +60,6 @@ const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
 const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
-
-// Register debug controls early so devtools sliders/console can tweak fog drift live.
-attachFogParallaxDebugControls();
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -205,6 +196,18 @@ if (typeof window !== 'undefined') window.AudioBridge = AudioBridge;
 const AudioDebugConsole = {
     el: null,
     timer: 0,
+    fogSectionId: 'fog-debug-section',
+    /**
+     * Compose a labeled checkbox row for debug toggles to keep the markup simple.
+     * @param {string} id unique input ID for the checkbox
+     * @param {string} label human-readable label for the toggle
+     * @param {boolean} checked whether the checkbox should start checked
+     * @returns {string} HTML string for the toggle row
+     */
+    renderToggleRow(id, label, checked = false) {
+        const checkedAttr = checked ? 'checked' : '';
+        return `<label class="debug-toggle-row"><input type="checkbox" id="${id}" ${checkedAttr}>${label}</label>`;
+    },
     /**
      * Locate the debug panel element. Supports legacy and current IDs so we do not
      * crash when the markup lags behind script changes.
@@ -229,6 +232,8 @@ const AudioDebugConsole = {
             ? window.AudioDebugBus.snapshot()
             : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
 
+        const fogSnapshot = this.resolveFogSnapshot();
+
         const activeSources = snapshot.activeSources || [];
         const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
         const playingList = activeSources.length
@@ -252,7 +257,55 @@ const AudioDebugConsole = {
                 <div class="label">Game State</div>
                 <div>${friendlyState}</div>
             </div>
+            <div class="section" id="${this.fogSectionId}">
+                <div class="label">Fog + Effects</div>
+                ${this.renderToggleRow('debug-fog-enabled', 'Backdrop fog enabled', fogSnapshot.enabled)}
+                ${this.renderToggleRow('debug-fog-tile', 'Tile fog overlays', fogSnapshot.tileFogEnabled)}
+                ${this.renderToggleRow('debug-fog-ambience', 'Ambience clouds', fogSnapshot.ambienceLayersEnabled)}
+                ${this.renderToggleRow('debug-fog-flourishes', 'Fog flourishes', fogSnapshot.ambienceEnabled)}
+            </div>
         `;
+
+        this.bindFogControls();
+    },
+
+    /**
+     * Gather the live fog toggle values from the Game singleton so the debug
+     * UI mirrors the current runtime configuration.
+     * @returns {Object} snapshot of boolean fog toggles
+     */
+    resolveFogSnapshot() {
+        const fogToggles = window.Game?.featureToggles?.fog || {};
+        return {
+            enabled: fogToggles.enabled !== false,
+            tileFogEnabled: fogToggles.tileFogEnabled === true,
+            ambienceLayersEnabled: fogToggles.ambienceLayersEnabled === true,
+            ambienceEnabled: fogToggles.ambienceEnabled !== false
+        };
+    },
+
+    /**
+     * Wire checkbox change handlers to the shared Game feature toggles so
+     * developers can flip fog/backdrop options without touching globals.
+     */
+    bindFogControls() {
+        const game = window.Game;
+        if (!game || typeof game.setFogToggle !== 'function') return;
+        if (!this.el) return;
+
+        const setToggle = (selector, key) => {
+            const input = this.el.querySelector(selector);
+            if (!input) return;
+            input.addEventListener('change', () => {
+                game.setFogToggle(key, input.checked);
+                this.timer = 0; // force next update to render the new state quickly
+            });
+        };
+
+        setToggle('#debug-fog-enabled', 'enabled');
+        setToggle('#debug-fog-tile', 'tileFogEnabled');
+        setToggle('#debug-fog-ambience', 'ambienceLayersEnabled');
+        setToggle('#debug-fog-flourishes', 'ambienceEnabled');
     }
 };
 
@@ -451,6 +504,23 @@ const Game = {
             },
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
+    },
+
+    /**
+     * Flip debug-only fog feature toggles without exposing globals. Only known
+     * boolean toggles are honored so drift parameters remain protected.
+     * @param {string} key fog toggle key to update (enabled | tileFogEnabled | ambienceLayersEnabled | ambienceEnabled)
+     * @param {boolean} isEnabled desired state for the toggle
+     * @returns {Object} resulting fog toggle collection
+     */
+    setFogToggle(key, isEnabled) {
+        const supportedFogToggles = new Set(['enabled', 'tileFogEnabled', 'ambienceLayersEnabled', 'ambienceEnabled']);
+        if (!supportedFogToggles.has(key)) return this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
+
+        const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
+        const nextFog = { ...fogToggles, [key]: Boolean(isEnabled) };
+        this.featureToggles = { ...this.featureToggles, fog: nextFog };
+        return nextFog;
     },
 
     resize() {
