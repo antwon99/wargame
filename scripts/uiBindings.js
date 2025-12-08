@@ -580,6 +580,11 @@ function updateTileInspector(game, tile) {
     const adjacencyDetail = document.getElementById('tile-inspector-adjacency-detail');
     if (!panel || !label) return;
 
+    const pendingReclamations = Array.isArray(game.pendingReclamations) ? game.pendingReclamations.length : 0;
+    const pendingReclamationTarget = pendingReclamations && typeof game.nextQueuedReclamationType === 'function'
+        ? game.nextQueuedReclamationType()
+        : null;
+
     const hideAdjacency = () => {
         if (adjacency) adjacency.style.display = 'none';
         if (adjacencySummary) adjacencySummary.innerText = '';
@@ -608,12 +613,24 @@ function updateTileInspector(game, tile) {
         panel.classList.remove('hostile');
         if (bonus) {
             bonus.classList.toggle('paused', !!game.paused);
-            bonus.innerText = game.paused
-                ? '⏸️ Paused — cluster bonuses frozen until you resume'
-                : 'Cluster bonuses appear when you select a tile.';
-            bonus.title = '';
+            if (pendingReclamations) {
+                const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
+                bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}.`;
+                bonus.title = 'Gold already paid — pick any owned field to place it.';
+            } else {
+                bonus.innerText = game.paused
+                    ? '⏸️ Paused — cluster bonuses frozen until you resume'
+                    : 'Cluster bonuses appear when you select a tile.';
+                bonus.title = '';
+            }
         }
-        showAdjacency('No adjacency bonuses yet.', 'Select a tile to reveal cluster effects.');
+        const summary = pendingReclamations
+            ? 'Land reclamation ready'
+            : 'No adjacency bonuses yet.';
+        const detail = pendingReclamations
+            ? 'Click a player-owned field to choose where the upgrade lands.'
+            : 'Select a tile to reveal cluster effects.';
+        showAdjacency(summary, detail);
         game.updateTileAttackOverlay?.(null);
         return;
     }
@@ -639,6 +656,14 @@ function updateTileInspector(game, tile) {
             const affordability = delta > 0 ? `${delta} more wood needed` : 'Affordable now';
             bonus.innerText = `${claimCost}w to claim — ${affordability}`;
             bonus.title = `You have ${currentWood} wood available.`;
+            hideAdjacency();
+            return;
+        }
+
+        if (pendingReclamations && tile.type === 'field' && tile.owner !== 'enemy') {
+            const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
+            bonus.innerText = `Reclaim ready: convert to ${targetLabel} — gold already spent.`;
+            bonus.title = 'Click this field to complete land reclamation and refresh adjacency bonuses.';
             hideAdjacency();
             return;
         }

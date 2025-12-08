@@ -28,7 +28,7 @@ function testLandReclamationOptions() {
     const reclaim = techs.find(t => t.id === 'land-reclamation');
     const forestCost = ResearchSystem.getCostForTech(reclaim, 'forest');
     const townCost = ResearchSystem.getCostForTech(reclaim, 'town');
-    assert.strictEqual(forestCost.wood, 500, 'forest option should cost wood');
+    assert.strictEqual(forestCost.gold, 500, 'forest option should cost gold');
     assert.strictEqual(townCost.gold, 500, 'town option should cost gold');
 }
 
@@ -44,6 +44,15 @@ function testInvalidOptionYieldsNullCost() {
     const reclaim = techs.find(t => t.id === 'land-reclamation');
     const invalidCost = ResearchSystem.getCostForTech(reclaim, 'invalid');
     assert.strictEqual(invalidCost, null, 'invalid option id should not return an empty cost object');
+}
+
+function testLandReclamationScalesCost() {
+    const techs = ResearchSystem.instantiateTechnologies();
+    const reclaim = techs.find(t => t.id === 'land-reclamation');
+    const baseCost = ResearchSystem.getCostForTech(reclaim, 'forest');
+    ResearchSystem.recordPurchase(reclaim);
+    const nextCost = ResearchSystem.getCostForTech(reclaim, 'forest');
+    assert.ok(nextCost.gold > baseCost.gold, 'subsequent reclamations should scale in gold cost');
 }
 
 function testAffordabilityHelper() {
@@ -68,6 +77,7 @@ function run() {
     testLandReclamationOptions();
     testLandReclamationRequiresOption();
     testInvalidOptionYieldsNullCost();
+    testLandReclamationScalesCost();
     testAffordabilityHelper();
     testClampsSavedPurchasesToMax();
     console.log('All research tests passed.');

@@ -351,6 +351,7 @@ const Game = {
     pendingClearTile: null,
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
+    pendingReclamations: [],
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
     imperialMandates: ImperialMandates,
@@ -841,6 +842,7 @@ const Game = {
         this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
         this.research = this.buildResearchState(snapshot.research);
         this.updateResearchBonuses();
+        this.pendingReclamations = [];
         this.overworld.hexes = snapshot.overworld.hexes;
         this.overworld.claimable = new Map();
         this.calcOverworldGhosts();
@@ -1173,34 +1175,63 @@ const Game = {
 
         if (tech.id === 'land-reclamation') {
             const targetType = optionId === 'town' ? 'town' : 'forest';
-            const success = this.convertRandomField(targetType);
-            if (!success) {
-                this.spawnTxt(new Hex(0,0), 'NO FIELDS LEFT', '#ef476f');
-            }
+            this.queueLandReclamation(targetType);
+            this.spawnTxt(new Hex(0,0), 'SELECT A FIELD', '#9be3b4');
+            return;
         }
     },
 
     /**
-     * Transform a random field into a more lucrative tile.
-     * @param {string} newType either 'forest' or 'town'.
-     * @returns {boolean} true when a field was converted.
+     * Queue a land reclamation placement so the player can pick which field to upgrade.
+     * Charges are consumed when a player-owned field is clicked in the overworld.
+     * @param {string} targetType desired conversion target (forest|town).
      */
-    convertRandomField(newType) {
-        const fields = Array.from(this.overworld.hexes.values()).filter(h => h.type === 'field');
-        if (fields.length === 0) return false;
-        const choice = fields[Math.floor(Math.random() * fields.length)];
-        choice.type = newType;
-        choice.owner = choice.owner || 'player';
-        choice.wasReclaimed = true;
+    queueLandReclamation(targetType) {
+        const normalized = targetType === 'town' ? 'town' : 'forest';
+        if (!Array.isArray(this.pendingReclamations)) this.pendingReclamations = [];
+        this.pendingReclamations.push({ targetType: normalized });
+        if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        return this.pendingReclamations.length;
+    },
+
+    /**
+     * Peek at the next queued reclamation request to help the HUD surface guidance.
+     * @returns {string|null} queued target type or null when none pending.
+     */
+    nextQueuedReclamationType() {
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        return pending?.targetType || null;
+    },
+
+    /**
+     * Convert a player-controlled field into the requested tile type, consuming the
+     * oldest queued reclamation charge.
+     * @param {object} tile overworld tile payload selected by the player.
+     * @returns {boolean} true when a conversion occurred.
+     */
+    applyQueuedReclamationToTile(tile) {
+        if (!tile || tile.type !== 'field') return false;
+        if (tile.owner && tile.owner !== 'player') return false;
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        if (!pending) return false;
+
+        const targetType = pending.targetType === 'town' ? 'town' : 'forest';
+        this.pendingReclamations.shift();
+
+        tile.type = targetType;
+        tile.owner = tile.owner || 'player';
+        tile.wasReclaimed = true;
         this.calcOverworldGhosts();
         this.refreshClusterBonuses();
-        this.spawnTxt(choice.hex, `${newType.toUpperCase()} BUILT`, newType === 'town' ? '#ffd166' : '#8ae7a8');
+        this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
+        if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
         return true;
     },
 
     /** True when at least one field can be reclaimed. */
     hasFieldToConvert() {
-        return Array.from(this.overworld.hexes.values()).some(h => h.type === 'field');
+        return Array.from(this.overworld.hexes.values())
+            .some(h => h.type === 'field' && (!h.owner || h.owner === 'player'));
     },
 
     /**
@@ -1332,6 +1363,16 @@ const Game = {
 
         if(this.state === 'OVERWORLD') {
             this.setSelectedOverworldTile(null);
+            if (Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0) {
+                const tile = this.overworld.hexes.get(key);
+                const converted = this.applyQueuedReclamationToTile(tile);
+                if (converted) {
+                    this.updateHUD();
+                    return;
+                } else if (tile) {
+                    this.spawnTxt(hex, 'Select a player field', '#ef476f');
+                }
+            }
             if(this.overworld.claimable.has(key)) {
                 const cost = this.overworld.claimable.get(key);
                 this.hoveredClaimableKey = key;
