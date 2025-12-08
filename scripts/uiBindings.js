@@ -584,6 +584,10 @@ function updateTileInspector(game, tile) {
     const pendingReclamationTarget = pendingReclamations && typeof game.nextQueuedReclamationType === 'function'
         ? game.nextQueuedReclamationType()
         : null;
+    const hasEligibleFields = typeof game.hasFieldToConvert === 'function'
+        ? game.hasFieldToConvert()
+        : true;
+    const awaitingReclamation = pendingReclamations && game.awaitingReclamationTarget;
 
     const hideAdjacency = () => {
         if (adjacency) adjacency.style.display = 'none';
@@ -615,8 +619,13 @@ function updateTileInspector(game, tile) {
             bonus.classList.toggle('paused', !!game.paused);
             if (pendingReclamations) {
                 const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
-                bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}.`;
-                bonus.title = 'Gold already paid — pick any owned field to place it.';
+                if (!hasEligibleFields) {
+                    bonus.innerText = 'Reclamation paused: no player fields available to convert.';
+                    bonus.title = 'Claim or reclaim neutral territory to free up a field target.';
+                } else {
+                    bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}.`;
+                    bonus.title = 'Gold already paid — pick any owned field to place it.';
+                }
             } else {
                 bonus.innerText = game.paused
                     ? '⏸️ Paused — cluster bonuses frozen until you resume'
@@ -628,7 +637,9 @@ function updateTileInspector(game, tile) {
             ? 'Land reclamation ready'
             : 'No adjacency bonuses yet.';
         const detail = pendingReclamations
-            ? 'Click a player-owned field to choose where the upgrade lands.'
+            ? hasEligibleFields
+                ? 'Click a player-owned field to choose where the upgrade lands.'
+                : 'No player fields remain — secure more territory to place the upgrade.'
             : 'Select a tile to reveal cluster effects.';
         showAdjacency(summary, detail);
         game.updateTileAttackOverlay?.(null);
@@ -656,6 +667,20 @@ function updateTileInspector(game, tile) {
             const affordability = delta > 0 ? `${delta} more wood needed` : 'Affordable now';
             bonus.innerText = `${claimCost}w to claim — ${affordability}`;
             bonus.title = `You have ${currentWood} wood available.`;
+            hideAdjacency();
+            return;
+        }
+
+        if (awaitingReclamation && tile.owner === 'enemy') {
+            bonus.innerText = 'Enemy tile — reclaim a player field instead.';
+            bonus.title = 'Land reclamation can only target neutral or player-owned fields.';
+            hideAdjacency();
+            return;
+        }
+
+        if (awaitingReclamation && tile.type !== 'field') {
+            bonus.innerText = 'Reclamation ready: select a player-controlled field to convert.';
+            bonus.title = 'Only fields can be upgraded via land reclamation.';
             hideAdjacency();
             return;
         }

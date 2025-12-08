@@ -1210,15 +1210,47 @@ const Game = {
 
     /**
      * Convert a player-controlled field into the requested tile type, consuming the
-     * oldest queued reclamation charge.
+     * oldest queued reclamation charge. Invalid or hostile targets surface HUD feedback
+     * and leave the queue intact, while a fully exhausted map clears any pending state.
      * @param {object} tile overworld tile payload selected by the player.
+     * @param {Hex} [fallbackHex] optional hex for error messaging when tile is missing.
      * @returns {boolean} true when a conversion occurred.
      */
-    applyQueuedReclamationToTile(tile) {
-        if (!tile || tile.type !== 'field') return false;
-        if (tile.owner && tile.owner !== 'player') return false;
+    applyQueuedReclamationToTile(tile, fallbackHex) {
         const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
-        if (!pending) return false;
+        const HexImpl = this.Hex || Hex;
+        const anchorHex = (tile && tile.hex) || fallbackHex || this.selectedOverworldTile?.hex || new HexImpl(0, 0, 0);
+        const notify = (msg, col = '#ef476f') => {
+            if (typeof this.spawnTxt === 'function') this.spawnTxt(anchorHex, msg, col);
+        };
+
+        if (!pending) {
+            notify('No reclamation charges available');
+            this.syncReclamationAwaitState();
+            return false;
+        }
+
+        const hasEligibleField = typeof this.hasFieldToConvert === 'function' ? this.hasFieldToConvert() : true;
+        if (!hasEligibleField) {
+            this.pendingReclamations.length = 0;
+            notify('No player fields remain to reclaim');
+            this.syncReclamationAwaitState();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+
+        if (!tile || tile.type !== 'field') {
+            notify('Select a player field');
+            this.syncReclamationAwaitState();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+        if (tile.owner && tile.owner !== 'player') {
+            notify('Enemy territory cannot be reclaimed');
+            this.syncReclamationAwaitState();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
+            return false;
+        }
 
         const targetType = pending.targetType === 'town' ? 'town' : 'forest';
         this.pendingReclamations.shift();
@@ -1265,6 +1297,9 @@ const Game = {
             this.showFloatingText(x, y, 'Select a field to convert.', 'alert-text');
         } else {
             this.spawnTxt(new Hex(0,0), 'Select a field to convert.', '#9be3b4');
+        }
+        if (typeof this.spawnTxt === 'function') {
+            this.spawnTxt(new Hex(0,0), 'Click a player field to reclaim.', '#9be3b4');
         }
     },
 
@@ -1399,32 +1434,9 @@ const Game = {
             this.setSelectedOverworldTile(null);
             if (this.awaitingReclamationTarget) {
                 const tile = this.overworld.hexes.get(key);
-                const hasCharge = Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0;
-                if (!hasCharge) {
-                    this.spawnTxt(hex, 'No reclamation charges available', '#ef476f');
-                    this.syncReclamationAwaitState();
-                    this.updateHUD();
-                    return;
-                }
-                if (!tile) {
-                    this.spawnTxt(hex, 'Select a valid field tile', '#ef476f');
-                    this.updateHUD();
-                    return;
-                }
-                const ownedByPlayer = !tile.owner || tile.owner === 'player';
-                if (tile.type !== 'field' || !ownedByPlayer) {
-                    this.spawnTxt(tile.hex || hex, 'Only player fields can be reclaimed', '#ef476f');
-                    this.updateHUD();
-                    return;
-                }
-                const converted = this.applyQueuedReclamationToTile(tile);
-                if (converted) {
-                    this.updateHUD();
-                    return;
-                }
-                this.spawnTxt(tile.hex || hex, 'Select a player field', '#ef476f');
-                this.syncReclamationAwaitState();
+                const converted = this.applyQueuedReclamationToTile(tile, hex);
                 this.updateHUD();
+                if (converted) return;
                 return;
             }
             if(this.overworld.claimable.has(key)) {
