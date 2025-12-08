@@ -398,18 +398,56 @@ function updateResearchUI(game) {
         let affordable = false;
 
         if (tech.costOptions && tech.costOptions.length > 0) {
-            costLine.innerText = tech.costOptions.map((opt) => `${opt.label} (${game.formatCost(game.getTechCost(tech, opt.id))})`).join(' | ');
-            tech.costOptions.forEach((opt) => {
+            costLine.innerText = 'Select an option to view cost.';
+            const optionPicker = document.createElement('div');
+            optionPicker.className = 'tech-options';
+            let selectedOptionId = null;
+
+            const hasAffordableOption = tech.costOptions.some((opt) => {
                 const optCost = game.getTechCost(tech, opt.id);
-                const btn = document.createElement('button');
-                btn.innerText = opt.label;
-                const canAfford = game.canPayCost(optCost) && canBuyMore && game.hasFieldToConvert();
-                affordable = affordable || canAfford;
-                btn.disabled = !canAfford;
-                btn.classList.add('primary-btn');
-                btn.onclick = () => game.buyTechnology(tech.id, opt.id);
-                actions.appendChild(btn);
+                return optCost
+                    && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
+                    && game.canPayCost(optCost);
             });
+
+            const purchaseBtn = document.createElement('button');
+            purchaseBtn.innerText = 'Purchase';
+            purchaseBtn.classList.add('primary-btn');
+            purchaseBtn.disabled = true;
+
+            const updateOptionState = () => {
+                const cost = selectedOptionId ? game.getTechCost(tech, selectedOptionId) : null;
+                const label = tech.costOptions.find((opt) => opt.id === selectedOptionId)?.label;
+                const canAfford = cost
+                    && canBuyMore
+                    && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
+                    && game.canPayCost(cost);
+                purchaseBtn.disabled = !canAfford;
+                purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
+                affordable = (hasAffordableOption && canBuyMore) || canAfford;
+                costLine.innerText = label && cost ? `${label}: ${game.formatCost(cost)}` : 'Select an option to view cost.';
+            };
+
+            tech.costOptions.forEach((opt) => {
+                const optBtn = document.createElement('button');
+                optBtn.innerText = opt.label;
+                optBtn.classList.add('primary-btn', 'option-btn');
+                optBtn.onclick = () => {
+                    selectedOptionId = opt.id;
+                    optionPicker.querySelectorAll('button').forEach((btn) => btn.classList.toggle('active', btn === optBtn));
+                    updateOptionState();
+                };
+                optionPicker.appendChild(optBtn);
+            });
+
+            purchaseBtn.onclick = () => {
+                if (!selectedOptionId) return;
+                game.buyTechnology(tech.id, selectedOptionId);
+            };
+
+            actions.appendChild(optionPicker);
+            actions.appendChild(purchaseBtn);
+            updateOptionState();
         } else {
             const cost = game.getTechCost(tech);
             costLine.innerText = `Cost: ${game.formatCost(cost)}`;

@@ -76,14 +76,25 @@
      * factors and optional cost variants.
      * @param {object} tech technology entry to evaluate.
      * @param {string} [optionId] optional option key for variable-cost tech.
-     * @returns {object} resource cost keyed by gold/wood.
+     * @returns {object|null} resource cost keyed by gold/wood, or null when an
+     * option is required but missing/invalid.
      */
     function getCostForTech(tech, optionId) {
         const purchaseCount = tech.timesPurchased || 0;
         const factor = Math.max(tech.growthFactor || 1, 1);
-        const baseCost = tech.costOptions && tech.costOptions.length > 0
-            ? tech.costOptions.find(opt => opt.id === optionId)?.cost || cloneCost()
-            : tech.cost || cloneCost();
+        const hasOptions = Array.isArray(tech.costOptions) && tech.costOptions.length > 0;
+        let baseCost;
+
+        if (hasOptions) {
+            if (!optionId) {
+                throw new Error(`optionId is required for technology "${tech.id}"`);
+            }
+            const selectedOption = tech.costOptions.find(opt => opt.id === optionId);
+            if (!selectedOption) return null;
+            baseCost = cloneCost(selectedOption.cost);
+        } else {
+            baseCost = cloneCost(tech.cost);
+        }
 
         const scaledCost = {};
         Object.entries(baseCost).forEach(([key, value]) => {
@@ -91,7 +102,7 @@
             const scaled = Math.floor(value * Math.pow(factor, purchaseCount));
             scaledCost[key] = scaled;
         });
-        return scaledCost;
+        return Object.keys(scaledCost).length > 0 ? scaledCost : null;
     }
 
     /**

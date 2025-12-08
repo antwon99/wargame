@@ -1104,14 +1104,22 @@ const Game = {
      * Determine the scaled price for a tech, optionally scoped to an option.
      * @param {object} tech technology entry.
      * @param {string} [optionId] optional cost option id.
-     * @returns {object} resource cost.
+     * @returns {object|null} resource cost, or null when invalid.
      */
     getTechCost(tech, optionId) {
-        return ResearchSystem.getCostForTech(tech, optionId);
+        try {
+            return ResearchSystem.getCostForTech(tech, optionId);
+        } catch (error) {
+            this.logBootstrapWarning?.('Failed to resolve tech cost', error);
+            return null;
+        }
     },
 
     /** Check if the player can pay a specific cost. */
-    canPayCost(cost) { return ResearchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost); },
+    canPayCost(cost) {
+        if (!cost) return false;
+        return ResearchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost);
+    },
 
     /**
      * Attempt to purchase a technology and immediately apply its effect.
@@ -1123,6 +1131,7 @@ const Game = {
         if (!tech || !ResearchSystem.hasRemainingPurchases(tech)) return;
 
         const cost = this.getTechCost(tech, optionId);
+        if (!cost) return;
         const hasFields = tech.id === 'land-reclamation' ? this.hasFieldToConvert() : true;
         if (!hasFields) return;
         if (!this.canPayCost(cost)) return;
