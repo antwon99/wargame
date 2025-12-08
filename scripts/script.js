@@ -352,6 +352,7 @@ const Game = {
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
     pendingReclamations: [],
+    awaitingReclamationTarget: false,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
     imperialMandates: ImperialMandates,
@@ -812,6 +813,7 @@ const Game = {
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         this.calcOverworldGhosts();
         this.refreshClusterBonuses();
+        this.syncReclamationAwaitState();
         this.research = this.buildResearchState();
         this.updateResearchBonuses();
         this.resetSession();
@@ -856,6 +858,7 @@ const Game = {
             ImperialMandates.hydrateState(snapshot.mandates, this);
         }
         this.pendingNotifications = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
+        this.syncReclamationAwaitState();
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
         this.shouldRunImperialIntro = false;
@@ -1136,10 +1139,11 @@ const Game = {
         if (!cost) return;
         const hasFields = tech.id === 'land-reclamation' ? this.hasFieldToConvert() : true;
         if (!hasFields) return;
-        if (!this.canPayCost(cost)) return;
+        const payment = tech.id === 'land-reclamation' ? { gold: cost.gold || 0 } : cost;
+        if (!this.canPayCost(payment)) return;
 
-        this.gold -= cost.gold || 0;
-        this.wood -= cost.wood || 0;
+        this.gold -= payment.gold || 0;
+        if (tech.id !== 'land-reclamation') this.wood -= payment.wood || 0;
         this.applyTechEffect(tech, optionId);
         ResearchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
@@ -1176,7 +1180,7 @@ const Game = {
         if (tech.id === 'land-reclamation') {
             const targetType = optionId === 'town' ? 'town' : 'forest';
             this.queueLandReclamation(targetType);
-            this.spawnTxt(new Hex(0,0), 'SELECT A FIELD', '#9be3b4');
+            this.enterReclamationTargetingState();
             return;
         }
     },
@@ -1191,6 +1195,7 @@ const Game = {
         if (!Array.isArray(this.pendingReclamations)) this.pendingReclamations = [];
         this.pendingReclamations.push({ targetType: normalized });
         if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        this.syncReclamationAwaitState();
         return this.pendingReclamations.length;
     },
 
@@ -1225,6 +1230,7 @@ const Game = {
         this.refreshClusterBonuses();
         this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
         if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
+        this.syncReclamationAwaitState();
         return true;
     },
 
@@ -1232,6 +1238,34 @@ const Game = {
     hasFieldToConvert() {
         return Array.from(this.overworld.hexes.values())
             .some(h => h.type === 'field' && (!h.owner || h.owner === 'player'));
+    },
+
+    /**
+     * Set and broadcast the reclamation targeting state so the UI and click
+     * handlers know a player decision is required for placement.
+     * @returns {boolean} true when at least one reclamation charge remains.
+     */
+    syncReclamationAwaitState() {
+        const hasPending = Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0;
+        this.awaitingReclamationTarget = hasPending;
+        if (!hasPending && typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        return hasPending;
+    },
+
+    /**
+     * Collapse the research modal, flag the awaiting state, and float a prompt
+     * so the player knows to pick a target field immediately after purchase.
+     */
+    enterReclamationTargetingState() {
+        this.syncReclamationAwaitState();
+        if (typeof this.toggleResearch === 'function') this.toggleResearch(false);
+        const x = this.viewport?.width ? this.viewport.width / 2 : 0;
+        const y = Math.max(48, (this.viewport?.height || 0) * 0.18);
+        if (typeof this.showFloatingText === 'function') {
+            this.showFloatingText(x, y, 'Select a field to convert.', 'alert-text');
+        } else {
+            this.spawnTxt(new Hex(0,0), 'Select a field to convert.', '#9be3b4');
+        }
     },
 
     /**
@@ -1363,15 +1397,35 @@ const Game = {
 
         if(this.state === 'OVERWORLD') {
             this.setSelectedOverworldTile(null);
-            if (Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0) {
+            if (this.awaitingReclamationTarget) {
                 const tile = this.overworld.hexes.get(key);
+                const hasCharge = Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0;
+                if (!hasCharge) {
+                    this.spawnTxt(hex, 'No reclamation charges available', '#ef476f');
+                    this.syncReclamationAwaitState();
+                    this.updateHUD();
+                    return;
+                }
+                if (!tile) {
+                    this.spawnTxt(hex, 'Select a valid field tile', '#ef476f');
+                    this.updateHUD();
+                    return;
+                }
+                const ownedByPlayer = !tile.owner || tile.owner === 'player';
+                if (tile.type !== 'field' || !ownedByPlayer) {
+                    this.spawnTxt(tile.hex || hex, 'Only player fields can be reclaimed', '#ef476f');
+                    this.updateHUD();
+                    return;
+                }
                 const converted = this.applyQueuedReclamationToTile(tile);
                 if (converted) {
                     this.updateHUD();
                     return;
-                } else if (tile) {
-                    this.spawnTxt(hex, 'Select a player field', '#ef476f');
                 }
+                this.spawnTxt(tile.hex || hex, 'Select a player field', '#ef476f');
+                this.syncReclamationAwaitState();
+                this.updateHUD();
+                return;
             }
             if(this.overworld.claimable.has(key)) {
                 const cost = this.overworld.claimable.get(key);
