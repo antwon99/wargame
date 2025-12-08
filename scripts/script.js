@@ -1434,11 +1434,11 @@ const Game = {
     claimHexLogic(hex, free) {
         const weighted = [
             { type: 'field', weight: 45 },
-            { type: 'forest', weight: 25 },
+            { type: 'forest', weight: 30 },
             { type: 'town', weight: 18 },
-            { type: 'mine', weight: 7 },
-            { type: 'shrine', weight: 3 },
-            { type: 'ruin', weight: 2 }
+            { type: 'mine', weight: 5 },
+            { type: 'shrine', weight: 2 },
+            { type: 'ruin', weight: 1 }
         ];
         const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
         let pick = Math.random() * totalWeight;
@@ -1581,6 +1581,24 @@ const Game = {
     },
 
     /**
+     * Decide whether combat tiles should inherit fog/snow visibility masks.
+     * The legacy fog-of-war visuals stay disabled during war, while seasonal
+     * snow overlays may apply when enabled and the calendar falls in winter.
+     *
+     * @param {Date} [currentDate=new Date()] optional date override for tests.
+     * @returns {boolean} true when combat rendering should apply fog/snow masks.
+     */
+    shouldApplyCombatFog(currentDate = new Date()) {
+        if (this.state !== 'COMBAT') return false;
+        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
+        if (!fogConfig || fogConfig.enabled === false) return false;
+        if (fogConfig.visualMode !== 'seasonalSnow') return false;
+
+        const winterMonths = new Set([11, 0, 1]);
+        return winterMonths.has(currentDate.getMonth());
+    },
+
+    /**
      * Build a normalized visibility map spanning overworld/frontier and combat
      * territories. Stored on the fog namespace so tile overlays and fog masks can
      * share the same resolution each frame.
@@ -1591,7 +1609,7 @@ const Game = {
             state: this.state,
             overworld: this.overworld?.hexes,
             claimable: this.overworld?.claimable,
-            combat: this.combat?.territory
+            combat: this.shouldApplyCombatFog() ? this.combat?.territory : null
         });
         this.fog.visibility = visibility;
         return visibility;
