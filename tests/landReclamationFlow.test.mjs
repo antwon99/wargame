@@ -309,20 +309,54 @@ function testClickValidationAndPrompt() {
     };
     const hostilePos = hostileHex.toPixel(layout);
     game.onClick(hostilePos.x, hostilePos.y);
-    assert.strictEqual(lastMessage, 'Only player fields can be reclaimed', 'hostile tiles should be rejected');
+    assert.strictEqual(lastMessage, 'Enemy territory cannot be reclaimed', 'hostile tiles should be rejected');
 
     const missingPos = missingHex.toPixel(layout);
     game.onClick(missingPos.x, missingPos.y);
-    assert.strictEqual(lastMessage, 'Select a valid field tile', 'missing tiles should show an error');
+    assert.strictEqual(lastMessage, 'Select a player field', 'missing tiles should show an error');
 
     const ownedPos = ownedHex.toPixel(layout);
     game.onClick(ownedPos.x, ownedPos.y);
     assert.strictEqual(game.awaitingReclamationTarget, false, 'successful placement clears targeting state');
 }
 
+function testNoEligibleFieldsClearsPending() {
+    const { window } = loadGameModule();
+    const game = window.Game;
+    game.spawnTxt = () => {};
+    game.showFloatingText = () => {};
+    game.updateHUD = () => {};
+    game.updateResearchUI = () => {};
+    game.toggleResearch = () => {};
+    game.research = game.buildResearchState();
+    game.updateResearchBonuses();
+
+    const viableHex = new game.Hex(0, 0, 0);
+    const viableTile = { hex: viableHex, type: 'field', owner: 'player' };
+    game.overworld.hexes = new Map([[viableHex.toString(), viableTile]]);
+    game.overworld.claimable = new Map();
+    game.gold = 2000;
+    game.wood = 0;
+
+    let feedback = '';
+    game.spawnTxt = (_pos, msg) => { feedback = msg; };
+
+    game.buyTechnology('land-reclamation', 'forest');
+    assert.strictEqual(game.awaitingReclamationTarget, true, 'charge should arm awaiting state when purchased');
+
+    // Simulate losing the only eligible tile between purchase and placement.
+    game.overworld.hexes.clear();
+    game.applyQueuedReclamationToTile(null, new game.Hex(0, 0, 0));
+
+    assert.strictEqual(feedback, 'No player fields remain to reclaim', 'empty board should surface a reclamation warning');
+    assert.strictEqual(game.awaitingReclamationTarget, false, 'missing fields should clear awaiting state');
+    assert.strictEqual(game.pendingReclamations.length, 0, 'queue should reset when there is nothing to convert');
+}
+
 function run() {
     testQueuedPlacementConsumesCharge();
     testClickValidationAndPrompt();
+    testNoEligibleFieldsClearsPending();
     console.log('Land reclamation flow tests passed.');
 }
 

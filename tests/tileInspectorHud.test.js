@@ -166,11 +166,58 @@ async function testClaimablePreviewShowsCost() {
     assert.strictEqual(adjacency.style.display, 'none', 'adjacency details should hide for unclaimed tiles');
 }
 
+async function testReclamationHintsReflectAvailability() {
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        awaitingReclamationTarget: true,
+        pendingReclamations: [{}],
+        nextQueuedReclamationType: () => 'forest',
+        hasFieldToConvert: () => false,
+        overworld: { clusterBonuses: new Map() },
+        updateTileAttackOverlay: () => {}
+    };
+
+    updateTileInspector(game, null);
+    const bonus = doc.getElementById('tile-inspector-bonus');
+    const adjacencyDetail = doc.getElementById('tile-inspector-adjacency-detail');
+
+    assert.ok(
+        bonus.innerText.toLowerCase().includes('no player fields'),
+        'awaiting state should explain when no fields are available'
+    );
+    assert.ok(
+        adjacencyDetail.innerText.toLowerCase().includes('secure more territory'),
+        'inspector should guide players to claim more land when fields are gone'
+    );
+
+    const hostileTile = { type: 'forest', owner: 'enemy', hex: { q: 0, r: 0, toString: () => '0,0' } };
+    game.hasFieldToConvert = () => true;
+
+    updateTileInspector(game, hostileTile);
+    assert.ok(
+        bonus.innerText.toLowerCase().includes('enemy tile'),
+        'enemy tiles should surface a dedicated reclamation warning'
+    );
+}
+
 async function run() {
     await testClusterBonusRenders();
     await testPauseStatusUpdatesInspector();
     await testInspectorHidesOutsideOverworld();
     await testClaimablePreviewShowsCost();
+    await testReclamationHintsReflectAvailability();
     delete global.document;
     console.log('Tile inspector HUD tests passed.');
 }
