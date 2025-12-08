@@ -223,6 +223,7 @@ function testQueuedPlacementConsumesCharge() {
     game.updateResearchBonuses();
 
     game.buyTechnology('land-reclamation', 'forest');
+    assert.strictEqual(game.gold, 2000, 'gold should only be charged after a valid field selection');
     assert.strictEqual(game.awaitingReclamationTarget, true, 'purchase should enter targeting state');
     assert.strictEqual(game.pendingReclamations.length, 1, 'purchase should queue a reclamation placement');
 
@@ -231,22 +232,19 @@ function testQueuedPlacementConsumesCharge() {
     assert.strictEqual(game.applyQueuedReclamationToTile(invalidTile), false, 'non-field tiles should be rejected');
     assert.strictEqual(game.pendingReclamations.length, 1, 'failed placement should leave the queued charge intact');
     assert.strictEqual(game.awaitingReclamationTarget, true, 'failed placement should retain awaiting state');
+    assert.strictEqual(game.gold, 2000, 'invalid targets should not deduct gold');
 
     const converted = game.applyQueuedReclamationToTile(fieldTile);
     assert.ok(converted, 'queued placement should apply to owned field tiles');
     assert.strictEqual(fieldTile.type, 'forest', 'tile type should match selected reclamation target');
+    assert.strictEqual(game.gold, 1500, 'conversion should charge the queued gold cost');
     assert.strictEqual(game.pendingReclamations.length, 0, 'queue should be consumed after placement');
     assert.strictEqual(game.awaitingReclamationTarget, false, 'state should clear after placement');
 }
 
 function testClickValidationAndPrompt() {
     const document = createDocumentStub();
-    const researchModal = createElementStub();
-    document.getElementById('research-modal');
-    document.getElementById = (id) => {
-        if (id === 'research-modal') return researchModal;
-        return createElementStub({ id });
-    };
+    document.getElementById = (id) => createElementStub({ id });
     const window = createWindowStub(document);
     const imports = createImportStubs();
     const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
@@ -300,8 +298,9 @@ function testClickValidationAndPrompt() {
     game.updateResearchBonuses();
 
     game.buyTechnology('land-reclamation', 'town');
+    assert.strictEqual(game.gold, 2000, 'gold should remain until a valid field is chosen');
     assert.strictEqual(game.awaitingReclamationTarget, true, 'targeting state should activate');
-    assert.ok(researchCollapsed, 'research modal should collapse on purchase');
+    assert.ok(researchCollapsed, 'research drawer should collapse on purchase');
     assert.strictEqual(game.pendingReclamations.length, 1, 'purchase should arm exactly one queued reclamation');
 
     const layout = {
@@ -320,15 +319,18 @@ function testClickValidationAndPrompt() {
     game.onClick(hostilePos.x, hostilePos.y);
     assert.strictEqual(lastMessage, 'Enemy territory cannot be reclaimed', 'hostile tiles should be rejected');
     assert.strictEqual(game.pendingReclamations.length, 1, 'hostile click should not consume the queued charge');
+    assert.strictEqual(game.gold, 2000, 'hostile tiles should not deduct queued gold');
 
     const missingPos = missingHex.toPixel(layout);
     game.onClick(missingPos.x, missingPos.y);
-    assert.strictEqual(lastMessage, 'Select a player field', 'missing tiles should show an error');
+    assert.strictEqual(lastMessage, 'Select an owned FIELD to convert', 'missing tiles should show an error');
     assert.strictEqual(game.pendingReclamations.length, 1, 'missing tile should not consume the queued charge');
+    assert.strictEqual(game.gold, 2000, 'invalid clicks should leave resources untouched');
 
     const ownedPos = ownedHex.toPixel(layout);
     game.onClick(ownedPos.x, ownedPos.y);
     assert.strictEqual(game.awaitingReclamationTarget, false, 'successful placement clears targeting state');
+    assert.strictEqual(game.gold, 1500, 'valid placement should charge the queued cost');
 }
 
 function testNoEligibleFieldsClearsPending() {
@@ -353,6 +355,7 @@ function testNoEligibleFieldsClearsPending() {
     game.spawnTxt = (_pos, msg) => { feedback = msg; };
 
     game.buyTechnology('land-reclamation', 'forest');
+    assert.strictEqual(game.gold, 2000, 'purchasing the tech should not deduct gold until placement');
     assert.strictEqual(game.awaitingReclamationTarget, true, 'charge should arm awaiting state when purchased');
 
     // Simulate losing the only eligible tile between purchase and placement.
@@ -362,6 +365,7 @@ function testNoEligibleFieldsClearsPending() {
     assert.strictEqual(feedback, 'No player fields remain to reclaim', 'empty board should surface a reclamation warning');
     assert.strictEqual(game.awaitingReclamationTarget, false, 'missing fields should clear awaiting state');
     assert.strictEqual(game.pendingReclamations.length, 0, 'queue should reset when there is nothing to convert');
+    assert.strictEqual(game.gold, 2000, 'failed placements should leave resources untouched');
 }
 
 function testReclamationCostScalingRespectsPurchaseHistory() {
@@ -387,12 +391,21 @@ function testReclamationCostScalingRespectsPurchaseHistory() {
     game.wood = 0;
 
     game.buyTechnology('land-reclamation', 'forest');
-    assert.strictEqual(game.gold, startingGold - 500, 'first purchase should cost the base gold price');
+    assert.strictEqual(game.gold, startingGold, 'queued reclamations should defer payment until placement');
     assert.strictEqual(game.pendingReclamations.length, 1, 'first purchase should queue one placement');
+    assert.strictEqual(game.pendingReclamations[0].cost.gold, 500, 'queued cost should reflect the base price');
 
     game.buyTechnology('land-reclamation', 'town');
-    assert.strictEqual(game.gold, startingGold - 500 - 675, 'second purchase should scale cost using timesPurchased');
+    assert.strictEqual(game.gold, startingGold, 'queuing multiple conversions should not pre-charge gold');
     assert.strictEqual(game.pendingReclamations.length, 2, 'second purchase should queue an additional placement');
+    assert.strictEqual(game.pendingReclamations[1].cost.gold, 675, 'cost scaling should respect pending purchases');
+
+    game.applyQueuedReclamationToTile(game.overworld.hexes.get(firstField.toString()));
+    assert.strictEqual(game.gold, startingGold - 500, 'gold should deduct when the first placement lands');
+
+    game.applyQueuedReclamationToTile(game.overworld.hexes.get(secondField.toString()));
+    assert.strictEqual(game.gold, startingGold - 500 - 675, 'second placement should deduct the scaled cost');
+    assert.strictEqual(game.getTech('land-reclamation').timesPurchased, 2, 'purchases should register after successful placements');
 }
 
 function testClusterBonusesRefreshAfterReclamation() {
@@ -428,12 +441,12 @@ function testClusterBonusesRefreshAfterReclamation() {
     game.wood = 0;
 
     game.buyTechnology('land-reclamation', 'forest');
-    assert.ok(bonusCalls.length >= 1, 'cluster bonuses should refresh after purchasing the tech');
+    assert.strictEqual(bonusCalls.length, 0, 'cluster bonuses should refresh after a valid placement, not purchase');
 
     const converted = game.applyQueuedReclamationToTile(fieldTile);
     assert.ok(converted, 'reclamation should apply to player-owned fields');
     assert.ok(game.overworld.clusterBonuses instanceof Map, 'cluster bonus cache should be updated on conversion');
-    assert.ok(bonusCalls.length >= 2, 'cluster bonuses should refresh again when applying the conversion');
+    assert.ok(bonusCalls.length >= 1, 'cluster bonuses should refresh when applying the conversion');
 
     const lastCall = bonusCalls[bonusCalls.length - 1];
     assert.strictEqual(lastCall.params.baseRate, 0.25, 'cluster recalculation should use the default base rate');
