@@ -363,6 +363,11 @@ function toggleResearch(game, forceOpen) {
     if (forceOpen !== false) game.updateResearchUI();
 }
 
+/**
+ * Rebuild the research modal using the shared card visuals so tech options mirror
+ * the upgrade screen, including hover/active feedback and unified cost badges.
+ * @param {object} game live game singleton exposing research state and helpers.
+ */
 function updateResearchUI(game) {
     const grid = document.getElementById('tech-grid');
     if (!grid) return;
@@ -376,31 +381,52 @@ function updateResearchUI(game) {
     if (headerLives) headerLives.innerText = game.research.lives;
 
     game.research.technologies.forEach((tech) => {
-        const card = document.createElement('div');
-        card.className = 'tech-card';
+        const card = document.createElement('article');
+        card.className = 'tech-card command-card';
+
+        const header = document.createElement('div');
+        header.className = 'card-header';
+
+        const heading = document.createElement('div');
+        heading.className = 'card-heading';
 
         const title = document.createElement('h3');
-        title.className = 'tech-title';
+        title.className = 'card-title tech-title';
         const counter = tech.maxPurchases && tech.maxPurchases > 1 ? ` (${tech.timesPurchased}/${tech.maxPurchases})` : '';
         title.innerText = `${tech.name}${counter}`;
 
+        const subtitle = document.createElement('p');
+        subtitle.className = 'card-subtitle';
+        subtitle.innerText = tech.maxPurchases && tech.maxPurchases > 1
+            ? `Can be purchased ${tech.maxPurchases} times.`
+            : tech.purchased ? 'Purchased' : 'One-time unlock';
+
+        const costBadge = document.createElement('span');
+        costBadge.className = 'cost-badge tech-cost';
+        costBadge.innerText = 'Preview cost';
+
+        heading.appendChild(title);
+        heading.appendChild(subtitle);
+        header.appendChild(heading);
+        header.appendChild(costBadge);
+
         const desc = document.createElement('p');
-        desc.className = 'tech-desc';
+        desc.className = 'card-desc tech-desc';
         desc.innerText = tech.description;
 
         const costLine = document.createElement('p');
-        costLine.className = 'tech-cost';
+        costLine.className = 'card-note tech-cost';
+        costLine.innerText = 'Choose an option to view costs.';
 
         const actions = document.createElement('div');
-        actions.className = 'tech-actions';
+        actions.className = 'card-actions tech-actions';
 
         const canBuyMore = ResearchSystem.hasRemainingPurchases(tech);
         let affordable = false;
 
         if (tech.costOptions && tech.costOptions.length > 0) {
-            costLine.innerText = 'Select an option to view cost.';
             const optionPicker = document.createElement('div');
-            optionPicker.className = 'tech-options';
+            optionPicker.className = 'tech-options option-stack';
             let selectedOptionId = null;
 
             const hasAffordableOption = tech.costOptions.some((opt) => {
@@ -412,7 +438,7 @@ function updateResearchUI(game) {
 
             const purchaseBtn = document.createElement('button');
             purchaseBtn.innerText = 'Purchase';
-            purchaseBtn.classList.add('primary-btn');
+            purchaseBtn.classList.add('card-btn', 'primary-btn');
             purchaseBtn.disabled = true;
 
             const updateOptionState = () => {
@@ -425,13 +451,14 @@ function updateResearchUI(game) {
                 purchaseBtn.disabled = !canAfford;
                 purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
                 affordable = (hasAffordableOption && canBuyMore) || canAfford;
-                costLine.innerText = label && cost ? `${label}: ${game.formatCost(cost)}` : 'Select an option to view cost.';
+                costBadge.innerText = label && cost ? game.formatCost(cost) : 'Select focus';
+                costLine.innerText = label && cost ? label : 'Select an option to view cost.';
             };
 
             tech.costOptions.forEach((opt) => {
                 const optBtn = document.createElement('button');
                 optBtn.innerText = opt.label;
-                optBtn.classList.add('primary-btn', 'option-btn');
+                optBtn.classList.add('card-btn', 'primary-btn', 'option-btn');
                 optBtn.onclick = () => {
                     selectedOptionId = opt.id;
                     optionPicker.querySelectorAll('button').forEach((btn) => btn.classList.toggle('active', btn === optBtn));
@@ -450,18 +477,21 @@ function updateResearchUI(game) {
             updateOptionState();
         } else {
             const cost = game.getTechCost(tech);
-            costLine.innerText = `Cost: ${game.formatCost(cost)}`;
+            costBadge.innerText = game.formatCost(cost);
+            costLine.innerText = `Cost scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
             affordable = game.canPayCost(cost) && canBuyMore;
             const btn = document.createElement('button');
             btn.innerText = tech.purchased ? 'Repurchase' : 'Purchase';
             btn.disabled = !affordable;
-            btn.classList.add('primary-btn');
+            btn.classList.add('card-btn', 'primary-btn');
             btn.onclick = () => game.buyTechnology(tech.id);
             actions.appendChild(btn);
         }
 
         if (!canBuyMore) {
             card.classList.add('purchased');
+            costBadge.innerText = 'Maxed';
+            costLine.innerText = 'All purchases completed.';
             actions.querySelectorAll('button').forEach((btn) => {
                 btn.disabled = true;
                 btn.classList.add('purchased-btn');
@@ -473,7 +503,7 @@ function updateResearchUI(game) {
             card.classList.add('unaffordable');
         }
 
-        card.appendChild(title);
+        card.appendChild(header);
         card.appendChild(desc);
         card.appendChild(costLine);
         card.appendChild(actions);
@@ -522,16 +552,19 @@ function updateSettingsUI(game) {
 }
 
 function updateUpgradeMenu(game) {
-    document.getElementById('lbl-soldier').innerText = `Lv. ${game.upgrades.soldier}`;
-    document.getElementById('buy-soldier').innerText = `${game.getUpgradeCost('soldier')}g`;
-    document.getElementById('lbl-archer').innerText = `Lv. ${game.upgrades.archer}`;
-    document.getElementById('buy-archer').innerText = `${game.getUpgradeCost('archer')}g`;
-    document.getElementById('lbl-prod').innerText = `Lv. ${game.upgrades.production}`;
-    document.getElementById('buy-prod').innerText = `${game.getUpgradeCost('production')}g`;
-    document.getElementById('lbl-mines').innerText = `Lv. ${game.upgrades.mines}`;
-    document.getElementById('buy-mines').innerText = `${game.getUpgradeCost('mines')}g`;
-    document.getElementById('lbl-defense').innerText = `Lv. ${game.upgrades.defense}`;
-    document.getElementById('buy-defense').innerText = `${game.getUpgradeCost('defense')}g`;
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+    const setCost = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = `${val}g`; };
+
+    setTxt('lbl-soldier', `Lv. ${game.upgrades.soldier}`);
+    setCost('cost-soldier', game.getUpgradeCost('soldier'));
+    setTxt('lbl-archer', `Lv. ${game.upgrades.archer}`);
+    setCost('cost-archer', game.getUpgradeCost('archer'));
+    setTxt('lbl-prod', `Lv. ${game.upgrades.production}`);
+    setCost('cost-prod', game.getUpgradeCost('production'));
+    setTxt('lbl-mines', `Lv. ${game.upgrades.mines}`);
+    setCost('cost-mines', game.getUpgradeCost('mines'));
+    setTxt('lbl-defense', `Lv. ${game.upgrades.defense}`);
+    setCost('cost-defense', game.getUpgradeCost('defense'));
 }
 
 /**
