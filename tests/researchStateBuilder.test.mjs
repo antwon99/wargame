@@ -34,6 +34,20 @@ function runTests() {
     assert.strictEqual(hydrated.lives, 2, 'lives should clamp to purchased count');
     assert.strictEqual(hydrated.bonuses.clusterBaseRate, 0.1, 'hydrated bonuses should honor supplied default rate');
 
+    const overCapSaved = { technologies: [{ id: 'lives', timesPurchased: 5 }], lives: 5 };
+    const overCapHydrated = buildResearchStateSafe({
+        researchSystem: ResearchSystem,
+        saved: overCapSaved,
+        defaultClusterRate: 0.1
+    });
+    const hydratedLivesTech = overCapHydrated.technologies.find((tech) => tech.id === 'lives');
+    assert.strictEqual(
+        hydratedLivesTech.timesPurchased,
+        hydratedLivesTech.maxPurchases,
+        'hydration should clamp saved purchases to the documented maximum'
+    );
+    assert.strictEqual(overCapHydrated.lives, hydratedLivesTech.maxPurchases, 'persisted lives should honor the cap');
+
     const { entries: errorEntries, logger: errorLogger } = captureLogs();
     const erroringSystem = { instantiateTechnologies: () => { throw new Error('boom'); } };
     const erroredState = buildResearchStateSafe({
