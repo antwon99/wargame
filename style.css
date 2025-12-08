@@ -729,48 +729,85 @@
             padding-right: 4px;
         }
 
-        /* UPGRADE & RESEARCH MENU */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 22px;
-            background: radial-gradient(circle at 50% 20%, rgba(16, 24, 40, 0.85), rgba(5, 8, 18, 0.95));
-            backdrop-filter: blur(12px);
-            pointer-events: auto;
-            z-index: 22;
+        /* HUD DRAWER */
+        .hud-action-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
         }
 
-        #research-modal { z-index: 25; }
+        .hud-action-row__buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
 
-        .modal-panel {
-            background: linear-gradient(145deg, rgba(22, 27, 40, 0.95), rgba(10, 13, 20, 0.92));
+        .reclamation-hint {
+            flex: 1 1 240px;
+            min-height: 24px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(16, 24, 40, 0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #f8fafc;
+            font-weight: 700;
+            letter-spacing: 0.25px;
+            box-shadow: 0 12px 26px rgba(0,0,0,0.35);
+            transition: opacity 0.2s ease;
+        }
+
+        .reclamation-hint[aria-hidden="true"] {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .hud-drawer {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            display: none;
+            width: min(1120px, 96vw);
+            z-index: 22;
+            pointer-events: none;
+        }
+
+        .hud-drawer.open { display: block; }
+
+        .hud-drawer__panel {
+            pointer-events: auto;
+            background: linear-gradient(145deg, rgba(22, 27, 40, 0.96), rgba(10, 13, 20, 0.9));
             border: 1px solid rgba(255,255,255,0.12);
             border-radius: 18px;
-            width: min(1120px, 96vw);
-            max-height: 90vh;
-            padding: 20px 22px 24px;
-            box-shadow: 0 20px 70px rgba(0,0,0,0.55);
+            width: 100%;
+            max-height: min(40vh, 520px);
+            min-height: 34vh;
+            padding: 16px 18px 18px;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.55);
             overflow: hidden;
             color: #e2e8f0;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .modal-header {
+        .hud-drawer__header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 14px;
+            gap: 12px;
         }
 
-        .modal-heading { display: flex; flex-direction: column; gap: 6px; }
-        .modal-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); font-weight: 800; font-size: 0.85rem; }
-        .modal-title { margin: 0; color: #f8fafc; letter-spacing: 0.3px; }
-        .modal-subtitle { margin: 0; color: #94a3b8; font-size: 0.95rem; }
+        .hud-drawer__heading { display: flex; flex-direction: column; gap: 6px; }
+        .hud-drawer__eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); font-weight: 800; font-size: 0.85rem; }
+        .hud-drawer__title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .hud-drawer__title { margin: 0; color: #f8fafc; letter-spacing: 0.3px; }
+        .hud-drawer__subtitle { margin: 0; color: #94a3b8; font-size: 0.95rem; max-width: 72ch; }
+
+        .hud-drawer__body { overflow-y: auto; padding-right: 6px; flex: 1; min-height: 0; }
+        .hud-drawer__content { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+        .tech-drawer { flex: 1; }
 
         .modal-close {
             background: rgba(255,255,255,0.08);
@@ -784,8 +821,6 @@
         }
         .modal-close:hover { background: rgba(255,255,255,0.16); }
         .modal-close:active { transform: translateY(1px); }
-
-        .modal-body-scroll { overflow-y: auto; padding-right: 6px; flex: 1; min-height: 0; }
 
         .card-grid {
             display: grid;
@@ -860,6 +895,12 @@
         .command-card.purchased { border-color: var(--gold); box-shadow: 0 10px 24px rgba(255, 209, 102, 0.18); }
         .command-card.unaffordable { opacity: 0.75; }
 
+        @media (max-width: 720px) {
+            .hud-drawer { bottom: 12px; width: min(98vw, 900px); }
+            .hud-drawer__panel { max-height: 60vh; }
+            .hud-action-row { flex-direction: column; }
+            .reclamation-hint { width: 100%; }
+        }
 
         /* IMPERIAL MANDATE DIALOGS */
         .imperial-modal-backdrop {

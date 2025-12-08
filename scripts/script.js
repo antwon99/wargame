@@ -1097,8 +1097,8 @@ const Game = {
      */
     formatCost(cost) {
         const parts = [];
-        if (cost.gold) parts.push(`${cost.gold}g`);
-        if (cost.wood) parts.push(`${cost.wood}w`);
+        if (cost?.gold) parts.push(`${cost.gold}g`);
+        if (cost?.wood) parts.push(`${cost.wood}w`);
         return parts.join(' + ');
     },
 
@@ -1107,13 +1107,21 @@ const Game = {
 
     /**
      * Determine the scaled price for a tech, optionally scoped to an option.
+     * Accounts for pending land-reclamation placements so queued conversions
+     * continue to scale follow-up purchases.
      * @param {object} tech technology entry.
      * @param {string} [optionId] optional cost option id.
      * @returns {object|null} resource cost, or null when invalid.
      */
     getTechCost(tech, optionId) {
         try {
-            return ResearchSystem.getCostForTech(tech, optionId);
+            const pending = tech?.id === 'land-reclamation'
+                ? Math.max(tech.pendingPlacements || 0, 0)
+                : 0;
+            const normalized = pending
+                ? { ...tech, timesPurchased: (tech.timesPurchased || 0) + pending }
+                : tech;
+            return ResearchSystem.getCostForTech(normalized, optionId);
         } catch (error) {
             this.logBootstrapWarning?.('Failed to resolve tech cost', error);
             return null;
@@ -1142,9 +1150,15 @@ const Game = {
         const payment = tech.id === 'land-reclamation' ? { gold: cost.gold || 0 } : cost;
         if (!this.canPayCost(payment)) return;
 
+        if (tech.id === 'land-reclamation') {
+            this.applyTechEffect(tech, optionId, payment);
+            this.updateResearchUI();
+            return;
+        }
+
         this.gold -= payment.gold || 0;
-        if (tech.id !== 'land-reclamation') this.wood -= payment.wood || 0;
-        this.applyTechEffect(tech, optionId);
+        this.wood -= payment.wood || 0;
+        this.applyTechEffect(tech, optionId, payment);
         ResearchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
@@ -1156,8 +1170,9 @@ const Game = {
      * Apply immediate bonuses from a purchased tech.
      * @param {object} tech technology definition.
      * @param {string} [optionId] cost option chosen by the player.
+     * @param {object} [cost] optional precomputed payment for queued tech.
      */
-    applyTechEffect(tech, optionId) {
+    applyTechEffect(tech, optionId, cost) {
         if (tech.id === 'lives') {
             const cap = tech.maxPurchases || 3;
             this.research.lives = Math.min(this.research.lives + 1, cap);
@@ -1179,7 +1194,7 @@ const Game = {
 
         if (tech.id === 'land-reclamation') {
             const targetType = optionId === 'town' ? 'town' : 'forest';
-            this.queueLandReclamation(targetType);
+            this.queueLandReclamation(targetType, cost || {});
             this.enterReclamationTargetingState();
             return;
         }
@@ -1189,13 +1204,17 @@ const Game = {
      * Queue a land reclamation placement so the player can pick which field to upgrade.
      * Charges are consumed when a player-owned field is clicked in the overworld.
      * @param {string} targetType desired conversion target (forest|town).
+     * @param {object} cost payment to reserve for when a valid tile is selected.
      */
-    queueLandReclamation(targetType) {
+    queueLandReclamation(targetType, cost = {}) {
         const normalized = targetType === 'town' ? 'town' : 'forest';
         if (!Array.isArray(this.pendingReclamations)) this.pendingReclamations = [];
-        this.pendingReclamations.push({ targetType: normalized });
+        const tech = this.getTech('land-reclamation');
+        if (tech) tech.pendingPlacements = Math.max(0, tech.pendingPlacements || 0) + 1;
+        this.pendingReclamations.push({ targetType: normalized, cost, techId: 'land-reclamation' });
         if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
         this.syncReclamationAwaitState();
+        this.updateReclamationPromptFromQueue();
         return this.pendingReclamations.length;
     },
 
@@ -1206,6 +1225,15 @@ const Game = {
     nextQueuedReclamationType() {
         const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
         return pending?.targetType || null;
+    },
+
+    /**
+     * Peek at the pending reclamation cost so HUD hints can reflect the owed gold.
+     * @returns {object|null} queued cost reference.
+     */
+    nextQueuedReclamationCost() {
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        return pending?.cost || null;
     },
 
     /**
@@ -1233,35 +1261,58 @@ const Game = {
         const hasEligibleField = typeof this.hasFieldToConvert === 'function' ? this.hasFieldToConvert() : true;
         if (!hasEligibleField) {
             this.pendingReclamations.length = 0;
+            const techRef = this.getTech('land-reclamation');
+            if (techRef) techRef.pendingPlacements = 0;
             notify('No player fields remain to reclaim');
             this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
             if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
             return false;
         }
 
         if (!tile || tile.type !== 'field') {
-            notify('Select a player field');
+            notify('Select an owned FIELD to convert');
             this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
             if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
             return false;
         }
         if (tile.owner && tile.owner !== 'player') {
             notify('Enemy territory cannot be reclaimed');
             this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
             if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
             return false;
         }
 
         const targetType = pending.targetType === 'town' ? 'town' : 'forest';
+        const cost = pending.cost || { gold: 0 };
+        if (!this.canPayCost({ gold: cost.gold || 0 })) {
+            notify('Need more gold to reclaim');
+            this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+
         this.pendingReclamations.shift();
+        const tech = this.getTech('land-reclamation');
+        if (tech && tech.pendingPlacements) tech.pendingPlacements = Math.max(0, tech.pendingPlacements - 1);
+
+        this.gold -= cost.gold || 0;
+        if (tech) ResearchSystem.recordPurchase(tech);
 
         tile.type = targetType;
         tile.owner = tile.owner || 'player';
         tile.wasReclaimed = true;
         this.calcOverworldGhosts();
+        this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
         if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
+        this.updateHUD();
+        this.updateResearchUI?.();
+        this.updateReclamationPromptFromQueue();
         this.syncReclamationAwaitState();
         return true;
     },
@@ -1280,23 +1331,56 @@ const Game = {
     syncReclamationAwaitState() {
         const hasPending = Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0;
         this.awaitingReclamationTarget = hasPending;
-        if (!hasPending && typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        if (hasPending) this.updateReclamationPromptFromQueue();
+        else if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        if (!hasPending) {
+            const techRef = this.getTech('land-reclamation');
+            if (techRef) techRef.pendingPlacements = 0;
+            this.setReclamationPrompt('');
+        }
         return hasPending;
     },
 
     /**
-     * Collapse the research modal, flag the awaiting state, and float a prompt
+     * Surface a HUD-level hint while queued reclamations await tile targeting.
+     * @param {string} message user-facing guidance text; empty to hide.
+     */
+    setReclamationPrompt(message) {
+        const hint = typeof document !== 'undefined' ? document.getElementById('reclamation-hint') : null;
+        if (!hint) return false;
+        const hasMessage = Boolean(message);
+        hint.innerText = message || '';
+        hint.setAttribute('aria-hidden', hasMessage ? 'false' : 'true');
+        return hasMessage;
+    },
+
+    /**
+     * Refresh the reclamation prompt text using the next queued cost/target for clarity.
+     */
+    updateReclamationPromptFromQueue() {
+        const pendingType = this.nextQueuedReclamationType();
+        const pendingCost = this.nextQueuedReclamationCost();
+        if (!pendingType || !pendingCost) return this.setReclamationPrompt('');
+        const costLabel = this.formatCost(pendingCost) || '0g';
+        return this.setReclamationPrompt(`Select an owned FIELD tile to convert (cost ${costLabel})`);
+    },
+
+    /**
+     * Collapse the research drawer, flag the awaiting state, and float a prompt
      * so the player knows to pick a target field immediately after purchase.
      */
     enterReclamationTargetingState() {
         this.syncReclamationAwaitState();
         if (typeof this.toggleResearch === 'function') this.toggleResearch(false);
+        this.updateReclamationPromptFromQueue();
         const x = this.viewport?.width ? this.viewport.width / 2 : 0;
         const y = Math.max(48, (this.viewport?.height || 0) * 0.18);
+        const costLabel = this.formatCost(this.nextQueuedReclamationCost() || { gold: 0 }) || '0g';
+        const message = `Select a field to convert (${costLabel} due on placement).`;
         if (typeof this.showFloatingText === 'function') {
-            this.showFloatingText(x, y, 'Select a field to convert.', 'alert-text');
+            this.showFloatingText(x, y, message, 'alert-text');
         } else {
-            this.spawnTxt(new Hex(0,0), 'Select a field to convert.', '#9be3b4');
+            this.spawnTxt(new Hex(0,0), message, '#9be3b4');
         }
         if (typeof this.spawnTxt === 'function') {
             this.spawnTxt(new Hex(0,0), 'Click a player field to reclaim.', '#9be3b4');

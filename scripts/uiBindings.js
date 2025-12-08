@@ -80,6 +80,156 @@ export function applyUIBindings(game, deps = {}) {
 }
 
 /**
+ * Shared drawer helpers that keep header metadata and bindings consistent.
+ */
+/**
+ * Refresh the shared drawer header with context for either upgrades or research.
+ * @param {'upgrades'|'research'} mode active drawer view.
+ * @param {object} game live game singleton exposing research metadata.
+ */
+function syncHudDrawerHeader(mode, game) {
+    const eyebrow = document.getElementById('hud-drawer-eyebrow');
+    const title = document.getElementById('hud-drawer-title');
+    const subtitle = document.getElementById('hud-drawer-subtitle');
+    const lives = document.getElementById('hud-drawer-lives');
+    if (!eyebrow || !title || !subtitle || !lives) return;
+
+    if (mode === 'research') {
+        const livesTech = typeof game.getTech === 'function' ? game.getTech('lives') : null;
+        const livesCap = livesTech?.maxPurchases || 3;
+        eyebrow.innerText = 'Arcane Bureau';
+        title.innerText = 'Research';
+        subtitle.innerText = 'Spend gold and wood on late-game tech that buffs your economy or rescues doomed runs.';
+        lives.innerText = `❤️ ${game.research?.lives ?? 0}/${livesCap}`;
+        lives.setAttribute('aria-hidden', 'false');
+        lives.style.display = 'inline-flex';
+    } else {
+        eyebrow.innerText = 'Imperial Engineering';
+        title.innerText = 'Imperial Upgrades';
+        subtitle.innerText = 'Invest resources to harden defenses and accelerate production between wars.';
+        lives.setAttribute('aria-hidden', 'true');
+        lives.style.display = 'none';
+    }
+}
+
+/**
+ * Attach upgrade purchase handlers after the drawer template has been cloned.
+ * @param {object} game live game singleton.
+ */
+function bindUpgradeButtons(game) {
+    const mapping = {
+        'buy-soldier': 'soldier',
+        'buy-archer': 'archer',
+        'buy-prod': 'production',
+        'buy-mines': 'mines',
+        'buy-defense': 'defense'
+    };
+    Object.entries(mapping).forEach(([id, key]) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.onclick = () => game.buyUpgrade(key);
+    });
+}
+
+/**
+ * Create and manage the bottom HUD drawer shared by upgrades and research.
+ * Handles swapping template content, accessibility states, and close affordances.
+ * @param {object} game live game singleton.
+ * @returns {object} drawer controller with show/hide helpers.
+ */
+function createHudDrawerController(game) {
+    const drawer = document.getElementById('hud-drawer');
+    const contentHost = document.getElementById('hud-drawer-content');
+    const body = document.getElementById('hud-drawer-body');
+    const templates = {
+        upgrades: document.getElementById('drawer-upgrades-template'),
+        research: document.getElementById('drawer-research-template')
+    };
+    const triggers = {
+        upgrades: document.getElementById('btn-upg'),
+        research: document.getElementById('btn-research')
+    };
+    const closeBtn = document.getElementById('hud-drawer-close');
+
+    if (!drawer || !contentHost) {
+        return {
+            showUpgrades: () => bindUpgradeButtons(game),
+            showResearch: () => game.updateResearchUI?.(),
+            hide: () => {},
+            hideIfActive: () => {},
+            activeView: () => null
+        };
+    }
+
+    let activeView = drawer.dataset.activeView || null;
+
+    const updateTriggerState = (mode, open) => {
+        if (drawer) drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        Object.entries(triggers).forEach(([key, btn]) => {
+            if (!btn) return;
+            const expanded = open && key === mode;
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+        });
+    };
+
+    const swapContent = (mode) => {
+        contentHost.innerHTML = '';
+        const tpl = templates[mode];
+        if (tpl && tpl.content) contentHost.appendChild(tpl.content.cloneNode(true));
+        drawer.dataset.activeView = mode;
+        syncHudDrawerHeader(mode, game);
+        if (mode === 'upgrades') {
+            bindUpgradeButtons(game);
+            game.updateUpgradeMenu?.();
+        }
+        if (mode === 'research') game.updateResearchUI?.();
+        if (body?.scrollTo) body.scrollTo({ top: 0 });
+    };
+
+    const hide = () => {
+        drawer.classList.remove('open');
+        drawer.style.display = 'none';
+        activeView = null;
+        updateTriggerState(null, false);
+    };
+
+    const show = (mode) => {
+        activeView = mode;
+        swapContent(mode);
+        drawer.style.display = 'block';
+        drawer.classList.add('open');
+        updateTriggerState(mode, true);
+    };
+
+    const hideIfActive = (mode) => {
+        if (activeView === mode) hide();
+    };
+
+    const onDocClick = (evt) => {
+        if (!drawer.classList.contains('open')) return;
+        const target = evt.target;
+        const isTrigger = Object.values(triggers).some(btn => btn && btn.contains(target));
+        if (drawer.contains(target) || isTrigger) return;
+        hide();
+    };
+
+    const onKeyDown = (evt) => {
+        if (evt.key === 'Escape' && drawer.classList.contains('open')) hide();
+    };
+
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKeyDown);
+    if (closeBtn) closeBtn.onclick = () => hide();
+
+    return {
+        showUpgrades: () => show('upgrades'),
+        showResearch: () => show('research'),
+        hide,
+        hideIfActive,
+        activeView: () => activeView
+    };
+}
+/**
  * Wire DOM event listeners for primary UI controls.
  * @param {object} game live game singleton.
  */
@@ -87,17 +237,17 @@ export function setupUIBindings(game) {
     const retreatBtn = document.getElementById('btn-retreat');
     if (retreatBtn) retreatBtn.onclick = (e) => game.endWar('RETREAT', e);
 
-    const upgradeBtn = document.getElementById('btn-upg');
-    if (upgradeBtn) upgradeBtn.onclick = () => { document.getElementById('upgrade-menu').style.display = 'flex'; };
+    const drawerController = createHudDrawerController(game);
+    game.hudDrawer = drawerController;
 
-    const closeUpgradeBtn = document.getElementById('btn-close-upg');
-    if (closeUpgradeBtn) closeUpgradeBtn.onclick = () => { document.getElementById('upgrade-menu').style.display = 'none'; };
+    const upgradeBtn = document.getElementById('btn-upg');
+    if (upgradeBtn) upgradeBtn.onclick = () => drawerController.showUpgrades?.();
 
     const researchBtn = document.getElementById('btn-research');
-    if (researchBtn) researchBtn.onclick = () => game.toggleResearch(true);
+    if (researchBtn) researchBtn.onclick = () => drawerController.showResearch?.();
 
-    const closeResearchBtn = document.getElementById('btn-close-research');
-    if (closeResearchBtn) closeResearchBtn.onclick = () => game.toggleResearch(false);
+    const drawerClose = document.getElementById('hud-drawer-close');
+    if (drawerClose) drawerClose.onclick = () => drawerController.hide?.();
 
     const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
@@ -138,20 +288,8 @@ export function setupUIBindings(game) {
         });
     });
 
-    const soldierBtn = document.getElementById('buy-soldier');
-    if (soldierBtn) soldierBtn.onclick = () => game.buyUpgrade('soldier');
-    const archerBtn = document.getElementById('buy-archer');
-    if (archerBtn) archerBtn.onclick = () => game.buyUpgrade('archer');
-    const prodBtn = document.getElementById('buy-prod');
-    if (prodBtn) prodBtn.onclick = () => game.buyUpgrade('production');
-    const minesBtn = document.getElementById('buy-mines');
-    if (minesBtn) minesBtn.onclick = () => game.buyUpgrade('mines');
-    const defenseBtn = document.getElementById('buy-defense');
-    if (defenseBtn) defenseBtn.onclick = () => game.buyUpgrade('defense');
-
     if (typeof game.updateSettingsUI === 'function') game.updateSettingsUI();
 }
-
 function bindVoidClickEasterEgg(game, deps) {
     const HexImpl = deps.Hex || game.Hex || window.Hex;
     const LayoutImpl = deps.Layout || window.Layout || {};
@@ -357,10 +495,15 @@ function updateSaveSlotsUI(game) {
 }
 
 function toggleResearch(game, forceOpen) {
-    const modal = document.getElementById('research-modal');
-    if (!modal) return;
-    modal.style.display = forceOpen === false ? 'none' : 'flex';
-    if (forceOpen !== false) game.updateResearchUI();
+    if (!game.hudDrawer) game.hudDrawer = createHudDrawerController(game);
+    const controller = game.hudDrawer;
+    if (!controller) return;
+    const shouldOpen = forceOpen === false ? false : true;
+    if (!shouldOpen) {
+        controller.hideIfActive?.('research');
+        return;
+    }
+    controller.showResearch?.();
 }
 
 /**
@@ -372,13 +515,19 @@ function updateResearchUI(game) {
     const grid = document.getElementById('tech-grid');
     if (!grid) return;
     grid.innerHTML = '';
+    syncHudDrawerHeader('research', game);
 
     const livesTech = game.getTech('lives');
     const livesCap = livesTech?.maxPurchases || 3;
-    const livesLabel = document.getElementById('research-lives');
-    if (livesLabel) livesLabel.innerText = `❤️ ${game.research.lives}/${livesCap}`;
+    const livesLabel = document.getElementById('hud-drawer-lives');
+    if (livesLabel) {
+        livesLabel.innerText = `❤️ ${game.research.lives}/${livesCap}`;
+        livesLabel.setAttribute('aria-hidden', 'false');
+        livesLabel.style.display = 'inline-flex';
+    }
     const headerLives = document.getElementById('lives-count');
     if (headerLives) headerLives.innerText = game.research.lives;
+
 
     game.research.technologies.forEach((tech) => {
         const card = document.createElement('article');
@@ -617,6 +766,12 @@ function updateTileInspector(game, tile) {
     const pendingReclamationTarget = pendingReclamations && typeof game.nextQueuedReclamationType === 'function'
         ? game.nextQueuedReclamationType()
         : null;
+    const pendingReclamationCost = pendingReclamations && typeof game.nextQueuedReclamationCost === 'function'
+        ? game.nextQueuedReclamationCost()
+        : null;
+    const pendingCostLabel = pendingReclamationCost && typeof game.formatCost === 'function'
+        ? game.formatCost(pendingReclamationCost)
+        : (pendingReclamationCost?.gold ? `${pendingReclamationCost.gold}g` : '');
     const hasEligibleFields = typeof game.hasFieldToConvert === 'function'
         ? game.hasFieldToConvert()
         : true;
@@ -648,6 +803,7 @@ function updateTileInspector(game, tile) {
     if (!tile) {
         label.innerText = 'Select a tile to inspect';
         panel.classList.remove('hostile');
+        const placementCost = pendingCostLabel ? ` (${pendingCostLabel} due on placement)` : '';
         if (bonus) {
             bonus.classList.toggle('paused', !!game.paused);
             if (pendingReclamations) {
@@ -656,8 +812,8 @@ function updateTileInspector(game, tile) {
                     bonus.innerText = 'Reclamation paused: no player fields available to convert.';
                     bonus.title = 'Claim or reclaim neutral territory to free up a field target.';
                 } else {
-                    bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}.`;
-                    bonus.title = 'Gold already paid — pick any owned field to place it.';
+                    bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}${placementCost}.`;
+                    bonus.title = 'Gold will be charged when you confirm a valid placement.';
                 }
             } else {
                 bonus.innerText = game.paused
@@ -671,7 +827,7 @@ function updateTileInspector(game, tile) {
             : 'No adjacency bonuses yet.';
         const detail = pendingReclamations
             ? hasEligibleFields
-                ? 'Click a player-owned field to choose where the upgrade lands.'
+                ? `Click a player-owned field to choose where the upgrade lands${placementCost ? `; ${pendingCostLabel} due` : ''}.`
                 : 'No player fields remain — secure more territory to place the upgrade.'
             : 'Select a tile to reveal cluster effects.';
         showAdjacency(summary, detail);
@@ -720,8 +876,9 @@ function updateTileInspector(game, tile) {
 
         if (pendingReclamations && tile.type === 'field' && tile.owner !== 'enemy') {
             const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
-            bonus.innerText = `Reclaim ready: convert to ${targetLabel} — gold already spent.`;
-            bonus.title = 'Click this field to complete land reclamation and refresh adjacency bonuses.';
+            const costLine = pendingCostLabel ? ` (${pendingCostLabel} on placement)` : '';
+            bonus.innerText = `Reclaim ready: convert to ${targetLabel}${costLine}.`;
+            bonus.title = 'Gold will be charged after selecting a valid player-owned field.';
             hideAdjacency();
             return;
         }
@@ -898,4 +1055,4 @@ function showOverworldUI() {
     if (stateTxt) stateTxt.innerText = 'KINGDOM';
 }
 
-export { updateTileInspector };
+export { updateTileInspector, createHudDrawerController };
