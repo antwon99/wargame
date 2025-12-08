@@ -17,7 +17,7 @@
             id: 'architecture',
             name: 'Architecture',
             description: 'Improve town planning to squeeze more gold out of each settlement.',
-            cost: { wood: 200 },
+            cost: { gold: 200 },
             maxPurchases: 1,
             growthFactor: 1
         },
@@ -32,13 +32,12 @@
         {
             id: 'land-reclamation',
             name: 'Land Reclamation',
-            description: 'Rebuild useless fields into productive sites by spending either gold or wood.',
+            description: 'Spend gold to reclaim a field of your choice into a forest or town. Costs scale per purchase.',
             costOptions: [
-                { id: 'forest', label: '500w: Plant Forest', cost: { wood: 500 } },
+                { id: 'forest', label: '500g: Plant Forest', cost: { gold: 500 } },
                 { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
             ],
-            maxPurchases: 1,
-            growthFactor: 1
+            growthFactor: 1.35
         }
     ];
 
