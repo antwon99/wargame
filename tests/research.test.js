@@ -32,6 +32,20 @@ function testLandReclamationOptions() {
     assert.strictEqual(townCost.gold, 500, 'town option should cost gold');
 }
 
+function testLandReclamationRequiresOption() {
+    const techs = ResearchSystem.instantiateTechnologies();
+    const reclaim = techs.find(t => t.id === 'land-reclamation');
+    assert.throws(() => ResearchSystem.getCostForTech(reclaim), /optionId is required/,
+        'optioned tech should reject missing optionId');
+}
+
+function testInvalidOptionYieldsNullCost() {
+    const techs = ResearchSystem.instantiateTechnologies();
+    const reclaim = techs.find(t => t.id === 'land-reclamation');
+    const invalidCost = ResearchSystem.getCostForTech(reclaim, 'invalid');
+    assert.strictEqual(invalidCost, null, 'invalid option id should not return an empty cost object');
+}
+
 function testAffordabilityHelper() {
     assert.ok(ResearchSystem.isAffordable({ gold: 600, wood: 0 }, { gold: 500 }));
     assert.ok(!ResearchSystem.isAffordable({ gold: 400 }, { gold: 500 }), 'should fail when under budget');
@@ -41,6 +55,8 @@ function run() {
     testInstantiatesWithSavedPurchases();
     testCostScalingForLives();
     testLandReclamationOptions();
+    testLandReclamationRequiresOption();
+    testInvalidOptionYieldsNullCost();
     testAffordabilityHelper();
     console.log('All research tests passed.');
 }

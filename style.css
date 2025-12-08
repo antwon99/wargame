@@ -856,6 +856,7 @@
         .tech-card .tech-desc { color: #cbd5e1; font-size: 0.9rem; margin: 0; }
         .tech-card .tech-cost { color: #94a3b8; font-size: 0.85rem; margin: 0; }
         .tech-card .tech-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tech-card .tech-actions .tech-options { display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 100%; }
 
         .tech-card.affordable { border-color: #2dd4bf; box-shadow: 0 6px 16px rgba(45, 212, 191, 0.2); }
         .tech-card.purchased { border-color: var(--gold); box-shadow: 0 6px 16px rgba(255, 209, 102, 0.2); }
@@ -876,6 +877,7 @@
         .tech-card button:disabled { opacity: 0.5; cursor: not-allowed; }
         .tech-card button.purchased-btn { border-color: var(--gold); color: var(--gold); background: rgba(255,209,102,0.06); }
         .tech-card button.primary-btn { border-color: #2dd4bf; color: #2dd4bf; }
+        .tech-card button.option-btn.active { background: rgba(45, 212, 191, 0.12); border-color: #2dd4bf; color: #2dd4bf; }
 
         .upg-card {
             background: #222; border: 1px solid #444; border-radius: 12px;
