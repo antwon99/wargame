@@ -51,6 +51,17 @@ function testAffordabilityHelper() {
     assert.ok(!ResearchSystem.isAffordable({ gold: 400 }, { gold: 500 }), 'should fail when under budget');
 }
 
+function testClampsSavedPurchasesToMax() {
+    const techs = ResearchSystem.instantiateTechnologies([
+        { id: 'lives', purchased: false, timesPurchased: 5 }
+    ]);
+    const lives = techs.find(t => t.id === 'lives');
+
+    assert.strictEqual(lives.timesPurchased, lives.maxPurchases,
+        'saved timesPurchased should clamp to documented maximum');
+    assert.ok(lives.purchased, 'purchased flag should derive from clamped timesPurchased');
+}
+
 function run() {
     testInstantiatesWithSavedPurchases();
     testCostScalingForLives();
@@ -58,6 +69,7 @@ function run() {
     testLandReclamationRequiresOption();
     testInvalidOptionYieldsNullCost();
     testAffordabilityHelper();
+    testClampsSavedPurchasesToMax();
     console.log('All research tests passed.');
 }
 

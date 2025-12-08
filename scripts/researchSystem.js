@@ -59,14 +59,17 @@
         const savedMap = new Map(saved.map(t => [t.id, t]));
         return BASE_TECHNOLOGIES.map(base => {
             const savedTech = savedMap.get(base.id);
+            const savedTimesPurchased = Math.max(savedTech?.timesPurchased || 0, 0);
+            const cappedPurchases = typeof base.maxPurchases === 'number'
+                ? Math.min(savedTimesPurchased, base.maxPurchases)
+                : savedTimesPurchased;
             const clone = {
                 ...base,
                 cost: cloneCost(base.cost),
                 costOptions: cloneOptions(base.costOptions),
-                purchased: Boolean(savedTech?.purchased),
-                timesPurchased: savedTech?.timesPurchased || 0
+                purchased: cappedPurchases > 0,
+                timesPurchased: cappedPurchases
             };
-            if (clone.timesPurchased > 0) clone.purchased = true;
             return clone;
         });
     }
