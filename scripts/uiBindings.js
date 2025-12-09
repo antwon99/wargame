@@ -893,7 +893,7 @@ function updateTileInspector(game, tile) {
 
         const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
         const clusterMap = game.overworld?.clusterBonuses;
-        const cluster = tile.clusterBonus || (key ? clusterMap?.get(key) : null);
+        const cluster = key && clusterMap?.has(key) ? clusterMap.get(key) : tile.clusterBonus;
         if (game.featureToggles?.debug?.logAdjacency && cluster) {
             console.debug('Tile adjacency bonuses', { key, cluster });
         }
