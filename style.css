@@ -940,6 +940,9 @@
         .card-btn.option-btn { flex: 1; min-width: 130px; }
         .card-btn.option-btn.active { background: rgba(45, 212, 191, 0.16); border-color: #2dd4bf; color: #2dd4bf; }
         .card-btn.purchased-btn { border-color: var(--gold); color: var(--gold); background: rgba(255, 209, 102, 0.08); }
+        .card-btn.tech-purchase-btn.affordable { border-color: #2dd4bf; color: #2dd4bf; background: rgba(45, 212, 191, 0.08); }
+        .card-btn.tech-purchase-btn.unaffordable { border-color: rgba(148, 163, 184, 0.55); color: #cbd5e1; }
+        .card-btn.tech-purchase-btn.unaffordable:disabled { opacity: 0.65; }
 
         .command-card.affordable { border-color: #2dd4bf; box-shadow: 0 10px 20px rgba(45, 212, 191, 0.18); }
         .command-card.purchased { border-color: var(--gold); box-shadow: 0 10px 20px rgba(255, 209, 102, 0.14); }

@@ -525,6 +525,13 @@ function updateResearchUI(game) {
     grid.innerHTML = '';
     syncHudDrawerHeader('research', game);
 
+    const applyPurchaseAffordability = (btn, canAfford) => {
+        if (!btn) return;
+        const affordableState = Boolean(canAfford);
+        btn.classList.toggle('affordable', affordableState);
+        btn.classList.toggle('unaffordable', !affordableState);
+    };
+
     const livesTech = game.getTech('lives');
     const livesCap = livesTech?.maxPurchases || 3;
     const livesLabel = document.getElementById('hud-drawer-lives');
@@ -590,6 +597,7 @@ function updateResearchUI(game) {
                     && game.canPayCost(cost);
                 const costLabel = cost ? game.formatCost(cost) : '';
                 purchaseBtn.disabled = !canAfford;
+                applyPurchaseAffordability(purchaseBtn, canAfford);
                 purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
                 purchaseBtn.innerText = formatPurchaseLabel(costLabel);
                 affordable = (hasAffordableOption && canBuyMore) || canAfford;
@@ -625,6 +633,7 @@ function updateResearchUI(game) {
                 : `Purchase (${costLabel})`;
             affordable = game.canPayCost(cost) && canBuyMore;
             btn.disabled = !affordable;
+            applyPurchaseAffordability(btn, affordable);
             btn.onclick = () => game.buyTechnology(tech.id);
             controls.appendChild(btn);
         }
@@ -642,7 +651,7 @@ function updateResearchUI(game) {
         if (tech.maxPurchases && tech.maxPurchases > 1) {
             const scale = document.createElement('p');
             scale.className = 'upgrade-strip__scale upgrade-row--scale tech-scale';
-            scale.innerText = `Cost scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
+            scale.innerText = `Scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
             card.appendChild(scale);
         }
 
@@ -653,8 +662,10 @@ function updateResearchUI(game) {
             });
             const purchaseBtn = card.querySelector('.tech-purchase-btn');
             if (purchaseBtn) {
+                purchaseBtn.classList.remove('affordable', 'unaffordable');
                 purchaseBtn.classList.add('purchased-btn');
                 purchaseBtn.innerText = 'Purchased';
+                purchaseBtn.title = 'Already purchased';
             }
         } else if (affordable) {
             card.classList.add('affordable');
@@ -1159,4 +1170,4 @@ function showOverworldUI() {
     if (stateTxt) stateTxt.innerText = 'KINGDOM';
 }
 
-export { updateTileInspector, createHudDrawerController };
+export { updateTileInspector, createHudDrawerController, updateResearchUI };
