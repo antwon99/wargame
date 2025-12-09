@@ -363,14 +363,12 @@ export function damageBuilding(game, key, amt, attackerOwner) {
             const hex = game.parseKey(key);
             const isConnected = checkConnection(game, hex, b.owner);
             game.combat.buildings.delete(key);
+            scorchEarth(game, key);
             if (!isConnected) {
-                scorchEarth(game, key);
                 game.spawnTxt(hex, "SCORCHED!", '#000');
-            } else {
-                if(b.owner === 'enemy' && attackerOwner === 'player') {
-                    game.wood += 5;
-                    game.spawnTxt(hex, "+5w", '#a67c52');
-                }
+            } else if(b.owner === 'enemy' && attackerOwner === 'player') {
+                game.wood += 5;
+                game.spawnTxt(hex, "+5w", '#a67c52');
             }
         }
     }
@@ -630,9 +628,9 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         return false;
     };
 
-    const convertTileToPenalty = (key) => {
+    const convertTileToPenalty = (key, fateOverride) => {
         const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
-        const fate = Math.random() < 0.65 ? 'rebel' : 'scorched';
+        const fate = fateOverride || (Math.random() < 0.65 ? 'rebel' : 'scorched');
         tile.type = fate;
         tile.owner = fate;
         tile.hex = tile.hex || parseKey(key);
@@ -648,15 +646,19 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         const frontier = [...removableKeys].filter((k) => isFrontierKey(k));
         const pool = frontier.length > 0 ? frontier : [...removableKeys];
 
-        const keyToRemove = pool
+        const sortedPool = pool
             .map((k) => ({ key: k, hex: parseKey(k) }))
             .sort((a, b) => {
                 const distDelta = hexDistance(b.hex) - hexDistance(a.hex);
                 if (distDelta !== 0) return distDelta;
                 return a.key.localeCompare(b.key);
-            })[0].key;
+            });
+        const keyToRemove = sortedPool[0].key;
 
-        conversions.push(convertTileToPenalty(keyToRemove));
+        // Ensure the first (farthest) loss always burns to provide a deterministic anchor.
+        const fateOverride = conversions.length === 0 ? 'scorched' : null;
+
+        conversions.push(convertTileToPenalty(keyToRemove, fateOverride));
         removableKeys.delete(keyToRemove);
         currentKeys.delete(keyToRemove);
         lost++;

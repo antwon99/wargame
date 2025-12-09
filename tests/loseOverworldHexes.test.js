@@ -1,9 +1,10 @@
 const assert = require('assert');
-const { loseOverworldHexes } = require('../scripts/combatEngine.js');
+const { loseOverworldHexes, damageBuilding } = require('../scripts/combatEngine.js');
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
     toString() { return `${this.q},${this.r}`; }
+    equals(other) { return other && this.q === other.q && this.r === other.r && this.s === other.s; }
     static neighbor(hex, dir) {
         const dirs = [
             new Hex(1, 0, -1), new Hex(1, -1, 0), new Hex(0, -1, 1),
@@ -55,6 +56,11 @@ function testFrontierConversionMarksOuterRingFirst() {
         const report = loseOverworldHexes(gameState, 2);
         assert.strictEqual(report.lost, 2, 'should convert requested number of tiles when available');
         assert.strictEqual(report.conversions.length, 2, 'loss report should include each converted tile');
+        assert.deepStrictEqual(
+            report.conversions.map((conv) => conv.key),
+            ['4,0', '3,0'],
+            'conversion ordering should remain stable by distance and key for deterministic fates'
+        );
     });
 
     const scorchedFrontier = gameState.overworld.hexes.get('4,0');
@@ -99,10 +105,39 @@ function testLossReportTracksFates() {
     });
 }
 
+function testWarModeScorchesDestroyedHexes() {
+    const gameState = {
+        Hex,
+        parseKey: (key) => {
+            const [q, r] = key.split(',').map(Number);
+            return new Hex(q, r, -q - r);
+        },
+        combat: {
+            buildings: new Map(),
+            territory: new Map(),
+            castles: { player: new Hex(0, 0, 0), enemy: new Hex(5, 5, -10) }
+        },
+        spawnTxt: () => {}
+    };
+
+    const castleHex = new Hex(0, 0, 0);
+    const frontierHex = new Hex(1, 0, -1);
+    gameState.combat.territory.set(castleHex.toString(), { owner: 'player', hex: castleHex });
+    gameState.combat.territory.set(frontierHex.toString(), { owner: 'player', hex: frontierHex });
+    gameState.combat.buildings.set(frontierHex.toString(), { type: 'tower', hp: 5, owner: 'player' });
+
+    damageBuilding(gameState, frontierHex.toString(), 999, 'enemy');
+
+    const scorchedTile = gameState.combat.territory.get(frontierHex.toString());
+    assert.strictEqual(scorchedTile.owner, 'scorched', 'destroyed tiles during war should be scorched regardless of connectivity');
+    assert.ok(!gameState.combat.buildings.has(frontierHex.toString()), 'destroyed building should be removed from combat registry');
+}
+
 function run() {
     testFrontierConversionMarksOuterRingFirst();
     testProtectedTilesStopFurtherLoss();
     testLossReportTracksFates();
+    testWarModeScorchesDestroyedHexes();
     console.log('All loseOverworldHexes tests passed.');
 }
 
