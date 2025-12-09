@@ -897,26 +897,31 @@ function updateTileInspector(game, tile) {
         if (game.featureToggles?.debug?.logAdjacency && cluster) {
             console.debug('Tile adjacency bonuses', { key, cluster });
         }
+        const clusterSize = Number.isInteger(cluster?.size) ? cluster.size : 0;
+        const isClustered = clusterSize >= 2;
         const resourceParts = [];
         if (cluster?.goldBonus) resourceParts.push(`+${cluster.goldBonus}g`);
         if (cluster?.woodBonus) resourceParts.push(`+${cluster.woodBonus}w`);
-        const clusterLabel = cluster?.size ? `${cluster.size}-tile ${labelText.toLowerCase()} cluster` : 'No adjacency data';
+        const clusterLabel = isClustered ? `${clusterSize}-tile ${labelText.toLowerCase()} cluster` : 'No adjacency';
         const payload = resourceParts.length ? resourceParts.join(' ') : 'No bonus income';
         const pauseSuffix = game.paused ? ' (paused)' : '';
         bonus.innerText = `${payload} — ${clusterLabel}${pauseSuffix}`;
 
         const tooltipParts = [];
-        if (cluster?.adjacencyRate) tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
-        if (cluster?.reclamationRate) tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
+        if (isClustered) tooltipParts.push(`Cluster size ${clusterSize}`);
+        if (isClustered && typeof cluster?.adjacencyRate === 'number')
+            tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
+        if (isClustered && typeof cluster?.reclamationRate === 'number')
+            tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
         bonus.title = tooltipParts.length ? tooltipParts.join(' • ') : 'No adjacency modifiers';
 
-        const hasAdjacency = Boolean(cluster && (cluster.totalRate || cluster.goldBonus || cluster.woodBonus || cluster.size > 1));
+        const hasAdjacency = Boolean(cluster && (isClustered || cluster.totalRate || cluster.goldBonus || cluster.woodBonus));
         if (hasAdjacency) {
             const summary = resourceParts.length ? `Cluster bonuses: ${resourceParts.join(' ')}` : 'Cluster bonuses active';
             const rateParts = [];
             if (typeof cluster.totalRate === 'number') rateParts.push(`Total ${(cluster.totalRate * 100).toFixed(0)}%`);
-            if (cluster.adjacencyRate) rateParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
-            if (cluster.reclamationRate) rateParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
+            if (typeof cluster.adjacencyRate === 'number') rateParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
+            if (typeof cluster.reclamationRate === 'number') rateParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
             const detailParts = [clusterLabel];
             if (rateParts.length) detailParts.push(rateParts.join(' • '));
             showAdjacency(summary, detailParts.join(' — '));

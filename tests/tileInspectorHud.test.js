@@ -98,6 +98,61 @@ async function testPauseStatusUpdatesInspector() {
     );
 }
 
+async function testZeroBonusClustersStillCountAsAdjacency() {
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const key = '2,0';
+    const cluster = { size: 2, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
+    const tile = { type: 'town', owner: 'player', hex: { q: 2, r: 0, toString: () => key }, clusterBonus: cluster };
+    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+
+    updateTileInspector(game, tile);
+
+    const bonusEl = doc.getElementById('tile-inspector-bonus');
+    assert.ok(bonusEl.innerText.includes('2-tile'), 'cluster label should surface adjacency even without income');
+    assert.ok(!bonusEl.innerText.toLowerCase().includes('no adjacency'), 'clustered tiles should not be treated as isolated');
+    assert.ok(bonusEl.title.toLowerCase().includes('cluster size'), 'tooltip should reflect clustered status when bonuses are zero');
+
+    const adjacencyDetail = doc.getElementById('tile-inspector-adjacency-detail');
+    assert.ok(adjacencyDetail.innerText.toLowerCase().includes('cluster'), 'adjacency detail should remain visible for clustered tiles');
+}
+
+async function testIsolatedTilesShowNoAdjacency() {
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
+    global.document = doc;
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const key = '3,0';
+    const cluster = { size: 1, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
+    const tile = { type: 'field', owner: 'player', hex: { q: 3, r: 0, toString: () => key }, clusterBonus: cluster };
+    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+
+    updateTileInspector(game, tile);
+
+    const bonusEl = doc.getElementById('tile-inspector-bonus');
+    assert.ok(bonusEl.innerText.includes('No adjacency'), 'isolated tiles should surface lack of adjacency');
+    assert.ok(bonusEl.title.toLowerCase().includes('no adjacency'), 'isolated tiles should not claim clustered hover text');
+
+    const adjacencySummary = doc.getElementById('tile-inspector-adjacency-summary');
+    assert.ok(adjacencySummary.innerText.toLowerCase().includes('no adjacency'), 'summary should explain when no cluster bonuses apply');
+}
+
 async function testInspectorHidesOutsideOverworld() {
     const doc = createDocument([
         'tile-inspector',
@@ -215,6 +270,8 @@ async function testReclamationHintsReflectAvailability() {
 async function run() {
     await testClusterBonusRenders();
     await testPauseStatusUpdatesInspector();
+    await testZeroBonusClustersStillCountAsAdjacency();
+    await testIsolatedTilesShowNoAdjacency();
     await testInspectorHidesOutsideOverworld();
     await testClaimablePreviewShowsCost();
     await testReclamationHintsReflectAvailability();
