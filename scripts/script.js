@@ -812,7 +812,7 @@ const Game = {
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         this.calcOverworldGhosts();
-        this.refreshClusterBonuses();
+        this.finalizeStarterTerritory();
         this.syncReclamationAwaitState();
         this.research = this.buildResearchState();
         this.updateResearchBonuses();
@@ -1398,6 +1398,20 @@ const Game = {
         const bonuses = buildClusterBonusMap(this.overworld?.hexes, { baseRate, reclamationRate });
         this.overworld.clusterBonuses = bonuses;
         return bonuses;
+    },
+
+    /**
+     * Normalize starter tile ownership and rebuild the adjacency cache so the inspector
+     * can reference fresh cluster data as soon as the campaign boots.
+     * @returns {Map<string, object>} updated cluster bonus map keyed by hex key.
+     */
+    finalizeStarterTerritory() {
+        if (this.overworld?.hexes instanceof Map) {
+            this.overworld.hexes.forEach((tile) => {
+                if (tile && !tile.owner) tile.owner = 'player';
+            });
+        }
+        return this.refreshClusterBonuses();
     },
 
     getUnitStats(type) { return getUnitStats(this, type); },
