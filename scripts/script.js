@@ -1295,17 +1295,18 @@ const Game = {
             return false;
         }
 
-        this.pendingReclamations.shift();
-        const tech = this.getTech('land-reclamation');
-        if (tech && tech.pendingPlacements) tech.pendingPlacements = Math.max(0, tech.pendingPlacements - 1);
-
-        this.gold -= cost.gold || 0;
-        if (tech) ResearchSystem.recordPurchase(tech);
-
         tile.type = targetType;
         tile.owner = tile.owner || 'player';
         tile.wasReclaimed = true;
         this.calcOverworldGhosts();
+
+        this.pendingReclamations.shift();
+        const tech = this.getTech('land-reclamation');
+        if (tech && tech.pendingPlacements) tech.pendingPlacements = Math.max(0, tech.pendingPlacements - 1);
+
+        // Payment is finalized only after a valid placement lands.
+        this.gold -= cost.gold || 0;
+        if (tech) ResearchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
@@ -1362,7 +1363,7 @@ const Game = {
         const pendingCost = this.nextQueuedReclamationCost();
         if (!pendingType || !pendingCost) return this.setReclamationPrompt('');
         const costLabel = this.formatCost(pendingCost) || '0g';
-        return this.setReclamationPrompt(`Select an owned FIELD tile to convert (cost ${costLabel})`);
+        return this.setReclamationPrompt(`Select an owned FIELD tile to convert (pay ${costLabel} on placement)`);
     },
 
     /**
