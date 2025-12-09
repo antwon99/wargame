@@ -556,7 +556,14 @@ export function startWar(game, clickEvt, hexImpl) {
         for(let q = centerQ - W; q <= centerQ + W; q++) {
             const hex = new Hex(q, r);
             const key = hex.toString();
-            const owner = r > 0 ? 'player' : (r < 0 ? 'enemy' : 'neutral');
+            // Ownership layout: player controls rows above the equator (r > 0) and the left
+            // flank of the center row, while the enemy holds rows below (r < 0) and the right
+            // flank. This removes the neutral buffer so every frontline hex belongs to a side.
+            const owner = r > 0
+                ? 'player'
+                : (r < 0
+                    ? 'enemy'
+                    : (q <= centerQ ? 'player' : 'enemy'));
             game.combat.territory.set(key, { owner, hex });
 
             const rand = Math.random();
