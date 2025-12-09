@@ -542,7 +542,7 @@ function updateResearchUI(game) {
         card.className = 'tech-card command-card upgrade-strip';
 
         const row = document.createElement('div');
-        row.className = 'upgrade-strip__row tech-row';
+        row.className = 'upgrade-strip__row upgrade-row--header tech-row';
 
         const title = document.createElement('h3');
         title.className = 'upgrade-strip__title tech-title';
@@ -633,7 +633,7 @@ function updateResearchUI(game) {
         row.appendChild(controls);
 
         const desc = document.createElement('p');
-        desc.className = 'upgrade-strip__desc tech-desc';
+        desc.className = 'upgrade-strip__desc upgrade-row--desc tech-desc';
         desc.innerText = tech.description;
 
         card.appendChild(row);
@@ -641,7 +641,7 @@ function updateResearchUI(game) {
 
         if (tech.maxPurchases && tech.maxPurchases > 1) {
             const scale = document.createElement('p');
-            scale.className = 'upgrade-strip__scale tech-scale';
+            scale.className = 'upgrade-strip__scale upgrade-row--scale tech-scale';
             scale.innerText = `Cost scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
             card.appendChild(scale);
         }
