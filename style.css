@@ -839,6 +839,12 @@
             gap: 12px;
         }
 
+        .upgrade-grid {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 8px;
+            align-items: stretch;
+        }
+
         .command-card {
             background: linear-gradient(150deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06));
             border: 1px solid rgba(255,255,255,0.12);
@@ -851,6 +857,13 @@
             transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
 
+        .upgrade-strip {
+            padding: 10px 12px;
+            gap: 6px;
+            min-height: 96px;
+            justify-content: center;
+        }
+
         .command-card:hover { border-color: rgba(255,255,255,0.22); transform: translateY(-2px); box-shadow: 0 16px 40px rgba(0,0,0,0.38); }
         .command-card:active { transform: translateY(0); }
 
@@ -861,6 +874,11 @@
         .card-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 0.6px; color: #9be3b4; font-size: 0.78rem; font-weight: 800; }
         .card-desc { margin: 0; color: #cbd5e1; font-size: 0.92rem; }
         .card-note { margin: 0; color: #9fb0c5; font-size: 0.85rem; }
+
+        .upgrade-strip__row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+        .upgrade-strip__title { margin: 0; color: #e2e8f0; font-size: 1rem; letter-spacing: 0.25px; }
+        .upgrade-strip__desc { margin: 0; color: #cbd5e1; font-size: 0.9rem; }
+        .upgrade-strip__scale { margin: 0; color: #94a3b8; font-size: 0.84rem; }
 
         .cost-badge {
             background: rgba(255,255,255,0.06);
@@ -891,6 +909,12 @@
             font-weight: 800;
             letter-spacing: 0.35px;
             transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+        }
+
+        .upgrade-btn {
+            padding: 8px 10px;
+            min-width: 0;
+            white-space: nowrap;
         }
         .card-btn:hover:not(:disabled) { background: rgba(255,255,255,0.14); box-shadow: 0 10px 24px rgba(0,0,0,0.25); transform: translateY(-1px); }
         .card-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
