@@ -116,8 +116,11 @@ function testHudDrawerController() {
     controller.showUpgrades();
     assert.ok(shell.drawer.classList.contains('open'), 'drawer should open for upgrades');
     assert.strictEqual(shell.content.children.length, 1, 'upgrade template should render into the drawer');
+    assert.strictEqual(shell.drawer.getAttribute('aria-hidden'), 'false', 'drawer should announce visibility to assistive tech');
     assert.strictEqual(actions.upg.getAttribute('aria-expanded'), 'true', 'upgrade trigger should reflect open state');
     assert.strictEqual(actions.research.getAttribute('aria-expanded'), 'false', 'research trigger should be collapsed');
+    assert.strictEqual(actions.upg.getAttribute('aria-controls'), 'hud-drawer', 'upgrade trigger should target the drawer shell');
+    assert.strictEqual(actions.research.getAttribute('aria-controls'), 'hud-drawer', 'research trigger should target the drawer shell');
 
     const soldierBtn = document.getElementById('buy-soldier');
     soldierBtn.onclick?.();
@@ -133,10 +136,16 @@ function testHudDrawerController() {
     const outsideTarget = createStubElement('outside');
     (document.listeners.click || []).forEach((handler) => handler({ target: outsideTarget }));
     assert.ok(!shell.drawer.classList.contains('open'), 'outside clicks should dismiss the drawer');
+    assert.strictEqual(shell.drawer.getAttribute('aria-hidden'), 'true', 'drawer should hide from assistive tech after dismiss');
 
     controller.showUpgrades();
     (document.listeners.keydown || []).forEach((handler) => handler({ key: 'Escape' }));
     assert.ok(!shell.drawer.classList.contains('open'), 'escape key should close the drawer');
+
+    controller.showUpgrades();
+    const closeBtn = document.getElementById('hud-drawer-close');
+    closeBtn.onclick?.();
+    assert.ok(!shell.drawer.classList.contains('open'), 'close button should hide the drawer when tapped');
 
     restoreGlobals(originalDocument, originalWindow);
     console.log('HUD drawer controller tests passed.');

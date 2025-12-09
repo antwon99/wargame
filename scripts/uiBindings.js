@@ -138,17 +138,24 @@ function bindUpgradeButtons(game) {
  */
 function createHudDrawerController(game) {
     const drawer = document.getElementById('hud-drawer');
-    const contentHost = document.getElementById('hud-drawer-content');
-    const body = document.getElementById('hud-drawer-body');
+    const anchor = drawer?.closest?.('.hud-controls-anchor') || document;
+    const getScopedElement = (selector) => {
+        const scoped = anchor?.querySelector?.(selector);
+        if (scoped) return scoped;
+        if (selector.startsWith('#')) return document.getElementById(selector.slice(1));
+        return document.querySelector(selector);
+    };
+    const contentHost = getScopedElement('#hud-drawer-content');
+    const body = getScopedElement('#hud-drawer-body');
     const templates = {
-        upgrades: document.getElementById('drawer-upgrades-template'),
-        research: document.getElementById('drawer-research-template')
+        upgrades: getScopedElement('#drawer-upgrades-template'),
+        research: getScopedElement('#drawer-research-template')
     };
     const triggers = {
-        upgrades: document.getElementById('btn-upg'),
-        research: document.getElementById('btn-research')
+        upgrades: getScopedElement('#btn-upg'),
+        research: getScopedElement('#btn-research')
     };
-    const closeBtn = document.getElementById('hud-drawer-close');
+    const closeBtn = getScopedElement('#hud-drawer-close');
 
     if (!drawer || !contentHost) {
         return {
@@ -166,6 +173,7 @@ function createHudDrawerController(game) {
         if (drawer) drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
         Object.entries(triggers).forEach(([key, btn]) => {
             if (!btn) return;
+            btn.setAttribute('aria-controls', 'hud-drawer');
             const expanded = open && key === mode;
             btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
             btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
