@@ -539,46 +539,25 @@ function updateResearchUI(game) {
 
     game.research.technologies.forEach((tech) => {
         const card = document.createElement('article');
-        card.className = 'tech-card command-card';
+        card.className = 'tech-card command-card upgrade-strip';
 
-        const header = document.createElement('div');
-        header.className = 'card-header';
-
-        const heading = document.createElement('div');
-        heading.className = 'card-heading';
+        const row = document.createElement('div');
+        row.className = 'upgrade-strip__row tech-row';
 
         const title = document.createElement('h3');
-        title.className = 'card-title tech-title';
-        const counter = tech.maxPurchases && tech.maxPurchases > 1 ? ` (${tech.timesPurchased}/${tech.maxPurchases})` : '';
-        title.innerText = `${tech.name}${counter}`;
+        title.className = 'upgrade-strip__title tech-title';
+        const titleSuffix = tech.maxPurchases && tech.maxPurchases > 1
+            ? ` (${tech.timesPurchased}/${tech.maxPurchases})`
+            : '';
+        title.innerText = `${tech.name}${titleSuffix}`;
 
-        const subtitle = document.createElement('p');
-        subtitle.className = 'card-subtitle';
-        subtitle.innerText = tech.maxPurchases && tech.maxPurchases > 1
-            ? `Can be purchased ${tech.maxPurchases} times.`
-            : tech.purchased ? 'Purchased' : 'One-time unlock';
-
-        const costBadge = document.createElement('span');
-        costBadge.className = 'cost-badge tech-cost';
-        costBadge.innerText = 'Preview cost';
-
-        heading.appendChild(title);
-        heading.appendChild(subtitle);
-        header.appendChild(heading);
-        header.appendChild(costBadge);
-
-        const desc = document.createElement('p');
-        desc.className = 'card-desc tech-desc';
-        desc.innerText = tech.description;
-
-        const costLine = document.createElement('p');
-        costLine.className = 'card-note tech-cost';
-        costLine.innerText = 'Choose an option to view costs.';
-
-        const actions = document.createElement('div');
-        actions.className = 'card-actions tech-actions';
+        const controls = document.createElement('div');
+        controls.className = 'tech-row__actions';
 
         const canBuyMore = ResearchSystem.hasRemainingPurchases(tech);
+        const purchaseIndexLabel = tech.maxPurchases && tech.maxPurchases > 1
+            ? `${tech.timesPurchased + 1}/${tech.maxPurchases}`
+            : '';
         let affordable = false;
 
         if (tech.costOptions && tech.costOptions.length > 0) {
@@ -594,22 +573,26 @@ function updateResearchUI(game) {
             });
 
             const purchaseBtn = document.createElement('button');
-            purchaseBtn.innerText = 'Purchase';
-            purchaseBtn.classList.add('card-btn', 'primary-btn');
+            purchaseBtn.classList.add('card-btn', 'primary-btn', 'tech-purchase-btn');
             purchaseBtn.disabled = true;
+
+            const formatPurchaseLabel = (costLabel) => {
+                const suffix = purchaseIndexLabel ? ` ${purchaseIndexLabel}` : '';
+                if (!costLabel) return 'Select focus';
+                return `Purchase${suffix ? ` ${suffix}` : ''} (${costLabel})`;
+            };
 
             const updateOptionState = () => {
                 const cost = selectedOptionId ? game.getTechCost(tech, selectedOptionId) : null;
-                const label = tech.costOptions.find((opt) => opt.id === selectedOptionId)?.label;
                 const canAfford = cost
                     && canBuyMore
                     && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
                     && game.canPayCost(cost);
+                const costLabel = cost ? game.formatCost(cost) : '';
                 purchaseBtn.disabled = !canAfford;
                 purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
+                purchaseBtn.innerText = formatPurchaseLabel(costLabel);
                 affordable = (hasAffordableOption && canBuyMore) || canAfford;
-                costBadge.innerText = label && cost ? game.formatCost(cost) : 'Select focus';
-                costLine.innerText = label && cost ? label : 'Select an option to view cost.';
             };
 
             tech.costOptions.forEach((opt) => {
@@ -629,41 +612,56 @@ function updateResearchUI(game) {
                 game.buyTechnology(tech.id, selectedOptionId);
             };
 
-            actions.appendChild(optionPicker);
-            actions.appendChild(purchaseBtn);
+            controls.appendChild(optionPicker);
+            controls.appendChild(purchaseBtn);
             updateOptionState();
         } else {
             const cost = game.getTechCost(tech);
-            costBadge.innerText = game.formatCost(cost);
-            costLine.innerText = `Cost scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
-            affordable = game.canPayCost(cost) && canBuyMore;
+            const costLabel = game.formatCost(cost);
             const btn = document.createElement('button');
-            btn.innerText = tech.purchased ? 'Repurchase' : 'Purchase';
+            btn.classList.add('card-btn', 'primary-btn', 'tech-purchase-btn');
+            btn.innerText = purchaseIndexLabel
+                ? `Purchase ${purchaseIndexLabel} (${costLabel})`
+                : `Purchase (${costLabel})`;
+            affordable = game.canPayCost(cost) && canBuyMore;
             btn.disabled = !affordable;
-            btn.classList.add('card-btn', 'primary-btn');
             btn.onclick = () => game.buyTechnology(tech.id);
-            actions.appendChild(btn);
+            controls.appendChild(btn);
+        }
+
+        row.appendChild(title);
+        row.appendChild(controls);
+
+        const desc = document.createElement('p');
+        desc.className = 'upgrade-strip__desc tech-desc';
+        desc.innerText = tech.description;
+
+        card.appendChild(row);
+        card.appendChild(desc);
+
+        if (tech.maxPurchases && tech.maxPurchases > 1) {
+            const scale = document.createElement('p');
+            scale.className = 'upgrade-strip__scale tech-scale';
+            scale.innerText = `Cost scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
+            card.appendChild(scale);
         }
 
         if (!canBuyMore) {
             card.classList.add('purchased');
-            costBadge.innerText = 'Maxed';
-            costLine.innerText = 'All purchases completed.';
-            actions.querySelectorAll('button').forEach((btn) => {
+            controls.querySelectorAll('button').forEach((btn) => {
                 btn.disabled = true;
-                btn.classList.add('purchased-btn');
-                btn.innerText = 'Purchased';
             });
+            const purchaseBtn = card.querySelector('.tech-purchase-btn');
+            if (purchaseBtn) {
+                purchaseBtn.classList.add('purchased-btn');
+                purchaseBtn.innerText = 'Purchased';
+            }
         } else if (affordable) {
             card.classList.add('affordable');
         } else {
             card.classList.add('unaffordable');
         }
 
-        card.appendChild(header);
-        card.appendChild(desc);
-        card.appendChild(costLine);
-        card.appendChild(actions);
         grid.appendChild(card);
     });
 }
