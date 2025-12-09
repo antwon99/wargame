@@ -251,80 +251,50 @@
 </div>
 
 <template id="drawer-upgrades-template">
-    <div class="card-grid">
-        <article class="command-card">
-            <div class="card-header">
-                <div class="card-heading">
-                    <p class="card-eyebrow">Frontline</p>
-                    <h3 class="card-title">Soldier Power ⚔️</h3>
-                    <p class="card-subtitle upg-desc" id="lbl-soldier">Lv. 1</p>
-                </div>
-                <span class="cost-badge" id="cost-soldier">100g</span>
+    <div class="card-grid upgrade-grid">
+        <article class="command-card upgrade-strip">
+            <div class="upgrade-strip__row">
+                <h3 class="upgrade-strip__title">Soldier Power ⚔️</h3>
+                <button class="card-btn primary-btn upg-btn upgrade-btn" id="buy-soldier" type="button">Purchase (100g)</button>
             </div>
-            <p class="card-desc">Sharpen drills and gear to boost your infantry squads.</p>
-            <div class="card-actions">
-                <button class="card-btn primary-btn upg-btn" id="buy-soldier" type="button">Purchase</button>
-            </div>
+            <p class="upgrade-strip__desc">Sharpen drills and gear to boost your infantry squads.</p>
+            <p class="upgrade-strip__scale">Scales ×1.30 per purchase.</p>
         </article>
 
-        <article class="command-card">
-            <div class="card-header">
-                <div class="card-heading">
-                    <p class="card-eyebrow">Ranged Corps</p>
-                    <h3 class="card-title">Archer Power 🏹</h3>
-                    <p class="card-subtitle upg-desc" id="lbl-archer">Lv. 1</p>
-                </div>
-                <span class="cost-badge" id="cost-archer">100g</span>
+        <article class="command-card upgrade-strip">
+            <div class="upgrade-strip__row">
+                <h3 class="upgrade-strip__title">Archer Power 🏹</h3>
+                <button class="card-btn primary-btn upg-btn upgrade-btn" id="buy-archer" type="button">Purchase (100g)</button>
             </div>
-            <p class="card-desc">Upgrade fletching, bows, and drills to keep volleys lethal.</p>
-            <div class="card-actions">
-                <button class="card-btn primary-btn upg-btn" id="buy-archer" type="button">Purchase</button>
-            </div>
+            <p class="upgrade-strip__desc">Upgrade fletching, bows, and drills to keep volleys lethal.</p>
+            <p class="upgrade-strip__scale">Scales ×1.30 per purchase.</p>
         </article>
 
-        <article class="command-card">
-            <div class="card-header">
-                <div class="card-heading">
-                    <p class="card-eyebrow">Logistics</p>
-                    <h3 class="card-title">Production Speed ⚡</h3>
-                    <p class="card-subtitle upg-desc" id="lbl-prod">Lv. 1</p>
-                </div>
-                <span class="cost-badge" id="cost-prod">150g</span>
+        <article class="command-card upgrade-strip">
+            <div class="upgrade-strip__row">
+                <h3 class="upgrade-strip__title">Production Speed ⚡</h3>
+                <button class="card-btn primary-btn upg-btn upgrade-btn" id="buy-prod" type="button">Purchase (150g)</button>
             </div>
-            <p class="card-desc">Optimize barracks output and rally timing for faster deployments.</p>
-            <div class="card-actions">
-                <button class="card-btn primary-btn upg-btn" id="buy-prod" type="button">Purchase</button>
-            </div>
+            <p class="upgrade-strip__desc">Optimize barracks output and rally timing for faster deployments.</p>
+            <p class="upgrade-strip__scale">Scales ×1.50 per purchase.</p>
         </article>
 
-        <article class="command-card">
-            <div class="card-header">
-                <div class="card-heading">
-                    <p class="card-eyebrow">Fortifications</p>
-                    <h3 class="card-title">Defense Systems 🛡️</h3>
-                    <p class="card-subtitle upg-desc" id="lbl-defense">Buffs Towers &amp; Castle</p>
-                </div>
-                <span class="cost-badge" id="cost-defense">125g</span>
+        <article class="command-card upgrade-strip">
+            <div class="upgrade-strip__row">
+                <h3 class="upgrade-strip__title">Defense Systems 🛡️</h3>
+                <button class="card-btn primary-btn upg-btn upgrade-btn" id="buy-defense" type="button">Purchase (125g)</button>
             </div>
-            <p class="card-desc">Reinforce walls and keep defensive emplacements deadly.</p>
-            <div class="card-actions">
-                <button class="card-btn primary-btn upg-btn" id="buy-defense" type="button">Purchase</button>
-            </div>
+            <p class="upgrade-strip__desc">Reinforce walls and keep defensive emplacements deadly.</p>
+            <p class="upgrade-strip__scale">Scales ×1.40 per purchase.</p>
         </article>
 
-        <article class="command-card">
-            <div class="card-header">
-                <div class="card-heading">
-                    <p class="card-eyebrow">Economy</p>
-                    <h3 class="card-title">Mine Efficiency 🏭</h3>
-                    <p class="card-subtitle upg-desc" id="lbl-mines">+20% Passive Income</p>
-                </div>
-                <span class="cost-badge" id="cost-mines">200g</span>
+        <article class="command-card upgrade-strip">
+            <div class="upgrade-strip__row">
+                <h3 class="upgrade-strip__title">Mine Efficiency 🏭</h3>
+                <button class="card-btn primary-btn upg-btn upgrade-btn" id="buy-mines" type="button">Purchase (200g)</button>
             </div>
-            <p class="card-desc">Automate ore lines to compound passive gold between assaults.</p>
-            <div class="card-actions">
-                <button class="card-btn primary-btn upg-btn" id="buy-mines" type="button">Invest</button>
-            </div>
+            <p class="upgrade-strip__desc">Automate ore lines to compound passive gold between assaults.</p>
+            <p class="upgrade-strip__scale">Scales ×1.50 per purchase.</p>
         </article>
     </div>
 </template>

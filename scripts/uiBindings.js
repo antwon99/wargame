@@ -709,19 +709,30 @@ function updateSettingsUI(game) {
 }
 
 function updateUpgradeMenu(game) {
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    const setCost = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = `${val}g`; };
+    const definitions = [
+        { id: 'soldier', buttonId: 'buy-soldier' },
+        { id: 'archer', buttonId: 'buy-archer' },
+        { id: 'production', buttonId: 'buy-prod' },
+        { id: 'mines', buttonId: 'buy-mines' },
+        { id: 'defense', buttonId: 'buy-defense' }
+    ];
 
-    setTxt('lbl-soldier', `Lv. ${game.upgrades.soldier}`);
-    setCost('cost-soldier', game.getUpgradeCost('soldier'));
-    setTxt('lbl-archer', `Lv. ${game.upgrades.archer}`);
-    setCost('cost-archer', game.getUpgradeCost('archer'));
-    setTxt('lbl-prod', `Lv. ${game.upgrades.production}`);
-    setCost('cost-prod', game.getUpgradeCost('production'));
-    setTxt('lbl-mines', `Lv. ${game.upgrades.mines}`);
-    setCost('cost-mines', game.getUpgradeCost('mines'));
-    setTxt('lbl-defense', `Lv. ${game.upgrades.defense}`);
-    setCost('cost-defense', game.getUpgradeCost('defense'));
+    definitions.forEach(({ id, buttonId }) => {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+
+        const level = Number.isFinite(game.upgrades?.[id]) ? game.upgrades[id] : 0;
+        const nextLevel = level + 1;
+        const cost = game.getUpgradeCost(id);
+        const costLabel = `${cost}g`;
+        const canAfford = game.gold >= cost;
+
+        btn.disabled = !canAfford;
+        btn.innerText = canAfford
+            ? `Lv ${nextLevel} · Purchase (${costLabel})`
+            : `Lv ${nextLevel} · ${costLabel}`;
+        btn.title = canAfford ? '' : 'Insufficient gold';
+    });
 }
 
 /**
