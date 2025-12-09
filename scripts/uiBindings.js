@@ -706,6 +706,59 @@ function updateSettingsUI(game) {
     });
 }
 
+const UPGRADE_COPY = {
+    soldier: {
+        title: 'Soldier Power ⚔️',
+        description: 'Sharpen drills and gear to boost your infantry squads.',
+        scale: (level) => {
+            const scaledLevel = Math.max(1, Number(level) || 1);
+            const multi = 1 + ((scaledLevel - 1) * 0.2);
+            return `+20% soldier HP & damage per level (Current ×${multi.toFixed(2)})`;
+        }
+    },
+    archer: {
+        title: 'Archer Power 🏹',
+        description: 'Upgrade fletching, bows, and drills to keep volleys lethal.',
+        scale: (level) => {
+            const scaledLevel = Math.max(1, Number(level) || 1);
+            const multi = 1 + ((scaledLevel - 1) * 0.2);
+            return `+20% archer HP & damage per level (Current ×${multi.toFixed(2)})`;
+        }
+    },
+    production: {
+        title: 'Production Speed ⚡',
+        description: 'Optimize barracks output and rally timing for faster deployments.',
+        scale: (level) => {
+            const scaledLevel = Math.max(1, Number(level) || 1);
+            const multi = Math.pow(0.9, scaledLevel - 1);
+            return `-10% training time per level (Current ×${multi.toFixed(2)})`;
+        }
+    },
+    mines: {
+        title: 'Mine Efficiency 🏭',
+        description: 'Automate ore lines to compound passive gold between assaults.',
+        scale: (level) => {
+            const scaledLevel = Math.max(1, Number(level) || 1);
+            const multi = 1 + ((scaledLevel - 1) * 0.2);
+            return `+20% income per level (Current ×${multi.toFixed(2)})`;
+        }
+    },
+    defense: {
+        title: 'Defense Systems 🛡️',
+        description: 'Reinforce walls and keep defensive emplacements deadly.',
+        scale: (level) => {
+            const scaledLevel = Math.max(1, Number(level) || 1);
+            const multi = 1 + ((scaledLevel - 1) * 0.25);
+            return `+25% castle & tower HP/damage per level (Current ×${multi.toFixed(2)})`;
+        }
+    }
+};
+
+/**
+ * Refresh the upgrade drawer so titles, descriptions, scaling text, and purchase
+ * buttons reflect the player's current gold and upgrade levels.
+ * @param {object} game live game singleton containing upgrade levels and gold.
+ */
 function updateUpgradeMenu(game) {
     const definitions = [
         { id: 'soldier', buttonId: 'buy-soldier' },
@@ -715,21 +768,50 @@ function updateUpgradeMenu(game) {
         { id: 'defense', buttonId: 'buy-defense' }
     ];
 
+    const ensureText = (el, text) => { if (el && text) el.innerText = text; };
+
     definitions.forEach(({ id, buttonId }) => {
-        const btn = document.getElementById(buttonId);
+        const btn = document.querySelector(`[data-upgrade-button="${id}"]`) || document.getElementById(buttonId);
+        const card = btn?.closest?.('[data-upgrade-card]') || document.querySelector(`[data-upgrade-card="${id}"]`);
+        const titleEl = document.querySelector(`[data-upgrade-title="${id}"]`);
+        const descEl = document.querySelector(`[data-upgrade-description="${id}"]`);
+        const scaleEl = document.querySelector(`[data-upgrade-scale="${id}"]`);
+
+        const level = Number.isFinite(game.upgrades?.[id]) ? Math.max(1, game.upgrades[id]) : 1;
+        const nextLevel = level + 1;
+        const cost = typeof game.getUpgradeCost === 'function' ? game.getUpgradeCost(id) : 0;
+        const costLabel = `${cost}g`;
+        const canAfford = (Number.isFinite(game.gold) ? game.gold : 0) >= cost;
+        const copy = UPGRADE_COPY[id] || {};
+
+        ensureText(titleEl, copy.title);
+        ensureText(descEl, copy.description);
+        const scaleText = typeof copy.scale === 'function' ? copy.scale(level) : copy.scale;
+        ensureText(scaleEl, scaleText);
+
         if (!btn) return;
 
-        const level = Number.isFinite(game.upgrades?.[id]) ? game.upgrades[id] : 0;
-        const nextLevel = level + 1;
-        const cost = game.getUpgradeCost(id);
-        const costLabel = `${cost}g`;
-        const canAfford = game.gold >= cost;
+        const labelText = `Purchase Lv.${nextLevel}`;
+        const combined = canAfford ? `${labelText} (${costLabel})` : costLabel;
+        const label = btn.querySelector('[data-upgrade-label]');
+        const costEl = btn.querySelector('[data-upgrade-cost]');
+
+        if (label || costEl) {
+            if (label) label.innerText = canAfford ? labelText : '';
+            if (costEl) costEl.innerText = costLabel;
+            btn.setAttribute('aria-label', canAfford ? combined : `Lv.${nextLevel} costs ${costLabel}`);
+        } else {
+            btn.innerText = combined;
+        }
 
         btn.disabled = !canAfford;
-        btn.innerText = canAfford
-            ? `Lv ${nextLevel} · Purchase (${costLabel})`
-            : `Lv ${nextLevel} · ${costLabel}`;
+        btn.classList.toggle('affordable', canAfford);
+        btn.classList.toggle('unaffordable', !canAfford);
         btn.title = canAfford ? '' : 'Insufficient gold';
+        if (card) {
+            card.classList.toggle('affordable', canAfford);
+            card.classList.toggle('unaffordable', !canAfford);
+        }
     });
 }
 
