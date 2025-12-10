@@ -563,10 +563,14 @@ export function updateTileInspector(game, tile) {
         if (adjacencyDetail) adjacencyDetail.innerText = detail || '';
     };
 
+    const syncAttackOverlay = (target) => {
+        if (typeof game.updateTileAttackOverlay === 'function') game.updateTileAttackOverlay(target);
+    };
+
     const shouldHide = game.state !== 'OVERWORLD';
     panel.classList.toggle('hidden', shouldHide);
     if (shouldHide) {
-        game.updateTileAttackOverlay?.(null);
+        syncAttackOverlay(null);
         if (bonus) {
             bonus.innerText = '';
             bonus.title = '';
@@ -576,6 +580,7 @@ export function updateTileInspector(game, tile) {
     }
 
     if (!tile) {
+        syncAttackOverlay(null);
         label.innerText = 'Select a tile to inspect';
         panel.classList.remove('hostile');
         const placementCost = pendingCostLabel ? ` (${pendingCostLabel} due on placement)` : '';
@@ -623,6 +628,7 @@ export function updateTileInspector(game, tile) {
 
     const claimable = tile.owner === 'neutral' && typeof tile.claimCost === 'number';
     if (claimable) {
+        syncAttackOverlay(tile);
         panel.classList.remove('hostile');
         label.innerText = 'UNCLAIMED FRONTIER';
         const costLabel = typeof game.formatCost === 'function'
@@ -667,25 +673,7 @@ export function updateTileInspector(game, tile) {
         bonus.classList.toggle('paused', !!game.paused);
     }
 
-    const btn = document.getElementById('btn-attack');
-    if (!btn) return;
-
-    btn.classList.toggle('active', tile.status === 'HOSTILE');
-    btn.setAttribute('aria-hidden', tile.status === 'FRIENDLY' ? 'true' : 'false');
-
-    if (!tile || tile.status !== 'HOSTILE') {
-        btn.style.display = 'none';
-        return;
-    }
-
-    const pos = game.projectHexToScreen(tile.hex || tile);
-    btn.style.display = 'inline-flex';
-    btn.style.left = `${pos.x - 30}px`;
-    btn.style.top = `${pos.y - 56}px`;
-    btn.onclick = (e) => {
-        e?.stopPropagation?.();
-        game.beginBattleFromTile(tile, e);
-    };
+    syncAttackOverlay(tile);
 }
 
 /**

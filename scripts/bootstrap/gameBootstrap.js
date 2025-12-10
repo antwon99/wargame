@@ -34,6 +34,7 @@ import AmbienceRenderer from '../ambienceRenderer.js';
 import { decorateTileMetadata, describeAdjacencySummary, describeTileBonus } from '../overworldTileDescriptors.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
+import updateTileAttackOverlay from './tileAttackOverlay.mjs';
 import HexGrid, { resolveHexGrid } from '../grid/hexGrid.js';
 import RenderConfig, { resolveRenderConfig } from '../render/config.js';
 
@@ -296,11 +297,14 @@ function updateAudioDebug(dt, gameState) {
     AudioDebugConsole.update(dt, gameState);
 }
 
+export { updateTileAttackOverlay };
+
 /** ENGINE */
 const Game = {
     canvas: document.getElementById('canvas'),
     ctx: document.getElementById('canvas').getContext('2d'),
     fxLayer: document.getElementById('fx-layer'),
+    tileAttackOverlayBtn: document.getElementById('tile-attack-overlay-btn'),
 
     state: 'OVERWORLD',
     paused: false,
@@ -1754,6 +1758,12 @@ const Game = {
         const hex = pos.toPixel ? pos : new Hex(pos.q, pos.r, pos.s ?? -pos.q - pos.r);
         return hex.toPixel(layout);
     },
+    /**
+     * Keep the floating attack overlay synchronized with the current overworld selection.
+     * Delegates to the shared helper so the HUD and render loop can drive a single button.
+     * @param {object|null} tile selected overworld tile reference.
+     */
+    updateTileAttackOverlay(tile) { return updateTileAttackOverlay(this, tile); },
     draw() {
         const ctx = this.ctx;
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
