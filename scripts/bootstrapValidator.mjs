@@ -35,11 +35,6 @@ export function validateBootstrapDependencies({
     if (!status.inputHelpersAvailable) missingHelpers.push('InputHelpers (hex math)');
     if (!status.canvasAvailable) missingHelpers.push('Canvas rendering context');
 
-    if (missingHelpers.length && logToDebug && debugEl) {
-        debugEl.classList?.add?.('visible');
-        debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
-    }
-
     return { ...status, missingHelpers };
 }
 
