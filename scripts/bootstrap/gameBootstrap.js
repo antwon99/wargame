@@ -405,6 +405,12 @@ const Game = {
                 this.bootstrapNewWorld();
             }
 
+            if (!(this.overworld?.hexes instanceof Map) || this.overworld.hexes.size === 0) {
+                this.logBootstrapWarning('Overworld missing after bootstrap; rebuilding starter map.');
+                this.notifyOverworldRecovery('Saved overworld was empty; starting a fresh campaign.');
+                this.bootstrapNewWorld();
+            }
+
             this.updateHUD();
             this.updateUpgradeMenu();
             this.updateResearchUI();
@@ -1058,6 +1064,37 @@ const Game = {
         } catch (error) {
             this.reportRecoverableError(label, error);
         }
+    },
+
+    /**
+     * Surface a player-facing notification when bootstrap has to rebuild the overworld
+     * so the render loop never paints a blank map.
+     * @param {string} [reason] human readable description of why recovery is happening.
+     */
+    notifyOverworldRecovery(reason = 'Saved overworld failed to load; starting a fresh campaign.') {
+        const notification = {
+            id: 'overworld-recovery',
+            title: 'Overworld restored',
+            lines: [
+                reason,
+                'Progress may not have been saved; try reloading or picking another slot if this repeats.'
+            ],
+            severity: 'warning',
+            actions: [
+                {
+                    label: 'Dismiss',
+                    handler: ({ dismiss }) => dismiss?.()
+                }
+            ]
+        };
+
+        if (typeof this.enqueueNotification === 'function') {
+            this.enqueueNotification(notification);
+            return;
+        }
+
+        if (!Array.isArray(this.pendingNotifications)) this.pendingNotifications = [];
+        this.pendingNotifications.push(notification);
     },
 
     /**
