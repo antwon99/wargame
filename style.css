@@ -1213,6 +1213,42 @@
         .debug-toggle:hover { background: rgba(255,255,255,0.14); }
         .debug-toggle:active { transform: translateY(1px); }
 
+        .debug-status {
+            position: absolute;
+            bottom: 60px;
+            left: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px 8px 12px;
+            background: rgba(12, 16, 24, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            color: #e8edf7;
+            font-size: 0.85rem;
+            pointer-events: auto;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+        }
+
+        .debug-status__copy {
+            letter-spacing: 0.01em;
+        }
+
+        .debug-status__close {
+            border: none;
+            background: rgba(255, 255, 255, 0.12);
+            color: #f8f9fb;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .debug-status__close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         /* Notification stack (HUD toasts) */
         .notification-stack {
             position: fixed;
@@ -1278,6 +1314,26 @@
             font-size: 0.9rem;
             line-height: 1.3;
         }
+
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .notification-action {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.08);
+            color: #f4f6ff;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 140ms ease, transform 140ms ease;
+        }
+
+        .notification-action:hover { background: rgba(255, 255, 255, 0.14); }
+        .notification-action:active { transform: translateY(1px); }
 
         .notification-close {
             position: absolute;

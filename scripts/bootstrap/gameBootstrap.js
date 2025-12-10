@@ -927,10 +927,23 @@ const Game = {
         this.debugLogBody = typeof document !== 'undefined'
             ? document.getElementById('debug-log-body') || debugEl
             : debugEl;
-
         const closeBtn = typeof document !== 'undefined' ? document.getElementById('debug-log-close') : null;
         const toggleBtn = typeof document !== 'undefined' ? document.getElementById('debug-toggle') : null;
+        const statusEl = typeof document !== 'undefined' ? document.getElementById('debug-status') : null;
+        const statusCloseBtn = typeof document !== 'undefined' ? document.getElementById('debug-status-close') : null;
         const inner = debugEl.querySelector ? debugEl.querySelector('.debug-log__inner') : null;
+
+        const hideDebugStatus = () => {
+            if (!statusEl) return;
+            statusEl.hidden = true;
+            statusEl.setAttribute('aria-hidden', 'true');
+        };
+
+        const showDebugStatus = () => {
+            if (!statusEl) return;
+            statusEl.hidden = false;
+            statusEl.setAttribute('aria-hidden', 'false');
+        };
 
         const hideOverlay = () => {
             debugEl.classList.remove('visible');
@@ -944,6 +957,7 @@ const Game = {
             debugEl.classList.add('visible');
             debugEl.setAttribute('aria-hidden', 'false');
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', 'true');
+            hideDebugStatus();
         };
 
         const toggleOverlay = () => {
@@ -952,6 +966,7 @@ const Game = {
             debugEl.classList.toggle('visible', nextVisible);
             debugEl.setAttribute('aria-hidden', (!nextVisible).toString());
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', nextVisible ? 'true' : 'false');
+            if (nextVisible) hideDebugStatus();
         };
 
         debugEl.addEventListener('click', hideOverlay);
@@ -960,9 +975,13 @@ const Game = {
         }
         if (closeBtn?.addEventListener) closeBtn.addEventListener('click', hideOverlay);
         if (toggleBtn?.addEventListener) toggleBtn.addEventListener('click', toggleOverlay);
+        if (statusCloseBtn?.addEventListener) statusCloseBtn.addEventListener('click', hideDebugStatus);
 
         this.hideDebugLog = hideOverlay;
         this.showDebugLog = showOverlay;
+        this.hideDebugStatus = hideDebugStatus;
+        this.showDebugStatus = showDebugStatus;
+        this.debugStatusEl = statusEl;
     },
 
     /**
@@ -973,6 +992,7 @@ const Game = {
         const target = this.debugLogBody || this.debugLogEl;
         if (!target) return;
         target.textContent = message;
+        this.showDebugStatus?.();
     },
 
     /**
@@ -1002,12 +1022,19 @@ const Game = {
             title: 'Recoverable error',
             tone: 'warning',
             lines: [
+                'Debug view — details available.',
                 context
-                    ? `An error occurred in ${context} — details in Debug.`
-                    : 'An error occurred — details in Debug.',
+                    ? `Subsystem: ${context}`
+                    : 'Subsystem: (unspecified)',
                 `Issue: ${summaryLine}`
             ],
-            duration: 9000
+            actions: [
+                {
+                    label: 'Dismiss',
+                    handler: ({ dismiss }) => dismiss()
+                }
+            ],
+            duration: 12000
         };
 
         if (typeof this.enqueueNotification === 'function') {
@@ -1047,9 +1074,6 @@ const Game = {
 
         const debugEl = this.debugLogEl || (typeof document !== 'undefined' ? document.getElementById('debug-log') : null);
         if (!debugEl) return;
-        debugEl.hidden = false;
-        debugEl.classList.add('visible');
-        debugEl.setAttribute('aria-hidden', 'false');
         this.updateDebugLog(`⚠️ ${message}`);
     },
 
