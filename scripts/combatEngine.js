@@ -431,15 +431,22 @@ export function isFrontier(game, key, who, hexImpl) {
     // this ensures tiles directly next to the castle are buildable at war start
     // even if no other friendly buildings have been placed yet.
     const castleHex = game?.combat?.castles?.[who];
-    if (castleHex && Hex.distance(hex, castleHex) === 1) return true;
+    let frontier = castleHex && Hex.distance(hex, castleHex) === 1;
 
     for(let i=0; i<6; i++) {
         const n = Hex.neighbor(hex, i);
         const b = game.combat.buildings.get(n.toString());
-        if(b && b.owner === who) return true;
+        if(b && b.owner === who) { frontier = true; break; }
     }
 
     const opponent = who === 'player' ? 'enemy' : 'player';
+    for (let i = 0; i < 6; i++) {
+        const n = Hex.neighbor(hex, i);
+        const tileNeighbor = game.combat.territory.get(n.toString());
+        // Frontier tiles that touch opposing land should allow build actions even without existing structures.
+        if (tileNeighbor?.owner === opponent) { frontier = true; break; }
+    }
+
     for(let q = -3; q <= 3; q++) {
         for(let r = -3; r <= 3; r++) {
             if (Math.abs(q + r) > 3) continue;
@@ -447,10 +454,10 @@ export function isFrontier(game, key, who, hexImpl) {
 
             const neighbor = hex.add(new Hex(q, r, -q-r));
             const b = game.combat.buildings.get(neighbor.toString());
-            if(b && b.owner === opponent) return true;
+            if(b && b.owner === opponent) { frontier = true; break; }
         }
     }
-    return false;
+    return frontier;
 }
 
 /**
