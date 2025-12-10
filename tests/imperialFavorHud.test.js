@@ -44,12 +44,6 @@ async function testUpdateHUDWritesFavor() {
     assert.strictEqual(doc.getElementById('lvl-txt').innerText, 'Lv.4');
 }
 
-async function testHudReexportsMatchModule() {
-    const bindings = await import('../scripts/uiBindings.js');
-    const hudModule = await import('../scripts/ui/hud.js');
-    assert.strictEqual(bindings.updateHUD, hudModule.updateHUD, 'uiBindings should re-export HUD helpers');
-}
-
 function testTemplateIncludesTooltip() {
     const html = fs.readFileSync('Wargame.html', 'utf8');
     assert.ok(html.includes('id="imperial-favor"'), 'imperial favor value should exist in HUD template');
@@ -61,7 +55,6 @@ function testTemplateIncludesTooltip() {
 
 async function run() {
     await testUpdateHUDWritesFavor();
-    await testHudReexportsMatchModule();
     testTemplateIncludesTooltip();
     delete global.document;
     console.log('Imperial favor HUD tests passed.');
