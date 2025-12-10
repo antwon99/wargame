@@ -3,13 +3,11 @@ import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
 
-const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'bootstrap', 'gameBootstrap.js');
+const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'script.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 const sanitizedSource = scriptSource
     .replace(/import[\s\S]*?from\s+['"][^'\"]+['"];\s*/g, '')
-    .replace(/import\s+['"][^'\"]+['"];\s*/g, '')
-    .replace(/export\s+function\s+bootstrapGame/, 'function bootstrapGame')
-    .replace(/export\s+default\s+bootstrapGame;?/g, '');
+    .replace(/import\s+['"][^'\"]+['"];\s*/g, '');
 
 function createElementStub(overrides = {}) {
     const classSet = new Set();
@@ -104,14 +102,6 @@ function createWindowStub(document, overrides = {}) {
 }
 
 function createImportStubs() {
-    const TestHex = class {
-        constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
-        add(b) { return new TestHex(this.q + b.q, this.r + b.r, this.s + b.s); }
-        toString() { return `${this.q},${this.r}`; }
-        static neighbor(hex) { return hex; }
-        static distance() { return 0; }
-    };
-    const testLayout = { f0: 1, f1: 1, f2: 0, f3: 1, b0: 1, b1: 1, b2: 0, b3: 1 };
     return {
         COMBAT_BUILDINGS: {},
         UNITS: {},
@@ -171,18 +161,10 @@ function createImportStubs() {
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         START_TICK: 0,
         FOG_VISUAL_CONFIG: {},
-        FOG_VISUAL_MODES: { VOID: 'VOID' },
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: () => 1,
         resolveFogVisualConfig: () => ({}),
-        validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) }),
-        resolveHexGrid: () => ({ Hex: TestHex, Layout: testLayout, SQRT3: Math.sqrt(3) }),
-        resolveRenderConfig: () => ({
-            CAMERA_MOTION_CONFIG: { enabled: true, amplitude: 1, parallax: 1, speed: 1 },
-            AMBIENCE_CONFIG: { enabled: false }
-        }),
-        RenderConfig: { CAMERA_MOTION_CONFIG: { enabled: true }, AMBIENCE_CONFIG: { enabled: false } },
-        HexGrid: { Hex: TestHex, Layout: testLayout, SQRT3: Math.sqrt(3) }
+        validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
 }
 
@@ -208,8 +190,6 @@ async function loadGameModule({ globals = {} } = {}) {
 
     const script = new vm.Script(sanitizedSource, { filename: scriptPath });
     script.runInContext(context);
-
-    context.bootstrapGame({ documentRef: document, windowRef: windowStub });
 
     (document.listeners['DOMContentLoaded'] || []).forEach(cb => cb());
 

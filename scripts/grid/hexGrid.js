@@ -18,27 +18,6 @@ const Layout = {
 };
 
 /**
- * Resolve the runtime hex helpers while tolerating missing globals during
- * tests or headless harnesses. Falls back to the bundled {@link Hex},
- * {@link Layout}, and {@link SQRT3} constants when external modules are not
- * available.
- *
- * @param {Object} [options]
- * @param {Object} [options.hexGridModule] optional injected HexGrid module.
- * @param {Object} [options.windowObj] optional window-like object exposing
- * `HexGrid` when running in a browser environment.
- * @returns {{Hex: typeof Hex, Layout: typeof Layout, SQRT3: number}}
- */
-function resolveHexGrid({ hexGridModule, windowObj } = {}) {
-    const source = hexGridModule || windowObj?.HexGrid || {};
-    return {
-        Hex: source.Hex || Hex,
-        Layout: source.Layout || Layout,
-        SQRT3: source.SQRT3 || SQRT3
-    };
-}
-
-/**
  * Axial hex coordinate helper that supports neighbor traversal and
  * pixel projection for layout-aware rendering.
  */
@@ -73,13 +52,13 @@ class Hex {
     toString() { return `${this.q},${this.r}`; }
 }
 
-const HexGrid = { Hex, Layout, SQRT3, resolveHexGrid };
+const HexGrid = { Hex, Layout, SQRT3 };
 
 if (typeof window !== 'undefined') {
     window.HexGrid = HexGrid;
 }
 
-export { Hex, Layout, SQRT3, resolveHexGrid };
+export { Hex, Layout, SQRT3 };
 export default HexGrid;
 
 if (typeof module !== 'undefined') {
