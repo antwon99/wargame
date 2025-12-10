@@ -209,8 +209,6 @@ const AudioBridge = {
 };
 if (typeof window !== 'undefined') window.AudioBridge = AudioBridge;
 
-const debugBus = (typeof window !== 'undefined' ? window.AudioDebugBus : null);
-
 // === AUDIO DEBUG CONSOLE (diagnostic-only; remove after triage) ===
 const AudioDebugConsole = {
     el: null,
@@ -247,8 +245,8 @@ const AudioDebugConsole = {
         if (this.timer < 0.5) return;
         this.timer = 0;
 
-        const snapshot = (debugBus && debugBus.snapshot)
-            ? debugBus.snapshot()
+        const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
+            ? window.AudioDebugBus.snapshot()
             : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
 
         const fogSnapshot = this.resolveFogSnapshot();
