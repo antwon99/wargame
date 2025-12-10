@@ -920,6 +920,9 @@ const Game = {
         const debugEl = typeof document !== 'undefined' ? document.getElementById('debug-log') : null;
         if (!debugEl) return;
 
+        debugEl.hidden = true;
+        debugEl.setAttribute('aria-hidden', 'true');
+
         this.debugLogEl = debugEl;
         this.debugLogBody = typeof document !== 'undefined'
             ? document.getElementById('debug-log-body') || debugEl
@@ -931,17 +934,23 @@ const Game = {
 
         const hideOverlay = () => {
             debugEl.classList.remove('visible');
+            debugEl.setAttribute('aria-hidden', 'true');
+            debugEl.hidden = true;
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', 'false');
         };
 
         const showOverlay = () => {
+            debugEl.hidden = false;
             debugEl.classList.add('visible');
+            debugEl.setAttribute('aria-hidden', 'false');
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', 'true');
         };
 
         const toggleOverlay = () => {
             const nextVisible = !debugEl.classList.contains('visible');
+            debugEl.hidden = !nextVisible;
             debugEl.classList.toggle('visible', nextVisible);
+            debugEl.setAttribute('aria-hidden', (!nextVisible).toString());
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', nextVisible ? 'true' : 'false');
         };
 
@@ -990,10 +999,12 @@ const Game = {
         ].join('\n'));
 
         const notification = {
-            title: 'Stack guarded',
+            title: 'Recoverable error',
             tone: 'warning',
             lines: [
-                context ? `Subsystem: ${context}` : 'Subsystem: (unspecified)',
+                context
+                    ? `An error occurred in ${context} — details in Debug.`
+                    : 'An error occurred — details in Debug.',
                 `Issue: ${summaryLine}`
             ],
             duration: 9000
@@ -1036,7 +1047,9 @@ const Game = {
 
         const debugEl = this.debugLogEl || (typeof document !== 'undefined' ? document.getElementById('debug-log') : null);
         if (!debugEl) return;
+        debugEl.hidden = false;
         debugEl.classList.add('visible');
+        debugEl.setAttribute('aria-hidden', 'false');
         this.updateDebugLog(`⚠️ ${message}`);
     },
 
