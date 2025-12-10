@@ -635,17 +635,16 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         return false;
     };
 
-        const convertTileToPenalty = (key, fateOverride) => {
-            const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
-            const fate = fateOverride || (Math.random() < 0.65 ? 'rebel' : 'scorched');
-            tile.type = fate;
-            tile.owner = fate;
-            tile.hex = tile.hex || parseKey(key);
-            if (tile.isRebelCamp && fate !== 'rebelcamp') tile.isRebelCamp = false;
-            if (typeof game.decorateTileMetadata === 'function') game.decorateTileMetadata(tile);
-            game.overworld.hexes.set(key, tile);
-            return { key, fate, hex: tile.hex };
-        };
+    const convertTileToPenalty = (key, fateOverride) => {
+        const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
+        const fate = fateOverride || (Math.random() < 0.65 ? 'rebel' : 'scorched');
+        tile.type = fate;
+        tile.owner = fate;
+        tile.hex = tile.hex || parseKey(key);
+        if (tile.isRebelCamp && fate !== 'rebelcamp') tile.isRebelCamp = false;
+        game.overworld.hexes.set(key, tile);
+        return { key, fate, hex: tile.hex };
+    };
 
     const conversions = [];
 
