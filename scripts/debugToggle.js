@@ -1,7 +1,7 @@
 /**
  * Debug overlay visibility controller.
- * Keeps the audio debug panel hidden by default and exposes a toggle via
- * keyboard (F3 or `) or the Debug button tucked in the bottom-left corner.
+ * Keeps the audio debug panel hidden by default and exposes a dedicated toggle via
+ * keyboard (F4 or `) or the Audio Debug button tucked in the bottom-left corner.
  */
 (function() {
     let debugPanel = null;
@@ -26,7 +26,7 @@
      */
     function resolvePanel() {
         debugPanel = debugPanel || document.getElementById('audio-debug') || document.getElementById('audio-debug-panel');
-        toggleButton = toggleButton || document.getElementById('debug-toggle');
+        toggleButton = toggleButton || document.getElementById('audio-debug-toggle');
     }
 
     /**
@@ -71,7 +71,7 @@
     });
 
     document.addEventListener('keydown', event => {
-        if (event.key === 'F3' || event.key === '`' || event.key === '~') {
+        if (event.key === 'F4' || event.key === '`' || event.key === '~') {
             toggleDebug();
         }
         if (event.key === 'F8') {

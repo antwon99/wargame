@@ -975,12 +975,21 @@ const Game = {
             if (nextVisible) hideDebugStatus();
         };
 
+        const handleKeydown = (event) => {
+            if (event.key === 'F3') {
+                toggleOverlay();
+            }
+        };
+
         debugEl.addEventListener('click', hideOverlay);
         if (inner?.addEventListener) {
             inner.addEventListener('click', (evt) => evt.stopPropagation());
         }
         if (closeBtn?.addEventListener) closeBtn.addEventListener('click', hideOverlay);
         if (toggleBtn?.addEventListener) toggleBtn.addEventListener('click', toggleOverlay);
+        if (typeof document !== 'undefined') {
+            document.addEventListener('keydown', handleKeydown);
+        }
         if (statusCloseBtn?.addEventListener) statusCloseBtn.addEventListener('click', hideDebugStatus);
 
         this.hideDebugLog = hideOverlay;
