@@ -811,6 +811,7 @@ const Game = {
         this.overworld.claimable = new Map();
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
+        this.refreshClusterBonuses();
         this.calcOverworldGhosts();
         this.finalizeStarterTerritory();
         this.syncReclamationAwaitState();
