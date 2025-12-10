@@ -1665,7 +1665,7 @@ const Game = {
             else if (type === 'shrine') this.playSound('holy');
         }
         if (def?.onClaim && !free) def.onClaim(this, hex);
-        if (!free) this.refreshClusterBonuses();
+        this.refreshClusterBonuses();
     },
     addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type, owner: 'player'}); },
     calcOverworldGhosts() {
