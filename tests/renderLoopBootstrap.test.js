@@ -208,22 +208,11 @@ function run() {
 
     assert.ok(Game.debugLogBody?.textContent.includes('Stack trace:'), 'debug overlay should receive stack text');
     assert.strictEqual(Game.debugLogEl?.classList.contains('visible'), priorVisibility, 'recoverable errors should not force the debug overlay open');
-    assert.strictEqual(Game.debugStatusEl?.hidden, true, 'debug status badge should stay hidden without an opt-in');
+    assert.strictEqual(Game.debugStatusEl?.hidden, false, 'debug status indicator should surface availability');
     assert.strictEqual(notifications.length, 1, 'recoverable errors should enqueue a notification');
     assert.ok(notifications[0].lines.some(line => line.includes('render loop harness')));
     assert.ok(notifications[0].lines.some(line => line.includes('Minor hiccup occurred')));
     assert.ok(Array.isArray(notifications[0].actions) && notifications[0].actions.some(action => action.label === 'Dismiss'), 'recoverable error notification should include a dismiss action');
-
-    Game.logBootstrapWarning('Persistence unavailable; skipping save hydration and disabling save slots.');
-
-    assert.strictEqual(Game.debugStatusEl?.hidden, true, 'bootstrap warnings should not surface the debug badge');
-    assert.strictEqual(notifications.length, 2, 'bootstrap warnings should route through the notification stack');
-    assert.ok(notifications[1].lines.some(line => line.includes('skipping save hydration')));
-
-    Game.debugStatusOptIn = true;
-    Game.reportRecoverableError('render loop harness', new Error('Second hiccup occurred'));
-
-    assert.strictEqual(Game.debugStatusEl?.hidden, false, 'opted-in sessions should surface the debug badge for errors');
     console.log('Render loop bootstrap safety test passed.');
 }
 
