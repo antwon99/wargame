@@ -1,5 +1,7 @@
 const assert = require('assert');
 
+const descriptorsPromise = import('../scripts/overworldTileDescriptors.js');
+
 function createStubElement(id) {
     return {
         id,
@@ -45,18 +47,27 @@ async function testClusterBonusRenders() {
     ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const descriptors = await descriptorsPromise;
 
     const key = '0,0';
     const cluster = { size: 3, goldBonus: 0, woodBonus: 2, adjacencyRate: 0.2, reclamationRate: 0.05 };
-    const tile = { type: 'forest', owner: 'player', hex: { q: 0, r: 0, toString: () => key }, clusterBonus: cluster };
-    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+    const tile = descriptors.decorateTileMetadata({ type: 'forest', owner: 'player', hex: { q: 0, r: 0, toString: () => key }, clusterBonus: cluster });
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        overworld: { clusterBonuses: new Map([[key, cluster]]) },
+        describeTileBonus(tileRef) { return descriptors.describeTileBonus(this, tileRef); },
+        describeAdjacencySummary(tileRef) { return descriptors.describeAdjacencySummary(this, tileRef); },
+        decorateTileMetadata: descriptors.decorateTileMetadata,
+        updateTileAttackOverlay: () => {}
+    };
 
     updateTileInspector(game, tile);
 
     const bonusEl = doc.getElementById('tile-inspector-bonus');
     assert.ok(bonusEl.innerText.includes('+2w'), 'cluster line should include bonus income');
     assert.ok(bonusEl.innerText.includes('3-tile'), 'cluster size should be surfaced in the inspector');
-    assert.ok(bonusEl.title.includes('Adjacency'), 'cluster tooltip should explain the rate applied');
+    assert.ok(bonusEl.title.toLowerCase().includes('adjacency'), 'cluster tooltip should explain the rate applied');
 
     const adjacencySummary = doc.getElementById('tile-inspector-adjacency-summary');
     assert.ok(
@@ -76,11 +87,20 @@ async function testPauseStatusUpdatesInspector() {
     ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const descriptors = await descriptorsPromise;
 
     const key = '1,0';
     const cluster = { size: 2, goldBonus: 1, woodBonus: 0, adjacencyRate: 0.1, reclamationRate: 0 };
-    const tile = { type: 'town', owner: 'player', hex: { q: 1, r: 0, toString: () => key }, clusterBonus: cluster };
-    const game = { state: 'OVERWORLD', paused: true, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+    const tile = descriptors.decorateTileMetadata({ type: 'town', owner: 'player', hex: { q: 1, r: 0, toString: () => key }, clusterBonus: cluster });
+    const game = {
+        state: 'OVERWORLD',
+        paused: true,
+        overworld: { clusterBonuses: new Map([[key, cluster]]) },
+        describeTileBonus(tileRef) { return descriptors.describeTileBonus(this, tileRef); },
+        describeAdjacencySummary(tileRef) { return descriptors.describeAdjacencySummary(this, tileRef); },
+        decorateTileMetadata: descriptors.decorateTileMetadata,
+        updateTileAttackOverlay: () => {}
+    };
 
     updateTileInspector(game, tile);
     const pausedText = doc.getElementById('tile-inspector-bonus').innerText;
@@ -109,11 +129,20 @@ async function testZeroBonusClustersStillCountAsAdjacency() {
     ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const descriptors = await descriptorsPromise;
 
     const key = '2,0';
     const cluster = { size: 2, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
-    const tile = { type: 'town', owner: 'player', hex: { q: 2, r: 0, toString: () => key }, clusterBonus: cluster };
-    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+    const tile = descriptors.decorateTileMetadata({ type: 'town', owner: 'player', hex: { q: 2, r: 0, toString: () => key }, clusterBonus: cluster });
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        overworld: { clusterBonuses: new Map([[key, cluster]]) },
+        describeTileBonus(tileRef) { return descriptors.describeTileBonus(this, tileRef); },
+        describeAdjacencySummary(tileRef) { return descriptors.describeAdjacencySummary(this, tileRef); },
+        decorateTileMetadata: descriptors.decorateTileMetadata,
+        updateTileAttackOverlay: () => {}
+    };
 
     updateTileInspector(game, tile);
 
@@ -137,11 +166,20 @@ async function testIsolatedTilesShowNoAdjacency() {
     ]);
     global.document = doc;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const descriptors = await descriptorsPromise;
 
     const key = '3,0';
     const cluster = { size: 1, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
-    const tile = { type: 'field', owner: 'player', hex: { q: 3, r: 0, toString: () => key }, clusterBonus: cluster };
-    const game = { state: 'OVERWORLD', paused: false, overworld: { clusterBonuses: new Map([[key, cluster]]) }, updateTileAttackOverlay: () => {} };
+    const tile = descriptors.decorateTileMetadata({ type: 'field', owner: 'player', hex: { q: 3, r: 0, toString: () => key }, clusterBonus: cluster });
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        overworld: { clusterBonuses: new Map([[key, cluster]]) },
+        describeTileBonus(tileRef) { return descriptors.describeTileBonus(this, tileRef); },
+        describeAdjacencySummary(tileRef) { return descriptors.describeAdjacencySummary(this, tileRef); },
+        decorateTileMetadata: descriptors.decorateTileMetadata,
+        updateTileAttackOverlay: () => {}
+    };
 
     updateTileInspector(game, tile);
 

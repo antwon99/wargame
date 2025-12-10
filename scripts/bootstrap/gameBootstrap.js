@@ -31,6 +31,7 @@ import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from '../
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from '../fogVisualConfig.mjs';
 import AmbienceRenderer from '../ambienceRenderer.js';
+import { decorateTileMetadata, describeAdjacencySummary, describeTileBonus } from '../overworldTileDescriptors.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import HexGrid, { resolveHexGrid } from '../grid/hexGrid.js';
@@ -1371,6 +1372,27 @@ const Game = {
     },
 
     /**
+     * Ensure overworld tiles surface a stable label + tooltip derived from the shared config.
+     * @param {object} tile overworld tile payload to decorate.
+     * @returns {object} enriched tile reference.
+     */
+    decorateTileMetadata(tile) { return decorateTileMetadata(tile); },
+
+    /**
+     * Summarize adjacency bonuses for the HUD using the cached cluster map.
+     * @param {object} tile tile payload currently highlighted.
+     * @returns {{short: string, long: string}} adjacency copy for HUD rows.
+     */
+    describeAdjacencySummary(tile) { return describeAdjacencySummary(this, tile); },
+
+    /**
+     * Compose a readable tile bonus line factoring base income and adjacency bonuses.
+     * @param {object} tile tile payload currently highlighted.
+     * @returns {string} formatted HUD string describing income and adjacency state.
+     */
+    describeTileBonus(tile) { return describeTileBonus(this, tile); },
+
+    /**
      * Normalize starter tile ownership and rebuild the adjacency cache so the inspector
      * can reference fresh cluster data as soon as the campaign boots.
      * @returns {Map<string, object>} updated cluster bonus map keyed by hex key.
@@ -1454,6 +1476,7 @@ const Game = {
     setSelectedOverworldTile(tile) {
         const selection = tile || null;
         if (selection && this.overworld) {
+            this.decorateTileMetadata(selection);
             const clusterBonuses = (this.overworld.clusterBonuses && this.overworld.clusterBonuses.size > 0)
                 ? this.overworld.clusterBonuses
                 : this.refreshClusterBonuses();
@@ -1637,7 +1660,11 @@ const Game = {
         if (def?.onClaim && !free) def.onClaim(this, hex);
         this.refreshClusterBonuses();
     },
-    addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type, owner: 'player'}); },
+    addOverworldHex(hex, type) {
+        const tile = this.decorateTileMetadata({ hex, type, owner: 'player' });
+        this.overworld.hexes.set(hex.toString(), tile);
+        return tile;
+    },
     calcOverworldGhosts() {
         this.overworld.claimable.clear();
         for(let [k, d] of this.overworld.hexes) {

@@ -601,7 +601,11 @@ export function updateTileInspector(game, tile) {
                     : 'Select a tile to view bonuses and available actions.';
             }
         }
-        hideAdjacency();
+        if (awaitingReclamation && !hasEligibleFields) {
+            showAdjacency('No adjacency bonuses', 'Secure more territory to continue reclamations.');
+        } else {
+            hideAdjacency();
+        }
         return;
     }
 
@@ -617,8 +621,30 @@ export function updateTileInspector(game, tile) {
         ? game.formatCost(pendingPlacement.cost)
         : '';
 
-    const tileLabel = tile?.label || 'Unknown tile';
+    const claimable = tile.owner === 'neutral' && typeof tile.claimCost === 'number';
+    if (claimable) {
+        panel.classList.remove('hostile');
+        label.innerText = 'UNCLAIMED FRONTIER';
+        const costLabel = typeof game.formatCost === 'function'
+            ? game.formatCost({ wood: tile.claimCost })
+            : `${tile.claimCost}w`;
+        const woodShortfall = Math.max(0, tile.claimCost - (Number.isFinite(game.wood) ? game.wood : 0));
+        if (bonus) {
+            const shortfallText = woodShortfall > 0 ? ` Need ${woodShortfall} more wood.` : '';
+            bonus.innerText = `Claim cost: ${costLabel}.${shortfallText}`;
+            bonus.title = woodShortfall > 0
+                ? 'Gather more wood to secure this tile.'
+                : 'Spend wood to claim the frontier tile instantly.';
+            bonus.classList.toggle('paused', !!game.paused);
+        }
+        hideAdjacency();
+        return;
+    }
+
+    const tileLabel = tile?.label || (tile.type ? tile.type.toString().toUpperCase() : 'Unknown tile');
     label.innerText = tileLabel;
+    const isHostile = tile.status === 'HOSTILE' || tile.owner === 'enemy' || tile.owner === 'rebel';
+    panel.classList.toggle('hostile', isHostile);
 
     const summary = typeof game.describeAdjacencySummary === 'function'
         ? game.describeAdjacencySummary(tile)
@@ -629,14 +655,15 @@ export function updateTileInspector(game, tile) {
         hideAdjacency();
     }
 
-    const bonusText = typeof game.describeTileBonus === 'function'
+    let bonusText = typeof game.describeTileBonus === 'function'
         ? game.describeTileBonus(tile)
         : '';
+    if (awaitingReclamation && tile.owner === 'enemy') bonusText += '\nReclamation cannot target an enemy tile.';
     if (bonus) {
         bonus.innerText = queuedLabel
             ? `${bonusText}\nReclamation queued: ${queuedLabel} (${queuedCostLabel})`
             : bonusText;
-        bonus.title = tile.bonusTooltip || '';
+        bonus.title = tile.bonusTooltip || summary?.long || '';
         bonus.classList.toggle('paused', !!game.paused);
     }
 
