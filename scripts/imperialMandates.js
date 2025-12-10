@@ -11,9 +11,22 @@
         || (typeof require === 'function' ? require('./rebelSystem.js') : {});
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
-    function getNotificationStackApi() {
-        return global.NotificationStackApi || null;
-    }
+    const MandateCalendar = (global.MandateCalendar)
+        || (typeof require === 'function' ? require('./mandateCalendar.js') : {});
+    const MandateUiAdapters = (global.MandateUiAdapters)
+        || (typeof require === 'function' ? require('./mandateUiAdapters.js') : {});
+
+    const getNotificationStackApi = () => global.NotificationStackApi || null;
+    const calendar = {
+        convertToTicks: MandateCalendar.convertToTicks || (() => 0),
+        formatCalendarLabel: MandateCalendar.formatCalendarLabel || (() => 'M: Unknown | W: 0/0 | D: 0/0'),
+        describeDeadlineTick: MandateCalendar.describeDeadlineTick
+            || (() => ({ label: 'No fixed deadline', remainingDays: null }))
+    };
+    const uiAdapters = {
+        withImperialAudioGuard: MandateUiAdapters.withImperialAudioGuard || ((fn) => (typeof fn === 'function' ? fn() : null)),
+        sanitizeUIBindings: MandateUiAdapters.sanitizeUIBindings || ((bindings) => bindings || {})
+    };
 
     const MandateStatus = {
         PENDING: 'PENDING',
@@ -22,6 +35,9 @@
         FAILED: 'FAILED',
         EXPIRED: 'EXPIRED'
     };
+
+    const { convertToTicks, formatCalendarLabel } = calendar;
+    const { withImperialAudioGuard, sanitizeUIBindings } = uiAdapters;
 
     const state = {
         mandates: new Map(),
@@ -33,19 +49,6 @@
     };
 
     const DEFAULT_IMPERIAL_FAVOR = 5;
-    const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
-
-    /**
-     * Shield decree/notification rendering from combat stingers so overlays do not
-     * stomp ambience or accidentally enter combat states while the UI is focused.
-     * @param {Function} fn callback to execute while the guard is active.
-     * @returns {*} return value from the guarded callback.
-     */
-    function withImperialAudioGuard(fn) {
-        const audio = global.GameAudio || (typeof window !== 'undefined' ? window.GameAudio : null);
-        if (audio?.runWithUiGuard) return audio.runWithUiGuard(fn);
-        return typeof fn === 'function' ? fn() : null;
-    }
 
     /**
      * Keep imperial favor bounded to the 1–10 HUD scale so mandate rewards and penalties
@@ -56,24 +59,6 @@
     function clampImperialFavor(value) {
         const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
         return Math.min(10, Math.max(1, numeric));
-    }
-
-    /**
-     * Prevent decree presenters from invoking overlap-prone combat cues so messaging remains UI-only.
-     * @param {object} [uiBindings] hooks that may include a playSound delegate.
-     * @returns {object} shallow copy with guarded audio hooks.
-     */
-    function sanitizeUIBindings(uiBindings = {}) {
-        if (!uiBindings || typeof uiBindings !== 'object') return {};
-        if (typeof uiBindings.playSound !== 'function') return uiBindings;
-
-        const safeBindings = { ...uiBindings };
-        const originalPlay = uiBindings.playSound;
-        safeBindings.playSound = (key, options) => {
-            if (!key || UI_ONLY_AUDIO_GUARD.has(key)) return null;
-            return originalPlay(key, options);
-        };
-        return safeBindings;
     }
 
     /**
@@ -94,84 +79,23 @@
         return next;
     }
 
-    /**
-     * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
-     * storing the authoritative timers in ticks.
-     */
-    const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
-    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    function getMonthLabel(monthNumber) {
-        const safeMonth = Math.max(1, Number.isFinite(monthNumber) ? monthNumber : 1);
-        const monthIndex = safeMonth - 1;
-        const year = Math.floor(monthIndex / 12) + 1;
-        const name = MONTH_NAMES[monthIndex % MONTH_NAMES.length];
-        return { label: `${name} Y${year}`, name, year };
-    }
-    function getTimeConfig(gameState) {
-        const tk = gameState?.timekeeper;
-        return {
-            daysPerWeek: Number.isFinite(tk?.daysPerWeek) ? tk.daysPerWeek : DEFAULT_TIME_CONFIG.daysPerWeek,
-            weeksPerMonth: Number.isFinite(tk?.weeksPerMonth)
-                ? tk.weeksPerMonth
-                : DEFAULT_TIME_CONFIG.weeksPerMonth
-        };
-    }
-
-    function convertToTicks(units = {}, gameState) {
-        if (!units || typeof units !== 'object') return 0;
-        const config = getTimeConfig(gameState);
-        const monthsToDays = (units.months || 0) * config.weeksPerMonth * config.daysPerWeek;
-        const weeksToDays = (units.weeks || 0) * config.daysPerWeek;
-        return Math.max(0, (units.days || 0) + weeksToDays + monthsToDays);
-    }
-
-    function getCalendarForTick(tick, gameState) {
-        const config = getTimeConfig(gameState);
-        const safeTicks = Math.max(0, Number.isFinite(tick) ? tick : 0);
-        const day = safeTicks + 1;
-        const week = Math.floor((day - 1) / config.daysPerWeek);
-        const month = Math.floor(week / config.weeksPerMonth) + 1;
-        const weekOfMonth = (week % config.weeksPerMonth) + 1;
-        const dayOfWeek = ((day - 1) % config.daysPerWeek) + 1;
-        const daysPerMonth = config.daysPerWeek * config.weeksPerMonth;
-        const dayOfMonth = (weekOfMonth - 1) * config.daysPerWeek + dayOfWeek;
-        const monthMeta = getMonthLabel(month);
-        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth, monthName: monthMeta.name, year: monthMeta.year };
-    }
-
-    function formatCalendarLabel(tick, gameState) {
-        const cal = getCalendarForTick(tick, gameState);
-        const config = getTimeConfig(gameState);
-        const label = getMonthLabel(cal.month).label;
-        return `M: ${label} | W: ${cal.weekOfMonth}/${config.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
+    function getMinimumMandateSpacing(gameState) {
+        return convertToTicks({ weeks: 1, days: 2 }, gameState);
     }
 
     /**
      * Convert an absolute mandate deadline into human-readable calendar text and
      * a remaining-day delta for UI overlays.
-     *
-     * The helper defaults to the last observed game state for calendar pacing so
-     * HUD overlays remain accurate even when they are rendered from outside the
-     * mandate engine.
      * @param {number|null|undefined} deadlineTick tick on which the mandate expires.
      * @param {object} [gameState] optional live game reference for time config.
      * @returns {{ label: string, remainingDays: number|null }}
      */
     function describeDeadlineTick(deadlineTick, gameState) {
-        if (!Number.isFinite(deadlineTick)) {
-            return { label: 'No fixed deadline', remainingDays: null };
-        }
-
-        const normalizedTick = Math.max(0, deadlineTick);
-        const ctx = gameState || state.lastGameState;
-        const label = formatCalendarLabel(Math.max(0, normalizedTick - 1), ctx);
-        const remainingDays = normalizedTick - state.currentTick;
-        return { label, remainingDays };
-    }
-
-    function getMinimumMandateSpacing(gameState) {
-        return convertToTicks({ weeks: 1, days: 2 }, gameState);
+        return calendar.describeDeadlineTick(deadlineTick, {
+            currentTick: state.currentTick,
+            gameState,
+            fallbackGameState: state.lastGameState
+        });
     }
 
     function getDurationTicks(entry, ctx) {
