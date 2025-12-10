@@ -347,6 +347,7 @@ const Game = {
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
     persistenceAvailable: true,
+    debugStatusOptIn: false,
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
@@ -929,6 +930,9 @@ const Game = {
         debugEl.hidden = true;
         debugEl.setAttribute('aria-hidden', 'true');
 
+        const debugToggles = (typeof window !== 'undefined' && window.DebugToggles) ? window.DebugToggles : null;
+        this.debugStatusOptIn = Boolean(debugToggles?.debugLogs || debugToggles?.debugStatus || debugToggles?.stackLogs);
+
         this.debugLogEl = debugEl;
         this.debugLogBody = typeof document !== 'undefined'
             ? document.getElementById('debug-log-body') || debugEl
@@ -939,6 +943,8 @@ const Game = {
         const statusCloseBtn = typeof document !== 'undefined' ? document.getElementById('debug-status-close') : null;
         const inner = debugEl.querySelector ? debugEl.querySelector('.debug-log__inner') : null;
 
+        const enableDebugStatus = () => { this.debugStatusOptIn = true; };
+
         const hideDebugStatus = () => {
             if (!statusEl) return;
             statusEl.hidden = true;
@@ -946,7 +952,7 @@ const Game = {
         };
 
         const showDebugStatus = () => {
-            if (!statusEl) return;
+            if (!statusEl || !this.debugStatusOptIn) return;
             statusEl.hidden = false;
             statusEl.setAttribute('aria-hidden', 'false');
         };
@@ -959,6 +965,7 @@ const Game = {
         };
 
         const showOverlay = () => {
+            enableDebugStatus();
             debugEl.hidden = false;
             debugEl.classList.add('visible');
             debugEl.setAttribute('aria-hidden', 'false');
@@ -972,7 +979,10 @@ const Game = {
             debugEl.classList.toggle('visible', nextVisible);
             debugEl.setAttribute('aria-hidden', (!nextVisible).toString());
             if (toggleBtn) toggleBtn.setAttribute('aria-pressed', nextVisible ? 'true' : 'false');
-            if (nextVisible) hideDebugStatus();
+            if (nextVisible) {
+                enableDebugStatus();
+                hideDebugStatus();
+            }
         };
 
         const handleKeydown = (event) => {
@@ -1002,12 +1012,14 @@ const Game = {
     /**
      * Write the latest stack trace into the debug overlay without forcing it visible.
      * @param {string} message formatted message + stack trace block.
+     * @param {Object} [options]
+     * @param {boolean} [options.highlight=false] whether to surface the debug badge (requires opt-in).
      */
-    updateDebugLog(message) {
+    updateDebugLog(message, { highlight = false } = {}) {
         const target = this.debugLogBody || this.debugLogEl;
         if (!target) return;
         target.textContent = message;
-        this.showDebugStatus?.();
+        if (highlight) this.showDebugStatus?.();
     },
 
     /**
@@ -1025,13 +1037,15 @@ const Game = {
 
         console.error(`${contextLabel}: ${errorMessage}`, error);
 
+        const shouldElevateStatus = Boolean(error);
+
         this.updateDebugLog([
             header,
             contextLabel,
             `Message: ${errorMessage}`,
             'Stack trace:',
             stack
-        ].join('\n'));
+        ].join('\n'), { highlight: shouldElevateStatus });
 
         const notification = {
             title: 'Recoverable error',
@@ -1118,9 +1132,30 @@ const Game = {
             return;
         }
 
-        const debugEl = this.debugLogEl || (typeof document !== 'undefined' ? document.getElementById('debug-log') : null);
-        if (!debugEl) return;
-        this.updateDebugLog(`⚠️ ${message}`);
+        const notification = {
+            id: `bootstrap-warning-${Math.random().toString(36).slice(2, 7)}`,
+            title: 'Bootstrap notice',
+            tone: 'warning',
+            lines: [
+                message,
+                'Open the debug log if you need detailed traces.'
+            ],
+            actions: [
+                {
+                    label: 'Dismiss',
+                    handler: ({ dismiss }) => dismiss?.()
+                }
+            ],
+            duration: 12000
+        };
+
+        if (typeof this.enqueueNotification === 'function') {
+            this.enqueueNotification(notification);
+            return;
+        }
+
+        if (!Array.isArray(this.pendingNotifications)) this.pendingNotifications = [];
+        this.pendingNotifications.push(notification);
     },
 
     loop(now) {
