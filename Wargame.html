@@ -22,7 +22,15 @@
             <button class="tile-attack-button" id="tile-attack-overlay-btn" type="button">⚔️ Attack</button>
         </div>
         <div id="audio-debug"></div>
-        <div id="debug-log"></div>
+        <div id="debug-log" aria-live="polite" aria-label="Debug log" role="region">
+            <div class="debug-log__inner">
+                <div class="debug-log__header">
+                    <div class="debug-log__title">Debug log</div>
+                    <button id="debug-log-close" class="debug-log__close" type="button" aria-label="Close debug log">✕</button>
+                </div>
+                <pre id="debug-log-body" class="debug-log__body"></pre>
+            </div>
+        </div>
         <div id="tip-overlay"></div>
         <button id="debug-toggle" class="debug-toggle" type="button" aria-pressed="false">Debug</button>
 
