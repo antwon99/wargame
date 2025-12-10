@@ -79,8 +79,6 @@ export class NotificationStack {
      * @param {Array<string>|string} [payload.lines] body text content.
      * @param {string} [payload.tone] optional tone for styling (info|warning|success).
      * @param {number} [payload.duration] override for auto-dismiss timing.
-     * @param {Array<{label?: string, handler?: Function, dismiss?: boolean}>} [payload.actions]
-     * optional action buttons to render beneath the message.
      * @returns {string} identifier for the enqueued notification.
      */
     enqueue(payload) {
@@ -90,15 +88,11 @@ export class NotificationStack {
             const lines = Array.isArray(normalized.lines)
                 ? normalized.lines
                 : (normalized.lines ? [normalized.lines] : []);
-            const actions = Array.isArray(normalized.actions)
-                ? normalized.actions.map(action => ({ ...action }))
-                : [];
 
             const item = {
                 ...normalized,
                 id,
                 lines,
-                actions,
                 duration: typeof normalized.duration === 'number' ? normalized.duration : this.autoDismissMs
             };
 
@@ -182,31 +176,6 @@ export class NotificationStack {
             bodyLine.innerText = line;
             card.appendChild(bodyLine);
         });
-
-        const actions = Array.isArray(item.actions) ? item.actions : [];
-        if (actions.length) {
-            const actionRow = doc.createElement('div');
-            actionRow.className = 'notification-actions';
-
-            actions.forEach((action) => {
-                const actionBtn = doc.createElement('button');
-                actionBtn.type = 'button';
-                actionBtn.className = 'notification-action';
-                actionBtn.innerText = action.label || 'Dismiss';
-                actionBtn.addEventListener('click', (evt) => {
-                    evt.stopPropagation();
-                    const dismiss = () => this.dismiss(item.id);
-                    if (typeof action.handler === 'function') {
-                        action.handler({ item, stack: this, dismiss });
-                    }
-                    if (action.dismiss !== false) dismiss();
-                });
-
-                actionRow.appendChild(actionBtn);
-            });
-
-            card.appendChild(actionRow);
-        }
 
         const closeBtn = doc.createElement('button');
         closeBtn.type = 'button';
