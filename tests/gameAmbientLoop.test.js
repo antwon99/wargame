@@ -38,10 +38,34 @@ function testHaltAmbientLoopStopsAllTracks() {
     assert.ok(stopped, 'stopAll should be invoked to silence active ambience');
 }
 
+function testDefaultAmbientManagersTriggerPlayback() {
+    const { GameAudio, AmbientSoundscape } = require('../scripts/audio.js');
+    const calls = [];
+
+    const originalStartAmbient = GameAudio.startAmbientLoop;
+    const originalEnter = AmbientSoundscape.enterMode;
+    const originalStart = AmbientSoundscape.start;
+
+    GameAudio.startAmbientLoop = () => { calls.push('startAmbientLoop'); return true; };
+    AmbientSoundscape.enterMode = (mode) => { calls.push(['enterMode', mode]); };
+    AmbientSoundscape.start = () => { calls.push('startAmbientScheduling'); };
+
+    armAmbientLoop({ GameAudio, AmbientSoundscape });
+
+    assert.ok(calls.includes('startAmbientLoop'), 'ambient manager should be primed');
+    assert.deepStrictEqual(calls.find((entry) => Array.isArray(entry)), ['enterMode', 'TERRITORY'], 'ambient conductor should enter territory');
+    assert.ok(calls.includes('startAmbientScheduling'), 'ambient conductor should kick off scheduling');
+
+    GameAudio.startAmbientLoop = originalStartAmbient;
+    AmbientSoundscape.enterMode = originalEnter;
+    AmbientSoundscape.start = originalStart;
+}
+
 function run() {
     testArmAmbientLoopPrimesTerritoryPlaylist();
     testArmAmbientLoopStartsSharedAudioBed();
     testHaltAmbientLoopStopsAllTracks();
+    testDefaultAmbientManagersTriggerPlayback();
     console.log('All game ambient loop tests passed.');
 }
 
