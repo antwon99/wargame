@@ -1,3 +1,5 @@
+import { AMBIENCE_CONFIG } from './render/config.js';
+
 /**
  * AmbienceRenderer paints drifting grayscale cloud layers above the void fill so
  * the board feels alive without competing with gameplay UI. Layers repeat a
@@ -42,14 +44,8 @@ export class AmbienceRenderer {
      */
     resolveConfig(overrides = {}) {
         const defaultConfig = {
-            enabled: false,
-            fadeRadiusFactor: 0.55,
-            fadeFeather: 0.35,
-            layers: [
-                { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18 },
-                { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22 },
-                { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14 }
-            ]
+            ...AMBIENCE_CONFIG,
+            layers: AMBIENCE_CONFIG.layers.map(layer => ({ ...layer }))
         };
         const merged = {
             ...defaultConfig,
