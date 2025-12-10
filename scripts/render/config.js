@@ -20,33 +20,13 @@ const AMBIENCE_CONFIG = {
     ]
 };
 
-/**
- * Resolve runtime render configuration while tolerating missing globals during
- * tests. Falls back to the bundled config constants when the provided sources
- * are unavailable.
- *
- * @param {Object} [options]
- * @param {Object} [options.renderConfigModule] optional module containing the
- * configuration exports.
- * @param {Object} [options.windowObj] optional window-like object that may
- * expose `RenderConfig`.
- * @returns {{CAMERA_MOTION_CONFIG: typeof CAMERA_MOTION_CONFIG, AMBIENCE_CONFIG: typeof AMBIENCE_CONFIG}}
- */
-function resolveRenderConfig({ renderConfigModule, windowObj } = {}) {
-    const source = renderConfigModule || windowObj?.RenderConfig || {};
-    return {
-        CAMERA_MOTION_CONFIG: source.CAMERA_MOTION_CONFIG || CAMERA_MOTION_CONFIG,
-        AMBIENCE_CONFIG: source.AMBIENCE_CONFIG || AMBIENCE_CONFIG
-    };
-}
-
-const RenderConfig = { CAMERA_MOTION_CONFIG, AMBIENCE_CONFIG, resolveRenderConfig };
+const RenderConfig = { CAMERA_MOTION_CONFIG, AMBIENCE_CONFIG };
 
 if (typeof window !== 'undefined') {
     window.RenderConfig = RenderConfig;
 }
 
-export { CAMERA_MOTION_CONFIG, AMBIENCE_CONFIG, resolveRenderConfig };
+export { CAMERA_MOTION_CONFIG, AMBIENCE_CONFIG };
 export default RenderConfig;
 
 if (typeof module !== 'undefined') {
