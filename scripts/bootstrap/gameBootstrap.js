@@ -363,7 +363,6 @@ const Game = {
                 debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
             });
             this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
-            this.initDebugOverlay();
             this.applyFeatureOverrides();
             this.applyPlayerSettings(this.loadPlayerSettings());
             this.timekeeper.onChange(() => this.updateHUD());
@@ -910,98 +909,29 @@ const Game = {
     },
 
     /**
-     * Wire up the debug overlay so stack traces stay discoverable without blocking play.
-     */
-    initDebugOverlay() {
-        const debugEl = typeof document !== 'undefined' ? document.getElementById('debug-log') : null;
-        if (!debugEl) return;
-
-        this.debugLogEl = debugEl;
-        this.debugLogBody = typeof document !== 'undefined'
-            ? document.getElementById('debug-log-body') || debugEl
-            : debugEl;
-
-        const closeBtn = typeof document !== 'undefined' ? document.getElementById('debug-log-close') : null;
-        const toggleBtn = typeof document !== 'undefined' ? document.getElementById('debug-toggle') : null;
-        const inner = debugEl.querySelector ? debugEl.querySelector('.debug-log__inner') : null;
-
-        const hideOverlay = () => {
-            debugEl.classList.remove('visible');
-            if (toggleBtn) toggleBtn.setAttribute('aria-pressed', 'false');
-        };
-
-        const showOverlay = () => {
-            debugEl.classList.add('visible');
-            if (toggleBtn) toggleBtn.setAttribute('aria-pressed', 'true');
-        };
-
-        const toggleOverlay = () => {
-            const nextVisible = !debugEl.classList.contains('visible');
-            debugEl.classList.toggle('visible', nextVisible);
-            if (toggleBtn) toggleBtn.setAttribute('aria-pressed', nextVisible ? 'true' : 'false');
-        };
-
-        debugEl.addEventListener('click', hideOverlay);
-        if (inner?.addEventListener) {
-            inner.addEventListener('click', (evt) => evt.stopPropagation());
-        }
-        if (closeBtn?.addEventListener) closeBtn.addEventListener('click', hideOverlay);
-        if (toggleBtn?.addEventListener) toggleBtn.addEventListener('click', toggleOverlay);
-
-        this.hideDebugLog = hideOverlay;
-        this.showDebugLog = showOverlay;
-    },
-
-    /**
-     * Write the latest stack trace into the debug overlay without forcing it visible.
-     * @param {string} message formatted message + stack trace block.
-     */
-    updateDebugLog(message) {
-        const target = this.debugLogBody || this.debugLogEl;
-        if (!target) return;
-        target.textContent = message;
-    },
-
-    /**
      * Route recoverable runtime errors to the console and debug overlay while
      * allowing the render loop to continue running.
      * @param {string} context friendly identifier for the failing subsystem
      * @param {Error} error thrown error instance or message
      */
     reportRecoverableError(context, error) {
+        const debugEl = document.getElementById('debug-log');
         const header = '⚠️ Recoverable error';
         const contextLabel = context ? `Context: ${context}` : 'Context: (unspecified)';
         const errorMessage = error?.message || String(error || 'Unknown error');
         const stack = (error && typeof error.stack === 'string') ? error.stack : 'No stack trace available.';
-        const summaryLine = (errorMessage.split('\n').find(Boolean) || errorMessage).trim();
 
         console.error(`${contextLabel}: ${errorMessage}`, error);
+        if (!debugEl) return;
 
-        this.updateDebugLog([
+        debugEl.classList.add('visible');
+        debugEl.textContent = [
             header,
             contextLabel,
             `Message: ${errorMessage}`,
             'Stack trace:',
             stack
-        ].join('\n'));
-
-        const notification = {
-            title: 'Stack guarded',
-            tone: 'warning',
-            lines: [
-                context ? `Subsystem: ${context}` : 'Subsystem: (unspecified)',
-                `Issue: ${summaryLine}`
-            ],
-            duration: 9000
-        };
-
-        if (typeof this.enqueueNotification === 'function') {
-            this.enqueueNotification(notification);
-            return;
-        }
-
-        if (!Array.isArray(this.pendingNotifications)) this.pendingNotifications = [];
-        this.pendingNotifications.push(notification);
+        ].join('\n');
     },
 
     /**
@@ -1030,10 +960,10 @@ const Game = {
             return;
         }
 
-        const debugEl = this.debugLogEl || (typeof document !== 'undefined' ? document.getElementById('debug-log') : null);
+        const debugEl = typeof document !== 'undefined' ? document.getElementById('debug-log') : null;
         if (!debugEl) return;
         debugEl.classList.add('visible');
-        this.updateDebugLog(`⚠️ ${message}`);
+        debugEl.textContent = `⚠️ ${message}`;
     },
 
     loop(now) {

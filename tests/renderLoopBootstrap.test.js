@@ -13,20 +13,6 @@ const sanitizedSource = fs.readFileSync(scriptPath, 'utf8')
 
 const rafCalls = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}) };
-function createClassList(initial = []) {
-    const set = new Set(initial);
-    return {
-        add: (...classes) => classes.forEach(cls => set.add(cls)),
-        remove: (...classes) => classes.forEach(cls => set.delete(cls)),
-        contains: (cls) => set.has(cls),
-        toggle: (cls, force) => {
-            const next = typeof force === 'boolean' ? force : !set.has(cls);
-            if (next) set.add(cls); else set.delete(cls);
-            return next;
-        }
-    };
-}
-
 const genericElement = {
     style: {},
     textContent: '',
@@ -36,22 +22,11 @@ const genericElement = {
     appendChild: () => {},
     setAttribute: () => {},
     className: '',
-    classList: createClassList(),
-    querySelector: () => null
+    classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} }
 };
 
 function createDocumentStub() {
     const listeners = {};
-    const debugLogBody = { ...genericElement, classList: createClassList() };
-    const debugLogInner = { ...genericElement, classList: createClassList(), addEventListener: () => {} };
-    const debugLogClose = { ...genericElement };
-    const debugLog = {
-        ...genericElement,
-        classList: createClassList(),
-        addEventListener: () => {},
-        querySelector: (selector) => (selector === '.debug-log__inner' ? debugLogInner : null)
-    };
-
     return {
         listeners,
         addEventListener(event, cb) {
@@ -62,9 +37,7 @@ function createDocumentStub() {
             if (id === 'canvas') return canvasStub;
             if (id === 'fx-layer') return { innerHTML: '' };
             if (id === 'game-container') return genericElement;
-            if (id === 'debug-log') return debugLog;
-            if (id === 'debug-log-body') return debugLogBody;
-            if (id === 'debug-log-close') return debugLogClose;
+            if (id === 'debug-log') return { ...genericElement };
             return genericElement;
         },
         querySelectorAll: () => [],
@@ -195,17 +168,6 @@ function run() {
     assert.ok(Game, 'Game should register on window after bootstrap');
     assert.strictEqual(Game.lastTime, 42, 'render loop primer should cache performance timestamp');
     assert.ok(rafCalls.length > 0, 'requestAnimationFrame should be armed even when init throws');
-
-    const notifications = [];
-    Game.enqueueNotification = (payload) => { notifications.push(payload); return payload.id || 'test-note'; };
-    const priorVisibility = Game.debugLogEl?.classList.contains('visible');
-    Game.reportRecoverableError('render loop harness', new Error('Minor hiccup occurred'));
-
-    assert.ok(Game.debugLogBody?.textContent.includes('Stack trace:'), 'debug overlay should receive stack text');
-    assert.strictEqual(Game.debugLogEl?.classList.contains('visible'), priorVisibility, 'recoverable errors should not force the debug overlay open');
-    assert.strictEqual(notifications.length, 1, 'recoverable errors should enqueue a notification');
-    assert.ok(notifications[0].lines.some(line => line.includes('render loop harness')));
-    assert.ok(notifications[0].lines.some(line => line.includes('Minor hiccup occurred')));
     console.log('Render loop bootstrap safety test passed.');
 }
 
