@@ -1110,6 +1110,12 @@
             transition: opacity 0.2s ease;
         }
 
+        #debug-log[hidden] {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
         #debug-log.visible {
             display: block;
             opacity: 1;
