@@ -1,10 +1,6 @@
-const sharedGrid = (typeof require === 'function')
-    ? require('./grid/hexGrid.js')
-    : (typeof window !== 'undefined' ? window.HexGrid : null);
+const SQRT3 = Math.sqrt(3);
 
-const SQRT3 = sharedGrid?.SQRT3 ?? Math.sqrt(3);
-
-const Layout = sharedGrid?.Layout ?? {
+const Layout = {
     f0: SQRT3,
     f1: SQRT3 / 2.0,
     f2: 0.0,

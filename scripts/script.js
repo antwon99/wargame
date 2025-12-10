@@ -33,8 +33,6 @@ import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFog
 import AmbienceRenderer from './ambienceRenderer.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
-import * as HexGridModule from './grid/hexGrid.js';
-import * as RenderConfigModule from './render/config.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -68,19 +66,9 @@ function clamp01(value, fallback = 1) {
 
 document.addEventListener('DOMContentLoaded', () => {
 /** ENGINE */
+const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
 
-const hexGrid = (typeof HexGridModule !== 'undefined' && HexGridModule.Hex)
-    ? HexGridModule
-    : (typeof window !== 'undefined' ? window.HexGrid : null);
-
-const SQRT3 = hexGrid?.SQRT3 ?? Math.sqrt(3);
-
-const Layout = hexGrid?.Layout ?? {
-    f0: SQRT3, f1: SQRT3 / 2.0, f2: 0.0, f3: 3.0 / 2.0,
-    b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
-};
-
-const Hex = hexGrid?.Hex ?? class Hex {
+class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
     add(b) { return new Hex(this.q + b.q, this.r + b.r, this.s + b.s); }
     toPixel(layout) {
@@ -109,20 +97,23 @@ const Hex = hexGrid?.Hex ?? class Hex {
     }
     equals(b) { return this.q === b.q && this.r === b.r; }
     toString() { return `${this.q},${this.r}`; }
+}
+
+const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
+    f0: SQRT3, f1: SQRT3 / 2.0, f2: 0.0, f3: 3.0 / 2.0,
+    b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
 
-const renderConfig = (typeof RenderConfigModule !== 'undefined' && RenderConfigModule.CAMERA_MOTION_CONFIG)
-    ? RenderConfigModule
-    : (typeof window !== 'undefined' ? window.RenderConfig : null);
+    const DEFAULT_IMPERIAL_FAVOR = 5;
 
-const CAMERA_MOTION_CONFIG = renderConfig?.CAMERA_MOTION_CONFIG ?? {
+const CAMERA_MOTION_CONFIG = {
     enabled: true,
     amplitude: 9,
     parallax: 0.65,
     speed: 0.18
 };
 
-const AMBIENCE_CONFIG = renderConfig?.AMBIENCE_CONFIG ?? {
+const AMBIENCE_CONFIG = {
     enabled: false,
     fadeRadiusFactor: 0.55,
     fadeFeather: 0.35,
@@ -133,7 +124,6 @@ const AMBIENCE_CONFIG = renderConfig?.AMBIENCE_CONFIG ?? {
     ]
 };
 
-    const DEFAULT_IMPERIAL_FAVOR = 5;
 /**
  * Keep imperial favor bounded to the 1–10 HUD scale so saves and UI stay consistent.
  * @param {number} value arbitrary favor value from gameplay systems or persistence.
