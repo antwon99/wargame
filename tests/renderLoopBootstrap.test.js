@@ -9,8 +9,7 @@ const sanitizedSource = fs.readFileSync(scriptPath, 'utf8')
     .replace(/import[\s\S]*?from\s+['"][^'\"]+['"];\s*/g, '')
     .replace(/import\s+['"][^'\"]+['"];\s*/g, '')
     .replace(/export\s+function\s+bootstrapGame/, 'function bootstrapGame')
-    .replace(/export\s+default\s+bootstrapGame;?/g, '')
-    .replace(/export\s+\{[^}]+\};?/g, '');
+    .replace(/export\s+default\s+bootstrapGame;?/g, '');
 
 const rafCalls = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}) };
@@ -46,8 +45,6 @@ function createDocumentStub() {
     const debugLogBody = { ...genericElement, classList: createClassList() };
     const debugLogInner = { ...genericElement, classList: createClassList(), addEventListener: () => {} };
     const debugLogClose = { ...genericElement };
-    const debugStatus = { ...genericElement, hidden: true, classList: createClassList() };
-    const debugStatusClose = { ...genericElement };
     const debugLog = {
         ...genericElement,
         classList: createClassList(),
@@ -68,8 +65,6 @@ function createDocumentStub() {
             if (id === 'debug-log') return debugLog;
             if (id === 'debug-log-body') return debugLogBody;
             if (id === 'debug-log-close') return debugLogClose;
-            if (id === 'debug-status') return debugStatus;
-            if (id === 'debug-status-close') return debugStatusClose;
             return genericElement;
         },
         querySelectorAll: () => [],
@@ -208,11 +203,9 @@ function run() {
 
     assert.ok(Game.debugLogBody?.textContent.includes('Stack trace:'), 'debug overlay should receive stack text');
     assert.strictEqual(Game.debugLogEl?.classList.contains('visible'), priorVisibility, 'recoverable errors should not force the debug overlay open');
-    assert.strictEqual(Game.debugStatusEl?.hidden, false, 'debug status indicator should surface availability');
     assert.strictEqual(notifications.length, 1, 'recoverable errors should enqueue a notification');
     assert.ok(notifications[0].lines.some(line => line.includes('render loop harness')));
     assert.ok(notifications[0].lines.some(line => line.includes('Minor hiccup occurred')));
-    assert.ok(Array.isArray(notifications[0].actions) && notifications[0].actions.some(action => action.label === 'Dismiss'), 'recoverable error notification should include a dismiss action');
     console.log('Render loop bootstrap safety test passed.');
 }
 

@@ -17,7 +17,7 @@ async function run() {
     assert.ok(!result.persistenceAvailable, 'Persistence should be flagged as missing');
     assert.ok(!result.inputHelpersAvailable, 'InputHelpers should be flagged as missing');
     assert.ok(result.missingHelpers.some(h => h.includes('ResearchSystem')), 'missingHelpers should call out tech tree dependency');
-    assert.strictEqual(debugEl.textContent, '', 'debug log should remain untouched by validator');
+    assert.ok(debugEl.textContent.includes('Missing helpers'), 'debug log should include a descriptive error');
 
     console.log('All bootstrap validator tests passed.');
 }
