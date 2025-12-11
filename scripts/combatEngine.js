@@ -25,6 +25,19 @@ function resolveHex(game, hexImpl) {
     return impl;
 }
 
+/**
+ * Compute hex distance using the resolved Hex implementation.
+ * @param {object} game current game object that may expose a Hex constructor.
+ * @param {object} from starting hex coordinate.
+ * @param {object} to destination hex coordinate.
+ * @param {object} [hexImpl] optional Hex implementation for spatial math.
+ * @returns {number} hex distance between the coordinates.
+ */
+function hexDistance(game, from, to, hexImpl) {
+    const Hex = resolveHex(game, hexImpl);
+    return Hex.distance(from, to);
+}
+
 /** Definitions for buildable structures in combat mode. */
 export const COMBAT_BUILDINGS = {
     // Castle now has income:5 and prodRate:4.0
@@ -426,6 +439,7 @@ export function isFrontier(game, key, who, hexImpl) {
     if(game.combat.buildings.has(key)) return false;
 
     const hex = game.parseKey(key);
+    const castleHex = game?.combat?.castles?.[who];
 
     for(let i=0; i<6; i++) {
         const n = Hex.neighbor(hex, i);
@@ -433,11 +447,14 @@ export function isFrontier(game, key, who, hexImpl) {
         if(b && b.owner === who) return true;
     }
 
-    // Consider proximity to the owning side's castle as frontier too —
-    // this ensures tiles directly next to the castle are buildable at war start
-    // even if no other friendly buildings have been placed yet.
-    const castleHex = game?.combat?.castles?.[who];
-    if (castleHex && Hex.distance(hex, castleHex) === 1) return true;
+    if (castleHex) {
+        const distanceToCastle = hexDistance(game, hex, castleHex, Hex);
+        if (who === 'player' && distanceToCastle <= 3) {
+            // Allow early purchases within three hexes of the player's castle before outward expansion.
+            return true;
+        }
+        if (distanceToCastle === 1) return true;
+    }
 
     const opponent = who === 'player' ? 'enemy' : 'player';
     for(let q = -3; q <= 3; q++) {
