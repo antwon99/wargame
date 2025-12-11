@@ -1,4 +1,5 @@
 import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
+import { normalizeOverworldHexKey } from './overworldAdjacency.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -993,7 +994,7 @@ function updateTileInspector(game, tile) {
             return;
         }
 
-        const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
+        const key = normalizeOverworldHexKey(tile);
         const clusterMap = game.overworld?.clusterBonuses;
         const cluster = key && clusterMap?.has(key) ? clusterMap.get(key) : tile.clusterBonus;
         if (game.featureToggles?.debug?.logAdjacency && cluster) {
