@@ -160,8 +160,9 @@ function createImportStubs(overrides = {}) {
         buildClusterBonusMap: (hexes) => {
             const bonuses = new Map();
             clusterBuilderCalled = true;
-            if (hexes instanceof Map) {
-                lastClusterInputSize = hexes.size;
+            const isMapLike = hexes && typeof hexes.get === 'function' && typeof hexes.forEach === 'function';
+            if (isMapLike) {
+                lastClusterInputSize = hexes.size || 0;
                 hexes.forEach((tile, key) => bonuses.set(key, { owner: tile?.owner }));
             }
             return bonuses;
@@ -191,11 +192,14 @@ async function loadGameModule({ globals = {}, importOverrides = {} } = {}) {
     clusterBuilderCalled = false;
     lastClusterInputSize = 0;
     const document = createDocumentStub();
-    const windowStub = createWindowStub(document, globals);
+    const { console: consoleOverride, ...windowGlobals } = globals;
+    const windowStub = createWindowStub(document, windowGlobals);
     const importStubs = createImportStubs(importOverrides);
+    const consoleStub = consoleOverride || console;
+    windowStub.console = consoleStub;
 
     const context = vm.createContext({
-        console,
+        console: consoleStub,
         setTimeout,
         clearTimeout,
         setInterval,
@@ -265,9 +269,34 @@ async function testAddOverworldHexRejectsInvalidCoords() {
     );
 }
 
+async function testSpawnClusterLogCapturesStarterRing() {
+    const capturedLogs = [];
+    const debugConsole = { ...console, debug: (...args) => capturedLogs.push(args) };
+    const { window } = await loadGameModule({ globals: { console: debugConsole } });
+    const game = window.Game;
+
+    game.featureToggles.debug = { ...game.featureToggles.debug, logAdjacency: true };
+    assert.strictEqual(game.overworld.hexes.size, 7, 'Castle and starter ring should be seeded before debug logging.');
+    capturedLogs.length = 0;
+    const clusterMap = game.refreshClusterBonuses();
+    assert.strictEqual(clusterMap.size, 7, 'Spawn cluster map should include the castle and six neighbors.');
+
+    assert.ok(capturedLogs.length > 0, 'Spawn cluster helper should emit a log when the debug toggle is enabled.');
+    const [label, snapshot] = capturedLogs[capturedLogs.length - 1];
+    assert.strictEqual(label, 'Spawn cluster adjacency snapshot', 'Log label should describe the spawn cluster snapshot.');
+    assert.ok(Array.isArray(snapshot), 'Snapshot payload should be an array of normalized cluster entries.');
+    const loggedKeys = snapshot.map((entry) => entry?.key).filter(Boolean);
+    const sortedKeys = [...loggedKeys].sort();
+    const expectedKeys = ['-1,0', '-1,1', '0,-1', '0,0', '0,1', '1,-1', '1,0'].sort();
+    assert.deepStrictEqual(sortedKeys, expectedKeys, 'Castle and six neighbors should be present in the spawn cluster log.');
+    const missingEntries = snapshot.filter((entry) => entry?.clusterState !== 'cluster');
+    assert.strictEqual(missingEntries.length, 0, 'Spawn cluster entries should expose live cluster states for QA.');
+}
+
 async function run() {
     await testBootstrapNormalizesStarterTiles();
     await testAddOverworldHexRejectsInvalidCoords();
+    await testSpawnClusterLogCapturesStarterRing();
     console.log('Bootstrap integrity tests passed.');
 }
 
