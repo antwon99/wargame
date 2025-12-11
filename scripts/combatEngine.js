@@ -427,17 +427,17 @@ export function isFrontier(game, key, who, hexImpl) {
 
     const hex = game.parseKey(key);
 
-    // Consider proximity to the owning side's castle as frontier too —
-    // this ensures tiles directly next to the castle are buildable at war start
-    // even if no other friendly buildings have been placed yet.
-    const castleHex = game?.combat?.castles?.[who];
-    if (castleHex && Hex.distance(hex, castleHex) === 1) return true;
-
     for(let i=0; i<6; i++) {
         const n = Hex.neighbor(hex, i);
         const b = game.combat.buildings.get(n.toString());
         if(b && b.owner === who) return true;
     }
+
+    // Consider proximity to the owning side's castle as frontier too —
+    // this ensures tiles directly next to the castle are buildable at war start
+    // even if no other friendly buildings have been placed yet.
+    const castleHex = game?.combat?.castles?.[who];
+    if (castleHex && Hex.distance(hex, castleHex) === 1) return true;
 
     const opponent = who === 'player' ? 'enemy' : 'player';
     for(let q = -3; q <= 3; q++) {
