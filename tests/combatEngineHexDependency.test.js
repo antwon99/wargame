@@ -79,9 +79,44 @@ function testIsFrontierUsesInjectedHex() {
     global.Hex = previousHex;
 }
 
+function testNeutralStripUnlocksWhenBridged() {
+    const castle = new CountingHex(0, 5, -5);
+    const neutral = new CountingHex(0, 0, 0);
+    const friendly = new CountingHex(0, 1, -1);
+
+    const territory = new Map([
+        [castle.toString(), { owner: 'player', hex: castle }],
+        [neutral.toString(), { owner: 'neutral', hex: neutral, claimable: true }],
+        [friendly.toString(), { owner: 'enemy', hex: friendly }]
+    ]);
+
+    const game = {
+        Hex: CountingHex,
+        parseKey: (key) => {
+            const [q, r] = key.split(',').map((v) => parseInt(v, 10));
+            return new CountingHex(q, r, -q - r);
+        },
+        combat: {
+            territory,
+            slots: new Map([[neutral.toString(), 'barracks']]),
+            buildings: new Map(),
+            castles: { player: castle, enemy: null }
+        }
+    };
+
+    const targetKey = neutral.toString();
+    assert.strictEqual(isFrontier(game, targetKey, 'player', CountingHex), false,
+        'neutral strip should stay locked without adjacent player territory');
+
+    territory.set(friendly.toString(), { owner: 'player', hex: friendly });
+    assert.strictEqual(isFrontier(game, targetKey, 'player', CountingHex), true,
+        'neutral strip should become frontier once player territory bridges the center');
+}
+
 function run() {
     testCheckConnectionUsesInjectedHex();
     testIsFrontierUsesInjectedHex();
+    testNeutralStripUnlocksWhenBridged();
     console.log('Combat engine Hex dependency tests passed.');
 }
 
