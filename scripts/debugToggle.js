@@ -16,7 +16,7 @@
         if (debugToggles) return debugToggles;
         if (typeof window === 'undefined') return {};
         const existing = window.DebugToggles || {};
-        debugToggles = { showClaimCosts: false, ...existing };
+        debugToggles = { showClaimCosts: false, logCombatFrontier: false, ...existing };
         window.DebugToggles = debugToggles;
         return debugToggles;
     }

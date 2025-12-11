@@ -365,7 +365,7 @@ const Game = {
         camera: { ...CAMERA_MOTION_CONFIG },
         ambience: { ...AMBIENCE_CONFIG },
         overworld: { showClaimCosts: false },
-        debug: { logAdjacency: false }
+        debug: { logAdjacency: false, logCombatFrontier: false }
     },
     settingsStorageKey: 'wargame:player-settings',
     playerSettings: null,
@@ -648,7 +648,12 @@ const Game = {
             ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
             ...(fogDisabled || resolvedFog.visualMode === FOG_VISUAL_MODES.VOID ? { enabled: false } : {})
         };
-        const debugConfig = { ...this.featureToggles?.debug, logAdjacency: false, ...debugOverrides };
+        const debugConfig = {
+            ...this.featureToggles?.debug,
+            logAdjacency: false,
+            logCombatFrontier: false,
+            ...debugOverrides
+        };
         this.featureToggles = {
             fog: resolvedFog,
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
