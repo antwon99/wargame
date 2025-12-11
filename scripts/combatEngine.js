@@ -446,6 +446,9 @@ export function isFrontier(game, key, who, hexImpl) {
     if(!ownsTile && !isNeutralClaimable) return false;
 
     const distanceToCastle = castleHex ? hexDistance(game, hex, castleHex, Hex) : null;
+    // Player territory inside the three-hex safety bubble around the castle (one-hex for the
+    // AI) is always frontier-eligible so pre-expansion purchases can leapfrog toward the
+    // neutral strip. Outside that radius, normal adjacency rules take over.
     const inCastleRadius = castleHex
         && ((who === 'player' && distanceToCastle <= 3) || distanceToCastle === 1);
 
@@ -461,7 +464,8 @@ export function isFrontier(game, key, who, hexImpl) {
 
     // Neutral buffer tiles unlock once allied units bridge the center or the castle radius reaches them.
     // The castle's three-hex safety bubble (or one-hex for enemies) is checked before frontier adjacency
-    // so the neutral strip can participate as soon as the radius touches a newly-claimed midpoint.
+    // so the neutral strip can participate as soon as the radius touches a newly-claimed midpoint, and
+    // tiles beyond that bubble still require building or owned-territory adjacency to qualify as frontier.
     if(isNeutralClaimable && !hasFriendlyTerritoryNeighbor && !inCastleRadius) return false;
     if(inCastleRadius) return true;
     if(isNeutralClaimable && hasFriendlyTerritoryNeighbor) return true;

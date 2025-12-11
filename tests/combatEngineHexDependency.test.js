@@ -1,6 +1,10 @@
 const assert = require('assert');
 const { checkConnection, isFrontier } = require('../scripts/combatEngine.js');
 
+// These tests focus on the frontier rules that hinge on the three-hex castle safety bubble and
+// the neutral buffer that splits the map. Scenarios ensure tiles inside the bubble skip normal
+// adjacency checks while tiles beyond it still honor frontier requirements.
+
 class CountingHex {
     constructor(q, r, s = -q - r) {
         this.q = q;
@@ -79,6 +83,87 @@ function testIsFrontierUsesInjectedHex() {
     global.Hex = previousHex;
 }
 
+function testOwnedTileInsideThreeHexBubbleIsFrontier() {
+    const castle = new CountingHex(0, 0, 0);
+    const bubbleEdge = new CountingHex(3, 0, -3);
+    const territory = new Map([
+        [castle.toString(), { owner: 'player', hex: castle }],
+        [bubbleEdge.toString(), { owner: 'player', hex: bubbleEdge }]
+    ]);
+
+    const game = {
+        Hex: CountingHex,
+        parseKey: (key) => {
+            const [q, r] = key.split(',').map((v) => parseInt(v, 10));
+            return new CountingHex(q, r, -q - r);
+        },
+        combat: {
+            territory,
+            slots: new Map([[bubbleEdge.toString(), 'mine']]),
+            buildings: new Map([[castle.toString(), { owner: 'player', type: 'castle' }]]),
+            castles: { player: castle, enemy: null }
+        }
+    };
+
+    assert.strictEqual(isFrontier(game, bubbleEdge.toString(), 'player', CountingHex), true,
+        'owned tiles within the three-hex castle rule should be frontier even without adjacency');
+}
+
+function testOwnedTileBeyondThreeHexBubbleRequiresAdjacency() {
+    const castle = new CountingHex(0, 0, 0);
+    const farTile = new CountingHex(4, 0, -4);
+    const territory = new Map([
+        [castle.toString(), { owner: 'player', hex: castle }],
+        [farTile.toString(), { owner: 'player', hex: farTile }]
+    ]);
+
+    const game = {
+        Hex: CountingHex,
+        parseKey: (key) => {
+            const [q, r] = key.split(',').map((v) => parseInt(v, 10));
+            return new CountingHex(q, r, -q - r);
+        },
+        combat: {
+            territory,
+            slots: new Map([[farTile.toString(), 'mine']]),
+            buildings: new Map([[castle.toString(), { owner: 'player', type: 'castle' }]]),
+            castles: { player: castle, enemy: null }
+        }
+    };
+
+    assert.strictEqual(isFrontier(game, farTile.toString(), 'player', CountingHex), false,
+        'tiles outside the three-hex castle rule should need standard frontier adjacency');
+}
+
+function testNeutralAcrossCenterUnlocksWhenAdjacentToCastleBubble() {
+    const castle = new CountingHex(0, -3, 3);
+    const bridge = new CountingHex(0, 0, 0);
+    const neutral = new CountingHex(0, 1, -1);
+
+    const territory = new Map([
+        [castle.toString(), { owner: 'player', hex: castle }],
+        [bridge.toString(), { owner: 'player', hex: bridge }],
+        [neutral.toString(), { owner: 'neutral', hex: neutral, claimable: true }]
+    ]);
+
+    const game = {
+        Hex: CountingHex,
+        parseKey: (key) => {
+            const [q, r] = key.split(',').map((v) => parseInt(v, 10));
+            return new CountingHex(q, r, -q - r);
+        },
+        combat: {
+            territory,
+            slots: new Map([[neutral.toString(), 'barracks']]),
+            buildings: new Map([[castle.toString(), { owner: 'player', type: 'castle' }]]),
+            castles: { player: castle, enemy: null }
+        }
+    };
+
+    assert.strictEqual(isFrontier(game, neutral.toString(), 'player', CountingHex), true,
+        'neutral tiles across center should unlock when adjacent to three-hex-bubble territory');
+}
+
 function testNeutralStripUnlocksWhenBridged() {
     const castle = new CountingHex(0, 5, -5);
     const neutral = new CountingHex(0, 0, 0);
@@ -116,6 +201,9 @@ function testNeutralStripUnlocksWhenBridged() {
 function run() {
     testCheckConnectionUsesInjectedHex();
     testIsFrontierUsesInjectedHex();
+    testOwnedTileInsideThreeHexBubbleIsFrontier();
+    testOwnedTileBeyondThreeHexBubbleRequiresAdjacency();
+    testNeutralAcrossCenterUnlocksWhenAdjacentToCastleBubble();
     testNeutralStripUnlocksWhenBridged();
     console.log('Combat engine Hex dependency tests passed.');
 }
