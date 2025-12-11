@@ -557,20 +557,21 @@ export function startWar(game, clickEvt, hexImpl) {
     game.combat.ai.gold = aiPrep.gold;
 
     const W = 4; const H = 9;
+    const neutralAxis = 0;
+    const includeNeutralStrip = true;
     for(let r = -H; r <= H; r++) {
         const centerQ = -Math.floor(r/2);
         for(let q = centerQ - W; q <= centerQ + W; q++) {
             const hex = new Hex(q, r);
             const key = hex.toString();
-            // Ownership layout: player controls rows above the equator (r > 0) and the left
-            // flank of the center row, while the enemy holds rows below (r < 0) and the right
-            // flank. This removes the neutral buffer so every frontline hex belongs to a side.
-            const owner = r > 0
-                ? 'player'
-                : (r < 0
-                    ? 'enemy'
-                    : (q <= centerQ ? 'player' : 'enemy'));
-            game.combat.territory.set(key, { owner, hex });
+            // Ownership layout: create a symmetric 50/50 split around the central (r = 0)
+            // axis. Rows above the axis belong to the player, rows below belong to the enemy,
+            // and the equator can act as a single neutral buffer (when enabled) that becomes
+            // claimable once units make contact.
+            const owner = (includeNeutralStrip && r === neutralAxis)
+                ? 'neutral'
+                : (r > neutralAxis ? 'player' : 'enemy');
+            game.combat.territory.set(key, { owner, hex, claimable: owner === 'neutral' });
 
             const rand = Math.random();
             let type = 'mystery';
@@ -583,8 +584,9 @@ export function startWar(game, clickEvt, hexImpl) {
         }
     }
 
-    const pHex = new Hex(-Math.floor(8/2), 8);
-    const eHex = new Hex(-Math.floor(-8/2), -8);
+    // Castles mirror each other across the r=0 axis by anchoring them on the center column.
+    const pHex = new Hex(0, 8);
+    const eHex = new Hex(0, -8);
     game.combat.castles.player = pHex;
     game.combat.castles.enemy = eHex;
     addBuilding(game, pHex, 'castle', 'player');
