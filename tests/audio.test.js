@@ -67,12 +67,6 @@ function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.tower?.variations?.length >= 3, 'tower/castle sound should include variations');
     assert.ok(SFX_MANIFEST.ambiance_dark, 'war ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
-    assert.ok(SFX_MANIFEST.war_bed_horn, 'war horn bed should be mapped');
-    assert.notStrictEqual(
-        SFX_MANIFEST.war_bed_horn?.src,
-        SFX_GROUPS.wardrums[0],
-        'war bed loop should not reuse the wardrum stinger asset'
-    );
     assert.ok(!SFX_MANIFEST.ambient_bed_wind, 'wind bed intentionally disabled to avoid doubling ambience');
 }
 
@@ -441,12 +435,15 @@ function testAmbientBedsCanBeDisabled() {
     assert.strictEqual(log.length, 0, 'beds should not start when disabled');
 }
 
-function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
+function testEnterCombatKeepsAmbientAndFiresWardrumImmediately() {
     const log = [];
     const manager = new AudioManager({
         ambient: { src: 'ambient', isAmbient: true, cooldownMs: 0 },
         wardrum: { src: 'wardrum', cooldownMs: 0 }
     }, { createAudio: createStubFactory(log) });
+
+    manager.startAmbientLoop();
+    const ambientNode = log[0];
 
     const conductor = {
         stopCurrentCalls: 0,
@@ -460,13 +457,14 @@ function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
 
     enterCombat(manager, conductor);
 
-    assert.strictEqual(conductor.stopCurrentCalls, 1, 'ambient should be stopped immediately when entering combat');
+    assert.strictEqual(conductor.stopCurrentCalls, 1, 'current ambience track should be stopped immediately when entering combat');
     assert.strictEqual(conductor.stopArgs.fadeMs, 0, 'combat entry should not wait on long fades');
     assert.deepStrictEqual(conductor.enterModes[0], 'WAR', 'combat entry should switch the playlist to war');
     assert.strictEqual(conductor.startArgs.fadeMs, 0, 'combat start should resume scheduler without a delay');
     assert.ok(log.find((node) => node.src === 'wardrum'), 'wardrum stinger should play instantly');
     const wardrumNode = log.find((node) => node.src === 'wardrum');
     assert.strictEqual(wardrumNode.playCount, 1, 'wardrum should start playing right away');
+    assert.strictEqual(ambientNode.paused, false, 'ambient loop should continue playing through combat');
 }
 
 function testWardrumStingerDoesNotLoopAfterCombatStart() {
@@ -475,13 +473,21 @@ function testWardrumStingerDoesNotLoopAfterCombatStart() {
     const manager = new AudioManager({
         ambient: { src: 'ambient', isAmbient: true, loop: true, cooldownMs: 0 },
         wardrum: { ...SFX_MANIFEST.wardrum, cooldownMs: 0 },
-        war_bed_horn: { ...SFX_MANIFEST.war_bed_horn, cooldownMs: 0 }
-    }, { createAudio: createStubFactory(log) });
+        war_a: { src: 'war_a', cooldownMs: 0, allowOverlap: true },
+        war_b: { src: 'war_b', cooldownMs: 0, allowOverlap: true }
+    }, { createAudio: createStubFactory(log), ambientKey: 'ambient' });
 
     const conductor = new AmbientConductor(manager, {
         initialMode: 'TERRITORY',
         random: () => 0.2,
         scheduler,
+        defaults: {
+            initialDelayRangeMs: [0, 0],
+            minSilenceMs: 0,
+            maxSilenceMs: 0,
+            fadeInMs: 0,
+            fadeOutMs: 0
+        },
         states: {
             TERRITORY: {
                 tracks: [],
@@ -492,8 +498,11 @@ function testWardrumStingerDoesNotLoopAfterCombatStart() {
                 volume: 0.5
             },
             WAR: {
-                tracks: [],
-                beds: [{ key: 'war_bed_horn', weight: 1, startVolume: 0.16, volume: 0.42, fadeMs: 0 }],
+                tracks: [
+                    { key: 'war_a', weight: 1, volume: 0.5 },
+                    { key: 'war_b', weight: 1, volume: 0.5 }
+                ],
+                beds: [],
                 silenceRangeMs: [0, 0],
                 fadeMs: 0,
                 maxTrackMs: 10,
@@ -502,19 +511,19 @@ function testWardrumStingerDoesNotLoopAfterCombatStart() {
         }
     });
 
+    manager.startAmbientLoop();
     enterCombat(manager, conductor);
+    scheduler.timeouts.forEach((fn) => { if (typeof fn === 'function') fn(); });
 
     const wardrumNodes = log.filter((node) => node.src === SFX_MANIFEST.wardrum.src);
     assert.strictEqual(wardrumNodes.length, 1, 'wardrum stinger should play exactly once on combat start');
     assert.strictEqual(wardrumNodes[0].loop, false, 'wardrum stinger should remain a one-shot');
 
-    const bedNodes = log.filter((node) => node.src === SFX_MANIFEST.war_bed_horn.src);
-    assert.ok(bedNodes.length >= 1, 'combat ambience should still start a war bed layer');
-    assert.strictEqual(
-        log.filter((node) => node.src === SFX_MANIFEST.wardrum.src).length,
-        1,
-        'combat ambience should not loop the wardrum asset as a bed'
-    );
+    const ambientNode = log.find((node) => node.src === 'ambient');
+    assert.strictEqual(ambientNode.paused, false, 'ambient bed should continue through combat');
+    const activeWarTracks = log.filter((node) => !node.paused && node.src !== 'ambient' && node.src !== wardrumNodes[0].src);
+    assert.strictEqual(activeWarTracks.length, 1, 'war mode should play exactly one ambience track alongside ambient');
+    assert.ok(['war_a', 'war_b'].includes(activeWarTracks[0].src), 'war ambience should rotate between configured tracks');
 }
 
 function testExitCombatRehomesAmbientAndPlaysOutcome() {
@@ -669,7 +678,7 @@ function run() {
     testAmbientBedsCanBeDisabled();
     testManifestIncludesNewEffects();
     testTerritoryStartAvoidsLayeringAmbientTwice();
-    testEnterCombatStopsAmbientAndFiresWardrumImmediately();
+    testEnterCombatKeepsAmbientAndFiresWardrumImmediately();
     testWardrumStingerDoesNotLoopAfterCombatStart();
     testExitCombatRehomesAmbientAndPlaysOutcome();
     testImperialQueuesAvoidWardrums();

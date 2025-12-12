@@ -14,7 +14,7 @@ Each ambient state can override these defaults via its `silenceRangeMs`, `fadeMs
 ## Layered ambience beds (wind + war horns)
 
 - The overworld wind bed is currently **disabled** until a distinct loop replaces the shared ambient asset, preventing the same file from playing twice when ambience starts.
-- Combat spins up a looping war bed (`war_bed_horn`) at ~0.42 gain (enters from ~0.16 over ~1.2s) using the darker ambience track so the wardrum stinger remains a one-shot.
+- The combat bed has been removed so war mode layers only the constant ambient loop with a single rotating war track; the `wardrum` stinger still plays once on entry and does not loop.
 - Beds are owned by the `AmbientConductor` in `scripts/audio.js` via each state's `beds` array; they fade out whenever the mode changes so only one bed plays at a time.
 - A feature flag (`bedsEnabled`, default `true`) is available in the conductor options so tests can disable the extra loops without changing gameplay defaults.
 
