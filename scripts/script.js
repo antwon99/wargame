@@ -809,16 +809,8 @@ const Game = {
         this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
         this.overworld.hexes = new Map();
         this.overworld.claimable = new Map();
-        const origin = new Hex(0,0);
-        const starterHexes = [origin];
-        this.addOverworldHex(origin, 'castle');
-        for(let i=0; i<6; i++) {
-            const neighbor = this.normalizeHexInput(Hex.neighbor(origin, i));
-            if (!neighbor) continue;
-            starterHexes.push(neighbor);
-            this.claimHexLogic(neighbor, true);
-        }
-        this.normalizeStarterHexes(starterHexes);
+        this.addOverworldHex(new Hex(0,0), 'castle');
+        for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         this.calcOverworldGhosts();
         this.finalizeStarterTerritory();
         this.syncReclamationAwaitState();
@@ -1409,22 +1401,6 @@ const Game = {
     },
 
     /**
-     * Ensure starter tiles retain ownership and coordinate references before adjacency caches
-     * rebuild, preventing stale or placeholder keys from lingering in the overworld map.
-     * @param {Hex[]} starterHexes hex coordinates seeded during bootstrap.
-     */
-    normalizeStarterHexes(starterHexes = []) {
-        if (!(this.overworld?.hexes instanceof Map)) return;
-        starterHexes.forEach((hex) => {
-            const key = normalizeOverworldHexKey(hex);
-            if (!key || !this.overworld.hexes.has(key)) return;
-            const tile = this.overworld.hexes.get(key);
-            if (tile && !tile.hex) tile.hex = hex;
-            if (tile && !tile.owner) tile.owner = 'player';
-        });
-    },
-
-    /**
      * Normalize starter tile ownership and rebuild the adjacency cache so the inspector
      * can reference fresh cluster data as soon as the campaign boots.
      * @returns {Map<string, object>} updated cluster bonus map keyed by hex key.
@@ -1661,18 +1637,6 @@ const Game = {
         return undefined;
     },
 
-    /**
-     * Coerce a coordinate payload into a Hex instance when both axial values are present.
-     * @param {Hex|object|null} hex candidate hex coordinate with q/r(/s) fields.
-     * @returns {Hex|null} normalized Hex or null when validation fails.
-     */
-    normalizeHexInput(hex) {
-        if (hex instanceof Hex) return hex;
-        if (!Number.isFinite(hex?.q) || !Number.isFinite(hex?.r)) return null;
-        const s = Number.isFinite(hex?.s) ? hex.s : -hex.q - hex.r;
-        return new Hex(hex.q, hex.r, s);
-    },
-
     claimHexLogic(hex, free) {
         const weighted = [
             { type: 'field', weight: 45 },
@@ -1682,8 +1646,6 @@ const Game = {
             { type: 'shrine', weight: 2 },
             { type: 'ruin', weight: 1 }
         ];
-        const normalizedHex = this.normalizeHexInput(hex);
-        if (!normalizedHex) return;
         const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
         let pick = Math.random() * totalWeight;
         let type = 'field';
@@ -1692,32 +1654,20 @@ const Game = {
             pick -= entry.weight;
         }
 
-        this.addOverworldHex(normalizedHex, type);
+        this.addOverworldHex(hex, type);
         const def = OVERWORLD_TILES[type.toUpperCase()];
         if (!free) {
             const label = def?.char ? `${def.char} ${type.toUpperCase()}!` : `${type.toUpperCase()}!`;
-            this.spawnTxt(normalizedHex, label, '#fff');
+            this.spawnTxt(hex, label, '#fff');
             if (type === 'town') this.playSound('city');
             else if (type === 'forest') this.playSound('choptree');
             else if (type === 'mine') this.playSound('gold');
             else if (type === 'shrine') this.playSound('holy');
         }
-        if (def?.onClaim && !free) def.onClaim(this, normalizedHex);
+        if (def?.onClaim && !free) def.onClaim(this, hex);
         if (!free) this.refreshClusterBonuses();
     },
-    /**
-     * Insert a tile into the overworld map when provided with valid coordinates.
-     * Skips insertion when the coordinate payload is missing or malformed so no
-     * placeholder keys linger from bootstrap routines.
-     * @param {Hex|object|null} hex axial coordinates for the tile.
-     * @param {string} type overworld tile type identifier.
-     */
-    addOverworldHex(hex, type) {
-        const normalizedHex = this.normalizeHexInput(hex);
-        const key = normalizeOverworldHexKey(normalizedHex);
-        if (!normalizedHex || !key) return;
-        this.overworld.hexes.set(key, { hex: normalizedHex, type, owner: 'player' });
-    },
+    addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type, owner: 'player'}); },
     calcOverworldGhosts() {
         this.overworld.claimable.clear();
         for(let [k, d] of this.overworld.hexes) {
