@@ -7,6 +7,8 @@
             --player: #06d6a0;
             --enemy: #ef476f;
             --scorched: #2a2a2a;
+            --ui-scale: 1;
+            --ui-font-scale: 1;
         }
 
         body {
@@ -15,6 +17,7 @@
             background-color: var(--bg-color);
             color: white;
             font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: calc(16px * var(--ui-font-scale));
             touch-action: none;
             user-select: none;
         }
@@ -288,9 +291,21 @@
         }
 
         /* MOBILE LAYOUT HELPERS */
+        body.is-mobile {
+            --ui-scale: 0.9;
+            --ui-font-scale: 0.9;
+        }
+
+        body.is-mobile .hud {
+            transform: scale(var(--ui-scale));
+            transform-origin: top center;
+            gap: 8px;
+        }
+
         body.is-mobile .top-bar {
             padding: 8px 10px;
             gap: 8px;
+            font-size: 0.95rem;
         }
 
         body.is-mobile .top-bar__zones {
@@ -323,6 +338,7 @@
             width: 100%;
             max-width: none;
             flex: 1 1 auto;
+            padding: 6px 10px;
         }
 
         body.is-mobile .mandates-button,
@@ -331,27 +347,53 @@
             width: 100%;
         }
 
+        body.is-mobile .res,
+        body.is-mobile .imperial-status__section,
+        body.is-mobile .imperial-status__divider,
+        body.is-mobile .pause-indicator,
+        body.is-mobile .calendar-readout,
+        body.is-mobile .mandates-button__secondary {
+            font-size: 0.9rem;
+        }
+
         body.is-mobile .hud-controls-anchor {
             width: 100%;
             padding: 0 8px;
+            margin-top: 12px;
         }
 
         body.is-mobile .hud-action-row,
         body.is-mobile .hud-action-row__buttons {
             flex-direction: column;
             align-items: stretch;
+            gap: 6px;
         }
 
         body.is-mobile .hud-action-row__buttons .btn,
         body.is-mobile .tile-action-layer button,
         body.is-mobile .btn {
             width: 100%;
+            padding: 10px 18px;
+            font-size: 0.88rem;
+            border-width: 1.5px;
+        }
+
+        body.is-mobile .controls {
+            padding-top: 30px;
+            gap: 10px;
+        }
+
+        body.is-mobile .btn-upg,
+        body.is-mobile .btn-research {
+            max-width: 360px;
+            margin: 0 auto;
         }
 
         body.is-mobile .tile-inspector {
             width: 100%;
             box-sizing: border-box;
             padding: 12px;
+            font-size: 0.9rem;
         }
         .calendar-cluster {
             display: inline-flex;

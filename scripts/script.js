@@ -148,6 +148,13 @@ function applyPlatformLayout(profile) {
     root.classList.toggle('is-mobile', Boolean(profile.isMobile));
     root.classList.toggle('is-desktop', !profile.isMobile);
 
+    const uiScale = profile.isMobile ? 0.9 : 1;
+    const fontScale = profile.isMobile ? 0.9 : 1;
+    if (root.style) {
+        root.style.setProperty('--ui-scale', uiScale);
+        root.style.setProperty('--ui-font-scale', fontScale);
+    }
+
     const container = document.getElementById('game-container');
     if (container && container.dataset) {
         container.dataset.deviceProfile = profile.isMobile ? 'mobile' : 'desktop';

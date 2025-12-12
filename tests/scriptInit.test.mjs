@@ -11,8 +11,13 @@ const sanitizedSource = scriptSource
 
 function createElementStub(overrides = {}) {
     const classSet = new Set();
+    const style = {
+        setProperty(name, value) {
+            this[name] = String(value);
+        }
+    };
     return {
-        style: {},
+        style,
         dataset: {},
         width: 800,
         height: 600,
@@ -254,6 +259,8 @@ async function testMobileLayoutClassesFollowProfile() {
     assert.ok(body.classList.contains('is-mobile'), 'Body should be marked as mobile for responsive HUD styling.');
     assert.strictEqual(body.classList.contains('is-desktop'), false, 'Desktop class should not be present for mobile.');
     assert.strictEqual(container.dataset.deviceProfile, 'mobile', 'Game container should expose the detected profile.');
+    assert.strictEqual(body.style['--ui-scale'], '0.9', 'Mobile layout should shrink overall HUD scale.');
+    assert.strictEqual(body.style['--ui-font-scale'], '0.9', 'Mobile layout should shrink typography scale.');
 }
 
 async function run() {
