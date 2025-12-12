@@ -59,8 +59,40 @@ function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.tower?.variations?.length >= 3, 'tower/castle sound should include variations');
     assert.ok(SFX_MANIFEST.ambiance_dark, 'war ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
-    assert.ok(SFX_MANIFEST.ambient_bed_wind, 'overworld wind bed should be mapped');
     assert.ok(SFX_MANIFEST.war_bed_horn, 'war horn bed should be mapped');
+    assert.ok(!SFX_MANIFEST.ambient_bed_wind, 'wind bed intentionally disabled to avoid doubling ambience');
+}
+
+function testTerritoryStartAvoidsLayeringAmbientTwice() {
+    const log = [];
+    const scheduler = createManualScheduler();
+    const manager = new AudioManager({
+        ambient: { src: 'ambient', isAmbient: true, loop: true, cooldownMs: 0 },
+        territory: { src: 'territory', cooldownMs: 0 }
+    }, { createAudio: createStubFactory(log) });
+
+    const conductor = new AmbientConductor(manager, {
+        initialMode: 'TERRITORY',
+        scheduler,
+        random: () => 0.2,
+        states: {
+            TERRITORY: {
+                tracks: [{ key: 'territory', weight: 1, volume: 0.6 }],
+                beds: [],
+                silenceRangeMs: [1000, 1000],
+                fadeMs: 0,
+                maxTrackMs: 2000,
+                volume: 0.6
+            }
+        }
+    });
+
+    manager.startAmbientLoop();
+    conductor.start({ fadeMs: 0 });
+
+    const audible = log.filter((n) => !n.paused);
+    assert.strictEqual(audible.length, 1, 'territory start should not layer duplicate ambient sources');
+    assert.strictEqual(audible[0].src, 'ambient', 'shared ambient loop should remain the only source until tracks begin');
 }
 
 function testOverlapCreatesClone() {
@@ -575,6 +607,7 @@ function run() {
     testAmbientBedsFollowModeChanges();
     testAmbientBedsCanBeDisabled();
     testManifestIncludesNewEffects();
+    testTerritoryStartAvoidsLayeringAmbientTwice();
     testEnterCombatStopsAmbientAndFiresWardrumImmediately();
     testExitCombatRehomesAmbientAndPlaysOutcome();
     testImperialQueuesAvoidWardrums();

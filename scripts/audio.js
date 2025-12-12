@@ -727,7 +727,9 @@ class AmbientConductor {
 
 const SFX_GROUPS = {
     ambientLoops: ['sfx/ambient/ambient.mp3'],
-    windBeds: ['sfx/ambient/ambient.mp3'],
+    // Wind bed intentionally disabled until a distinct loop is available to avoid
+    // stacking the same ambience twice.
+    windBeds: [],
     warHornBeds: ['sfx/system/wardrum.mp3'],
     wardrums: ['sfx/system/wardrum.mp3'],
     city: ['sfx/territory/city.mp3'],
@@ -799,7 +801,6 @@ const SFX_MANIFEST = {
     city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
     choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
     ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0, category: 'music' },
-    ambient_bed_wind: { src: SFX_GROUPS.windBeds[0], loop: true, volume: 0.22, cooldownMs: 0, category: 'music' },
     war_bed_horn: { src: SFX_GROUPS.warHornBeds[0], loop: true, volume: 0.42, cooldownMs: 0, category: 'music' },
     ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
@@ -864,9 +865,7 @@ const AMBIENT_STATES = {
             { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
             { key: 'ambiance_uplifting', weight: 1, volume: 0.55 }
         ],
-        beds: [
-            { key: 'ambient_bed_wind', weight: 1, startVolume: 0.14, volume: 0.22, fadeMs: 1400 }
-        ],
+        beds: [],
         silenceRangeMs: [14000, 42000],
         fadeMs: 1600,
         maxTrackMs: 120000,
