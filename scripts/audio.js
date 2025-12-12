@@ -50,10 +50,20 @@ const AudioDebugBus = {
     sources: new Map(),
     intendedTrack: 'None',
     masterVolume: 1,
+    ambientState: 'IDLE',
     boundNodes: new WeakSet(),
     reportIntent(name) {
         if (!this.enabled) return;
         this.intendedTrack = name || 'Unknown';
+    },
+    /**
+     * Record the last requested ambience mode so diagnostics can surface
+     * whether war/overworld playlists are in sync with game state.
+     * @param {string} state human-readable ambient label
+     */
+    reportAmbientState(state) {
+        if (!this.enabled) return;
+        this.ambientState = state || 'IDLE';
     },
     registerPlayback(node, meta = {}) {
         if (!this.enabled || !node) return;
@@ -77,6 +87,7 @@ const AudioDebugBus = {
         return {
             intendedTrack: this.intendedTrack,
             masterVolume: this.masterVolume,
+            ambientState: this.ambientState,
             activeSources: Array.from(this.sources.values())
         };
     }

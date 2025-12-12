@@ -537,15 +537,14 @@ export function startWar(game, clickEvt, hexImpl) {
         return;
     }
     if (cost > 0) game.gold -= cost;
-    window.enterCombat?.();
+    game.state = 'COMBAT';
+    game.syncAmbientForState('COMBAT');
     game.triggerCameraShake();
     game.showFloatingText(anchorX, anchorY, 'TO WAR!', 'gold-text');
     game.spawnParticleBurst(anchorX, anchorY, 8);
     game.resetSession();
     game.stats.warsFought++;
     game.updateLeaderboardUI();
-    game.state = 'COMBAT';
-
     game.combat.territory.clear();
     game.combat.buildings.clear();
     game.combat.slots.clear();
@@ -754,7 +753,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const mandateProtected = ImperialMandates?.getProtectedOverworldKeys?.() || new Set();
     mandateProtected.forEach((k) => protectedTargets.add(k));
 
-    window.exitCombat?.(normalizedOutcome);
+    game.syncAmbientForState('OVERWORLD', { outcome: normalizedOutcome });
 
     if(outcome === 'DEFEAT' && game.research.lives > 0) {
         game.research.lives -= 1;

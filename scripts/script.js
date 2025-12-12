@@ -20,7 +20,11 @@ import {
     startWar,
     updateCombat
 } from './combatEngine.js';
-import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from './gameAudioHooks.js';
+import {
+    armAmbientLoop as armAmbientLoopHelper,
+    haltAmbientLoop as haltAmbientLoopHelper,
+    syncAmbientForState as syncAmbientForStateHelper
+} from './gameAudioHooks.js';
 import { applyUIBindings, setupUIBindings } from './uiBindings.js';
 import { START_TICK, Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
@@ -237,12 +241,14 @@ const AudioDebugConsole = {
 
         const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
             ? window.AudioDebugBus.snapshot()
-            : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
+            : { intendedTrack: 'None', masterVolume: 1, ambientState: 'IDLE', activeSources: [] };
 
         const fogSnapshot = this.resolveFogSnapshot();
 
         const activeSources = snapshot.activeSources || [];
         const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
+        const ambientState = snapshot.ambientState || 'IDLE';
+        const loopArmed = window.Game?.ambientLoopStarted ? 'yes' : 'no';
         const playingList = activeSources.length
             ? `<ul>${activeSources.map(src => `<li>${src.label || src.src || src.key || 'unknown'}</li>`).join('')}</ul>`
             : '<div>None</div>';
@@ -263,6 +269,10 @@ const AudioDebugConsole = {
             <div class="section">
                 <div class="label">Game State</div>
                 <div>${friendlyState}</div>
+            </div>
+            <div class="section">
+                <div class="label">Ambient Sync</div>
+                <div>${ambientState} (loop armed: ${loopArmed})</div>
             </div>
             <div class="section" id="${this.fogSectionId}">
                 <div class="label">Fog + Effects</div>
@@ -348,6 +358,7 @@ const Game = {
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shakeTimer: null,
     ambientLoopStarted: false,
+    ambientState: 'OVERWORLD',
     pendingClearTile: null,
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
@@ -758,12 +769,28 @@ const Game = {
     armAmbientLoop() {
         if (this.ambientLoopStarted) return;
         this.ambientLoopStarted = true;
+        this.ambientState = 'OVERWORLD';
         armAmbientLoopHelper();
     },
 
     /** Stop ambiance when entering combat. */
     haltAmbientLoop() {
+        this.ambientLoopStarted = false;
+        this.ambientState = 'HALTED';
         haltAmbientLoopHelper();
+    },
+
+    /**
+     * Synchronize ambient playback with the latest game state to avoid duplicate
+     * loops when bouncing between overworld exploration and combat.
+     * @param {string} state target state code (OVERWORLD|COMBAT)
+     * @param {Object} [options] optional overrides (e.g., combat outcome)
+     */
+    syncAmbientForState(state = this.state, options = {}) {
+        const normalized = (state || '').toUpperCase();
+        if (normalized === this.ambientState && !options.force) return;
+        syncAmbientForStateHelper(normalized, options);
+        this.ambientState = normalized;
     },
 
     /** Route game SFX to the manifest-driven audio manager. */
