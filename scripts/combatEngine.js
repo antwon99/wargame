@@ -435,41 +435,25 @@ export function scorchEarth(game, key) {
 export function isFrontier(game, key, who, hexImpl) {
     const Hex = resolveHex(game, hexImpl);
     const tile = game.combat.territory.get(key);
-    if(!tile || tile.owner === 'scorched') return false;
+    if(!tile || tile.owner !== who) return false;
     if(game.combat.buildings.has(key)) return false;
 
     const hex = game.parseKey(key);
     const castleHex = game?.combat?.castles?.[who];
 
-    const isNeutralClaimable = tile.owner === 'neutral' && tile.claimable === true;
-    const ownsTile = tile.owner === who;
-    if(!ownsTile && !isNeutralClaimable) return false;
-
-    const distanceToCastle = castleHex ? hexDistance(game, hex, castleHex, Hex) : null;
-    const inCastleRadius = castleHex
-        && ((who === 'player' && distanceToCastle <= 3) || distanceToCastle === 1);
-
-    let hasFriendlyTerritoryNeighbor = false;
-    for(let i=0; i<6; i++) {
-        const n = Hex.neighbor(hex, i);
-        const neighborTile = game.combat.territory.get(n.toString());
-        if(neighborTile && neighborTile.owner === who) {
-            hasFriendlyTerritoryNeighbor = true;
-            break;
-        }
-    }
-
-    // Neutral buffer tiles unlock once allied units bridge the center or the castle radius reaches them.
-    // The castle's three-hex safety bubble (or one-hex for enemies) is checked before frontier adjacency
-    // so the neutral strip can participate as soon as the radius touches a newly-claimed midpoint.
-    if(isNeutralClaimable && !hasFriendlyTerritoryNeighbor && !inCastleRadius) return false;
-    if(inCastleRadius) return true;
-    if(isNeutralClaimable && hasFriendlyTerritoryNeighbor) return true;
-
     for(let i=0; i<6; i++) {
         const n = Hex.neighbor(hex, i);
         const b = game.combat.buildings.get(n.toString());
         if(b && b.owner === who) return true;
+    }
+
+    if (castleHex) {
+        const distanceToCastle = hexDistance(game, hex, castleHex, Hex);
+        if (who === 'player' && distanceToCastle <= 3) {
+            // Allow early purchases within three hexes of the player's castle before outward expansion.
+            return true;
+        }
+        if (distanceToCastle === 1) return true;
     }
 
     const opponent = who === 'player' ? 'enemy' : 'player';
