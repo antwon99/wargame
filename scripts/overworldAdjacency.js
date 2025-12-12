@@ -28,6 +28,7 @@ function isClusterEligible(tile) {
 
 function floodFillCluster(hexes, startKey, startTile, visited) {
     const queue = [startKey];
+    const enqueued = new Set(queue);
     const members = [];
     const targetType = startTile.type;
     const targetOwner = (startTile.owner || 'player').toLowerCase();
@@ -35,18 +36,23 @@ function floodFillCluster(hexes, startKey, startTile, visited) {
     while (queue.length) {
         const key = queue.shift();
         if (visited.has(key)) continue;
-        visited.add(key);
 
         const current = hexes.get(key);
         if (!isClusterEligible(current)) continue;
         const owner = (current.owner || 'player').toLowerCase();
         if (current.type !== targetType || owner !== targetOwner) continue;
 
+        // Mark tiles as visited only when they belong to the active cluster so
+        // mismatched neighbors can still seed their own clusters later.
+        visited.add(key);
         members.push(key);
         const neighbors = getNeighborKeys(current.hex);
         neighbors.forEach((neighborHex) => {
             const neighborKey = `${neighborHex.q},${neighborHex.r}`;
-            if (!visited.has(neighborKey) && hexes.has(neighborKey)) queue.push(neighborKey);
+            if (!visited.has(neighborKey) && !enqueued.has(neighborKey) && hexes.has(neighborKey)) {
+                queue.push(neighborKey);
+                enqueued.add(neighborKey);
+            }
         });
     }
 
