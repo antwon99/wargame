@@ -730,7 +730,8 @@ const SFX_GROUPS = {
     // Wind bed intentionally disabled until a distinct loop is available to avoid
     // stacking the same ambience twice.
     windBeds: [],
-    warHornBeds: ['sfx/system/wardrum.mp3'],
+    // Borrow the darker ambience as a temporary combat bed to avoid looping the wardrum stinger.
+    warHornBeds: ['sfx/ambient/ambiance_dark.mp3'],
     wardrums: ['sfx/system/wardrum.mp3'],
     city: ['sfx/territory/city.mp3'],
     swords: [
