@@ -1811,11 +1811,13 @@ const Game = {
      * @returns {Map<string, string>} keyed visibility states (unseen|seen|visible).
      */
     getTileVisibilityMap() {
+        const isCombat = this.state === 'COMBAT';
+        const combatTerritory = this.shouldApplyCombatFog() ? this.combat?.territory : null;
         const visibility = buildTileVisibilityMap({
             state: this.state,
-            overworld: this.overworld?.hexes,
-            claimable: this.overworld?.claimable,
-            combat: this.shouldApplyCombatFog() ? this.combat?.territory : null
+            overworld: isCombat ? null : this.overworld?.hexes,
+            claimable: isCombat ? null : this.overworld?.claimable,
+            combat: isCombat ? combatTerritory : null
         });
         this.fog.visibility = visibility;
         return visibility;

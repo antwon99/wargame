@@ -43,9 +43,11 @@ const VISIBILITY_RANK = {
 /**
  * Normalize a map of tile visibility states derived from either the overworld or
  * combat context. Overworld tiles default to visible (owned) while frontier
- * claimables are treated as "seen" discoveries. Combat tiles are marked visible
- * only for player-owned territory; enemy/neutral cells fall back to a "seen"
- * state so fog systems can dim them without fully hiding layout data.
+ * claimables are treated as "seen" discoveries. During combat we intentionally
+ * ignore overworld inputs so fog overlays cannot reuse frontier outlines from
+ * the campaign map. Combat tiles are marked visible only for player-owned
+ * territory; enemy/neutral cells fall back to a "seen" state so fog systems can
+ * dim them without fully hiding layout data.
  *
  * @param {Object} [options] lookup sources for visibility signals.
  * @param {Map<string, *>} [options.overworld] explored overworld tile map.
@@ -56,20 +58,21 @@ const VISIBILITY_RANK = {
  */
 export function buildTileVisibilityMap({ overworld, claimable, combat, state = 'OVERWORLD' } = {}) {
     const visibility = new Map();
+    const isCombat = state === 'COMBAT';
     const promote = (key, level) => {
         const current = visibility.get(key) || TILE_VISIBILITY.UNSEEN;
         if (VISIBILITY_RANK[level] > VISIBILITY_RANK[current]) visibility.set(key, level);
     };
 
-    if (overworld instanceof Map) {
+    if (!isCombat && overworld instanceof Map) {
         overworld.forEach((_, key) => promote(key, TILE_VISIBILITY.VISIBLE));
     }
 
-    if (claimable instanceof Map) {
+    if (!isCombat && claimable instanceof Map) {
         claimable.forEach((_, key) => promote(key, TILE_VISIBILITY.SEEN));
     }
 
-    if (state === 'COMBAT' && combat instanceof Map) {
+    if (isCombat && combat instanceof Map) {
         combat.forEach((tile, key) => {
             const owner = (tile?.owner || '').toLowerCase();
             const status = owner === 'player' ? TILE_VISIBILITY.VISIBLE : TILE_VISIBILITY.SEEN;
