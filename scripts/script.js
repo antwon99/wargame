@@ -26,7 +26,7 @@ import { START_TICK, Timekeeper } from './timekeeper.js';
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
-import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE, normalizeOverworldHexKey } from './overworldAdjacency.js';
+import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from './fogMask.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
 import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from './fogVisualConfig.mjs';
@@ -1487,7 +1487,7 @@ const Game = {
             const clusterBonuses = (this.overworld.clusterBonuses && this.overworld.clusterBonuses.size > 0)
                 ? this.overworld.clusterBonuses
                 : this.refreshClusterBonuses();
-            const key = normalizeOverworldHexKey(selection);
+            const key = selection.hex?.toString?.() || `${selection.hex?.q ?? 0},${selection.hex?.r ?? 0}`;
             if (key && clusterBonuses?.has(key)) selection.clusterBonus = clusterBonuses.get(key);
         }
         this.selectedOverworldTile = selection;

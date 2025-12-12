@@ -1,5 +1,5 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
-import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE, normalizeOverworldHexKey } from './overworldAdjacency.js';
+import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 
 /**
  * Calculate and apply overworld income for a single tick.
@@ -30,8 +30,7 @@ export function applyOverworldIncome(game, options = {}) {
         if (!def) continue;
         const townBonus = d.type === 'town' ? game.research?.bonuses?.townGoldBonus || 0 : 0;
         const forestBonus = d.type === 'forest' ? game.research?.bonuses?.forestWoodBonus || 0 : 0;
-        const clusterKey = normalizeOverworldHexKey(d);
-        const cluster = clusterKey ? clusterBonuses.get(clusterKey) : null;
+        const cluster = clusterBonuses.get(d.hex?.toString?.() || `${d.hex?.q ?? 0},${d.hex?.r ?? 0}`);
         const clusterGoldBonus = cluster?.goldBonus || 0;
         const clusterWoodBonus = cluster?.woodBonus || 0;
 
