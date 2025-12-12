@@ -551,7 +551,6 @@ export function startWar(game, clickEvt, hexImpl) {
     game.combat.slots.clear();
     game.combat.units = [];
     game.combat.fx = [];
-    game.combat.debug = { frontierLogged: false };
     const aiPrep = deriveAIPrep(game);
     game.combat.ai.timer = 0;
     game.combat.ai.nextMove = aiPrep.nextMove;
@@ -593,8 +592,6 @@ export function startWar(game, clickEvt, hexImpl) {
     addBuilding(game, pHex, 'castle', 'player');
     addBuilding(game, eHex, 'castle', 'enemy');
 
-    debugCombatFrontier(game, { oncePerWar: true, hexImpl: Hex });
-
     const warZoom = game.deviceProfile && game.deviceProfile.isMobile
         ? game.deviceProfile.baseZoom
         : 0.8;
@@ -605,72 +602,6 @@ export function startWar(game, clickEvt, hexImpl) {
     game.updateHUD();
     game.showWarTip();
     game.playWarStartFX(anchorX, anchorY);
-}
-
-/**
- * Debug-only probe that captures frontier eligibility for every combat tile.
- * The helper reuses the live combat maps so testers can spot tiles that should
- * be buildable but fail the `isFrontier` checks. Logging remains disabled in
- * production unless explicitly toggled via `featureToggles.debug` or
- * `window.DebugToggles.logCombatFrontier`.
- *
- * @param {object} game current game object containing combat state.
- * @param {object} [options] optional probe configuration.
- * @param {boolean} [options.force=false] bypass debug flags for direct calls.
- * @param {boolean} [options.oncePerWar=false] skip repeated logs within a war.
- * @param {boolean} [options.logOutput=true] emit console.debug output.
- * @param {object} [options.hexImpl] optional Hex implementation for math.
- * @returns {Array<{ key:string, q:number|null, r:number|null, owner:string, canBePurchased:boolean, isFrontier:boolean }>}
- *          ordered snapshot of the current combat territory.
- */
-export function debugCombatFrontier(game, options = {}) {
-    const {
-        force = false,
-        oncePerWar = false,
-        logOutput = true,
-        hexImpl,
-    } = options;
-
-    const debugToggle = (typeof window !== 'undefined' && window.DebugToggles)
-        ? Boolean(window.DebugToggles.logCombatFrontier)
-        : false;
-    const debugFlag = Boolean(game?.featureToggles?.debug?.logCombatFrontier);
-    const shouldLog = force || debugFlag || debugToggle;
-    if (!shouldLog) return [];
-    if (!game?.combat?.territory || !(game.combat.territory instanceof Map)) return [];
-
-    game.combat.debug = game.combat.debug || {};
-    if (oncePerWar && game.combat.debug.frontierLogged) return [];
-
-    const Hex = resolveHex(game, hexImpl);
-    const snapshot = [];
-    for (let [key, tile] of game.combat.territory) {
-        const hex = tile?.hex || game.parseKey?.(key) || null;
-        const isPlayerFrontier = isFrontier(game, key, 'player', Hex);
-        const canBePurchased = Boolean(
-            tile
-            && tile.owner === 'player'
-            && game.combat.slots.has(key)
-            && !game.combat.buildings.has(key)
-            && isPlayerFrontier
-        );
-
-        snapshot.push({
-            key,
-            q: hex?.q ?? null,
-            r: hex?.r ?? null,
-            owner: tile?.owner || 'missing',
-            canBePurchased,
-            isFrontier: isPlayerFrontier
-        });
-    }
-
-    if (logOutput) {
-        console.debug('[CombatDebug] Frontier purchase snapshot', snapshot);
-    }
-
-    if (oncePerWar) game.combat.debug.frontierLogged = true;
-    return snapshot;
 }
 
 /**
@@ -896,7 +827,6 @@ if (typeof module !== 'undefined') {
         addBuilding,
         spawnUnit,
         startWar,
-        debugCombatFrontier,
         loseOverworldHexes,
         formatLossSummary,
         endWar
