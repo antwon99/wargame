@@ -67,8 +67,12 @@ function testIsFrontierUsesInjectedHex() {
 
     CountingHex.neighborCalls = 0;
     const game = buildGame(CountingHex);
+    game.combat.castles.player = new CountingHex(3, -3, 0);
     const castleKey = game.combat.castles.player.toString();
     game.combat.buildings.set(castleKey, { owner: 'player', type: 'castle' });
+
+    const adjacentKey = game.parseKey('2,-1').toString();
+    game.combat.buildings.set(adjacentKey, { owner: 'player', type: 'tower' });
 
     const frontierKey = game.parseKey('1,0').toString();
     const result = isFrontier(game, frontierKey, 'player', CountingHex);

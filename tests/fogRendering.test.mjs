@@ -44,7 +44,7 @@ function createRecordingContext() {
 function createElementStub(overrides = {}) {
     const classSet = new Set();
     return {
-        style: {},
+        style: { setProperty(name, value) { this[name] = String(value); } },
         dataset: {},
         width: 800,
         height: 600,

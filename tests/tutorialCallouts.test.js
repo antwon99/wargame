@@ -4,7 +4,7 @@ function createStubElement(rect = { left: 0, top: 0, width: 200, height: 90 }) {
     const classSet = new Set();
     const listeners = {};
     const el = {
-        style: {},
+        style: { setProperty(name, value) { this[name] = String(value); } },
         children: [],
         removed: false,
         className: '',
