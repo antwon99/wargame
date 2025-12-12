@@ -364,8 +364,7 @@ const Game = {
         fog: { ...FOG_VISUAL_CONFIG },
         camera: { ...CAMERA_MOTION_CONFIG },
         ambience: { ...AMBIENCE_CONFIG },
-        overworld: { showClaimCosts: false },
-        debug: { logAdjacency: false }
+        overworld: { showClaimCosts: false }
     },
     settingsStorageKey: 'wargame:player-settings',
     playerSettings: null,
@@ -635,7 +634,6 @@ const Game = {
         const cameraOverrides = overrides.camera || {};
         const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
-        const debugOverrides = overrides.debug || {};
         const resolvedFog = resolveFogVisualConfig({ ...FOG_VISUAL_CONFIG, ...fogOverrides });
         const fogDisabled = resolvedFog.enabled === false;
         const ambienceEnabledOverride =
@@ -648,13 +646,11 @@ const Game = {
             ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
             ...(fogDisabled || resolvedFog.visualMode === FOG_VISUAL_MODES.VOID ? { enabled: false } : {})
         };
-        const debugConfig = { ...this.featureToggles?.debug, logAdjacency: false, ...debugOverrides };
         this.featureToggles = {
             fog: resolvedFog,
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
             ambience: ambienceConfig,
-            overworld: { showClaimCosts: false, ...overworldOverrides },
-            debug: debugConfig
+            overworld: { showClaimCosts: false, ...overworldOverrides }
         };
         // Recreate ambience renderer lazily so mode/flag changes cannot resurrect clouds in void-only mode.
         this.ambienceRenderer = null;
@@ -1409,57 +1405,7 @@ const Game = {
         const reclamationRate = this.research?.bonuses?.landReclamationClusterBonus ?? 0;
         const bonuses = buildClusterBonusMap(this.overworld?.hexes, { baseRate, reclamationRate });
         this.overworld.clusterBonuses = bonuses;
-        this.logSpawnCluster();
         return bonuses;
-    },
-
-    /**
-     * Debug helper for QA to verify the castle and its spawn ring share the
-     * same adjacency cluster immediately after bootstrap and after player claims.
-     * Guarded by `featureToggles.debug.logAdjacency` so production runs remain
-     * silent; when enabled, the helper normalizes the castle key and its six
-     * neighbors, then logs their cluster-map entries (or missing states).
-     */
-    logSpawnCluster() {
-        if (!this.featureToggles?.debug?.logAdjacency) return;
-
-        const overworldHexes = this.overworld?.hexes;
-        const clusterMap = this.overworld?.clusterBonuses;
-        const castleEntry = overworldHexes instanceof Map
-            ? Array.from(overworldHexes.entries()).find(([, tile]) => tile?.type === 'castle')
-            : null;
-        const fallbackCastleKey = castleEntry?.[0] ?? null;
-        const castleTile = castleEntry?.[1] ?? null;
-        const castleHexPayload = castleTile?.hex || (fallbackCastleKey ? this.parseKey(fallbackCastleKey) : null);
-        const castleHex = castleHexPayload instanceof Hex
-            ? castleHexPayload
-            : (Number.isFinite(castleHexPayload?.q) && Number.isFinite(castleHexPayload?.r)
-                ? new Hex(castleHexPayload.q, castleHexPayload.r, castleHexPayload.s ?? -castleHexPayload.q - castleHexPayload.r)
-                : null);
-        const resolvedCastleHex = castleHex || new Hex(0, 0);
-        const resolvedCastleKey = normalizeOverworldHexKey(castleTile) || normalizeOverworldHexKey(resolvedCastleHex) || fallbackCastleKey;
-
-        const clusterKeys = resolvedCastleKey ? [resolvedCastleKey] : [];
-        for (let i = 0; i < 6; i += 1) {
-            const neighborHex = Hex.neighbor(resolvedCastleHex, i);
-            const neighborKey = normalizeOverworldHexKey(neighborHex);
-            if (neighborKey) clusterKeys.push(neighborKey);
-        }
-
-        const uniqueKeys = Array.from(new Set(clusterKeys));
-        const snapshot = uniqueKeys.map((key) => {
-            const tile = overworldHexes?.get?.(key);
-            const cluster = clusterMap?.get?.(key);
-            return {
-                key,
-                type: tile?.type || 'missing',
-                owner: tile?.owner || 'missing',
-                clusterState: cluster ? 'cluster' : 'missing',
-                cluster
-            };
-        });
-
-        console.debug('Spawn cluster adjacency snapshot', snapshot);
     },
 
     /**
