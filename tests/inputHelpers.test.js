@@ -46,9 +46,83 @@ function testOnGridClicksStillHitCombat() {
     assert.ok(messages.includes('Capture First!'), 'on-hex combat clicks should still trigger handling');
 }
 
+function testOverworldClaimablesIgnoreCombatTiles() {
+    const layout = makeLayout();
+    const claimableKey = '1,0';
+    const combatKey = '2,0';
+    const overworldMaps = { hexes: new Map(), claimable: new Map([[claimableKey, 12]]) };
+    const combatMaps = { territory: new Map([[combatKey, { owner: 'foe' }]]) };
+
+    const claimableCenter = cubeToPixel(layout, { q: 1, r: 0, s: -1 });
+    const combatCenter = cubeToPixel(layout, { q: 2, r: 0, s: -2 });
+
+    const frontierHit = isPointerOnDrawnHex({
+        x: claimableCenter.x,
+        y: claimableCenter.y,
+        cam: layout.origin,
+        zoom: 1,
+        LayoutImpl: Layout,
+        state: 'OVERWORLD',
+        overworldMaps,
+        combatMaps
+    });
+
+    const combatHit = isPointerOnDrawnHex({
+        x: combatCenter.x,
+        y: combatCenter.y,
+        cam: layout.origin,
+        zoom: 1,
+        LayoutImpl: Layout,
+        state: 'OVERWORLD',
+        overworldMaps,
+        combatMaps
+    });
+
+    assert.ok(frontierHit.hit, 'frontier tiles should remain clickable in overworld state');
+    assert.ok(!combatHit.hit, 'combat tiles must be ignored while peacefully exploring');
+}
+
+function testCombatIgnoresFrontierClaimables() {
+    const layout = makeLayout();
+    const claimableKey = '1,0';
+    const combatKey = '2,0';
+    const overworldMaps = { hexes: new Map(), claimable: new Map([[claimableKey, 12]]) };
+    const combatMaps = { territory: new Map([[combatKey, { owner: 'foe' }]]) };
+
+    const claimableCenter = cubeToPixel(layout, { q: 1, r: 0, s: -1 });
+    const combatCenter = cubeToPixel(layout, { q: 2, r: 0, s: -2 });
+
+    const frontierHit = isPointerOnDrawnHex({
+        x: claimableCenter.x,
+        y: claimableCenter.y,
+        cam: layout.origin,
+        zoom: 1,
+        LayoutImpl: Layout,
+        state: 'COMBAT',
+        overworldMaps,
+        combatMaps
+    });
+
+    const combatHit = isPointerOnDrawnHex({
+        x: combatCenter.x,
+        y: combatCenter.y,
+        cam: layout.origin,
+        zoom: 1,
+        LayoutImpl: Layout,
+        state: 'COMBAT',
+        overworldMaps,
+        combatMaps
+    });
+
+    assert.ok(!frontierHit.hit, 'claimable ring should disappear during combat');
+    assert.ok(combatHit.hit, 'combat territory remains active while warring');
+}
+
 function run() {
     testOffGridClicksBypassCombat();
     testOnGridClicksStillHitCombat();
+    testOverworldClaimablesIgnoreCombatTiles();
+    testCombatIgnoresFrontierClaimables();
     console.log('All input helper tests passed.');
 }
 

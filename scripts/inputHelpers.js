@@ -80,7 +80,8 @@ function isPointInsidePolygon(point, polygon) {
  * The helper converts the pointer to axial coordinates without rounding, then
  * measures distance back to the candidate hex center and rejects clicks that
  * fall outside the actual hex polygon. It also checks whether the hex exists
- * in the active map set for the current game state.
+ * in the active map set for the current game state so overworld claimables are
+ * ignored during combat and combat tiles do not bleed into peaceful map logic.
  */
 function isPointerOnDrawnHex(options) {
     const {
@@ -101,7 +102,8 @@ function isPointerOnDrawnHex(options) {
     const hasHex =
         state === 'COMBAT'
             ? combatMaps.territory && combatMaps.territory.has(key)
-            : (overworldMaps.hexes && overworldMaps.hexes.has(key)) || (overworldMaps.claimable && overworldMaps.claimable.has(key));
+            : state === 'OVERWORLD' &&
+              ((overworldMaps.hexes && overworldMaps.hexes.has(key)) || (overworldMaps.claimable && overworldMaps.claimable.has(key)));
 
     if (!hasHex) return { hit: false, hex: rounded, key, layout };
 
