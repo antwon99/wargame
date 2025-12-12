@@ -21,6 +21,12 @@ const FOG_VISUAL_CONFIG = {
     // Seasonal/month-based experiments remain opt-in; the default never auto-flips.
     visualMode: FOG_VISUAL_MODES.VOID,
     enabled: true,
+    /**
+     * Feature gate for fog tooling/diagnostics. When disabled, fog mask/visibility
+     * generation short-circuits alongside the debug overlay controls so disabling
+     * fog cannot leak stale mask artifacts into war mode.
+     */
+    featureFlagEnabled: false,
     /** Toggle tile-level fog-of-war overlays without touching backdrop visuals. */
     tileFogEnabled: false,
     /** Toggle the drifting ambience cloud renderer independent of the backdrop. */

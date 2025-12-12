@@ -239,7 +239,9 @@ const AudioDebugConsole = {
             ? window.AudioDebugBus.snapshot()
             : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
 
-        const fogSnapshot = this.resolveFogSnapshot();
+        const game = window.Game;
+        const fogControlsEnabled = game?.isFogFeatureFlagEnabled?.() === true;
+        const fogSnapshot = fogControlsEnabled ? this.resolveFogSnapshot() : null;
 
         const activeSources = snapshot.activeSources || [];
         const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
@@ -264,16 +266,20 @@ const AudioDebugConsole = {
                 <div class="label">Game State</div>
                 <div>${friendlyState}</div>
             </div>
-            <div class="section" id="${this.fogSectionId}">
-                <div class="label">Fog + Effects</div>
-                ${this.renderToggleRow('debug-fog-enabled', 'Backdrop fog enabled', fogSnapshot.enabled)}
-                ${this.renderToggleRow('debug-fog-tile', 'Tile fog overlays', fogSnapshot.tileFogEnabled)}
-                ${this.renderToggleRow('debug-fog-ambience', 'Ambience clouds', fogSnapshot.ambienceLayersEnabled)}
-                ${this.renderToggleRow('debug-fog-flourishes', 'Fog flourishes', fogSnapshot.ambienceEnabled)}
-            </div>
+            ${fogControlsEnabled
+                ? `<div class="section" id="${this.fogSectionId}">
+                    <div class="label">Fog + Effects</div>
+                    ${this.renderToggleRow('debug-fog-enabled', 'Backdrop fog enabled', fogSnapshot.enabled)}
+                    ${this.renderToggleRow('debug-fog-tile', 'Tile fog overlays', fogSnapshot.tileFogEnabled)}
+                    ${this.renderToggleRow('debug-fog-ambience', 'Ambience clouds', fogSnapshot.ambienceLayersEnabled)}
+                    ${this.renderToggleRow('debug-fog-flourishes', 'Fog flourishes', fogSnapshot.ambienceEnabled)}
+                </div>`
+                : ''}
         `;
 
-        this.bindFogControls();
+        if (fogControlsEnabled) {
+            this.bindFogControls();
+        }
     },
 
     /**
@@ -1805,12 +1811,43 @@ const Game = {
     },
 
     /**
+     * Feature flag to guard optional fog tooling/diagnostics. When disabled, fog
+     * masks and visibility maps can short-circuit entirely so disabling fog in
+     * war mode cannot leave behind stale claimable rings.
+     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
+     * @returns {boolean} true when fog tooling should remain active.
+     */
+    isFogFeatureFlagEnabled(fogConfig) {
+        const config = fogConfig || this.fog?.visualConfig || resolveFogVisualConfig(this.featureToggles?.fog);
+        return config?.featureFlagEnabled === true;
+    },
+
+    /**
+     * Decide whether fog visibility/mask resolution should be bypassed for the
+     * current frame. Used to prevent disabled fog from generating exploration
+     * masks that could leak into combat visuals.
+     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
+     * @returns {boolean} true when fog visibility should not be computed.
+     */
+    shouldBypassFogVisibility(fogConfig) {
+        const config = fogConfig || this.fog?.visualConfig || this.resolveFogConfig();
+        return config?.enabled === false && !this.isFogFeatureFlagEnabled(config);
+    },
+
+    /**
      * Build a normalized visibility map spanning overworld/frontier and combat
      * territories. Stored on the fog namespace so tile overlays and fog masks can
      * share the same resolution each frame.
      * @returns {Map<string, string>} keyed visibility states (unseen|seen|visible).
      */
     getTileVisibilityMap() {
+        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
+        if (this.shouldBypassFogVisibility(fogConfig)) {
+            const emptyVisibility = new Map();
+            this.fog.visibility = emptyVisibility;
+            return emptyVisibility;
+        }
+
         const visibility = buildTileVisibilityMap({
             state: this.state,
             overworld: this.overworld?.hexes,
@@ -1939,15 +1976,18 @@ const Game = {
         const rippleGradientStops = fogConfig.rippleGradientStops || {};
         const spotlightColors = fogConfig.spotlightColors || {};
         const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
+        const shouldBypassFog = this.shouldBypassFogVisibility(fogConfig);
 
-        const tileVisibility = this.getTileVisibilityMap();
-        const tileMask = resolveFogTileMask(fogMaskOptions, {
-            layout,
-            state: this.state,
-            overworld: this.overworld.hexes,
-            combat: this.combat?.territory,
-            visibility: tileVisibility
-        });
+        const tileVisibility = shouldBypassFog ? new Map() : this.getTileVisibilityMap();
+        const tileMask = shouldBypassFog
+            ? null
+            : resolveFogTileMask(fogMaskOptions, {
+                layout,
+                state: this.state,
+                overworld: this.overworld.hexes,
+                combat: this.combat?.territory,
+                visibility: tileVisibility
+            });
         this.fog.tileMask = tileMask;
         this.fog.visibility = tileVisibility;
 

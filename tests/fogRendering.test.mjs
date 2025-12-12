@@ -361,10 +361,35 @@ async function testCombatVisibilityFiltering() {
     assert.strictEqual(towerLabels.length, 1, 'buildings on unseen tiles should be skipped');
 }
 
+async function testCombatFogMasksSkipWhenDisabled() {
+    const { window, context, recordingContext } = await loadGameModule();
+    const { Game, Hex } = window;
+    const { Layout } = context;
+
+    const layout = { origin: { x: 0, y: 0 }, size: 24, ...Layout };
+    Game.cam = { zoom: 1, x: 0, y: 0 };
+    Game.ctx = recordingContext;
+    Game.viewport = { width: 200, height: 200 };
+    Game.state = 'COMBAT';
+    Game.overworld = { hexes: new Map([['0,0', { hex: new Hex(0, 0), owner: 'player' }]]), claimable: new Map() };
+    Game.combat = { territory: new Map([['0,0', { hex: new Hex(0, 0), owner: 'player' }]]), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [] };
+    Game.fog = { time: 0 };
+    Game.featureToggles.fog.enabled = false;
+
+    let maskResolutions = 0;
+    recordingContext.operations.length = 0;
+    Game.renderFogBackdrop(layout, { tileMaskProvider: () => { maskResolutions += 1; return ['0,0']; } });
+
+    assert.strictEqual(maskResolutions, 0, 'fog mask providers should not run when fog is disabled under the feature flag');
+    assert.strictEqual(Game.fog.tileMask, null, 'fog tile mask should not be retained when fog is disabled');
+    assert.strictEqual(Game.fog.visibility.size, 0, 'visibility map should short-circuit when fog is disabled in war mode');
+}
+
 async function run() {
     await testTileFogMasks();
     await testFogBackdropFallsBackToVoidFillWhenAmbienceDisabled();
     await testCombatVisibilityFiltering();
+    await testCombatFogMasksSkipWhenDisabled();
     console.log('Fog rendering tests passed.');
 }
 
