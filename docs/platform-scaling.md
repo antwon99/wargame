@@ -15,3 +15,5 @@ The platform adapter derives a simple rendering profile for the current browser 
 ## Application
 
 `PlatformAdapter.sizeCanvasForDisplay` sets the canvas backing store to `viewport * deviceScale`, applies the same CSS width/height for layout, and resets the rendering transform using `setTransform(scale, 0, 0, scale, 0, 0)` so draw calls use logical CSS pixels.
+
+`scripts/script.js` also tags the document with `is-mobile` / `is-desktop` classes after applying the detected profile so HUD elements can opt into touch-friendly spacing and stacking without affecting the desktop layout.

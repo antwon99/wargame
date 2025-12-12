@@ -286,6 +286,73 @@
             justify-content: flex-end;
             justify-self: end;
         }
+
+        /* MOBILE LAYOUT HELPERS */
+        body.is-mobile .top-bar {
+            padding: 8px 10px;
+            gap: 8px;
+        }
+
+        body.is-mobile .top-bar__zones {
+            grid-template-columns: 1fr;
+            grid-auto-rows: auto;
+            gap: 10px;
+        }
+
+        body.is-mobile .top-bar__zone,
+        body.is-mobile .top-bar__zone--right,
+        body.is-mobile .top-bar__zone--middle,
+        body.is-mobile .top-bar__zone--middle-left,
+        body.is-mobile .top-bar__zone--left {
+            justify-content: stretch;
+            width: 100%;
+        }
+
+        body.is-mobile .top-bar__controls,
+        body.is-mobile .resource-cluster,
+        body.is-mobile .pause-cluster,
+        body.is-mobile .imperial-favor,
+        body.is-mobile .calendar-cluster,
+        body.is-mobile .mandates-zone {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        body.is-mobile .resource-pill,
+        body.is-mobile .calendar-pill {
+            width: 100%;
+            max-width: none;
+            flex: 1 1 auto;
+        }
+
+        body.is-mobile .mandates-button,
+        body.is-mobile .pause-toggle,
+        body.is-mobile .hamburger {
+            width: 100%;
+        }
+
+        body.is-mobile .hud-controls-anchor {
+            width: 100%;
+            padding: 0 8px;
+        }
+
+        body.is-mobile .hud-action-row,
+        body.is-mobile .hud-action-row__buttons {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        body.is-mobile .hud-action-row__buttons .btn,
+        body.is-mobile .tile-action-layer button,
+        body.is-mobile .btn {
+            width: 100%;
+        }
+
+        body.is-mobile .tile-inspector {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+        }
         .calendar-cluster {
             display: inline-flex;
             align-items: center;
