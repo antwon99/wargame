@@ -1707,6 +1707,7 @@ const Game = {
             if(t.owner === 'player') fill = '#1b4332';
             else if(t.owner === 'enemy') fill = '#590d22';
             else if(t.owner === 'scorched') fill = '#111'; // Scorched Color
+            else if(t.owner === 'neutral' || !t.owner) fill = '#4a525e';
 
             if (!visibleTile) {
                 fill = seenTile ? 'rgba(28, 32, 38, 0.75)' : '#08090f';
