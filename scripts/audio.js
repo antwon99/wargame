@@ -730,8 +730,6 @@ const SFX_GROUPS = {
     // Wind bed intentionally disabled until a distinct loop is available to avoid
     // stacking the same ambience twice.
     windBeds: [],
-    // Borrow the darker ambience as a temporary combat bed to avoid looping the wardrum stinger.
-    warHornBeds: ['sfx/ambient/ambiance_dark.mp3'],
     wardrums: ['sfx/system/wardrum.mp3'],
     city: ['sfx/territory/city.mp3'],
     swords: [
@@ -802,7 +800,6 @@ const SFX_MANIFEST = {
     city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
     choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
     ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0, category: 'music' },
-    war_bed_horn: { src: SFX_GROUPS.warHornBeds[0], loop: true, volume: 0.42, cooldownMs: 0, category: 'music' },
     ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
@@ -877,9 +874,7 @@ const AMBIENT_STATES = {
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
             { key: 'ambiance_dark', weight: 1, volume: 0.62 }
         ],
-        beds: [
-            { key: 'war_bed_horn', weight: 1, startVolume: 0.16, volume: 0.42, fadeMs: 1200 }
-        ],
+        beds: [],
         silenceRangeMs: [12000, 36000],
         fadeMs: 1800,
         maxTrackMs: 110000,
@@ -903,7 +898,7 @@ function enterCombat(audioManager = GameAudio, ambient = AmbientSoundscape) {
     ambient?.start?.({ fadeMs: 0 });
 
     // Fire the war stinger immediately so players hear an instant transition.
-    audioManager?.stop?.(audioManager?.ambientKey);
+    audioManager?.startAmbientLoop?.();
     if (typeof audioManager?.allowCombatStingerOnce === 'function') {
         audioManager.allowCombatStingerOnce(() => audioManager.play('wardrum', { allowOverlap: true, reset: true }));
     } else {
