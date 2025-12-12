@@ -897,7 +897,8 @@ const AmbientSoundscape = new AmbientConductor(GameAudio, { initialMode: 'TERRIT
  * @param {AmbientConductor} ambient optional override for tests
  */
 function enterCombat(audioManager = GameAudio, ambient = AmbientSoundscape) {
-    if (ambient?.stopCurrent) ambient.stopCurrent({ fadeMs: 0 });
+    ambient?.stopAll?.();
+    audioManager?.stopAll?.();
     if (ambient?.clearTimers) ambient.clearTimers();
     ambient?.enterMode?.('WAR');
     ambient?.start?.({ fadeMs: 0 });
@@ -921,6 +922,8 @@ function enterCombat(audioManager = GameAudio, ambient = AmbientSoundscape) {
  */
 function exitCombat(outcome, audioManager = GameAudio, ambient = AmbientSoundscape) {
     const label = (outcome || '').toLowerCase();
+    ambient?.stopAll?.();
+    audioManager?.stopAll?.();
     if (label === 'victory') {
         audioManager?.play?.('victory');
     } else if (label === 'defeat' || label === 'retreat') {

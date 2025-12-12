@@ -27,9 +27,18 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
 import { drawOverworldTiles } from './overworldRenderer.js';
 import { advanceOverworldTimer } from './overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
-import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from './fogMask.js';
+import { TILE_VISIBILITY } from './fogMask.js';
+import {
+    shouldApplyCombatFog,
+    getTileVisibilityMap,
+    resolveHexVisibility,
+    renderFogBackdrop,
+    drawTileFog,
+    getTerritoryScreenCenter,
+    collectExploredClusters
+} from './fogController.js';
 import { buildResearchStateSafe } from './researchStateBuilder.mjs';
-import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from './fogVisualConfig.mjs';
+import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogVisualConfig } from './fogVisualConfig.mjs';
 import AmbienceRenderer from './ambienceRenderer.js';
 import './researchSystem.js';
 import { validateBootstrapDependencies } from './bootstrapValidator.mjs';
@@ -1794,15 +1803,7 @@ const Game = {
      * @param {Date} [currentDate=new Date()] optional date override for tests.
      * @returns {boolean} true when combat rendering should apply fog/snow masks.
      */
-    shouldApplyCombatFog(currentDate = new Date()) {
-        if (this.state !== 'COMBAT') return false;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        if (!fogConfig || fogConfig.enabled === false) return false;
-        if (fogConfig.visualMode !== 'seasonalSnow') return false;
-
-        const winterMonths = new Set([11, 0, 1]);
-        return winterMonths.has(currentDate.getMonth());
-    },
+    shouldApplyCombatFog(currentDate = new Date()) { return shouldApplyCombatFog(this, currentDate); },
 
     /**
      * Build a normalized visibility map spanning overworld/frontier and combat
@@ -1811,14 +1812,7 @@ const Game = {
      * @returns {Map<string, string>} keyed visibility states (unseen|seen|visible).
      */
     getTileVisibilityMap() {
-        const visibility = buildTileVisibilityMap({
-            state: this.state,
-            overworld: this.overworld?.hexes,
-            claimable: this.overworld?.claimable,
-            combat: this.shouldApplyCombatFog() ? this.combat?.territory : null
-        });
-        this.fog.visibility = visibility;
-        return visibility;
+        return getTileVisibilityMap(this);
     },
 
     /**
@@ -1857,53 +1851,7 @@ const Game = {
      * @param {Object} tile raw tile payload from map iteration.
      * @param {string} visibility normalized tile visibility label.
      */
-    drawTileFog(hex, tile, visibility) {
-        const layout = this.fog?.hexLayout;
-        if (!layout || !hex || typeof hex.toPixel !== 'function') return;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        if (fogConfig.enabled === false || fogConfig.tileFogEnabled !== true) return;
-
-        const state = visibility || this.resolveHexVisibility(hex);
-        if (state === TILE_VISIBILITY.VISIBLE) return;
-
-        const ctx = this.ctx;
-        const center = hex.toPixel(layout);
-        const maskSize = Math.max(4 * this.cam.zoom, layout.size - Math.max(2.5 * this.cam.zoom, layout.size * 0.08));
-
-        ctx.save();
-        ctx.beginPath();
-        for (let i = 0; i < 6; i += 1) {
-            const angle = 2 * Math.PI / 6 * (i + 0.5);
-            const x = center.x + maskSize * Math.cos(angle);
-            const y = center.y + maskSize * Math.sin(angle);
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-
-        if (state === TILE_VISIBILITY.UNSEEN) {
-            ctx.fillStyle = 'rgba(5, 6, 12, 0.9)';
-            ctx.fill();
-            ctx.restore();
-            return;
-        }
-
-        const gradient = ctx.createRadialGradient(center.x, center.y, maskSize * 0.1, center.x, center.y, maskSize);
-        gradient.addColorStop(0, 'rgba(32, 38, 46, 0.38)');
-        gradient.addColorStop(1, 'rgba(12, 14, 18, 0.6)');
-
-        const originalComposite = ctx.globalCompositeOperation;
-        const originalAlpha = ctx.globalAlpha;
-        ctx.globalAlpha = 0.8;
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'saturation';
-        ctx.globalAlpha = 0.45;
-        ctx.fillStyle = 'rgba(132, 138, 148, 1)';
-        ctx.fill();
-        ctx.globalAlpha = originalAlpha;
-        ctx.globalCompositeOperation = originalComposite;
-        ctx.restore();
-    },
+    drawTileFog(hex, tile, visibility) { return drawTileFog(this, hex, tile, visibility); },
 
     /**
      * Resolve the fog visibility state for a given hex or tile key. Defaults to
@@ -1912,11 +1860,7 @@ const Game = {
      * @param {Hex|string} hex hex coordinate or string key.
      * @returns {string} visibility label (unseen|seen|visible).
      */
-    resolveHexVisibility(hex) {
-        const key = typeof hex === 'string' ? hex : hex?.toString?.();
-        if (!key || !(this.fog?.visibility instanceof Map)) return TILE_VISIBILITY.VISIBLE;
-        return this.fog.visibility.get(key) || TILE_VISIBILITY.VISIBLE;
-    },
+    resolveHexVisibility(hex) { return resolveHexVisibility(this, hex); },
 
     /**
      * Paint the fog backdrop. In the default void mode the function clears to the
@@ -1931,154 +1875,7 @@ const Game = {
      * @param {boolean} [fogMaskOptions.frontierOnly=false] whether the mask represents frontier tiles only
      * @param {Function} [fogMaskOptions.onMaskResolved] callback fired with mask metadata once resolved
      */
-    renderFogBackdrop(layout, fogMaskOptions = {}) {
-        const ctx = this.ctx;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        const isVoidBaseline = this.isVoidVisualMode(fogConfig);
-        const fogGradientStops = fogConfig.fogGradientStops || {};
-        const rippleGradientStops = fogConfig.rippleGradientStops || {};
-        const spotlightColors = fogConfig.spotlightColors || {};
-        const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-
-        const tileVisibility = this.getTileVisibilityMap();
-        const tileMask = resolveFogTileMask(fogMaskOptions, {
-            layout,
-            state: this.state,
-            overworld: this.overworld.hexes,
-            combat: this.combat?.territory,
-            visibility: tileVisibility
-        });
-        this.fog.tileMask = tileMask;
-        this.fog.visibility = tileVisibility;
-
-        ctx.fillStyle = voidFill;
-        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        if (isVoidBaseline) return;
-
-        const ambienceCloudsEnabled = this.shouldRenderAmbience(fogConfig);
-        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;
-        // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
-        const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
-            || !legacyBackdropEnabled;
-
-        const ambienceCenter = this.getTerritoryScreenCenter(layout);
-        if (ambienceCloudsEnabled) {
-            this.ensureAmbienceRendererReady(fogConfig);
-            if (this.ambienceRenderer) {
-                this.ambienceRenderer.render({ center: ambienceCenter });
-            }
-        }
-        if (fogConfig.enabled === false || baseFillOnly || legacyBackdropEnabled === false) return;
-
-        const center = ambienceCenter;
-        const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
-        const drift = Math.sin(this.fog.time * parallaxSpeed) * parallaxAmplitude;
-        const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
-        const innerRadius = Math.max(layout.size * 3, radius * 0.25);
-
-        if (fogConfig.gradientEnabled !== false) {
-            const fogGradient = ctx.createRadialGradient(
-                center.x + drift,
-                center.y - drift,
-                innerRadius,
-                center.x,
-                center.y,
-                radius
-            );
-            const innerOpacity = resolveFogInnerOpacity(fogConfig);
-            const softenedCenterOpacity = tileMask ? Math.max(innerOpacity * 0.82, innerOpacity - 0.12) : innerOpacity;
-            fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${softenedCenterOpacity})`);
-            fogGradient.addColorStop(0.48, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
-            fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
-            ctx.fillStyle = fogGradient;
-            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        }
-
-        if (fogConfig.rippleEnabled !== false) {
-            const rippleGradient = ctx.createRadialGradient(
-                center.x - drift * 0.4,
-                center.y + drift * 0.6,
-                0,
-                center.x - drift * 0.4,
-                center.y + drift * 0.6,
-                radius
-            );
-            rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
-            rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
-            rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
-            const rippleOpacity = fogConfig.rippleOpacity;
-            ctx.globalAlpha = rippleOpacity;
-            ctx.fillStyle = rippleGradient;
-            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-            ctx.globalAlpha = 1.0;
-        }
-
-        if (fogConfig.clusterGlowEnabled !== false) {
-            const clusters = this.collectExploredClusters(layout);
-            clusters.forEach((cluster) => {
-                const clusterRadius = Math.max(
-                    layout.size * 3,
-                    cluster.size * layout.size * (fogConfig.clusterRadiusMultiplier ?? 5)
-                );
-                const intensity = Math.min(0.78, (fogConfig.clusterIntensity ?? 0.32) * Math.log2(cluster.size + 1));
-                const coreBrightness = Math.min(1, intensity + (fogConfig.clusterCoreBoost ?? 0.18));
-                const spotlight = ctx.createRadialGradient(
-                    cluster.center.x,
-                    cluster.center.y,
-                    0,
-                    cluster.center.x,
-                    cluster.center.y,
-                    clusterRadius
-                );
-                spotlight.addColorStop(0, `rgba(${spotlightColors.innerBase || '180, 200, 230'}, ${coreBrightness})`);
-                spotlight.addColorStop(0.6, spotlightColors.mid || 'rgba(80, 90, 120, 0.18)');
-                spotlight.addColorStop(1, spotlightColors.outer || 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = spotlight;
-                ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-            });
-        }
-
-        if (tileMask?.mask) {
-            const maskedOpacity = fogConfig.maskedFogOpacity ?? 0.82;
-            const overlayAlpha = Math.min(1, maskedOpacity + (tileMask.frontierOnly ? 0.05 : 0));
-            const maskKeys = Array.isArray(tileMask.mask)
-                ? tileMask.mask
-                : tileMask.mask instanceof Set
-                    ? Array.from(tileMask.mask)
-                    : tileMask.mask instanceof Map
-                        ? Array.from(tileMask.mask.keys())
-                        : [];
-
-            ctx.save();
-            ctx.globalAlpha = overlayAlpha;
-            maskKeys.forEach((key) => {
-                const hex = this.parseKey(key);
-                const position = hex.toPixel(layout);
-                const maskGradient = ctx.createRadialGradient(
-                    position.x,
-                    position.y,
-                    layout.size * 0.35,
-                    position.x,
-                    position.y,
-                    layout.size * 2.4
-                );
-                maskGradient.addColorStop(0, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
-                maskGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
-
-                ctx.beginPath();
-                for (let i = 0; i < 6; i += 1) {
-                    const angle = (2 * Math.PI / 6) * (i + 0.5);
-                    const x = position.x + layout.size * Math.cos(angle);
-                    const y = position.y + layout.size * Math.sin(angle);
-                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.fillStyle = maskGradient;
-                ctx.fill();
-            });
-            ctx.restore();
-        }
-    },
+    renderFogBackdrop(layout, fogMaskOptions = {}) { return renderFogBackdrop(this, layout, fogMaskOptions); },
 
     /**
      * Derive the average screen position for explored territory so the fog can
@@ -2086,18 +1883,7 @@ const Game = {
      * @param {Object} layout active hex layout
      * @returns {{x:number, y:number}} screen-space center of explored space
      */
-    getTerritoryScreenCenter(layout) {
-        const points = [];
-        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
-        maps.forEach(data => {
-            const hex = data.hex || data;
-            points.push(hex.toPixel(layout));
-        });
-        if (!points.length) return { x: this.viewport.width / 2, y: this.viewport.height / 2 };
-
-        const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-        return { x: sum.x / points.length, y: sum.y / points.length };
-    },
+    getTerritoryScreenCenter(layout) { return getTerritoryScreenCenter(this, layout); },
 
     /**
      * Identify contiguous explored clusters so the fog can glow around player-owned
@@ -2105,52 +1891,7 @@ const Game = {
      * @param {Object} layout active hex layout
      * @returns {Array<{center:{x:number,y:number}, size:number}>}
      */
-    collectExploredClusters(layout) {
-        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
-        const visited = new Set();
-        const clusters = [];
-        const eligible = (tile) => {
-            if (!tile) return false;
-            const owner = (tile.owner || 'player').toLowerCase();
-            return owner !== 'enemy' && owner !== 'scorched';
-        };
-
-        maps.forEach((tile, key) => {
-            if (visited.has(key) || !eligible(tile)) return;
-            const queue = [key];
-            const members = [];
-
-            while (queue.length) {
-                const currentKey = queue.shift();
-                if (visited.has(currentKey)) continue;
-                visited.add(currentKey);
-                const current = maps.get(currentKey);
-                if (!eligible(current)) continue;
-
-                const currentHex = current.hex || current;
-                members.push(currentHex);
-
-                for (let i = 0; i < 6; i += 1) {
-                    const neighbor = Hex.neighbor(currentHex, i);
-                    const neighborKey = neighbor.toString();
-                    if (!visited.has(neighborKey) && maps.has(neighborKey)) queue.push(neighborKey);
-                }
-            }
-
-            if (members.length) {
-                const sum = members.reduce((acc, hex) => {
-                    const p = hex.toPixel(layout);
-                    return { x: acc.x + p.x, y: acc.y + p.y };
-                }, { x: 0, y: 0 });
-                clusters.push({
-                    center: { x: sum.x / members.length, y: sum.y / members.length },
-                    size: members.length
-                });
-            }
-        });
-
-        return clusters;
-    },
+    collectExploredClusters(layout) { return collectExploredClusters(this, layout); },
     
     drawHex(layout, hex, fill, stroke, label, sub) {
         const ctx = this.ctx;

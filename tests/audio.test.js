@@ -402,12 +402,15 @@ function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
         ambient: { src: 'ambient', isAmbient: true, cooldownMs: 0 },
         wardrum: { src: 'wardrum', cooldownMs: 0 }
     }, { createAudio: createStubFactory(log) });
+    let managerStopAll = 0;
+    const baseStopAll = manager.stopAll.bind(manager);
+    manager.stopAll = () => { managerStopAll += 1; return baseStopAll(); };
 
     const conductor = {
-        stopCurrentCalls: 0,
+        stopAllCalls: 0,
         startArgs: null,
         enterModes: [],
-        stopCurrent(args) { this.stopCurrentCalls += 1; this.stopArgs = args; },
+        stopAll() { this.stopAllCalls += 1; },
         clearTimers() { this.cleared = true; },
         enterMode(mode) { this.enterModes.push(mode); },
         start(args) { this.startArgs = args; }
@@ -415,8 +418,8 @@ function testEnterCombatStopsAmbientAndFiresWardrumImmediately() {
 
     enterCombat(manager, conductor);
 
-    assert.strictEqual(conductor.stopCurrentCalls, 1, 'ambient should be stopped immediately when entering combat');
-    assert.strictEqual(conductor.stopArgs.fadeMs, 0, 'combat entry should not wait on long fades');
+    assert.strictEqual(conductor.stopAllCalls, 1, 'ambient should be stopped immediately when entering combat');
+    assert.strictEqual(managerStopAll, 1, 'audio manager should clear out lingering loops on combat entry');
     assert.deepStrictEqual(conductor.enterModes[0], 'WAR', 'combat entry should switch the playlist to war');
     assert.strictEqual(conductor.startArgs.fadeMs, 0, 'combat start should resume scheduler without a delay');
     assert.ok(log.find((node) => node.src === 'wardrum'), 'wardrum stinger should play instantly');
@@ -430,15 +433,22 @@ function testExitCombatRehomesAmbientAndPlaysOutcome() {
         victory: { src: 'victory', cooldownMs: 0 },
         defeat: { src: 'defeat', cooldownMs: 0 }
     }, { createAudio: createStubFactory(log) });
+    let managerStopAll = 0;
+    const baseStopAll = manager.stopAll.bind(manager);
+    manager.stopAll = () => { managerStopAll += 1; return baseStopAll(); };
 
     const conductor = {
         enterModes: [],
         startCalls: 0,
+        stopAllCalls: 0,
         enterMode(mode) { this.enterModes.push(mode); },
-        start(args) { this.startArgs = args; this.startCalls += 1; }
+        start(args) { this.startArgs = args; this.startCalls += 1; },
+        stopAll() { this.stopAllCalls += 1; }
     };
 
     exitCombat('victory', manager, conductor);
+    assert.strictEqual(managerStopAll, 1, 'combat exit should halt any overlapping ambience before playing stings');
+    assert.strictEqual(conductor.stopAllCalls, 1, 'combat exit should clear ambient scheduler before resuming territory');
     assert.strictEqual(conductor.enterModes[0], 'TERRITORY', 'victory should bounce ambience back to territory');
     assert.strictEqual(conductor.startArgs.fadeMs, 0, 'victory should restart ambience without delays');
     assert.ok(log.find((node) => node.src === 'victory'), 'victory stinger should play');
