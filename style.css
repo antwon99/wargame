@@ -764,21 +764,23 @@
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
         .sidebar h3 { margin: 0; letter-spacing: 0.5px; }
         .sidebar-section { display: flex; flex-direction: column; gap: 10px; }
-        .sidebar-section--scrollable { flex: 1 1 0; min-height: 180px; }
+        .sidebar-section--scrollable { flex: 0 0 auto; min-height: 0; }
         .save-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
         .save-slot {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.12);
             border-radius: 14px;
-            padding: 10px;
+            padding: 8px 10px;
             box-shadow: 0 8px 22px rgba(0,0,0,0.35);
             display: flex;
-            flex-direction: column;
-            gap: 6px;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
         }
+        .slot-details { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
         .slot-meta { color: #cdd6f4; font-weight: 700; font-size: 0.95rem; }
         .slot-caption { color: #8d8d9f; font-size: 0.82rem; }
-        .slot-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .slot-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .sidebar-close { padding: 8px 12px; }
 
         .settings-group {
@@ -1261,6 +1263,7 @@
             backdrop-filter: blur(4px);
             box-shadow: 0 6px 16px rgba(0,0,0,0.35);
         }
+        body.sidebar-open .debug-toggle { opacity: 0; pointer-events: none; }
         .debug-toggle:hover { background: rgba(255,255,255,0.14); }
         .debug-toggle:active { transform: translateY(1px); }
 
