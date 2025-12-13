@@ -348,6 +348,7 @@ function toggleSidebar(forceState) {
     if (!sidebar) return;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', shouldOpen);
+    document.body.classList.toggle('sidebar-open', shouldOpen);
 }
 
 /**
