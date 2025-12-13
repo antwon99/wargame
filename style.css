@@ -510,12 +510,12 @@
         .leaderboard {
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.1);
-            padding: 12px 14px;
+            padding: 10px 12px;
             border-radius: 16px;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
             backdrop-filter: blur(6px);
         }
         .board-row { display: flex; justify-content: space-between; font-weight: 700; color: #cdd6f4; }
@@ -760,11 +760,20 @@
             pointer-events: auto;
         }
         .sidebar.open { transform: translateX(0); }
-        .sidebar-inner { padding: 16px; display: flex; flex-direction: column; gap: 14px; height: 100%; overflow-y: auto; }
+        .sidebar-inner {
+            padding: 16px 16px max(36px, env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            height: 100%;
+            overflow-y: auto;
+            scrollbar-gutter: stable both-edges;
+        }
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
         .sidebar h3 { margin: 0; letter-spacing: 0.5px; }
         .sidebar-section { display: flex; flex-direction: column; gap: 10px; }
         .sidebar-section--scrollable { flex: 0 0 auto; min-height: 0; }
+        .sidebar-section--actions { padding-bottom: 8px; }
         .save-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
         .save-slot {
             background: rgba(255,255,255,0.05);
@@ -835,9 +844,12 @@
         }
 
         .leaderboard-scroll {
-            max-height: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            max-height: 220px;
             overflow-y: auto;
-            padding-right: 4px;
+            padding-right: 0;
+            scrollbar-gutter: stable both-edges;
         }
 
         /* HUD DRAWER */
