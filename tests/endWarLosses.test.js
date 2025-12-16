@@ -19,7 +19,7 @@ class Hex {
 function createElement() {
     const classes = new Set();
     return {
-        style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         classList: {
             add: (...names) => names.forEach((n) => classes.add(n)),
             remove: (...names) => names.forEach((n) => classes.delete(n))

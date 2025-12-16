@@ -10,7 +10,7 @@ function createStubElement(id = null) {
         children: [],
         className: '',
         dataset: {},
-        style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         innerText: '',
         appendChild(child) { this.children.push(child); child.parentNode = this; },
         setAttribute() {},

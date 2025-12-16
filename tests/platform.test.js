@@ -27,7 +27,7 @@ function testDesktopProfileKeepsNormalZoom() {
 }
 
 function testCanvasSizingAppliesDeviceScale() {
-    const canvas = { width: 0, height: 0, style: { setProperty(name, value) { this[name] = String(value); } } };
+    const canvas = { width: 0, height: 0, style: {} };
     const calls = [];
     const ctx = {
         setTransform: (...args) => calls.push(args)

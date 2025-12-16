@@ -11,13 +11,8 @@ const sanitizedSource = scriptSource
 
 function createElementStub(overrides = {}) {
     const classSet = new Set();
-    const style = {
-        setProperty(name, value) {
-            this[name] = String(value);
-        }
-    };
     return {
-        style,
+        style: {},
         dataset: {},
         width: 800,
         height: 600,
@@ -45,16 +40,7 @@ function createElementStub(overrides = {}) {
             add: (...names) => names.forEach(n => classSet.add(n)),
             remove: (...names) => names.forEach(n => classSet.delete(n)),
             contains: name => classSet.has(name),
-            toggle: (name, force) => {
-                const shouldAdd = force === undefined ? !classSet.has(name) : Boolean(force);
-                if (shouldAdd) {
-                    classSet.add(name);
-                    return true;
-                }
-
-                classSet.delete(name);
-                return false;
-            }
+            toggle: () => {}
         },
         addEventListener: () => {},
         remove: () => {},
@@ -175,31 +161,11 @@ function createImportStubs() {
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         START_TICK: 0,
         FOG_VISUAL_CONFIG: {},
-        FOG_VISUAL_MODES: { VOID: 'void', DEFAULT: 'default' },
         resolveFogInnerOpacity: () => 1,
         resolveFogParallax: () => 1,
         resolveFogVisualConfig: () => ({}),
         validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
-}
-
-const BOOTSTRAP_GLOBALS = {
-    ResearchSystem: {
-        getCostForTech: () => ({ gold: 0, wood: 0 }),
-        isAffordable: () => true,
-        hasRemainingPurchases: () => true,
-        recordPurchase: () => {},
-        getAvailableTechs: () => []
-    },
-    Persistence: {
-        DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null },
-        loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null }, slot: '1' }),
-        saveSnapshot: () => {}
-    }
-};
-
-function createGlobals(overrides = {}) {
-    return { ...BOOTSTRAP_GLOBALS, ...overrides };
 }
 
 async function loadGameModule({ globals = {} } = {}) {
@@ -231,7 +197,21 @@ async function loadGameModule({ globals = {} } = {}) {
 }
 
 async function testInitWithGlobalsPresent() {
-    const globals = createGlobals();
+    const globals = {
+        ResearchSystem: {
+            getCostForTech: () => ({ gold: 0, wood: 0 }),
+            isAffordable: () => true,
+            hasRemainingPurchases: () => true,
+            recordPurchase: () => {},
+            getAvailableTechs: () => []
+        },
+        Persistence: {
+            DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null },
+            loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null }, slot: '1' }),
+            saveSnapshot: () => {}
+        }
+    };
+
     const { window } = await loadGameModule({ globals });
     assert.ok(window.Game, 'Game should be attached to window when globals are present.');
     assert.strictEqual(window.Game.dependencyHealth.persistenceAvailable, true, 'Persistence should be detected when provided.');
@@ -243,30 +223,9 @@ async function testInitGracefullyHandlesMissingGlobals() {
     assert.strictEqual(window.Game.dependencyHealth.persistenceAvailable, false, 'Missing persistence should be reported gracefully.');
 }
 
-async function testMobileLayoutClassesFollowProfile() {
-    const globals = createGlobals({
-        PlatformAdapter: {
-            detectPlatformProfile: () => ({ isMobile: true, viewportWidth: 480, viewportHeight: 800, deviceScale: 2, baseZoom: 0.82 }),
-            sizeCanvasForDisplay: () => {}
-        }
-    });
-
-    const { window } = await loadGameModule({ globals });
-    const { body } = window.document;
-    const container = window.document.getElementById('game-container');
-
-    assert.strictEqual(window.Game.deviceProfile.isMobile, true, 'Mobile profile should be recorded on the Game instance.');
-    assert.ok(body.classList.contains('is-mobile'), 'Body should be marked as mobile for responsive HUD styling.');
-    assert.strictEqual(body.classList.contains('is-desktop'), false, 'Desktop class should not be present for mobile.');
-    assert.strictEqual(container.dataset.deviceProfile, 'mobile', 'Game container should expose the detected profile.');
-    assert.strictEqual(body.style['--ui-scale'], '0.9', 'Mobile layout should shrink overall HUD scale.');
-    assert.strictEqual(body.style['--ui-font-scale'], '0.9', 'Mobile layout should shrink typography scale.');
-}
-
 async function run() {
     await testInitWithGlobalsPresent();
     await testInitGracefullyHandlesMissingGlobals();
-    await testMobileLayoutClassesFollowProfile();
     console.log('Script module bootstrap tests passed.');
 }
 

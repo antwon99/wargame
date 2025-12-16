@@ -5,7 +5,7 @@ function createStubElement(id) {
         id,
         innerText: '',
         title: '',
-        style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         classList: {
             classes: new Set(),
             add(cls) { this.classes.add(cls); },

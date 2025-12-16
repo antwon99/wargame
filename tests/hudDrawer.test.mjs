@@ -6,7 +6,7 @@ function createStubElement(id = '') {
     const el = {
         id,
         children: [],
-    style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         dataset: {},
         _innerHTML: '',
         classList: {
