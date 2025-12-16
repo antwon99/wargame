@@ -1,3 +1,6 @@
+const { SFX_GROUPS, SFX_MANIFEST } = require('./audioConfig');
+const { AMBIENT_STATES } = require('./ambientConfig');
+
 /**
  * Utility for picking weighted entries so audio variants can bias toward
  * certain takes while still keeping the mix fresh.
@@ -99,6 +102,109 @@ const AMBIENT_DEFAULTS = {
 const AMBIENT_FEATURE_FLAGS = {
     bedsEnabled: true
 };
+
+/**
+ * Dedicated timer book-keeper for ambient playback. Separating this logic keeps
+ * AmbientConductor focused on state transitions while still allowing tests to
+ * inject deterministic schedulers.
+ */
+class AmbientScheduler {
+    constructor(backend = {}) {
+        this.backend = {
+            setTimeout: backend.setTimeout ? backend.setTimeout.bind(backend) : ((...args) => setTimeout(...args)),
+            clearTimeout: backend.clearTimeout ? backend.clearTimeout.bind(backend) : ((id) => clearTimeout(id)),
+            setInterval: backend.setInterval ? backend.setInterval.bind(backend) : ((...args) => setInterval(...args)),
+            clearInterval: backend.clearInterval ? backend.clearInterval.bind(backend) : ((id) => clearInterval(id))
+        };
+        this.fadeIntervals = new Map();
+        this.nextTimer = null;
+        this.fallbackTimer = null;
+    }
+
+    scheduleNext(callback, delayMs) {
+        this.clearNext();
+        this.nextTimer = this.backend.setTimeout(callback, delayMs);
+        return this.nextTimer;
+    }
+
+    scheduleFallback(callback, delayMs) {
+        this.clearFallback();
+        this.fallbackTimer = this.backend.setTimeout(callback, delayMs);
+        return this.fallbackTimer;
+    }
+
+    clearNext() {
+        if (this.nextTimer !== null) {
+            this.backend.clearTimeout(this.nextTimer);
+            this.nextTimer = null;
+        }
+    }
+
+    clearFallback() {
+        if (this.fallbackTimer !== null) {
+            this.backend.clearTimeout(this.fallbackTimer);
+            this.fallbackTimer = null;
+        }
+    }
+
+    scheduleFade(node, intervalMs, stepFn) {
+        if (!node || typeof stepFn !== 'function') return null;
+        this.clearFade(node);
+        const id = this.backend.setInterval(stepFn, intervalMs);
+        this.fadeIntervals.set(node, id);
+        return id;
+    }
+
+    clearFade(node) {
+        const intervalId = this.fadeIntervals.get(node);
+        if (intervalId !== undefined) {
+            this.backend.clearInterval(intervalId);
+            this.fadeIntervals.delete(node);
+        }
+    }
+
+    clearAll() {
+        this.clearNext();
+        this.clearFallback();
+        this.fadeIntervals.forEach((intervalId) => this.backend.clearInterval(intervalId));
+        this.fadeIntervals.clear();
+    }
+}
+
+/**
+ * Encapsulates the randomness powering ambient playback: how long to wait, and
+ * which track to pick. Keeping this separate makes it easy to swap in
+ * deterministic RNGs for tests or analytics.
+ */
+class AmbientRandomizer {
+    constructor(randomFn = Math.random, defaults = AMBIENT_DEFAULTS) {
+        this.random = randomFn;
+        this.defaults = defaults;
+        this.trackSelectors = new Map();
+    }
+
+    randomSilence(config = {}) {
+        const [min, max] = config.silenceRangeMs || [this.defaults.minSilenceMs, this.defaults.maxSilenceMs];
+        const span = Math.max(0, max - min);
+        return min + Math.floor(this.random() * span);
+    }
+
+    randomInitialDelay() {
+        const [min, max] = this.defaults.initialDelayRangeMs;
+        const span = Math.max(0, max - min);
+        return min + Math.floor(this.random() * span);
+    }
+
+    pickTrack(mode, tracks = []) {
+        if (!tracks.length) return null;
+        let selector = this.trackSelectors.get(mode);
+        if (!selector || selector.source !== tracks) {
+            selector = new WeightedSelector(tracks);
+            this.trackSelectors.set(mode, selector);
+        }
+        return selector.pick(this.random);
+    }
+}
 
 /**
  * AudioManager centralizes playback for UI and combat events.
@@ -400,25 +506,19 @@ function defaultAudioFactory(src) {
 class AmbientConductor {
     constructor(audioManager, options = {}) {
         this.audioManager = audioManager;
-        this.random = options.random || Math.random;
         this.currentMode = options.initialMode || 'TERRITORY';
         this.states = options.states || {};
         this.maxOverlapMs = options.maxOverlapMs || 10000;
         this.bedsEnabled = options.bedsEnabled ?? AMBIENT_FEATURE_FLAGS.bedsEnabled;
-        this.scheduler = options.scheduler || {
-            setTimeout: (...args) => setTimeout(...args),
-            clearTimeout: (id) => clearTimeout(id),
-            setInterval: (...args) => setInterval(...args),
-            clearInterval: (id) => clearInterval(id)
-        };
-        this.trackSelectors = new Map();
+        const defaults = { ...AMBIENT_DEFAULTS, ...(options.defaults || {}) };
+        this.defaults = defaults;
+        this.randomizer = options.randomizer || new AmbientRandomizer(options.random || Math.random, defaults);
+        this.scheduler = options.scheduler instanceof AmbientScheduler
+            ? options.scheduler
+            : new AmbientScheduler(options.scheduler || {});
         this.activeHandle = null;
         this.activeBeds = new Map();
-        this.nextTimer = null;
-        this.fallbackTimer = null;
         this.active = false;
-        this.fadeIntervals = new Map();
-        this.defaults = { ...AMBIENT_DEFAULTS, ...(options.defaults || {}) };
     }
 
     /** Begin scheduling tracks for the current mode. Safe to call repeatedly. */
@@ -463,12 +563,7 @@ class AmbientConductor {
     }
 
     clearTimers() {
-        if (this.nextTimer) this.scheduler.clearTimeout(this.nextTimer);
-        this.fadeIntervals.forEach((intervalId) => this.scheduler.clearInterval(intervalId));
-        this.fadeIntervals.clear();
-        if (this.fallbackTimer) this.scheduler.clearTimeout(this.fallbackTimer);
-        this.nextTimer = null;
-        this.fallbackTimer = null;
+        this.scheduler.clearAll();
     }
 
     scheduleNext(immediate = false, customDelay) {
@@ -477,8 +572,8 @@ class AmbientConductor {
         if (!config) return;
         const delay = typeof customDelay === 'number'
             ? Math.max(0, customDelay)
-            : (immediate ? this.randomInitialDelay() : this.randomSilence(config));
-        this.nextTimer = this.scheduler.setTimeout(() => this.launchTrack(), delay);
+            : (immediate ? this.randomizer.randomInitialDelay() : this.randomizer.randomSilence(config));
+        this.scheduler.scheduleNext(() => this.launchTrack(), delay);
     }
 
     launchTrack() {
@@ -486,7 +581,7 @@ class AmbientConductor {
         if (!config) return;
         this.startBedsForMode(this.currentMode, config.fadeMs);
         const previousHandle = this.activeHandle;
-        const track = this.pickTrack(config.tracks);
+        const track = this.randomizer.pickTrack(this.currentMode, config.tracks);
         if (!track) {
             this.scheduleNext();
             return;
@@ -534,28 +629,22 @@ class AmbientConductor {
         } else if (node) {
             node.onended = () => this.handleTrackEnded();
         }
-        this.fallbackTimer = this.scheduler.setTimeout(() => this.handleTrackEnded('timeout'), maxMs);
+        this.scheduler.scheduleFallback(() => this.handleTrackEnded('timeout'), maxMs);
     }
 
     handleTrackEnded(reason = 'ended') {
         const config = this.getConfig();
         if (!config) return;
-        if (this.fallbackTimer) {
-            this.scheduler.clearTimeout(this.fallbackTimer);
-            this.fallbackTimer = null;
-        }
+        this.scheduler.clearFallback();
         this.stopCurrent({ fadeMs: this.getFadeOutDuration(config) });
-        this.scheduleNext(false, this.randomSilence(config));
+        this.scheduleNext(false, this.randomizer.randomSilence(config));
     }
 
     stopCurrent(options = {}) {
         if (!this.activeHandle || !this.activeHandle.node) return;
         const handleRef = this.activeHandle;
         const node = handleRef.node;
-        if (this.fallbackTimer) {
-            this.scheduler.clearTimeout(this.fallbackTimer);
-            this.fallbackTimer = null;
-        }
+        this.scheduler.clearFallback();
         const fadeMs = Math.min(options.fadeMs ?? handleRef.fadeMs ?? 0, this.maxOverlapMs);
         if (fadeMs <= 0) {
             if (node.pause) node.pause();
@@ -593,9 +682,7 @@ class AmbientConductor {
             const nextVol = Math.max(0, Math.min(1, scaledStart + delta * step));
             node.volume = nextVol;
             if (step >= steps) {
-                const intervalId = this.fadeIntervals.get(node);
-                if (intervalId) this.scheduler.clearInterval(intervalId);
-                this.fadeIntervals.delete(node);
+                this.scheduler.clearFade(node);
                 if (onDone) onDone();
             }
         };
@@ -605,32 +692,7 @@ class AmbientConductor {
             if (onDone) onDone();
             return;
         }
-        const existingInterval = this.fadeIntervals.get(node);
-        if (existingInterval) this.scheduler.clearInterval(existingInterval);
-        const intervalId = this.scheduler.setInterval(applyStep, durationMs / steps);
-        this.fadeIntervals.set(node, intervalId);
-    }
-
-    randomSilence(config) {
-        const [min, max] = config.silenceRangeMs || [this.defaults.minSilenceMs, this.defaults.maxSilenceMs];
-        const span = Math.max(0, max - min);
-        return min + Math.floor(this.random() * span);
-    }
-
-    randomInitialDelay() {
-        const [min, max] = this.defaults.initialDelayRangeMs;
-        const span = Math.max(0, max - min);
-        return min + Math.floor(this.random() * span);
-    }
-
-    pickTrack(tracks = []) {
-        if (!tracks.length) return null;
-        let selector = this.trackSelectors.get(this.currentMode);
-        if (!selector || selector.source !== tracks) {
-            selector = new WeightedSelector(tracks);
-            this.trackSelectors.set(this.currentMode, selector);
-        }
-        return selector.pick(this.random);
+        this.scheduler.scheduleFade(node, durationMs / steps, applyStep);
     }
 
     getFadeInDuration(config, track) {
@@ -724,88 +786,6 @@ class AmbientConductor {
         });
     }
 }
-
-const SFX_GROUPS = {
-    ambientLoops: ['sfx/ambient/ambient.mp3'],
-    // Wind bed intentionally disabled until a distinct loop is available to avoid
-    // stacking the same ambience twice.
-    windBeds: [],
-    wardrums: ['sfx/system/wardrum.mp3'],
-    city: ['sfx/territory/city.mp3'],
-    swords: [
-        { src: 'sfx/combat/sword/sword.mp3', weight: 2 },
-        { src: 'sfx/combat/sword/sword2.mp3', weight: 1 },
-        { src: 'sfx/combat/sword/sword3.mp3', weight: 1 },
-        { src: 'sfx/combat/sword/sword4.mp3', weight: 1 },
-        { src: 'sfx/combat/sword/sword5.mp3', weight: 1 }
-    ],
-    arrows: [
-        { src: 'sfx/combat/arrow/arrow.mp3', weight: 2 },
-        { src: 'sfx/combat/arrow/arrow2.mp3', weight: 1 },
-        { src: 'sfx/combat/arrow/arrow3.mp3', weight: 1 },
-        { src: 'sfx/combat/arrow/arrow4.mp3', weight: 1 }
-    ],
-    towers: [
-        { src: 'sfx/combat/tower/tower.mp3', weight: 2 },
-        { src: 'sfx/combat/tower/tower2.mp3', weight: 1 },
-        { src: 'sfx/combat/tower/tower3.mp3', weight: 1 }
-    ],
-    rares: [
-        { src: 'sfx/ui/rare.mp3', weight: 2 },
-        { src: 'sfx/ui/rare2.mp3', weight: 1 },
-        { src: 'sfx/ui/rare3.mp3', weight: 1 }
-    ],
-    victory: ['sfx/system/victory.mp3'],
-    defeat: ['sfx/system/defeat.mp3'],
-    territoryMusic: [
-        'sfx/ambient/ambiance_upbeat.mp3',
-        'sfx/ambient/ambiance_uplifting.mp3'
-    ],
-    warMusic: [
-        'sfx/ambient/ambiance_sorrow.mp3',
-        'sfx/ambient/ambiance_dark.mp3'
-    ],
-    /**
-     * Choptree straddles UI feedback and resource collection but currently
-     * lives alongside other territory cues to keep surface interactions
-     * bundled together.
-     */
-    misc: ['sfx/territory/choptree.mp3']
-};
-
-const SFX_MANIFEST = {
-    wardrum: { src: SFX_GROUPS.wardrums[0], cooldownMs: 1200 },
-    sword: {
-        allowOverlap: true,
-        cooldownMs: 90,
-        variations: SFX_GROUPS.swords
-    },
-    arrow: {
-        allowOverlap: true,
-        cooldownMs: 90,
-        variations: SFX_GROUPS.arrows
-    },
-    tower: {
-        allowOverlap: true,
-        cooldownMs: 120,
-        variations: SFX_GROUPS.towers
-    },
-    rare: {
-        allowOverlap: true,
-        cooldownMs: 140,
-        variations: SFX_GROUPS.rares
-    },
-    defeat: { src: SFX_GROUPS.defeat[0], cooldownMs: 400 },
-    victory: { src: SFX_GROUPS.victory[0], cooldownMs: 400 },
-    city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
-    choptree: { src: SFX_GROUPS.misc[0], cooldownMs: 100 },
-    ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0, category: 'music' },
-    ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
-    ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
-    ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
-    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
-};
-
 const COMBAT_STINGERS = new Set(['wardrum']);
 
 /**
@@ -857,31 +837,6 @@ function attachCombatStingerGuards(manager) {
 
 const GameAudio = attachCombatStingerGuards(new AudioManager(SFX_MANIFEST));
 
-const AMBIENT_STATES = {
-    TERRITORY: {
-        tracks: [
-            { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
-            { key: 'ambiance_uplifting', weight: 1, volume: 0.55 }
-        ],
-        beds: [],
-        silenceRangeMs: [14000, 42000],
-        fadeMs: 1600,
-        maxTrackMs: 120000,
-        volume: 0.55
-    },
-    WAR: {
-        tracks: [
-            { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
-            { key: 'ambiance_dark', weight: 1, volume: 0.62 }
-        ],
-        beds: [],
-        silenceRangeMs: [12000, 36000],
-        fadeMs: 1800,
-        maxTrackMs: 110000,
-        volume: 0.62
-    }
-};
-
 const AmbientSoundscape = new AmbientConductor(GameAudio, { initialMode: 'TERRITORY', states: AMBIENT_STATES });
 
 /**
@@ -928,7 +883,7 @@ function exitCombat(outcome, audioManager = GameAudio, ambient = AmbientSoundsca
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat, attachCombatStingerGuards };
+    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientScheduler, AmbientRandomizer, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat, attachCombatStingerGuards };
 }
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;
