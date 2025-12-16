@@ -134,33 +134,6 @@ function clampImperialFavor(value) {
     return Math.min(10, Math.max(1, numeric));
 }
 
-/**
- * Tag the document with device-awareness classes so the HUD can pivot to a
- * mobile-friendly layout while leaving desktop styling untouched.
- *
- * @param {Object} profile platform description from Platform.detectPlatformProfile().
- */
-function applyPlatformLayout(profile) {
-    if (typeof document === 'undefined' || !profile) return;
-    const root = document.body;
-    if (!root || !root.classList) return;
-
-    root.classList.toggle('is-mobile', Boolean(profile.isMobile));
-    root.classList.toggle('is-desktop', !profile.isMobile);
-
-    const uiScale = profile.isMobile ? 0.9 : 1;
-    const fontScale = profile.isMobile ? 0.9 : 1;
-    if (root.style) {
-        root.style.setProperty('--ui-scale', uiScale);
-        root.style.setProperty('--ui-font-scale', fontScale);
-    }
-
-    const container = document.getElementById('game-container');
-    if (container && container.dataset) {
-        container.dataset.deviceProfile = profile.isMobile ? 'mobile' : 'desktop';
-    }
-}
-
 const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
     ? window.PlatformAdapter
     : {
@@ -766,7 +739,6 @@ const Game = {
         };
 
         Platform.sizeCanvasForDisplay(this.canvas, this.ctx, this.deviceProfile);
-        applyPlatformLayout(this.deviceProfile);
 
         this.camBase = { x: this.viewport.width / 2, y: this.viewport.height / 2 };
         this.cam.x = this.camBase.x;

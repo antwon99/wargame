@@ -4,7 +4,7 @@ const Persistence = require('../scripts/persistence.js');
 const rafCalls = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}) };
 const genericElement = {
-    style: { setProperty(name, value) { this[name] = String(value); } },
+    style: {},
     textContent: '',
     addEventListener: () => {},
     onclick: null,

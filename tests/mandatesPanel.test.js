@@ -7,7 +7,7 @@ function createStubElement(tag = 'div') {
         tag,
         children: [],
         className: '',
-        style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         _innerHTML: '',
         innerText: '',
         addEventListener() {},

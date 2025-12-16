@@ -5,7 +5,7 @@ function createStubElement() {
     const listeners = {};
     const classSet = new Set();
     return {
-    style: { setProperty(name, value) { this[name] = String(value); } },
+        style: {},
         textContent: '',
         addEventListener: (event, cb) => {
             listeners[event] = listeners[event] || [];

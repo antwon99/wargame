@@ -6,7 +6,7 @@ const Persistence = require('../scripts/persistence.js');
 const capturedTexts = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}), addEventListener: () => {} };
 const genericElement = {
-    style: { setProperty(name, value) { this[name] = String(value); } },
+    style: {},
     addEventListener: () => {},
     onclick: null,
     dataset: {},
