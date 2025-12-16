@@ -11,6 +11,8 @@
         || (typeof require === 'function' ? require('./rebelSystem.js') : {});
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
+    const MandateCalendar = (global.ImperialMandateCalendar)
+        || (typeof require === 'function' ? require('./imperialMandateCalendar.js') : null);
     function getNotificationStackApi() {
         return global.NotificationStackApi || null;
     }
@@ -94,83 +96,35 @@
         return next;
     }
 
-    /**
-     * Timekeeper-aligned helpers to keep mandate pacing in calendar units while
-     * storing the authoritative timers in ticks.
-     */
-    const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
-    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    function getMonthLabel(monthNumber) {
-        const safeMonth = Math.max(1, Number.isFinite(monthNumber) ? monthNumber : 1);
-        const monthIndex = safeMonth - 1;
-        const year = Math.floor(monthIndex / 12) + 1;
-        const name = MONTH_NAMES[monthIndex % MONTH_NAMES.length];
-        return { label: `${name} Y${year}`, name, year };
-    }
-    function getTimeConfig(gameState) {
-        const tk = gameState?.timekeeper;
-        return {
-            daysPerWeek: Number.isFinite(tk?.daysPerWeek) ? tk.daysPerWeek : DEFAULT_TIME_CONFIG.daysPerWeek,
-            weeksPerMonth: Number.isFinite(tk?.weeksPerMonth)
-                ? tk.weeksPerMonth
-                : DEFAULT_TIME_CONFIG.weeksPerMonth
-        };
-    }
-
-    function convertToTicks(units = {}, gameState) {
-        if (!units || typeof units !== 'object') return 0;
-        const config = getTimeConfig(gameState);
-        const monthsToDays = (units.months || 0) * config.weeksPerMonth * config.daysPerWeek;
-        const weeksToDays = (units.weeks || 0) * config.daysPerWeek;
-        return Math.max(0, (units.days || 0) + weeksToDays + monthsToDays);
-    }
-
-    function getCalendarForTick(tick, gameState) {
-        const config = getTimeConfig(gameState);
-        const safeTicks = Math.max(0, Number.isFinite(tick) ? tick : 0);
-        const day = safeTicks + 1;
-        const week = Math.floor((day - 1) / config.daysPerWeek);
-        const month = Math.floor(week / config.weeksPerMonth) + 1;
-        const weekOfMonth = (week % config.weeksPerMonth) + 1;
-        const dayOfWeek = ((day - 1) % config.daysPerWeek) + 1;
-        const daysPerMonth = config.daysPerWeek * config.weeksPerMonth;
-        const dayOfMonth = (weekOfMonth - 1) * config.daysPerWeek + dayOfWeek;
-        const monthMeta = getMonthLabel(month);
-        return { dayOfWeek, weekOfMonth, month, day, dayOfMonth, daysPerMonth, monthName: monthMeta.name, year: monthMeta.year };
-    }
-
-    function formatCalendarLabel(tick, gameState) {
-        const cal = getCalendarForTick(tick, gameState);
-        const config = getTimeConfig(gameState);
-        const label = getMonthLabel(cal.month).label;
-        return `M: ${label} | W: ${cal.weekOfMonth}/${config.weeksPerMonth} | D: ${cal.dayOfMonth}/${cal.daysPerMonth}`;
-    }
+    const {
+        convertToTicks = () => 0,
+        formatCalendarLabel = () => 'M: Jan Y1 | W: 1/4 | D: 1/28',
+        describeDeadlineTick: describeDeadlineTickWithCurrent,
+        getMinimumMandateSpacing: calendarMinimumMandateSpacing,
+        getEarliestIssueTick: calendarEarliestIssueTick
+    } = MandateCalendar || {};
 
     /**
      * Convert an absolute mandate deadline into human-readable calendar text and
-     * a remaining-day delta for UI overlays.
-     *
-     * The helper defaults to the last observed game state for calendar pacing so
-     * HUD overlays remain accurate even when they are rendered from outside the
-     * mandate engine.
+     * a remaining-day delta for UI overlays while staying decoupled from the state machine.
      * @param {number|null|undefined} deadlineTick tick on which the mandate expires.
      * @param {object} [gameState] optional live game reference for time config.
      * @returns {{ label: string, remainingDays: number|null }}
      */
     function describeDeadlineTick(deadlineTick, gameState) {
+        if (typeof describeDeadlineTickWithCurrent === 'function') {
+            return describeDeadlineTickWithCurrent(deadlineTick, state.currentTick, gameState || state.lastGameState);
+        }
         if (!Number.isFinite(deadlineTick)) {
             return { label: 'No fixed deadline', remainingDays: null };
         }
-
         const normalizedTick = Math.max(0, deadlineTick);
-        const ctx = gameState || state.lastGameState;
-        const label = formatCalendarLabel(Math.max(0, normalizedTick - 1), ctx);
-        const remainingDays = normalizedTick - state.currentTick;
-        return { label, remainingDays };
+        const label = formatCalendarLabel(Math.max(0, normalizedTick - 1), gameState || state.lastGameState);
+        return { label, remainingDays: normalizedTick - state.currentTick };
     }
 
     function getMinimumMandateSpacing(gameState) {
+        if (typeof calendarMinimumMandateSpacing === 'function') return calendarMinimumMandateSpacing(gameState);
         return convertToTicks({ weeks: 1, days: 2 }, gameState);
     }
 
@@ -181,7 +135,8 @@
     }
 
     function getEarliestIssueTick(entry, gameState) {
-        if (!entry.definition.earliestIssue) return 0;
+        if (typeof calendarEarliestIssueTick === 'function') return calendarEarliestIssueTick(entry, gameState);
+        if (!entry?.definition?.earliestIssue) return 0;
         return convertToTicks(entry.definition.earliestIssue, gameState);
     }
 

@@ -431,7 +431,14 @@ export function isFrontier(game, key, who, hexImpl) {
     // this ensures tiles directly next to the castle are buildable at war start
     // even if no other friendly buildings have been placed yet.
     const castleHex = game?.combat?.castles?.[who];
-    if (castleHex && Hex.distance(hex, castleHex) === 1) return true;
+    if (castleHex && Hex.distance(hex, castleHex) === 1) {
+        const neighbors = Array.from({ length: 6 }, (_unused, i) => Hex.neighbor(hex, i));
+        const matchesCastle = neighbors.some((n) => {
+            if (typeof n.equals === 'function') return n.equals(castleHex);
+            return n.toString() === castleHex.toString();
+        });
+        if (matchesCastle) return true;
+    }
 
     for(let i=0; i<6; i++) {
         const n = Hex.neighbor(hex, i);
