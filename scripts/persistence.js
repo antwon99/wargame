@@ -9,10 +9,16 @@
     const STORAGE_KEY = `${STORAGE_PREFIX}1`;
     const STATS_KEY = `${STATS_PREFIX}1`;
     const DEFAULT_IMPERIAL_FAVOR = 5;
+    const DEFAULT_DAYS_PER_WEEK = 7;
+    const DEFAULT_WEEKS_PER_MONTH = 4;
+    const DEFAULT_START_MONTH_INDEX = Number.isFinite(global.START_MONTH_INDEX) ? global.START_MONTH_INDEX : 3;
+    const DEFAULT_START_TICK = Number.isFinite(global.START_TICK)
+        ? global.START_TICK
+        : DEFAULT_START_MONTH_INDEX * DEFAULT_DAYS_PER_WEEK * DEFAULT_WEEKS_PER_MONTH;
     const DEFAULT_TIMEKEEPER = {
-        ticks: 0,
-        daysPerWeek: 8,
-        weeksPerMonth: 5
+        ticks: DEFAULT_START_TICK,
+        daysPerWeek: DEFAULT_DAYS_PER_WEEK,
+        weeksPerMonth: DEFAULT_WEEKS_PER_MONTH
     };
     const DEFAULT_STATS = {
         totalKills: 0,

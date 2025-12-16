@@ -17,7 +17,8 @@ global.Hex = class Hex {
 
 const Persistence = require('../scripts/persistence.js');
 
-function runTests() {
+async function runTests() {
+    const { Timekeeper, START_TICK } = await import('../scripts/timekeeper.js');
     const INCOME_TABLE = {
         castle: { gold: 2, wood: 1 },
         town: { gold: 2 },
@@ -143,6 +144,28 @@ function runTests() {
     assert.strictEqual(sanitized.overworld.hexes.get('2,0').owner, null, 'unknown owners should be coerced to null');
     assert.strictEqual(sanitized.overworld.hexes.get('3,0').owner, 'rebel', 'recognized owners should be normalized to lowercase');
 
+    // Legacy saves without timekeeper data should inherit calendar defaults
+    const legacySnapshot = {
+        gold: 10,
+        wood: 2,
+        difficulty: 0,
+        upgrades: {},
+        overworld: { hexes: [] },
+        stats: {}
+    };
+    const legacyRestore = Persistence.deserializeGameState(legacySnapshot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.strictEqual(legacyRestore.timekeeper.ticks, START_TICK, 'missing timekeeper ticks should align to the default start tick');
+    assert.strictEqual(legacyRestore.timekeeper.daysPerWeek, 7, 'legacy saves should default to seven-day weeks');
+    assert.strictEqual(legacyRestore.timekeeper.weeksPerMonth, 4, 'legacy saves should default to four-week months');
+
+    const restoredCalendar = new Timekeeper({
+        startTick: legacyRestore.timekeeper.ticks,
+        daysPerWeek: legacyRestore.timekeeper.daysPerWeek,
+        weeksPerMonth: legacyRestore.timekeeper.weeksPerMonth
+    }).getCalendar();
+    const defaultCalendar = new Timekeeper().getCalendar();
+    assert.deepStrictEqual(restoredCalendar, defaultCalendar, 'restored calendar math should match Timekeeper defaults');
+
     // Save/Load via mocked storage
     const saveGame = {
         gold: 77,
@@ -263,4 +286,7 @@ function runTests() {
     console.log('All persistence tests passed.');
 }
 
-runTests();
+runTests().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+});
