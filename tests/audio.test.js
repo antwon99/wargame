@@ -4,6 +4,8 @@ const {
     SFX_GROUPS,
     SFX_MANIFEST,
     AmbientConductor,
+    AmbientScheduler,
+    AmbientRandomizer,
     enterCombat,
     exitCombat,
     attachCombatStingerGuards
@@ -46,6 +48,39 @@ function createManualScheduler() {
         setInterval(fn) { this.intervals.push(fn); return this.intervals.length - 1; },
         clearInterval(id) { this.intervals[id] = null; }
     };
+}
+
+function testAmbientRandomizerRespectsWeightsAndDelays() {
+    const randomizer = new AmbientRandomizer(() => 0.9, {
+        initialDelayRangeMs: [100, 200],
+        minSilenceMs: 10,
+        maxSilenceMs: 30
+    });
+
+    const track = randomizer.pickTrack('TEST', [
+        { key: 'light', weight: 1 },
+        { key: 'heavy', weight: 3 }
+    ]);
+    assert.strictEqual(track.key, 'heavy', 'randomizer should respect weighted picks');
+    assert.strictEqual(randomizer.randomInitialDelay(), 190, 'initial delay should honor provided defaults');
+    assert.strictEqual(randomizer.randomSilence({ silenceRangeMs: [10, 30] }), 28, 'silence window should derive from RNG');
+}
+
+function testAmbientSchedulerClearsAllTrackedTimers() {
+    const backend = createManualScheduler();
+    const scheduler = new AmbientScheduler(backend);
+    const node = { id: 'fade-node' };
+
+    scheduler.scheduleNext(() => {}, 10);
+    scheduler.scheduleFallback(() => {}, 20);
+    scheduler.scheduleFade(node, 5, () => {});
+
+    assert.ok(backend.timeouts.filter(Boolean).length >= 2, 'scheduler should store scheduled timeouts');
+    assert.ok(backend.intervals.filter(Boolean).length >= 1, 'scheduler should store fade intervals');
+
+    scheduler.clearAll();
+    assert.ok(backend.timeouts.every((t) => t === null), 'clearAll should clear timeouts');
+    assert.ok(backend.intervals.every((i) => i === null), 'clearAll should clear intervals');
 }
 
 function testCooldownPreventsSpam() {
@@ -666,6 +701,8 @@ function testImperialMessagingGuardsWardrumPlayback() {
 }
 
 function run() {
+    testAmbientRandomizerRespectsWeightsAndDelays();
+    testAmbientSchedulerClearsAllTrackedTimers();
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
     testAmbientLoop();
