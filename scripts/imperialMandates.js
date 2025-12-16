@@ -13,6 +13,8 @@
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
     const MandateCalendar = (global.ImperialMandateCalendar)
         || (typeof require === 'function' ? require('./imperialMandateCalendar.js') : null);
+    const ImperialMandateRegistry = (global.ImperialMandateRegistry)
+        || (typeof require === 'function' ? require('./imperialMandateRegistry.js') : null);
     function getNotificationStackApi() {
         return global.NotificationStackApi || null;
     }
@@ -36,6 +38,16 @@
 
     const DEFAULT_IMPERIAL_FAVOR = 5;
     const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
+
+    /**
+     * Locate a declarative mandate blueprint without coupling to runtime logic.
+     * @param {string} id mandate identifier.
+     * @returns {object|null} registry entry when found.
+     */
+    function getMandateBlueprint(id) {
+        if (!Array.isArray(ImperialMandateRegistry)) return null;
+        return ImperialMandateRegistry.find((entry) => entry.id === id) || null;
+    }
 
     /**
      * Shield decree/notification rendering from combat stingers so overlays do not
@@ -664,11 +676,13 @@
 
     // --- Mandate definitions ---
     function buildRebelMandate() {
+        const blueprint = getMandateBlueprint('destroy_first_rebel_camp') || {};
         return {
+            ...blueprint,
             id: 'destroy_first_rebel_camp',
-            title: 'Frontier Sweep',
-            description: 'Destroy the first rebel encampment seeded near the foggy frontier before the Emperor loses patience.',
-            duration: { weeks: 3 },
+            title: blueprint.title || 'Frontier Sweep',
+            description: blueprint.description || 'Destroy the first rebel encampment seeded near the foggy frontier before the Emperor loses patience.',
+            duration: blueprint.duration || { weeks: 3 },
             createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true, deadlineWarned: false }),
             triggerPredicate: ({ gameState }) => Boolean(gameState?.overworld?.hexes?.size),
             onIssue: ({ gameState, uiBindings, mandate }) => {
@@ -740,13 +754,15 @@
     }
 
     function buildTaxLevyMandate() {
+        const blueprint = getMandateBlueprint('levy_tithed_gold') || {};
         return {
+            ...blueprint,
             id: 'levy_tithed_gold',
-            title: 'Imperial Tax Levy',
-            description: 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
-            duration: { weeks: 1, days: 4 },
+            title: blueprint.title || 'Imperial Tax Levy',
+            description: blueprint.description || 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
+            duration: blueprint.duration || { weeks: 1, days: 4 },
             createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 1, days: 2 },
+            earliestIssue: blueprint.earliestIssue || { weeks: 1, days: 2 },
             triggerPredicate: ({ gameState }) => (gameState?.gold || 0) >= 120,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const requiredGold = Math.max(150, Math.floor((gameState?.gold || 0) * 0.6));
@@ -791,13 +807,15 @@
     }
 
     function buildExpansionMandate() {
+        const blueprint = getMandateBlueprint('push_the_frontier') || {};
         return {
+            ...blueprint,
             id: 'push_the_frontier',
-            title: 'Push the Frontier',
-            description: 'Claim additional territory before the frontier stagnates. Expansion proves loyalty.',
-            duration: { weeks: 2, days: 3 },
+            title: blueprint.title || 'Push the Frontier',
+            description: blueprint.description || 'Claim additional territory before the frontier stagnates. Expansion proves loyalty.',
+            duration: blueprint.duration || { weeks: 2, days: 3 },
             createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 2, days: 4 },
+            earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 4 },
             triggerPredicate: ({ gameState }) => (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;
@@ -839,13 +857,15 @@
      * Rewards a logistics stipend when enough resources are staged before the inspectors arrive.
      */
     function buildInfrastructureQuotaMandate() {
+        const blueprint = getMandateBlueprint('infrastructure_quota') || {};
         return {
+            ...blueprint,
             id: 'infrastructure_quota',
-            title: 'Infrastructure Quota',
-            description: 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
-            duration: { weeks: 1, days: 1 },
+            title: blueprint.title || 'Infrastructure Quota',
+            description: blueprint.description || 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
+            duration: blueprint.duration || { weeks: 1, days: 1 },
             createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 2, days: 3 },
+            earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 3 },
             triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const baselineWood = Math.max(0, gameState?.wood || 0);
@@ -890,8 +910,8 @@
                     'Future quotas will draw heavier scrutiny.'
                 ], uiBindings, 'Quota Missed', { tone: 'warning' });
             },
-            successFavorDelta: 2,
-            failureFavorDelta: -2
+            successFavorDelta: blueprint.successFavorDelta ?? 2,
+            failureFavorDelta: blueprint.failureFavorDelta ?? -2
         };
     }
 
@@ -900,13 +920,15 @@
      * Each cycle demands a heavy portion of the chosen reserve but returns a modest rebate when satisfied early.
      */
     function buildRotatingLevyMandate() {
+        const blueprint = getMandateBlueprint('rotating_resource_levy') || {};
         return {
+            ...blueprint,
             id: 'rotating_resource_levy',
-            title: 'Rotating Imperial Levy',
-            description: 'Alternate between gold and timber tributes so the treasury stays balanced and the navy stays supplied.',
-            duration: { weeks: 1, days: 4 },
+            title: blueprint.title || 'Rotating Imperial Levy',
+            description: blueprint.description || 'Alternate between gold and timber tributes so the treasury stays balanced and the navy stays supplied.',
+            duration: blueprint.duration || { weeks: 1, days: 4 },
             createInitialState: () => ({ requiredAmount: 0, resourceType: 'gold', deadlineWarned: false }),
-            earliestIssue: { weeks: 3 },
+            earliestIssue: blueprint.earliestIssue || { weeks: 3 },
             triggerPredicate: ({ gameState }) => {
                 const holdings = gameState?.overworld?.hexes?.size || 0;
                 const strongestReserve = Math.max(gameState?.gold || 0, gameState?.wood || 0);
@@ -956,8 +978,8 @@
                     'Local governors warned: rotation penalties will compound.'
                 ], uiBindings, 'Levy Defaulted', { tone: 'warning' });
             },
-            successFavorDelta: 1,
-            failureFavorDelta: -2
+            successFavorDelta: blueprint.successFavorDelta ?? 1,
+            failureFavorDelta: blueprint.failureFavorDelta ?? -2
         };
     }
 
@@ -966,13 +988,15 @@
      * Requires gifts and goodwill within a strict window, rewarding additional favor on success.
      */
     function buildDiplomaticMandate() {
+        const blueprint = getMandateBlueprint('diplomatic_envoys') || {};
         return {
+            ...blueprint,
             id: 'diplomatic_envoys',
-            title: 'Dispatch Diplomatic Envoys',
-            description: 'Spend favor and coin to keep frontier courts aligned with the Empire.',
-            duration: { weeks: 1 },
+            title: blueprint.title || 'Dispatch Diplomatic Envoys',
+            description: blueprint.description || 'Spend favor and coin to keep frontier courts aligned with the Empire.',
+            duration: blueprint.duration || { weeks: 1 },
             createInitialState: () => ({ targetFavor: 0, giftCost: 0, deadlineWarned: false }),
-            earliestIssue: { weeks: 2, days: 2 },
+            earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
             triggerPredicate: ({ gameState }) => {
                 const favor = clampImperialFavor(gameState?.imperialFavor);
                 return favor >= 6 && (gameState?.gold || 0) >= 60;
@@ -1020,8 +1044,8 @@
                     'Imperial patience thins; reparations paid from your treasury.'
                 ], uiBindings, 'Diplomatic Failure', { tone: 'warning' });
             },
-            successFavorDelta: 2,
-            failureFavorDelta: -3
+            successFavorDelta: blueprint.successFavorDelta ?? 2,
+            failureFavorDelta: blueprint.failureFavorDelta ?? -3
         };
     }
 
