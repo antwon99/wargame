@@ -1,4 +1,7 @@
 import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
+import { buildResearchView } from './models/researchViewModel.js';
+import { buildUpgradeView } from './models/upgradeViewModel.js';
+import { buildClusterSummary } from './models/tileInspectorModel.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -526,6 +529,8 @@ function updateResearchUI(game) {
     grid.innerHTML = '';
     syncHudDrawerHeader('research', game);
 
+    const researchView = buildResearchView(game);
+
     const applyPurchaseAffordability = (btn, canAfford) => {
         if (!btn) return;
         const affordableState = Boolean(canAfford);
@@ -533,19 +538,18 @@ function updateResearchUI(game) {
         btn.classList.toggle('unaffordable', !affordableState);
     };
 
-    const livesTech = game.getTech('lives');
-    const livesCap = livesTech?.maxPurchases || 3;
+    const livesCap = researchView.lives.cap;
     const livesLabel = document.getElementById('hud-drawer-lives');
     if (livesLabel) {
-        livesLabel.innerText = `❤️ ${game.research.lives}/${livesCap}`;
+        livesLabel.innerText = `❤️ ${researchView.lives.current}/${livesCap}`;
         livesLabel.setAttribute('aria-hidden', 'false');
         livesLabel.style.display = 'inline-flex';
     }
     const headerLives = document.getElementById('lives-count');
-    if (headerLives) headerLives.innerText = game.research.lives;
+    if (headerLives) headerLives.innerText = researchView.lives.current;
 
 
-    game.research.technologies.forEach((tech) => {
+    researchView.technologies.forEach((tech) => {
         const card = document.createElement('article');
         card.className = 'tech-card command-card upgrade-strip';
 
@@ -554,64 +558,41 @@ function updateResearchUI(game) {
 
         const title = document.createElement('h3');
         title.className = 'upgrade-strip__title tech-title';
-        const titleSuffix = tech.maxPurchases && tech.maxPurchases > 1
-            ? ` (${tech.timesPurchased}/${tech.maxPurchases})`
-            : '';
-        title.innerText = `${tech.name}${titleSuffix}`;
+        title.innerText = tech.title;
 
         const controls = document.createElement('div');
         controls.className = 'tech-row__actions';
 
-        const canBuyMore = ResearchSystem.hasRemainingPurchases(tech);
-        const purchaseIndexLabel = tech.maxPurchases && tech.maxPurchases > 1
-            ? `${tech.timesPurchased + 1}/${tech.maxPurchases}`
-            : '';
-        let affordable = false;
+        const canBuyMore = tech.canBuyMore;
+        let affordable = tech.affordable;
 
-        if (tech.costOptions && tech.costOptions.length > 0) {
+        if (tech.hasOptions) {
             const optionPicker = document.createElement('div');
             optionPicker.className = 'tech-options option-stack';
             let selectedOptionId = null;
-
-            const hasAffordableOption = tech.costOptions.some((opt) => {
-                const optCost = game.getTechCost(tech, opt.id);
-                return optCost
-                    && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
-                    && game.canPayCost(optCost);
-            });
-
             const purchaseBtn = document.createElement('button');
             purchaseBtn.classList.add('card-btn', 'primary-btn', 'tech-purchase-btn');
             purchaseBtn.disabled = true;
 
-            const formatPurchaseLabel = (costLabel) => {
-                const suffix = purchaseIndexLabel ? ` ${purchaseIndexLabel}` : '';
-                if (!costLabel) return 'Select focus';
-                return `Purchase${suffix ? ` ${suffix}` : ''} (${costLabel})`;
-            };
-
-            const updateOptionState = () => {
-                const cost = selectedOptionId ? game.getTechCost(tech, selectedOptionId) : null;
-                const canAfford = cost
-                    && canBuyMore
-                    && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
-                    && game.canPayCost(cost);
-                const costLabel = cost ? game.formatCost(cost) : '';
+            const updateOptionState = (option) => {
+                selectedOptionId = option?.id || null;
+                const canAfford = Boolean(option?.affordable && canBuyMore);
                 purchaseBtn.disabled = !canAfford;
                 applyPurchaseAffordability(purchaseBtn, canAfford);
-                purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
-                purchaseBtn.innerText = formatPurchaseLabel(costLabel);
-                affordable = (hasAffordableOption && canBuyMore) || canAfford;
+                purchaseBtn.title = option ? '' : 'Choose an option first';
+                const label = option?.purchaseLabel || 'Select focus';
+                purchaseBtn.innerText = label;
+                affordable = canAfford || affordable;
             };
 
-            tech.costOptions.forEach((opt) => {
+            tech.options.forEach((opt) => {
                 const optBtn = document.createElement('button');
                 optBtn.innerText = opt.label;
                 optBtn.classList.add('card-btn', 'primary-btn', 'option-btn');
+                optBtn.classList.toggle('affordable', !!opt.affordable);
                 optBtn.onclick = () => {
-                    selectedOptionId = opt.id;
                     optionPicker.querySelectorAll('button').forEach((btn) => btn.classList.toggle('active', btn === optBtn));
-                    updateOptionState();
+                    updateOptionState(opt);
                 };
                 optionPicker.appendChild(optBtn);
             });
@@ -623,16 +604,12 @@ function updateResearchUI(game) {
 
             controls.appendChild(optionPicker);
             controls.appendChild(purchaseBtn);
-            updateOptionState();
+            updateOptionState(null);
         } else {
-            const cost = game.getTechCost(tech);
-            const costLabel = game.formatCost(cost);
             const btn = document.createElement('button');
             btn.classList.add('card-btn', 'primary-btn', 'tech-purchase-btn');
-            btn.innerText = purchaseIndexLabel
-                ? `Purchase ${purchaseIndexLabel} (${costLabel})`
-                : `Purchase (${costLabel})`;
-            affordable = game.canPayCost(cost) && canBuyMore;
+            btn.innerText = tech.purchaseLabel;
+            affordable = tech.baseAffordable && canBuyMore;
             btn.disabled = !affordable;
             applyPurchaseAffordability(btn, affordable);
             btn.onclick = () => game.buyTechnology(tech.id);
@@ -649,10 +626,10 @@ function updateResearchUI(game) {
         card.appendChild(row);
         card.appendChild(desc);
 
-        if (tech.maxPurchases && tech.maxPurchases > 1) {
+        if (tech.scaleHint) {
             const scale = document.createElement('p');
             scale.className = 'upgrade-strip__scale upgrade-row--scale tech-scale';
-            scale.innerText = `Scales ×${Math.max(tech.growthFactor || 1, 1).toFixed(2)} per purchase.`;
+            scale.innerText = tech.scaleHint;
             card.appendChild(scale);
         }
 
@@ -718,102 +695,38 @@ function updateSettingsUI(game) {
     });
 }
 
-const UPGRADE_COPY = {
-    soldier: {
-        title: 'Soldier Power ⚔️',
-        description: 'Sharpen drills and gear to boost your infantry squads.',
-        scale: (level) => {
-            const scaledLevel = Math.max(1, Number(level) || 1);
-            const multi = 1 + ((scaledLevel - 1) * 0.2);
-            return `+20% soldier HP & damage per level (Current ×${multi.toFixed(2)})`;
-        }
-    },
-    archer: {
-        title: 'Archer Power 🏹',
-        description: 'Upgrade fletching, bows, and drills to keep volleys lethal.',
-        scale: (level) => {
-            const scaledLevel = Math.max(1, Number(level) || 1);
-            const multi = 1 + ((scaledLevel - 1) * 0.2);
-            return `+20% archer HP & damage per level (Current ×${multi.toFixed(2)})`;
-        }
-    },
-    production: {
-        title: 'Production Speed ⚡',
-        description: 'Optimize barracks output and rally timing for faster deployments.',
-        scale: (level) => {
-            const scaledLevel = Math.max(1, Number(level) || 1);
-            const multi = Math.pow(0.9, scaledLevel - 1);
-            return `-10% training time per level (Current ×${multi.toFixed(2)})`;
-        }
-    },
-    mines: {
-        title: 'Mine Efficiency 🏭',
-        description: 'Automate ore lines to compound passive gold between assaults.',
-        scale: (level) => {
-            const scaledLevel = Math.max(1, Number(level) || 1);
-            const multi = 1 + ((scaledLevel - 1) * 0.2);
-            return `+20% income per level (Current ×${multi.toFixed(2)})`;
-        }
-    },
-    defense: {
-        title: 'Defense Systems 🛡️',
-        description: 'Reinforce walls and keep defensive emplacements deadly.',
-        scale: (level) => {
-            const scaledLevel = Math.max(1, Number(level) || 1);
-            const multi = 1 + ((scaledLevel - 1) * 0.25);
-            return `+25% castle & tower HP/damage per level (Current ×${multi.toFixed(2)})`;
-        }
-    }
-};
-
 /**
  * Refresh the upgrade drawer so titles, descriptions, scaling text, and purchase
  * buttons reflect the player's current gold and upgrade levels.
  * @param {object} game live game singleton containing upgrade levels and gold.
  */
 function updateUpgradeMenu(game) {
-    const definitions = [
-        { id: 'soldier', buttonId: 'buy-soldier' },
-        { id: 'archer', buttonId: 'buy-archer' },
-        { id: 'production', buttonId: 'buy-prod' },
-        { id: 'mines', buttonId: 'buy-mines' },
-        { id: 'defense', buttonId: 'buy-defense' }
-    ];
-
     const ensureText = (el, text) => { if (el && text) el.innerText = text; };
 
-    definitions.forEach(({ id, buttonId }) => {
+    const upgrades = buildUpgradeView(game);
+
+    upgrades.forEach(({ id, buttonId, title, description, scaleText, costLabel, canAfford, ariaLabel, buttonLabel, purchaseLabel }) => {
         const btn = document.querySelector(`[data-upgrade-button="${id}"]`) || document.getElementById(buttonId);
         const card = btn?.closest?.('[data-upgrade-card]') || document.querySelector(`[data-upgrade-card="${id}"]`);
         const titleEl = document.querySelector(`[data-upgrade-title="${id}"]`);
         const descEl = document.querySelector(`[data-upgrade-description="${id}"]`);
         const scaleEl = document.querySelector(`[data-upgrade-scale="${id}"]`);
 
-        const level = Number.isFinite(game.upgrades?.[id]) ? Math.max(1, game.upgrades[id]) : 1;
-        const nextLevel = level + 1;
-        const cost = typeof game.getUpgradeCost === 'function' ? game.getUpgradeCost(id) : 0;
-        const costLabel = `${cost}g`;
-        const canAfford = (Number.isFinite(game.gold) ? game.gold : 0) >= cost;
-        const copy = UPGRADE_COPY[id] || {};
-
-        ensureText(titleEl, copy.title);
-        ensureText(descEl, copy.description);
-        const scaleText = typeof copy.scale === 'function' ? copy.scale(level) : copy.scale;
+        ensureText(titleEl, title);
+        ensureText(descEl, description);
         ensureText(scaleEl, scaleText);
 
         if (!btn) return;
 
-        const labelText = `Purchase Lv.${nextLevel}`;
-        const combined = canAfford ? `${labelText} (${costLabel})` : costLabel;
         const label = btn.querySelector('[data-upgrade-label]');
         const costEl = btn.querySelector('[data-upgrade-cost]');
 
         if (label || costEl) {
-            if (label) label.innerText = canAfford ? labelText : '';
+            if (label) label.innerText = canAfford ? purchaseLabel : '';
             if (costEl) costEl.innerText = costLabel;
-            btn.setAttribute('aria-label', canAfford ? combined : `Lv.${nextLevel} costs ${costLabel}`);
+            btn.setAttribute('aria-label', ariaLabel);
         } else {
-            btn.innerText = combined;
+            btn.innerText = buttonLabel;
         }
 
         btn.disabled = !canAfford;
@@ -994,40 +907,15 @@ function updateTileInspector(game, tile) {
             return;
         }
 
-        const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
-        const clusterMap = game.overworld?.clusterBonuses;
-        const cluster = key && clusterMap?.has(key) ? clusterMap.get(key) : tile.clusterBonus;
-        if (game.featureToggles?.debug?.logAdjacency && cluster) {
-            console.debug('Tile adjacency bonuses', { key, cluster });
+        const clusterSummary = buildClusterSummary(game, tile, labelText);
+        if (game.featureToggles?.debug?.logAdjacency && clusterSummary?.cluster) {
+            console.debug('Tile adjacency bonuses', { key: clusterSummary.key, cluster: clusterSummary.cluster });
         }
-        const clusterSize = Number.isInteger(cluster?.size) ? cluster.size : 0;
-        const isClustered = clusterSize >= 2;
-        const resourceParts = [];
-        if (cluster?.goldBonus) resourceParts.push(`+${cluster.goldBonus}g`);
-        if (cluster?.woodBonus) resourceParts.push(`+${cluster.woodBonus}w`);
-        const clusterLabel = isClustered ? `${clusterSize}-tile ${labelText.toLowerCase()} cluster` : 'No adjacency';
-        const payload = resourceParts.length ? resourceParts.join(' ') : 'No bonus income';
-        const pauseSuffix = game.paused ? ' (paused)' : '';
-        bonus.innerText = `${payload} — ${clusterLabel}${pauseSuffix}`;
+        bonus.innerText = `${clusterSummary.payload} — ${clusterSummary.label}${clusterSummary.pauseSuffix}`;
+        bonus.title = clusterSummary.tooltip;
 
-        const tooltipParts = [];
-        if (isClustered) tooltipParts.push(`Cluster size ${clusterSize}`);
-        if (isClustered && typeof cluster?.adjacencyRate === 'number')
-            tooltipParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
-        if (isClustered && typeof cluster?.reclamationRate === 'number')
-            tooltipParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
-        bonus.title = tooltipParts.length ? tooltipParts.join(' • ') : 'No adjacency modifiers';
-
-        const hasAdjacency = Boolean(cluster && (isClustered || cluster.totalRate || cluster.goldBonus || cluster.woodBonus));
-        if (hasAdjacency) {
-            const summary = resourceParts.length ? `Cluster bonuses: ${resourceParts.join(' ')}` : 'Cluster bonuses active';
-            const rateParts = [];
-            if (typeof cluster.totalRate === 'number') rateParts.push(`Total ${(cluster.totalRate * 100).toFixed(0)}%`);
-            if (typeof cluster.adjacencyRate === 'number') rateParts.push(`Adjacency ${(cluster.adjacencyRate * 100).toFixed(0)}%`);
-            if (typeof cluster.reclamationRate === 'number') rateParts.push(`Reclamation ${(cluster.reclamationRate * 100).toFixed(0)}%`);
-            const detailParts = [clusterLabel];
-            if (rateParts.length) detailParts.push(rateParts.join(' • '));
-            showAdjacency(summary, detailParts.join(' — '));
+        if (clusterSummary.hasAdjacency) {
+            showAdjacency(clusterSummary.summary, clusterSummary.detail);
         } else {
             showAdjacency('No adjacency bonuses', 'Isolated tile — cluster effects unavailable.');
         }
