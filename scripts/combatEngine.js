@@ -713,6 +713,20 @@ export function formatLossSummary(outcomeLabel, lossReport = { counts: {} }) {
 }
 
 /**
+ * Calculate the gold penalty for losing a war. The penalty is the greater of a
+ * percentage of current gold or a small flat fee so defeats always sting, but
+ * it is capped at the player's available gold to prevent negative balances.
+ * @param {object} game current game object.
+ * @returns {number} gold to deduct.
+ */
+function computeDefeatGoldPenalty(game) {
+    const availableGold = Math.max(0, Math.floor(game.gold || 0));
+    const percentPenalty = Math.floor(availableGold * 0.15);
+    const flatPenalty = 10;
+    return Math.min(availableGold, Math.max(percentPenalty, flatPenalty));
+}
+
+/**
  * Emit brief visual indicators at each converted overworld hex so players can
  * locate the fallout of a defeat/retreat without opening new UI chrome.
  * @param {object} game live game object containing FX helpers.
@@ -777,8 +791,13 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
+        const goldPenalty = computeDefeatGoldPenalty(game);
+        if (goldPenalty > 0) {
+            game.gold -= goldPenalty;
+            game.spawnTxt(new Hex(0,0), `-${goldPenalty}g pillaged`, '#f55');
+            game.showFloatingText(anchorX, anchorY, `Lost ${goldPenalty}g`, 'alert-text');
+        }
         const losses = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
-        // TODO: In future, apply a gold loss penalty on defeat (lose battle = lose gold).
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
         flashOverworldLosses(game, losses);
