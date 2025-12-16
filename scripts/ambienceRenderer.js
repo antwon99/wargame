@@ -5,7 +5,7 @@
  * renderer can be safely constructed while disabled so feature toggles or
  * alternative atmospheric effects can enable it later without side effects.
  */
-export class AmbienceRenderer {
+export default class AmbienceRenderer {
     /**
      * Create a renderer with optional layer + fade overrides.
      *
@@ -200,4 +200,4 @@ export class AmbienceRenderer {
     }
 }
 
-export default AmbienceRenderer;
+export { AmbienceRenderer };
