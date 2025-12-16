@@ -6,7 +6,10 @@ global.localStorage = (() => {
         getItem: key => store.get(key) || null,
         setItem: (key, value) => store.set(key, value),
         removeItem: key => store.delete(key),
-        clear: () => store.clear()
+        clear: () => store.clear(),
+        key: index => Array.from(store.keys())[index] || null,
+        get length() { return store.size; },
+        keys: () => Array.from(store.keys())
     };
 })();
 
@@ -282,6 +285,39 @@ async function runTests() {
     assert.deepStrictEqual(exoticTypes, ['mine', 'ruin', 'shrine']);
     const exoticIncome = calcIncome(exoticReload.state.overworld.hexes);
     assert.deepStrictEqual(exoticIncome, { gold: 4, wood: 0 }, 'income should honor saved mine/ruin data');
+
+    // Remote/alternate storage adapter swap
+    const remoteStore = new Map();
+    const remoteAdapter = Persistence.createStorageAdapter({
+        getItem: key => remoteStore.get(key) || null,
+        setItem: (key, value) => remoteStore.set(key, value),
+        removeItem: key => remoteStore.delete(key),
+        keys: () => Array.from(remoteStore.keys())
+    });
+    Persistence.setStorageAdapter(remoteAdapter);
+
+    const remoteGame = {
+        gold: 33,
+        wood: 12,
+        difficulty: 1,
+        imperialFavor: 6,
+        upgrades: {},
+        overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
+        stats: { totalKills: 2 }
+    };
+
+    Persistence.saveSnapshot(remoteGame, 'cloud');
+    const remoteKey = Persistence.storageKeyForSlot('cloud');
+    assert.ok(remoteStore.has(remoteKey), 'remote adapter should receive serialized payloads');
+
+    const remoteLoad = Persistence.loadSnapshot('cloud', { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    assert.strictEqual(remoteLoad.state.gold, remoteGame.gold);
+    assert.strictEqual(remoteLoad.stats.totalKills, 2);
+    const serializerSnap = Persistence.SnapshotSerializer.serialize(remoteGame);
+    assert.strictEqual(serializerSnap.imperialFavor, 6, 'pure serializer should remain accessible');
+
+    // Reset adapter to default localStorage wrapper for any downstream consumers
+    Persistence.setStorageAdapter(Persistence.createStorageAdapter(global.localStorage));
 
     console.log('All persistence tests passed.');
 }

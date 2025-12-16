@@ -54,13 +54,89 @@
     }
 
     /**
-     * Safely parse JSON from storage.
-     * @param {string} key localStorage key to read.
+     * Build a storage adapter wrapper so persistence can swap localStorage
+     * for remote/async implementations without rewriting consumers.
+     * @param {object|null} storage backing store that exposes getItem/setItem/removeItem.
+     * @returns {{getItem: function, setItem: function, removeItem: function, keys: function}} adapter surface.
+     */
+    function createStorageAdapter(storage) {
+        const backing = storage || null;
+        const listKeys = () => {
+            if (!backing) return [];
+            if (typeof backing.keys === 'function') return Array.from(backing.keys());
+            if (typeof backing.length === 'number' && typeof backing.key === 'function') {
+                const keys = [];
+                for (let i = 0; i < backing.length; i += 1) {
+                    const key = backing.key(i);
+                    if (key) keys.push(key);
+                }
+                return keys;
+            }
+            return Object.keys(backing);
+        };
+
+        return {
+            getItem(key) {
+                if (!backing || typeof backing.getItem !== 'function') return null;
+                return backing.getItem(key);
+            },
+            setItem(key, value) {
+                if (!backing || typeof backing.setItem !== 'function') return null;
+                return backing.setItem(key, value);
+            },
+            removeItem(key) {
+                if (!backing || typeof backing.removeItem !== 'function') return null;
+                return backing.removeItem(key);
+            },
+            keys: listKeys
+        };
+    }
+
+    const defaultStorageAdapter = createStorageAdapter(typeof global.localStorage !== 'undefined' ? global.localStorage : null);
+    let storageAdapter = defaultStorageAdapter;
+
+    /**
+     * Swap the persistence adapter at runtime. Useful for remote or mocked storage layers.
+     * @param {object} adapter custom adapter exposing getItem/setItem/removeItem/keys.
+     * @returns {object} the active adapter after mutation.
+     */
+    function setStorageAdapter(adapter) {
+        const hasSurface = adapter
+            && typeof adapter.getItem === 'function'
+            && typeof adapter.setItem === 'function'
+            && typeof adapter.removeItem === 'function'
+            && typeof adapter.keys === 'function';
+        const isStorageLike = adapter
+            && typeof adapter.getItem === 'function'
+            && typeof adapter.setItem === 'function'
+            && typeof adapter.removeItem === 'function';
+        if (hasSurface) {
+            storageAdapter = adapter;
+        } else if (isStorageLike) {
+            storageAdapter = createStorageAdapter(adapter);
+        } else {
+            storageAdapter = defaultStorageAdapter;
+        }
+        return storageAdapter;
+    }
+
+    /**
+     * Introspect the current adapter for testing and debugging.
+     * @returns {object} currently configured storage adapter.
+     */
+    function getStorageAdapter() {
+        return storageAdapter;
+    }
+
+    /**
+     * Safely parse JSON from the active storage adapter.
+     * @param {string} key storage key to read.
+     * @param {object} [adapter] optional adapter override for tests.
      * @returns {object|null} parsed payload or null when missing/invalid.
      */
-    function readFromStorage(key) {
-        if (typeof global.localStorage === 'undefined') return null;
-        const raw = global.localStorage.getItem(key);
+    function readFromStorage(key, adapter = storageAdapter) {
+        if (!adapter) return null;
+        const raw = adapter.getItem(key);
         if (!raw) return null;
         try {
             return JSON.parse(raw);
@@ -73,7 +149,7 @@
     /**
      * Generate the storage key for a save slot.
      * @param {string|number} slot user-facing slot number.
-     * @returns {string} localStorage key for the slot.
+     * @returns {string} storage key for the slot.
      */
     function storageKeyForSlot(slot) {
         return `${STORAGE_PREFIX}${slot}`;
@@ -82,7 +158,7 @@
     /**
      * Generate the storage key for leaderboard stats tied to a save slot.
      * @param {string|number} slot user-facing slot number.
-     * @returns {string} localStorage key for the slot's stats.
+     * @returns {string} storage key for the slot's stats.
      */
     function statsKeyForSlot(slot) {
         return `${STATS_PREFIX}${slot}`;
@@ -159,13 +235,19 @@
      * Serialize the current game state into a JSON-friendly snapshot.
      * Only serializes deterministic, overworld-friendly data (combat is excluded).
      * @param {object} game reference to the main Game singleton.
+     * @param {object} [options]
+     * @param {function} [options.mandateSerializer] optional override for mandate serialization.
      * @returns {object} snapshot that can be persisted.
      */
-    function serializeGameState(game) {
+    function serializeGameState(game, options = {}) {
         const overwriteStats = normalizeStats(game.stats || {});
         const timekeeper = normalizeTimekeeperSnapshot(game.timekeeper);
-        const mandates = game.imperialMandates?.serializeState?.()
-            || global.ImperialMandates?.serializeState?.();
+        const mandateSerializer = options.mandateSerializer
+            || game.imperialMandates?.serializeState
+            || global.ImperialMandates?.serializeState;
+        const mandates = typeof mandateSerializer === 'function'
+            ? mandateSerializer.call(game.imperialMandates || global.ImperialMandates)
+            : undefined;
         return {
             gold: game.gold,
             wood: game.wood,
@@ -200,9 +282,14 @@
      * Build a set of allowed overworld tile ids by pulling from live config when available
      * and falling back to the default tiles used across the prototype. This guards against
      * malformed save payloads injecting unexpected tile types during deserialization.
+     * @param {object} [options]
+     * @param {Array<string>} [options.allowedTileIds] optional override to tighten allowed ids.
      * @returns {Set<string>} all recognized overworld tile identifiers.
      */
-    function getAllowedTileIds() {
+    function getAllowedTileIds(options = {}) {
+        if (Array.isArray(options.allowedTileIds)) {
+            return new Set(options.allowedTileIds.map(id => String(id).toLowerCase()));
+        }
         const fallback = [
             'castle',
             'field',
@@ -231,11 +318,12 @@
      * @param {object} snapshot payload from storage.
      * @param {object} [options]
      * @param {function} [options.hexFactory] factory returning a Hex-like object with toString().
+     * @param {Array<string>} [options.allowedTileIds] optional whitelist for tile ids.
      * @returns {object|null} hydrated game data or null when snapshot is missing.
      */
     function deserializeGameState(snapshot, options = {}) {
         if (!snapshot) return null;
-        const allowedTileIds = getAllowedTileIds();
+        const allowedTileIds = getAllowedTileIds(options);
         const allowedOwners = new Set([null, 'player', 'rebel', 'scorched', 'enemy', 'neutral']);
         const makeHex =
             options.hexFactory ||
@@ -295,9 +383,9 @@
         const slotKey = storageKeyForSlot(slot);
         const statKey = statsKeyForSlot(slot);
         payload.stats.lastSaveISO = savedAt;
-        if (typeof global.localStorage !== 'undefined') {
-            global.localStorage.setItem(slotKey, JSON.stringify(payload));
-            global.localStorage.setItem(statKey, JSON.stringify(payload.stats));
+        if (storageAdapter) {
+            storageAdapter.setItem(slotKey, JSON.stringify(payload));
+            storageAdapter.setItem(statKey, JSON.stringify(payload.stats));
         }
         return { savedAt, payload, slot: String(slot) };
     }
@@ -325,15 +413,15 @@
      * @param {string|number} [slot] optional slot to target; clears every slot when omitted.
      */
     function clearSnapshot(slot) {
-        if (typeof global.localStorage === 'undefined') return;
+        if (!storageAdapter) return;
         if (slot) {
-            global.localStorage.removeItem(storageKeyForSlot(slot));
-            global.localStorage.removeItem(statsKeyForSlot(slot));
+            storageAdapter.removeItem(storageKeyForSlot(slot));
+            storageAdapter.removeItem(statsKeyForSlot(slot));
             return;
         }
-        Object.keys(global.localStorage)
+        storageAdapter.keys()
             .filter(key => key.startsWith(STORAGE_PREFIX) || key.startsWith(STATS_PREFIX))
-            .forEach(key => global.localStorage.removeItem(key));
+            .forEach(key => storageAdapter.removeItem(key));
     }
 
     /**
@@ -342,8 +430,8 @@
      * @returns {boolean} true when a save payload exists.
      */
     function hasSnapshot(slot = '1') {
-        if (typeof global.localStorage === 'undefined') return false;
-        return Boolean(global.localStorage.getItem(storageKeyForSlot(slot)));
+        if (!storageAdapter) return false;
+        return Boolean(storageAdapter.getItem(storageKeyForSlot(slot)));
     }
 
     /**
@@ -358,6 +446,19 @@
         const lastSaveISO = state.stats?.lastSaveISO || null;
         return { slot: String(slot), hasSave: true, lastSaveISO, level };
     }
+
+    /** Pure snapshot helpers with no storage side effects for tests and remote adapters. */
+    const SnapshotSerializer = {
+        serialize: serializeGameState,
+        deserialize: deserializeGameState
+    };
+
+    /** Expose stat normalization and clamping helpers separately for reuse. */
+    const StatHelpers = {
+        normalizeStats,
+        clampImperialFavor,
+        normalizeTimekeeperSnapshot
+    };
 
     global.Persistence = {
         STORAGE_KEY,
@@ -374,7 +475,12 @@
         hasSnapshot,
         getSlotMetadata,
         storageKeyForSlot,
-        statsKeyForSlot
+        statsKeyForSlot,
+        createStorageAdapter,
+        setStorageAdapter,
+        getStorageAdapter,
+        SnapshotSerializer,
+        StatHelpers
     };
 
     if (typeof module !== 'undefined' && module.exports) {
