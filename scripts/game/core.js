@@ -33,6 +33,8 @@ import { buildDefaultSettings, createSettingsService } from '../settings.js';
 import AmbienceRenderer from '../ambienceRenderer.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
+import AudioBridge from '../../audio/bridge.js';
+import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -166,169 +168,6 @@ const TIPS = [
 ];
 
 
-/**
- * Thin facade over the global GameAudio so gameplay code can request
- * manifest keys without worrying about availability in tests/browsers.
- */
-const AudioBridge = {
-    /** Request playback for a manifest entry (sfx or music). */
-    play(key, options = {}) {
-        if (typeof window === 'undefined') return false;
-        const audio = window.GameAudio;
-        if (audio && typeof audio.play === 'function') {
-            return audio.play(key, options);
-        }
-        return false;
-    },
-
-    /** Convenience helper for looping tracks (ambience/music). */
-    playLoop(key, options = {}) {
-        return this.play(key, { ...options, loop: options.loop !== false, reset: options.reset !== false });
-    },
-
-    /** Begin the shared ambient loop defined by the audio manifest. */
-    startAmbient() {
-        window.GameAudio?.startAmbientLoop?.();
-    },
-
-    /** Stop the current ambient loop (no-op if unavailable). */
-    stopAmbient() {
-        window.GameAudio?.stop?.();
-    },
-
-    /** Halt all cached audio nodes (useful during state transitions). */
-    stopAll() {
-        window.GameAudio?.stopAll?.();
-    }
-};
-if (typeof window !== 'undefined') window.AudioBridge = AudioBridge;
-
-// === AUDIO DEBUG CONSOLE (diagnostic-only; remove after triage) ===
-const AudioDebugConsole = {
-    el: null,
-    timer: 0,
-    fogSectionId: 'fog-debug-section',
-    /**
-     * Compose a labeled checkbox row for debug toggles to keep the markup simple.
-     * @param {string} id unique input ID for the checkbox
-     * @param {string} label human-readable label for the toggle
-     * @param {boolean} checked whether the checkbox should start checked
-     * @returns {string} HTML string for the toggle row
-     */
-    renderToggleRow(id, label, checked = false) {
-        const checkedAttr = checked ? 'checked' : '';
-        return `<label class="debug-toggle-row"><input type="checkbox" id="${id}" ${checkedAttr}>${label}</label>`;
-    },
-    /**
-     * Locate the debug panel element. Supports legacy and current IDs so we do not
-     * crash when the markup lags behind script changes.
-     */
-    init() {
-        this.el = document.getElementById('audio-debug') || document.getElementById('audio-debug-panel');
-        this.timer = 0;
-    },
-    /**
-     * Refresh the audio diagnostics overlay at a throttled cadence so the UI
-     * stays in sync with active playback without wasting cycles.
-     * @param {number} dt delta time since last frame in seconds
-     * @param {string} gameState current game state code (OVERWORLD|COMBAT)
-     */
-    update(dt = 0, gameState = 'OVERWORLD') {
-        if (!this.el) return;
-        this.timer += dt;
-        if (this.timer < 0.5) return;
-        this.timer = 0;
-
-        const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
-            ? window.AudioDebugBus.snapshot()
-            : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
-
-        const fogSnapshot = this.resolveFogSnapshot();
-
-        const activeSources = snapshot.activeSources || [];
-        const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
-        const playingList = activeSources.length
-            ? `<ul>${activeSources.map(src => `<li>${src.label || src.src || src.key || 'unknown'}</li>`).join('')}</ul>`
-            : '<div>None</div>';
-
-        this.el.innerHTML = `
-            <div class="section">
-                <div class="label">Current Music Track</div>
-                <div>${snapshot.intendedTrack || 'None'}</div>
-            </div>
-            <div class="section">
-                <div class="label">Active Audio Elements (${activeSources.length})</div>
-                ${playingList}
-            </div>
-            <div class="section">
-                <div class="label">Master Volume</div>
-                <div>${Number(snapshot.masterVolume ?? 1).toFixed(2)}</div>
-            </div>
-            <div class="section">
-                <div class="label">Game State</div>
-                <div>${friendlyState}</div>
-            </div>
-            <div class="section" id="${this.fogSectionId}">
-                <div class="label">Fog + Effects</div>
-                ${this.renderToggleRow('debug-fog-enabled', 'Backdrop fog enabled', fogSnapshot.enabled)}
-                ${this.renderToggleRow('debug-fog-tile', 'Tile fog overlays', fogSnapshot.tileFogEnabled)}
-                ${this.renderToggleRow('debug-fog-ambience', 'Ambience clouds', fogSnapshot.ambienceLayersEnabled)}
-                ${this.renderToggleRow('debug-fog-flourishes', 'Fog flourishes', fogSnapshot.ambienceEnabled)}
-            </div>
-        `;
-
-        this.bindFogControls();
-    },
-
-    /**
-     * Gather the live fog toggle values from the Game singleton so the debug
-     * UI mirrors the current runtime configuration.
-     * @returns {Object} snapshot of boolean fog toggles
-     */
-    resolveFogSnapshot() {
-        const fogToggles = window.Game?.featureToggles?.fog || {};
-        return {
-            enabled: fogToggles.enabled !== false,
-            tileFogEnabled: fogToggles.tileFogEnabled === true,
-            ambienceLayersEnabled: fogToggles.ambienceLayersEnabled === true,
-            ambienceEnabled: fogToggles.ambienceEnabled !== false
-        };
-    },
-
-    /**
-     * Wire checkbox change handlers to the shared Game feature toggles so
-     * developers can flip fog/backdrop options without touching globals.
-     */
-    bindFogControls() {
-        const game = window.Game;
-        if (!game || typeof game.setFogToggle !== 'function') return;
-        if (!this.el) return;
-
-        const setToggle = (selector, key) => {
-            const input = this.el.querySelector(selector);
-            if (!input) return;
-            input.addEventListener('change', () => {
-                game.setFogToggle(key, input.checked);
-                this.timer = 0; // force next update to render the new state quickly
-            });
-        };
-
-        setToggle('#debug-fog-enabled', 'enabled');
-        setToggle('#debug-fog-tile', 'tileFogEnabled');
-        setToggle('#debug-fog-ambience', 'ambienceLayersEnabled');
-        setToggle('#debug-fog-flourishes', 'ambienceEnabled');
-    }
-};
-
-/**
- * Refresh the floating audio debug overlay with the latest playback info.
- * @param {number} dt delta time since last frame in seconds
- * @param {string} gameState current game state code (OVERWORLD|COMBAT)
- */
-function updateAudioDebug(dt, gameState) {
-    AudioDebugConsole.update(dt, gameState);
-}
-
 /** ENGINE */
 const Game = {
     canvas: document.getElementById('canvas'),
@@ -425,7 +264,10 @@ const Game = {
             this.timekeeper.onChange(refreshHUD);
             this.resize();
             this.ensureAmbienceRendererReady();
-            AudioDebugConsole.init();
+            initAudioDebugPanel({
+                resolveFogSnapshot: () => this.resolveFogDebugSnapshot(),
+                setFogToggle: (key, isEnabled) => this.setFogToggle(key, isEnabled)
+            });
             this.bindVoidClickEasterEgg();
             window.addEventListener('resize', () => this.resize());
             this.setupInput();
@@ -688,6 +530,21 @@ const Game = {
             return this.featureToggles?.fog || nextFog;
         }
         return nextFog;
+    },
+
+    /**
+     * Gather the live fog toggle values so the audio debug overlay mirrors the
+     * current runtime configuration without reaching into Game internals.
+     * @returns {Object} snapshot of boolean fog toggles
+     */
+    resolveFogDebugSnapshot() {
+        const fogToggles = this.featureToggles?.fog || {};
+        return {
+            enabled: fogToggles.enabled !== false,
+            tileFogEnabled: fogToggles.tileFogEnabled === true,
+            ambienceLayersEnabled: fogToggles.ambienceLayersEnabled === true,
+            ambienceEnabled: fogToggles.ambienceEnabled !== false
+        };
     },
 
     /**
@@ -1036,7 +893,7 @@ const Game = {
                 if(p.life <= 0) { p.el.remove(); this.combat.particles.splice(i,1); }
             }
             this.draw();
-            updateAudioDebug(dt, this.state);
+            updateAudioDebugPanel(dt, this.state);
         } catch (e) {
             this.reportRecoverableError('game loop', e);
             this.endWar(false);
