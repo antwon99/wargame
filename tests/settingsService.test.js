@@ -1,0 +1,47 @@
+import assert from 'assert';
+import { buildDefaultSettings, createSettingsService } from '../scripts/settings.js';
+
+function createMemoryStorage() {
+    const store = new Map();
+    return {
+        getItem: (key) => store.has(key) ? store.get(key) : null,
+        setItem: (key, value) => { store.set(key, value); },
+        removeItem: (key) => { store.delete(key); }
+    };
+}
+
+const defaults = buildDefaultSettings();
+
+{
+    const storage = createMemoryStorage();
+    storage.setItem('settings:test', JSON.stringify({ audio: { master: 0.25 }, visuals: { enabled: false } }));
+    const service = createSettingsService({ storageKey: 'settings:test', storage, defaults });
+    let emitted = null;
+    service.on('change', (snapshot) => { emitted = snapshot; });
+    const loaded = service.load();
+    assert.strictEqual(loaded.audio.master, 0.25, 'retains saved audio slider');
+    assert.strictEqual(loaded.visuals.enabled, false, 'retains saved visual toggle');
+    assert.deepStrictEqual(emitted.visuals, loaded.visuals, 'emits change event on load');
+}
+
+{
+    const storage = createMemoryStorage();
+    let adapterPayload = null;
+    const service = createSettingsService({ storageKey: 'settings:audio', storage, defaults, audioAdapter: (payload) => { adapterPayload = payload; } });
+    const applied = service.applyAudio({ master: 2, music: 0.15, sfx: 0 });
+    const persisted = JSON.parse(storage.getItem('settings:audio'));
+    assert.deepStrictEqual(applied, { master: 1, music: 0.15, sfx: 0 }, 'clamps and returns normalized audio');
+    assert.deepStrictEqual(adapterPayload, applied, 'invokes audio adapter with normalized payload');
+    assert.strictEqual(persisted.audio.master, 1, 'persists normalized master value');
+}
+
+{
+    const storage = createMemoryStorage();
+    let visualEvent = null;
+    const service = createSettingsService({ storageKey: 'settings:visual', storage, defaults });
+    service.on('visual', (payload) => { visualEvent = payload; });
+    const visuals = service.applyVisual({ tileFogEnabled: false, ambienceEnabled: false });
+    assert.strictEqual(visuals.tileFogEnabled, false, 'applies supplied visual toggle');
+    assert.strictEqual(visualEvent.ambienceEnabled, false, 'emits visual event payload');
+    assert.strictEqual(JSON.parse(storage.getItem('settings:visual')).visuals.tileFogEnabled, false, 'persists visual toggles');
+}

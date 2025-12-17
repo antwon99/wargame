@@ -29,6 +29,7 @@ import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacenc
 import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from '../fogMask.js';
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from '../fogVisualConfig.mjs';
+import { buildDefaultSettings, createSettingsService } from '../settings.js';
 import AmbienceRenderer from '../ambienceRenderer.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
@@ -370,6 +371,7 @@ const Game = {
         overworld: { showClaimCosts: false }
     },
     settingsStorageKey: 'wargame:player-settings',
+    settingsService: null,
     playerSettings: null,
     ambienceRenderer: null,
     camBase: { x: 0, y: 0 },
@@ -394,7 +396,29 @@ const Game = {
             });
             this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
             this.applyFeatureOverrides();
-            this.applyPlayerSettings(this.loadPlayerSettings());
+            const settingsStorage = this.persistenceAvailable && typeof window !== 'undefined' ? window.localStorage : null;
+            this.settingsService = createSettingsService({
+                storageKey: this.settingsStorageKey,
+                storage: settingsStorage,
+                defaults: this.defaultPlayerSettings(),
+                audioAdapter: (audio) => {
+                    const normalized = this.applyAudioSettings(audio);
+                    this.playerSettings = { ...(this.playerSettings || {}), audio: normalized };
+                },
+                visualAdapter: (visuals) => {
+                    this.applyVisualSettings(visuals);
+                    this.playerSettings = { ...(this.playerSettings || {}), visuals };
+                    this.ensureAmbienceRendererReady();
+                },
+                onError: (context, error) => this.reportRecoverableError?.(context, error)
+            });
+            this.settingsService.on('change', (settings) => {
+                this.playerSettings = settings;
+                this.updateSettingsUI?.();
+            });
+            const resolvedSettings = this.settingsService.load();
+            this.settingsService.applyAudio(resolvedSettings.audio);
+            this.settingsService.applyVisual(resolvedSettings.visuals);
             const refreshHUD = typeof onHUDUpdate === 'function'
                 ? () => onHUDUpdate(this)
                 : () => this.updateHUD();
@@ -502,15 +526,7 @@ const Game = {
      * @returns {Object} default settings snapshot
      */
     defaultPlayerSettings() {
-        return {
-            audio: { master: 1, music: 1, sfx: 1 },
-            visuals: {
-                enabled: true,
-                tileFogEnabled: FOG_VISUAL_CONFIG.tileFogEnabled === true,
-                ambienceLayersEnabled: FOG_VISUAL_CONFIG.ambienceLayersEnabled === true,
-                ambienceEnabled: FOG_VISUAL_CONFIG.ambienceEnabled !== false
-            }
-        };
+        return buildDefaultSettings();
     },
 
     /**
@@ -519,30 +535,14 @@ const Game = {
      * @returns {Object} merged player settings
      */
     loadPlayerSettings() {
-        const defaults = this.defaultPlayerSettings();
-        if (typeof window === 'undefined' || !window.localStorage) return defaults;
-        const raw = window.localStorage.getItem(this.settingsStorageKey);
-        if (!raw) return defaults;
-        try {
-            const parsed = JSON.parse(raw);
-            return {
-                audio: { ...defaults.audio, ...(parsed.audio || {}) },
-                visuals: { ...defaults.visuals, ...(parsed.visuals || {}) }
-            };
-        } catch (error) {
-            this.reportRecoverableError?.('player settings parse', error);
-            return defaults;
-        }
+        if (!this.settingsService) return this.defaultPlayerSettings();
+        return this.settingsService.load();
     },
 
     /** Persist the current settings bundle to localStorage when available. */
     persistPlayerSettings(settings = this.playerSettings) {
-        if (typeof window === 'undefined' || !window.localStorage || !settings) return;
-        try {
-            window.localStorage.setItem(this.settingsStorageKey, JSON.stringify(settings));
-        } catch (error) {
-            this.reportRecoverableError?.('player settings persist', error);
-        }
+        if (!this.settingsService) return settings || this.defaultPlayerSettings();
+        return this.settingsService.save(settings);
     },
 
     /**
@@ -552,17 +552,20 @@ const Game = {
      * @returns {Object} normalized settings that were applied
      */
     applyPlayerSettings(settings = {}) {
-        const defaults = this.defaultPlayerSettings();
+        const defaults = this.settingsService?.defaults || this.defaultPlayerSettings();
         const merged = {
             audio: { ...defaults.audio, ...(settings.audio || {}) },
             visuals: { ...defaults.visuals, ...(settings.visuals || {}) }
         };
-        this.playerSettings = merged;
-        this.applyAudioSettings(merged.audio);
-        this.applyVisualSettings(merged.visuals);
-        this.persistPlayerSettings(merged);
-        this.updateSettingsUI?.();
-        return merged;
+        if (!this.settingsService) {
+            this.playerSettings = merged;
+            this.applyAudioSettings(merged.audio);
+            this.applyVisualSettings(merged.visuals);
+            return merged;
+        }
+        this.settingsService.applyAudio(merged.audio);
+        this.settingsService.applyVisual(merged.visuals);
+        return this.settingsService.getSnapshot();
     },
 
     /**
@@ -578,18 +581,19 @@ const Game = {
         manager?.setMasterVolume?.(clamp01(safe.master, defaults.master));
         manager?.setMusicVolume?.(clamp01(safe.music, defaults.music));
         manager?.setSfxVolume?.(clamp01(safe.sfx, defaults.sfx));
-        this.playerSettings = { ...this.playerSettings, audio: { ...safe, master: clamp01(safe.master), music: clamp01(safe.music), sfx: clamp01(safe.sfx) } };
-        return this.playerSettings.audio;
+        return { ...safe, master: clamp01(safe.master), music: clamp01(safe.music), sfx: clamp01(safe.sfx) };
     },
 
     /** Return the currently active audio settings (merged with defaults). */
     getAudioSettings() {
+        if (this.settingsService?.getSnapshot) return this.settingsService.getSnapshot().audio;
         const defaults = this.defaultPlayerSettings().audio;
         return { ...defaults, ...(this.playerSettings?.audio || {}) };
     },
 
     /** Normalize visual toggle preferences against the live fog feature toggles. */
     getVisualSettings() {
+        if (this.settingsService?.getSnapshot) return this.settingsService.getSnapshot().visuals;
         const fog = this.featureToggles?.fog || {};
         return {
             enabled: fog.enabled !== false,
@@ -617,19 +621,19 @@ const Game = {
             ambienceEnabled: safe.ambienceEnabled !== false
         };
         this.featureToggles = { ...this.featureToggles, fog: nextFog };
-        this.playerSettings = { ...this.playerSettings, visuals: safe };
-        this.updateSettingsUI?.();
+        this.ensureAmbienceRendererReady(nextFog);
         return nextFog;
     },
 
     /** Update an individual mixer channel from the settings sidebar. */
     setAudioVolume(channel, value) {
+        if (this.settingsService) {
+            return this.settingsService.applyAudio({ [channel]: clamp01(value, this.defaultPlayerSettings().audio[channel]) });
+        }
         const current = this.getAudioSettings();
         if (!(channel in current)) return current;
         const next = { ...current, [channel]: clamp01(value, current[channel]) };
         this.applyAudioSettings(next);
-        this.persistPlayerSettings({ ...this.playerSettings, audio: next, visuals: this.playerSettings?.visuals });
-        this.updateSettingsUI?.();
         return next;
     },
 
@@ -679,10 +683,10 @@ const Game = {
         const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
         const nextFog = { ...fogToggles, [key]: Boolean(isEnabled) };
         this.featureToggles = { ...this.featureToggles, fog: nextFog };
-        const visuals = { ...this.playerSettings?.visuals, [key]: Boolean(isEnabled) };
-        this.playerSettings = { ...this.playerSettings, visuals };
-        this.persistPlayerSettings();
-        this.updateSettingsUI?.();
+        if (this.settingsService) {
+            this.settingsService.applyVisual({ [key]: Boolean(isEnabled) });
+            return this.featureToggles?.fog || nextFog;
+        }
         return nextFog;
     },
 

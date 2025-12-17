@@ -248,6 +248,8 @@ export function setupUIBindings(game) {
     const drawerController = createHudDrawerController(game);
     game.hudDrawer = drawerController;
 
+    const settings = game.settingsService;
+
     const upgradeBtn = document.getElementById('btn-upg');
     if (upgradeBtn) upgradeBtn.onclick = () => drawerController.showUpgrades?.();
 
@@ -286,12 +288,20 @@ export function setupUIBindings(game) {
         input.addEventListener('input', () => {
             const channel = input.dataset.audioSetting;
             const value = Number(input.value) / 100;
+            if (settings?.applyAudio) {
+                settings.applyAudio({ [channel]: value });
+                return;
+            }
             if (typeof game.setAudioVolume === 'function') game.setAudioVolume(channel, value);
         });
     });
 
     document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
         input.addEventListener('change', () => {
+            if (settings?.applyVisual) {
+                settings.applyVisual({ [input.dataset.visualToggle]: input.checked });
+                return;
+            }
             if (typeof game.setFogToggle === 'function') game.setFogToggle(input.dataset.visualToggle, input.checked);
         });
     });
@@ -693,9 +703,9 @@ function updateLeaderboardUI(game) {
  * @param {object} game live game singleton
  */
 function updateSettingsUI(game) {
-    const audioSettings = typeof game.getAudioSettings === 'function'
-        ? game.getAudioSettings()
-        : { master: 1, music: 1, sfx: 1 };
+    const snapshot = game.settingsService?.getSnapshot?.();
+    const audioSettings = snapshot?.audio
+        || (typeof game.getAudioSettings === 'function' ? game.getAudioSettings() : { master: 1, music: 1, sfx: 1 });
     const clampPercent = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 1));
     document.querySelectorAll('[data-audio-setting]').forEach((input) => {
         const key = input.dataset.audioSetting;
@@ -706,9 +716,8 @@ function updateSettingsUI(game) {
         if (readout) readout.innerText = `${percent}%`;
     });
 
-    const visuals = typeof game.getVisualSettings === 'function'
-        ? game.getVisualSettings()
-        : {};
+    const visuals = snapshot?.visuals
+        || (typeof game.getVisualSettings === 'function' ? game.getVisualSettings() : {});
     document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
         const key = input.dataset.visualToggle;
         const desired = visuals && Object.prototype.hasOwnProperty.call(visuals, key)
