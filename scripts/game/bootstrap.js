@@ -1,0 +1,41 @@
+import { createGameCore } from './core.js';
+import { applyUIBindings, setupUIBindings } from '../uiBindings.js';
+
+const IntroOverlay = (typeof window !== 'undefined' && window.IntroOverlay) ? window.IntroOverlay : null;
+const Persistence = (typeof window !== 'undefined' && window.Persistence)
+    ? window.Persistence
+    : (typeof require === 'function' ? require('../persistence.js') : null);
+
+/**
+ * Compose the Game core with UI bindings and persistence wiring so the
+ * browser entry point only needs to import a single bootstrap.
+ * @returns {Object} active Game instance
+ */
+export function bootstrapGame() {
+    const { Game, Hex, Layout, TIPS } = createGameCore();
+    applyUIBindings(Game, { Hex, Layout, TIPS });
+
+    const loadSnapshot = ({ activeSaveSlot }) => {
+        if (!Persistence) {
+            return { state: null, stats: { ...Game.stats }, slot: activeSaveSlot };
+        }
+        return Persistence.loadSnapshot(activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    };
+
+    if (typeof window !== 'undefined') {
+        window.Hex = Hex;
+        window.Game = Game;
+    }
+
+    Game.init({
+        introOverlay: IntroOverlay,
+        loadSnapshot,
+        onHUDUpdate: () => Game.updateHUD(),
+        onSaveSlotsUpdate: () => Game.updateSaveSlotsUI(),
+        onPostInit: () => {
+            setupUIBindings(Game);
+        }
+    });
+
+    return Game;
+}
