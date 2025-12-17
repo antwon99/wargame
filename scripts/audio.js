@@ -1,5 +1,5 @@
-const { SFX_GROUPS, SFX_MANIFEST } = require('./audioConfig');
-const { AMBIENT_STATES } = require('./ambientConfig');
+import { SFX_GROUPS, SFX_MANIFEST } from './audioConfig.js';
+import { AMBIENT_STATES } from './ambientConfig.js';
 
 /**
  * Utility for picking weighted entries so audio variants can bias toward
@@ -882,9 +882,7 @@ function exitCombat(outcome, audioManager = GameAudio, ambient = AmbientSoundsca
     ambient?.start?.({ fadeMs: 0 });
 }
 
-if (typeof module !== 'undefined') {
-    module.exports = { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientScheduler, AmbientRandomizer, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat, attachCombatStingerGuards };
-}
+export { AudioManager, GameAudio, SFX_GROUPS, SFX_MANIFEST, defaultAudioFactory, WeightedSelector, AmbientConductor, AmbientScheduler, AmbientRandomizer, AmbientSoundscape, AudioDebugBus, enterCombat, exitCombat, attachCombatStingerGuards };
 if (typeof window !== 'undefined') {
     window.AudioManager = AudioManager;
     window.GameAudio = GameAudio;

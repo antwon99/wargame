@@ -3,7 +3,7 @@
  * module so schedulers/randomisers can be swapped without touching static
  * content.
  */
-const AMBIENT_STATES = {
+export const AMBIENT_STATES = {
     TERRITORY: {
         tracks: [
             { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
@@ -28,4 +28,4 @@ const AMBIENT_STATES = {
     }
 };
 
-module.exports = { AMBIENT_STATES };
+export default AMBIENT_STATES;
