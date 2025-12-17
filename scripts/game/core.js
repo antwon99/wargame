@@ -33,6 +33,7 @@ import { buildDefaultSettings, createSettingsService } from '../settings.js';
 import AmbienceRenderer from '../ambienceRenderer.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
+import { createCampaignStore } from '../persistence/campaignStore.js';
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
@@ -258,6 +259,15 @@ const Game = {
             const resolvedSettings = this.settingsService.load();
             this.settingsService.applyAudio(resolvedSettings.audio);
             this.settingsService.applyVisual(resolvedSettings.visuals);
+            this.campaignStore = createCampaignStore({
+                snapshotter: () => this,
+                applier: (state, stats, slot) => this.applyLoadedCampaign(state, stats, slot),
+                notifier: (event, payload) => this.handleCampaignStoreEvent(event, payload),
+                hudUpdater: (event, payload) => this.refreshCampaignUI(event, payload),
+                settingsStorage,
+                hexFactory: (q, r, s) => new Hex(q, r, s),
+                resetter: () => this.bootstrapNewWorld()
+            });
             const refreshHUD = typeof onHUDUpdate === 'function'
                 ? () => onHUDUpdate(this)
                 : () => this.updateHUD();
@@ -285,15 +295,13 @@ const Game = {
 
             const resolveSnapshot = typeof loadSnapshot === 'function'
                 ? loadSnapshot
-                : () => (this.dependencyHealth.persistenceAvailable
-                    ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
+                : () => (this.campaignStore
+                    ? this.campaignStore.loadSlot(this.activeSaveSlot, { quiet: true })
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
             const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
-            if (loaded.state) {
+            if (loaded?.state) {
                 try {
-                    this.applySnapshot(loaded.state);
-                    this.stats = loaded.stats;
-                    this.activeSaveSlot = loaded.slot || '1';
+                    this.applyLoadedCampaign(loaded.state, loaded.stats, loaded.slot || '1');
                 } catch (error) {
                     this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
                     this.bootstrapNewWorld();
@@ -734,67 +742,128 @@ const Game = {
         this.shouldRunImperialIntro = false;
     },
 
-    /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
-    saveGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
+    /**
+     * Apply hydrated save data, refresh UI, and update the active slot tracker.
+     * @param {object} snapshot normalized snapshot returned from the campaign store.
+     * @param {object} stats hydrated leaderboard stats associated with the snapshot.
+     * @param {string} slot save slot identifier associated with the snapshot.
+     */
+    applyLoadedCampaign(snapshot, stats, slot) {
+        this.applySnapshot(snapshot);
+        this.stats = stats;
+        this.activeSaveSlot = slot || this.activeSaveSlot;
+    },
+
+    /**
+     * Route campaign store events to user-facing notifications and bookkeeping.
+     * @param {string} event event identifier from the campaign store.
+     * @param {object} payload contextual metadata emitted by the store.
+     */
+    handleCampaignStoreEvent(event, payload = {}) {
+        if (event === 'unavailable') {
             this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
             return;
         }
-        const targetSlot = String(slot || this.activeSaveSlot);
-        const result = Persistence.saveSnapshot(this, targetSlot);
-        this.activeSaveSlot = result.slot;
-        const formattedTime = new Date(result.savedAt).toLocaleString();
-        this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
-        this.updateSaveSlotsUI();
-        this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
-    },
-
-    /** Load a stored snapshot and refresh UI with the saved overworld. */
-    loadGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
-            this.logBootstrapWarning('Load skipped: persistence helper unavailable in this environment.');
+        if (event === 'save') {
+            this.activeSaveSlot = payload.slot || this.activeSaveSlot;
+            const formattedTime = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : '';
+            this.updateSaveStatus(payload.savedAt ? `Saved Slot ${this.activeSaveSlot} @ ${formattedTime}` : 'Progress Saved');
+            this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
             return;
         }
-        const targetSlot = String(slot || this.activeSaveSlot);
-        const loaded = Persistence.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
-        if (!loaded.state) {
-            this.spawnTxt(new Hex(0,0), `No Save In Slot ${targetSlot}`, '#ef476f');
+        if (event === 'load') {
+            this.activeSaveSlot = payload.slot || this.activeSaveSlot;
+            this.stats = payload.stats || this.stats;
+            const status = payload.stats?.lastSaveISO ? `Loaded ${payload.stats.lastSaveISO}` : 'Loaded save file';
+            this.updateSaveStatus(status);
+            this.spawnTxt(new Hex(0,0), `Loaded Slot ${this.activeSaveSlot}`, '#9be3b4');
+            this.toggleSidebar(false);
+            return;
+        }
+        if (event === 'load:missing') {
+            this.spawnTxt(new Hex(0,0), `No Save In Slot ${payload.slot}`, '#ef476f');
             this.updateSaveStatus('No save stored yet.');
             this.updateSaveSlotsUI();
             return;
         }
-        this.activeSaveSlot = loaded.slot || targetSlot;
-        this.applySnapshot(loaded.state);
-        this.stats = loaded.stats;
-        this.updateHUD();
-        this.updateUpgradeMenu();
-        this.updateResearchUI();
-        this.updateLeaderboardUI();
-        this.updateSaveSlotsUI();
-        this.flushPendingNotifications();
-        this.toggleSidebar(false);
-        this.spawnTxt(new Hex(0,0), `Loaded Slot ${this.activeSaveSlot}`, '#9be3b4');
+        if (event === 'reset') {
+            this.stats = payload.stats || this.stats;
+            this.activeSaveSlot = payload.slot || '1';
+            this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
+            if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
+            this.toggleSidebar(false);
+        }
+    },
+
+    /** Trigger UI refresh cycles based on campaign store events. */
+    refreshCampaignUI(event) {
+        if (event === 'save') {
+            this.updateSaveSlotsUI();
+            return;
+        }
+        if (event === 'load') {
+            this.updateHUD();
+            this.updateUpgradeMenu();
+            this.updateResearchUI();
+            this.updateLeaderboardUI();
+            this.updateSaveSlotsUI();
+            this.flushPendingNotifications();
+            this.toggleSidebar(false);
+            return;
+        }
+        if (event === 'reset') {
+            this.updateLeaderboardUI();
+            this.updateHUD();
+            this.updateUpgradeMenu();
+            this.updateSaveSlotsUI();
+            return;
+        }
+        if (event === 'load:missing') this.updateSaveSlotsUI();
+    },
+
+    /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
+    saveCampaignSlot(slot = this.activeSaveSlot, options = {}) {
+        if (!this.campaignStore) {
+            this.logBootstrapWarning('Save skipped: campaign store unavailable in this environment.');
+            return { ok: false, slot: String(slot || this.activeSaveSlot) };
+        }
+        const result = this.campaignStore.saveSlot(slot, options);
+        if (result?.ok && result.slot) this.activeSaveSlot = result.slot;
+        return result;
+    },
+
+    /** Load a stored snapshot and refresh UI with the saved overworld. */
+    loadCampaignSlot(slot = this.activeSaveSlot, options = {}) {
+        if (!this.campaignStore) {
+            this.logBootstrapWarning('Load skipped: campaign store unavailable in this environment.');
+            return { ok: false, slot: String(slot || this.activeSaveSlot) };
+        }
+        const result = this.campaignStore.loadSlot(slot, options);
+        if (result?.ok && result.slot) this.activeSaveSlot = result.slot;
+        return result;
     },
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
-    resetProgress() {
-        if (!this.persistenceAvailable || !Persistence) {
-            this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
-            return;
+    resetCampaign(options = {}) {
+        if (!this.campaignStore) {
+            this.logBootstrapWarning('Reset skipped: campaign store unavailable in this environment.');
+            return { ok: false, slot: '1', stats: this.stats };
         }
-        Persistence.clearSnapshot();
-        this.stats = { ...Persistence.DEFAULT_STATS };
-        this.activeSaveSlot = '1';
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
-        this.bootstrapNewWorld();
-        this.updateLeaderboardUI();
-        this.updateHUD();
-        this.updateUpgradeMenu();
-        this.updateSaveSlotsUI();
-        this.toggleSidebar(false);
-        this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-        if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
+        const result = this.campaignStore.resetCampaign(options);
+        this.stats = result.stats || this.stats;
+        this.activeSaveSlot = result.slot || this.activeSaveSlot;
+        return result;
     },
+
+    /** @deprecated backward compatibility for legacy callers. */
+    saveGame(slot = this.activeSaveSlot) { return this.saveCampaignSlot(slot); },
+
+    /** @deprecated backward compatibility for legacy callers. */
+    loadGame(slot = this.activeSaveSlot) { return this.loadCampaignSlot(slot); },
+
+    /** @deprecated backward compatibility for legacy callers. */
+    resetProgress() { return this.resetCampaign(); },
 
     /**
      * Replay persisted notifications after UI bindings exist.

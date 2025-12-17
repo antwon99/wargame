@@ -272,16 +272,16 @@ export function setupUIBindings(game) {
     if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
     const resetBtn = document.getElementById('btn-reset');
-    if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
+    if (resetBtn) resetBtn.onclick = () => game.resetCampaign();
 
     const pauseBtn = document.getElementById('btn-pause');
     if (pauseBtn) pauseBtn.onclick = () => game.togglePause();
 
     document.querySelectorAll('.slot-save').forEach((btn) => {
-        btn.onclick = () => game.saveGame(btn.dataset.slot);
+        btn.onclick = () => game.saveCampaignSlot(btn.dataset.slot);
     });
     document.querySelectorAll('.slot-load').forEach((btn) => {
-        btn.onclick = () => game.loadGame(btn.dataset.slot);
+        btn.onclick = () => game.loadCampaignSlot(btn.dataset.slot);
     });
 
     document.querySelectorAll('[data-audio-setting]').forEach((input) => {
