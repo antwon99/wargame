@@ -21,7 +21,44 @@ This file provides Codex with a complete understanding of how to interact with t
 -   The `main` branch is the main, stable version that `moonshots` (if they work) eventually merges with.
 -   The `main(backup)` (if it exists) is usually a version 1-2 updates before `main` branch to isolate and fix any lingering bugs.
 -   The `OGmain` is a nuclear-level backup containing nothing. (Back to the very beginning, just in case.)
--   That's my personal naming convention, if those files don't exist yet, you're just early. Any new branches will be documented as/if they come. 
+-   That's my personal naming convention, if those files don't exist yet, you're just early. Any new branches will be documented as/if they come.
+
+-   ## Architectural Guardrails (Non-Negotiable)
+
+### No Responsibility Creep
+Do not add new logic to large or legacy modules unless explicitly instructed.
+
+If a file already:
+- exceeds ~300 lines, or
+- handles multiple concerns (e.g. state + UI + persistence),
+
+then **new functionality must go into a new dedicated module**.
+
+### Wrapper First, Refactor Later
+When extracting or reorganizing systems:
+- First create a thin wrapper module that preserves existing behavior.
+- Route callers through the wrapper.
+- Only then move internal logic behind the wrapper.
+
+Do not redesign schemas, rename fields, or “clean up” while extracting.
+
+### One System Per File
+Each module should represent a single system or concern:
+- persistence store
+- mandate registry
+- mandate evaluator
+- audio engine
+- UI binding layer
+- simulation logic
+
+If a change touches more than one concern, stop and split it.
+
+### Prefer Additive Changes
+Prefer adding new modules and adapters over modifying existing ones.
+Avoid touching stable systems unless required to wire in the new module.
+
+If unsure, ask before refactoring.
+
 
 
 ## Final Principles
