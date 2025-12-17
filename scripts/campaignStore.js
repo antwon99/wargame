@@ -32,10 +32,16 @@
                 return { state: null, stats: normalizedFallback, slot: '1' };
             }
             const payload = persistence.loadSnapshot(slotOrOptions, options);
+            const deserializer = persistence.deserializeGameState
+                || persistence.SnapshotSerializer?.deserialize;
+            const isHydrated = payload?.state?.overworld?.hexes instanceof Map;
+            const normalizedState = (!payload?.state || isHydrated || typeof deserializer !== 'function')
+                ? payload?.state
+                : deserializer(payload.state, options);
             const normalizedStats = statHelpers?.normalizeStats
-                ? statHelpers.normalizeStats(payload?.stats || payload?.state?.stats)
+                ? statHelpers.normalizeStats(payload?.stats || normalizedState?.stats)
                 : payload?.stats;
-            return { ...payload, stats: normalizedStats };
+            return { ...payload, state: normalizedState, stats: normalizedStats };
         }
 
         return {
