@@ -100,8 +100,30 @@ function testReturnsPendingNotificationsUnmodified() {
     assert.strictEqual(loaded.pendingNotifications, pendingNotifications, 'load should pass through pendingNotifications without mutation');
 }
 
+function testLoadCampaignDelegatesSynchronously() {
+    const slot = '6';
+    const expected = { state: { foo: 'bar' }, stats: { totalKills: 42 }, slot };
+    let loadCalled = false;
+    const persistenceStub = {
+        loadSnapshot: (slotArg, optionsArg) => {
+            loadCalled = true;
+            assert.strictEqual(slotArg, slot, 'slot should pass through to persistence');
+            assert.deepStrictEqual(optionsArg, { hexFactory: 'noop' }, 'options should remain unchanged');
+            return expected;
+        },
+        StatHelpers: Persistence.StatHelpers
+    };
+
+    const store = createCampaignStore({ persistence: persistenceStub });
+    const loaded = store.loadCampaign(slot, { hexFactory: 'noop' });
+
+    assert.ok(loadCalled, 'loadCampaign should synchronously call persistence.loadSnapshot');
+    assert.strictEqual(loaded, expected, 'loadCampaign should return the persistence payload unmodified');
+}
+
 testNormalizesLegacyStats();
 testHydratesSnapshotsWithDeserializer();
 testFallsBackToGlobalDeserializerWhenMissing();
 testReturnsPendingNotificationsUnmodified();
+testLoadCampaignDelegatesSynchronously();
 console.log('Campaign store tests passed.');
