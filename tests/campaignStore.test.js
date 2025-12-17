@@ -81,7 +81,27 @@ function testFallsBackToGlobalDeserializerWhenMissing() {
     assert.strictEqual(loaded.state.overworld.hexes.has('hex-1,0'), false, 'unknown tile ids should be filtered out');
 }
 
+function testReturnsPendingNotificationsUnmodified() {
+    const slot = '5';
+    const pendingNotifications = [{ id: 'hello', title: 'world' }];
+    const persistenceStub = {
+        loadSnapshot: () => ({
+            slot,
+            state: null,
+            stats: { ...Persistence.DEFAULT_STATS },
+            pendingNotifications
+        }),
+        StatHelpers: Persistence.StatHelpers
+    };
+    const store = createCampaignStore({ persistence: persistenceStub });
+
+    const loaded = store.load(slot);
+
+    assert.strictEqual(loaded.pendingNotifications, pendingNotifications, 'load should pass through pendingNotifications without mutation');
+}
+
 testNormalizesLegacyStats();
 testHydratesSnapshotsWithDeserializer();
 testFallsBackToGlobalDeserializerWhenMissing();
+testReturnsPendingNotificationsUnmodified();
 console.log('Campaign store tests passed.');
