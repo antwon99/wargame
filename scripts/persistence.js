@@ -372,30 +372,13 @@
     }
 
     /**
-     * Resolve a serialized snapshot from a game-like object or prebuilt snapshot payload.
-     * @param {object} gameOrSnapshot reference to the Game or a raw snapshot object.
-     * @returns {object} normalized payload ready for persistence.
-     */
-    function resolveSnapshotPayload(gameOrSnapshot) {
-        if (!gameOrSnapshot) return serializeGameState(gameOrSnapshot);
-        if (typeof gameOrSnapshot.getSnapshot === 'function') {
-            return gameOrSnapshot.getSnapshot();
-        }
-        const isSerialized = Array.isArray(gameOrSnapshot.overworld?.hexes);
-        if (isSerialized) {
-            return { ...gameOrSnapshot, stats: normalizeStats(gameOrSnapshot.stats) };
-        }
-        return serializeGameState(gameOrSnapshot);
-    }
-
-    /**
      * Save the game snapshot + leaderboard stats to a specific save slot.
-     * @param {object} gameOrSnapshot current Game instance or serialized snapshot.
+     * @param {object} game current Game instance.
      * @param {string|number} [slot='1'] slot number to persist into.
      * @returns {{savedAt: string, payload: object, slot: string}} time and payload details for UI/debugging.
      */
-    function saveSnapshot(gameOrSnapshot, slot = '1') {
-        const payload = resolveSnapshotPayload(gameOrSnapshot);
+    function saveSnapshot(game, slot = '1') {
+        const payload = serializeGameState(game);
         const savedAt = new Date().toISOString();
         const slotKey = storageKeyForSlot(slot);
         const statKey = statsKeyForSlot(slot);
