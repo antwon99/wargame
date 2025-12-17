@@ -1,15 +1,29 @@
 const assert = require('assert');
-const {
-    AudioManager,
-    SFX_GROUPS,
-    SFX_MANIFEST,
-    AmbientConductor,
-    AmbientScheduler,
-    AmbientRandomizer,
-    enterCombat,
-    exitCombat,
-    attachCombatStingerGuards
-} = require('../scripts/audio.js');
+
+let AudioManager;
+let SFX_GROUPS;
+let SFX_MANIFEST;
+let AmbientConductor;
+let AmbientScheduler;
+let AmbientRandomizer;
+let enterCombat;
+let exitCombat;
+let attachCombatStingerGuards;
+
+async function loadAudioModule() {
+    const audioModule = await import('../scripts/audio.js');
+    ({
+        AudioManager,
+        SFX_GROUPS,
+        SFX_MANIFEST,
+        AmbientConductor,
+        AmbientScheduler,
+        AmbientRandomizer,
+        enterCombat,
+        exitCombat,
+        attachCombatStingerGuards
+    } = audioModule);
+}
 
 function createStubFactory(log) {
     return (src) => {
@@ -723,10 +737,12 @@ function run() {
     console.log('All audio tests passed.');
 }
 
-try {
-    run();
-    process.exit(0);
-} catch (err) {
-    console.error(err);
-    process.exit(1);
-}
+loadAudioModule()
+    .then(() => {
+        run();
+        process.exit(0);
+    })
+    .catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });

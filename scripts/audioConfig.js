@@ -10,7 +10,7 @@
  * weighted randomisation keep their weight metadata here so selection logic can
  * remain generic.
  */
-const SFX_GROUPS = {
+export const SFX_GROUPS = {
     ambientLoops: ['sfx/ambient/ambient.mp3'],
     // Wind bed intentionally disabled until a distinct loop is available to avoid
     // stacking the same ambience twice.
@@ -62,7 +62,7 @@ const SFX_GROUPS = {
  * Manifest mapping for AudioManager consumers. Each entry defines playback
  * options so the runtime can remain declarative.
  */
-const SFX_MANIFEST = {
+export const SFX_MANIFEST = {
     wardrum: { src: SFX_GROUPS.wardrums[0], cooldownMs: 1200 },
     sword: {
         allowOverlap: true,
@@ -95,4 +95,3 @@ const SFX_MANIFEST = {
     ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
 };
 
-module.exports = { SFX_GROUPS, SFX_MANIFEST };
