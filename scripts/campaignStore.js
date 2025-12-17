@@ -31,13 +31,19 @@
                 const normalizedFallback = statHelpers?.normalizeStats ? statHelpers.normalizeStats() : {};
                 return { state: null, stats: normalizedFallback, slot: '1' };
             }
+            const loaderOptions = (slotOrOptions && typeof slotOrOptions === 'object'
+                && typeof slotOrOptions !== 'string'
+                && typeof slotOrOptions !== 'number')
+                ? slotOrOptions
+                : options;
             const payload = persistence.loadSnapshot(slotOrOptions, options);
             const deserializer = persistence.deserializeGameState
-                || persistence.SnapshotSerializer?.deserialize;
+                || persistence.SnapshotSerializer?.deserialize
+                || Persistence?.deserializeGameState;
             const isHydrated = payload?.state?.overworld?.hexes instanceof Map;
             const normalizedState = (!payload?.state || isHydrated || typeof deserializer !== 'function')
                 ? payload?.state
-                : deserializer(payload.state, options);
+                : deserializer(payload.state, loaderOptions);
             const normalizedStats = statHelpers?.normalizeStats
                 ? statHelpers.normalizeStats(payload?.stats || normalizedState?.stats)
                 : payload?.stats;

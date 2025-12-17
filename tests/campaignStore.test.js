@@ -52,6 +52,36 @@ function testHydratesSnapshotsWithDeserializer() {
     assert.strictEqual(loaded.stats.totalKills, 1, 'stats should still propagate alongside state');
 }
 
+function testFallsBackToGlobalDeserializerWhenMissing() {
+    const slot = '4';
+    const persistenceStub = {
+        loadSnapshot: () => ({
+            slot,
+            state: {
+                overworld: {
+                    hexes: [
+                        { q: 0, r: 0, s: 0, type: 'CASTLE', owner: 'PLAYER' },
+                        { q: 1, r: 0, s: -1, type: 'mystery' }
+                    ]
+                },
+                stats: { totalKills: 2 }
+            },
+            stats: { totalKills: 2 }
+        }),
+        StatHelpers: Persistence.StatHelpers
+    };
+    const hexFactory = (q, r) => ({ q, r, toString: () => `hex-${q},${r}` });
+    const store = createCampaignStore({ persistence: persistenceStub });
+
+    const loaded = store.load(slot, { hexFactory });
+
+    assert.ok(loaded.state.overworld.hexes instanceof Map, 'overworld hexes should hydrate through global deserializer');
+    assert.ok(loaded.state.overworld.hexes.has('hex-0,0'), 'valid tiles should be preserved through hydration');
+    assert.strictEqual(loaded.state.overworld.hexes.get('hex-0,0').owner, 'player', 'owners should normalize to lowercase');
+    assert.strictEqual(loaded.state.overworld.hexes.has('hex-1,0'), false, 'unknown tile ids should be filtered out');
+}
+
 testNormalizesLegacyStats();
 testHydratesSnapshotsWithDeserializer();
+testFallsBackToGlobalDeserializerWhenMissing();
 console.log('Campaign store tests passed.');
