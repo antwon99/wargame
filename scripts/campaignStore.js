@@ -10,7 +10,7 @@
      *
      * @param {object} [options]
      * @param {object} [options.persistence] optional persistence dependency injection for tests.
-     * @returns {{load: function, save: function, clear: function, hasSnapshot: function, getSlotMetadata: function}}
+     * @returns {{load: function, loadCampaign: function, save: function, clear: function, hasSnapshot: function, getSlotMetadata: function}}
      * facade exposing normalized load + passthrough mutations.
      */
     function createCampaignStore({ persistence = Persistence } = {}) {
@@ -55,8 +55,26 @@
             };
         }
 
+        /**
+         * Thin synchronous delegate to persistence snapshot loading.
+         * Game.init requires a synchronous payload to hydrate before UI binding
+         * and render loop startup, so this avoids async adapters or hydration.
+         *
+         * @param {string|number|object} [slotOrOptions] slot identifier or loader options.
+         * @param {object} [options] passthrough loader options when slot is provided first.
+         * @returns {{state: object|null, stats: object, slot: string}} raw snapshot payload.
+         */
+        function loadCampaign(slotOrOptions = {}, options = {}) {
+            if (!persistence?.loadSnapshot) {
+                const fallbackStats = statHelpers?.normalizeStats ? statHelpers.normalizeStats() : {};
+                return { state: null, stats: fallbackStats, slot: '1' };
+            }
+            return persistence.loadSnapshot(slotOrOptions, options);
+        }
+
         return {
             load,
+            loadCampaign,
             save: (...args) => (persistence?.saveSnapshot ? persistence.saveSnapshot(...args) : null),
             clear: (...args) => (persistence?.clearSnapshot ? persistence.clearSnapshot(...args) : null),
             hasSnapshot: (...args) => (persistence?.hasSnapshot ? persistence.hasSnapshot(...args) : false),
