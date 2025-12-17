@@ -35,6 +35,7 @@ import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
+import { createCampaignStore } from '../persistence/campaignStore.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -216,6 +217,7 @@ const Game = {
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
     persistenceAvailable: true,
+    campaignStore: null,
     combat: {
         territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
@@ -273,6 +275,30 @@ const Game = {
             this.setupInput();
             this.resetSession();
 
+            const persistenceHelper = this.persistenceAvailable ? Persistence : null;
+            this.campaignStore = createCampaignStore({
+                persistence: persistenceHelper,
+                getSnapshot: () => this.getSnapshot(),
+                applySnapshot: (snapshot) => this.applySnapshot(snapshot),
+                getStats: () => this.stats,
+                setStats: (stats) => { this.stats = stats; },
+                getActiveSlot: () => this.activeSaveSlot,
+                setActiveSlot: (slot) => { this.activeSaveSlot = slot; },
+                resetWorld: () => this.bootstrapNewWorld(),
+                onStatus: (message) => this.updateSaveStatus(message),
+                onSaveSlotsUpdate: () => this.updateSaveSlotsUI?.(),
+                onHUDRefresh: () => this.updateHUD?.(),
+                onUpgradeRefresh: () => this.updateUpgradeMenu?.(),
+                onResearchRefresh: () => this.updateResearchUI?.(),
+                onLeaderboardRefresh: () => this.updateLeaderboardUI?.(),
+                onNotificationsHydrated: () => this.flushPendingNotifications?.(),
+                onSidebarToggle: (isOpen) => this.toggleSidebar?.(isOpen),
+                onToast: (message, color) => this.spawnTxt?.(new Hex(0,0), message, color),
+                onWarning: (message, error) => this.logBootstrapWarning(message, error),
+                onImperialReset: () => { if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign(); },
+                onIntroReset: () => { if (window.IntroOverlay?.reset) window.IntroOverlay.reset(); }
+            });
+
             window.addEventListener('intro:begin', () => {
                 if (!this.shouldRunImperialIntro) return;
                 this.issueImperialIntroMandate();
@@ -283,17 +309,32 @@ const Game = {
                 this.logBootstrapWarning('Persistence unavailable; skipping save hydration and disabling save slots.');
             }
 
-            const resolveSnapshot = typeof loadSnapshot === 'function'
-                ? loadSnapshot
-                : () => (this.dependencyHealth.persistenceAvailable
-                    ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
-                    : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
-            const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
-            if (loaded.state) {
+            let loaded = null;
+            let appliedViaStore = false;
+            try {
+                if (typeof loadSnapshot === 'function') {
+                    loaded = loadSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
+                } else if (this.campaignStore) {
+                    loaded = this.campaignStore.load({
+                        slot: this.activeSaveSlot,
+                        deserializerOptions: { hexFactory: (q, r, s) => new Hex(q, r, s) },
+                        suppressToast: true,
+                        suppressStatus: true,
+                        refreshUI: false
+                    });
+                    appliedViaStore = Boolean(loaded?.state);
+                }
+            } catch (error) {
+                this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
+            }
+
+            if (loaded?.state) {
                 try {
-                    this.applySnapshot(loaded.state);
-                    this.stats = loaded.stats;
-                    this.activeSaveSlot = loaded.slot || '1';
+                    if (!appliedViaStore) {
+                        this.applySnapshot(loaded.state);
+                        this.stats = loaded.stats;
+                        this.activeSaveSlot = loaded.slot || '1';
+                    }
                 } catch (error) {
                     this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
                     this.bootstrapNewWorld();
@@ -704,6 +745,44 @@ const Game = {
         }
     },
 
+    /**
+     * Construct a serialized overworld snapshot for persistence.
+     * @returns {object} JSON-friendly snapshot payload.
+     */
+    getSnapshot() {
+        if (Persistence?.serializeGameState) {
+            return Persistence.serializeGameState(this);
+        }
+        return {
+            gold: this.gold,
+            wood: this.wood,
+            difficulty: this.difficulty,
+            upgrades: { ...this.upgrades },
+            research: {
+                technologies: Array.from(this.research?.technologies || []),
+                bonuses: { ...(this.research?.bonuses || {}) },
+                lives: this.research?.lives || 0
+            },
+            imperialFavor: clampImperialFavor(this.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR),
+            timekeeper: {
+                ticks: this.timekeeper?.ticks || 0,
+                daysPerWeek: this.timekeeper?.daysPerWeek || 7,
+                weeksPerMonth: this.timekeeper?.weeksPerMonth || 4
+            },
+            overworld: {
+                hexes: Array.from(this.overworld.hexes.values()).map(({ hex, type, owner }) => ({
+                    q: hex.q,
+                    r: hex.r,
+                    s: hex.s,
+                    type,
+                    owner: owner ?? null
+                }))
+            },
+            stats: { ...this.stats },
+            notifications: Array.isArray(this.pendingNotifications) ? [...this.pendingNotifications] : []
+        };
+    },
+
     /** Apply a hydrated snapshot to the live game state (overworld only). */
     applySnapshot(snapshot) {
         this.state = 'OVERWORLD';
@@ -736,64 +815,32 @@ const Game = {
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
     saveGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.campaignStore) {
             this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
             return;
         }
-        const targetSlot = String(slot || this.activeSaveSlot);
-        const result = Persistence.saveSnapshot(this, targetSlot);
-        this.activeSaveSlot = result.slot;
-        const formattedTime = new Date(result.savedAt).toLocaleString();
-        this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
-        this.updateSaveSlotsUI();
-        this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
+        this.campaignStore.save({ slot });
     },
 
     /** Load a stored snapshot and refresh UI with the saved overworld. */
     loadGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.campaignStore) {
             this.logBootstrapWarning('Load skipped: persistence helper unavailable in this environment.');
             return;
         }
-        const targetSlot = String(slot || this.activeSaveSlot);
-        const loaded = Persistence.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
-        if (!loaded.state) {
-            this.spawnTxt(new Hex(0,0), `No Save In Slot ${targetSlot}`, '#ef476f');
-            this.updateSaveStatus('No save stored yet.');
-            this.updateSaveSlotsUI();
-            return;
-        }
-        this.activeSaveSlot = loaded.slot || targetSlot;
-        this.applySnapshot(loaded.state);
-        this.stats = loaded.stats;
-        this.updateHUD();
-        this.updateUpgradeMenu();
-        this.updateResearchUI();
-        this.updateLeaderboardUI();
-        this.updateSaveSlotsUI();
-        this.flushPendingNotifications();
-        this.toggleSidebar(false);
-        this.spawnTxt(new Hex(0,0), `Loaded Slot ${this.activeSaveSlot}`, '#9be3b4');
+        this.campaignStore.load({
+            slot,
+            deserializerOptions: { hexFactory: (q, r, s) => new Hex(q, r, s) }
+        });
     },
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
     resetProgress() {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.campaignStore) {
             this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
             return;
         }
-        Persistence.clearSnapshot();
-        this.stats = { ...Persistence.DEFAULT_STATS };
-        this.activeSaveSlot = '1';
-        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
-        this.bootstrapNewWorld();
-        this.updateLeaderboardUI();
-        this.updateHUD();
-        this.updateUpgradeMenu();
-        this.updateSaveSlotsUI();
-        this.toggleSidebar(false);
-        this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-        if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
+        this.campaignStore.reset();
     },
 
     /**
