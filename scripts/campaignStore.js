@@ -47,7 +47,12 @@
             const normalizedStats = statHelpers?.normalizeStats
                 ? statHelpers.normalizeStats(payload?.stats || normalizedState?.stats)
                 : payload?.stats;
-            return { ...payload, state: normalizedState, stats: normalizedStats };
+            return {
+                ...payload,
+                pendingNotifications: payload?.pendingNotifications,
+                state: normalizedState,
+                stats: normalizedStats
+            };
         }
 
         return {
