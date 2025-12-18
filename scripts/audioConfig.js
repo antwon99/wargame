@@ -36,19 +36,21 @@ export const SFX_GROUPS = {
         { src: 'sfx/combat/tower/tower3.mp3', weight: 1 }
     ],
     rares: [
-        { src: 'sfx/ui/rare.mp3', weight: 2 },
-        { src: 'sfx/ui/rare2.mp3', weight: 1 },
-        { src: 'sfx/ui/rare3.mp3', weight: 1 }
+        { src: 'sfx/combat/rare/rare.mp3', weight: 2 },
+        { src: 'sfx/combat/rare/rare2.mp3', weight: 1 },
+        { src: 'sfx/combat/rare/rare3.mp3', weight: 1 }
     ],
     victory: ['sfx/system/victory.mp3'],
     defeat: ['sfx/system/defeat.mp3'],
     territoryMusic: [
         'sfx/ambient/ambiance_upbeat.mp3',
-        'sfx/ambient/ambiance_uplifting.mp3'
+        'sfx/ambient/ambiance_uplifting.mp3',
+        'sfx/ambient/ambiance_uptake.mp3'
     ],
     warMusic: [
         'sfx/ambient/ambiance_sorrow.mp3',
-        'sfx/ambient/ambiance_dark.mp3'
+        'sfx/ambient/ambiance_dark.mp3',
+        'sfx/ambient/ambiance_anger.mp3'
     ],
     /**
      * Choptree straddles UI feedback and resource collection but currently
@@ -91,7 +93,9 @@ export const SFX_MANIFEST = {
     ambient: { src: SFX_GROUPS.ambientLoops[0], loop: true, volume: 0.35, isAmbient: true, cooldownMs: 0, category: 'music' },
     ambiance_upbeat: { src: SFX_GROUPS.territoryMusic[0], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_uplifting: { src: SFX_GROUPS.territoryMusic[1], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
+    ambiance_uptake: { src: SFX_GROUPS.territoryMusic[2], volume: 0.55, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_sorrow: { src: SFX_GROUPS.warMusic[0], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
-    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
+    ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
+    ambiance_anger: { src: SFX_GROUPS.warMusic[2], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
 };
 

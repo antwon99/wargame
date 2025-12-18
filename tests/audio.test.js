@@ -116,6 +116,12 @@ function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.tower?.variations?.length >= 3, 'tower/castle sound should include variations');
     assert.ok(SFX_MANIFEST.ambiance_dark, 'war ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
+    assert.ok(SFX_MANIFEST.ambiance_anger, 'war ambience additions should be mapped');
+    assert.ok(SFX_MANIFEST.ambiance_uptake, 'territory ambience additions should be mapped');
+    assert.ok(
+        SFX_MANIFEST.rare?.variations?.every((v) => v.src.includes('sfx/combat/rare/')),
+        'rare sounds should live under combat audio'
+    );
     assert.ok(!SFX_MANIFEST.ambient_bed_wind, 'wind bed intentionally disabled to avoid doubling ambience');
 }
 

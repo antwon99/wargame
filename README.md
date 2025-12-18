@@ -58,7 +58,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ## Audio
 
-- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop. Effects are grouped into `/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, and `/sfx/system` subfolders.
+- MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop. Effects are grouped into `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` subfolders, with `/sfx/ui` reserved for future interface cues.
 - Combat transitions now run through `enterCombat()` / `exitCombat()` in `scripts/audio.js` so war drums hit immediately and ambience swaps back to territory after victory/defeat/retreat.
 - See `docs/audio.md` for the event map and integration notes.
 

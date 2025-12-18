@@ -3,7 +3,7 @@
 The game routes all sounds through the `scripts/audio.js` stack: a manifest-driven `GameAudio` manager, a randomizing `AmbientSoundscape` scheduler, and a thin `AudioBridge` facade in `audio/bridge.js`.
 
 ## Manifest (GameAudio)
-- `SFX_MANIFEST` in `scripts/audio.js` maps keys to `{ src, loop?, volume?, cooldownMs?, allowOverlap?, isAmbient?, variations? }` entries. Keys are stable handles consumed by gameplay code (`AudioBridge.play('arrow')`). Manifest entries source mp3s from the organized `/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, and `/sfx/system` subfolders.
+- `SFX_MANIFEST` in `scripts/audio.js` maps keys to `{ src, loop?, volume?, cooldownMs?, allowOverlap?, isAmbient?, variations? }` entries. Keys are stable handles consumed by gameplay code (`AudioBridge.play('arrow')`). Manifest entries source mp3s from the organized `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` subfolders; `/sfx/ui` remains available for future HUD interactions.
 - **Weighted variants**: Provide `variations: [{ src, weight?, id? }, ...]` to bias selection while keeping attack spam lively. `GameAudio` picks a variation per play call using a cached `WeightedSelector`.
 - **Cooldowns**: `cooldownMs` throttles repeat requests per manifest key; overlap is still allowed when `allowOverlap` is true (clones the cached node). Cooldowns can be overridden per call via `AudioBridge.play(key, { cooldownMs })` when needed.
 - **Ambient loops**: Mark a manifest entry with `isAmbient: true` to expose it as the default loop for `GameAudio.startAmbientLoop()`. Other ambience/music tracks live in the `AmbientSoundscape` playlists (below).
