@@ -50,6 +50,13 @@ export const OVERWORLD_TILES = {
                 if (typeof game.spawnTxt === 'function') game.spawnTxt(hex, `+${bonusGold}g (ruin cache)`, '#f8f9fa');
             }
         }
+    },
+    WATER: {
+        id: 'water',
+        color: '#1c7ed6',
+        char: '🌊',
+        income: {},
+        tooltip: 'Calming waters that slow expansion efficiency but open scenic space.'
     }
 };
 
