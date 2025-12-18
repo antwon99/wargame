@@ -26,6 +26,7 @@ import { OVERWORLD_TILES } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
+import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
@@ -1430,12 +1431,13 @@ const Game = {
         }
 
         const weighted = [
-            { type: 'field', weight: 45 },
-            { type: 'forest', weight: 30 },
-            { type: 'town', weight: 18 },
+            { type: 'field', weight: 40 },
+            { type: 'forest', weight: 28 },
+            { type: 'town', weight: 16 },
             { type: 'mine', weight: 5 },
             { type: 'shrine', weight: 2 },
-            { type: 'ruin', weight: 1 }
+            { type: 'ruin', weight: 1 },
+            { type: 'water', weight: 8 }
         ];
         const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
         let pick = Math.random() * totalWeight;
@@ -1445,9 +1447,20 @@ const Game = {
             pick -= entry.weight;
         }
 
-        this.addOverworldHex(hex, type);
         const def = OVERWORLD_TILES[type.toUpperCase()];
-        if (!free) {
+        const extras = type === 'water' ? { isWater: true } : {};
+        this.addOverworldHex(hex, type, 'player', extras);
+
+        if (type === 'water') {
+            const body = buildWaterBody(hex, { rng: Math.random });
+            const stamped = stampWaterBody(this, hex, body, { owner: 'player' });
+            const totalWater = (stamped?.length || 0) + 1;
+            if (!free) {
+                const headline = def?.char ? `${def.char} WATER!` : 'WATER!';
+                this.spawnTxt(hex, headline, '#74c0fc');
+                if (totalWater > 1) this.spawnTxt(hex, `+${totalWater - 1} hex water body`, '#74c0fc');
+            }
+        } else if (!free) {
             const label = def?.char ? `${def.char} ${type.toUpperCase()}!` : `${type.toUpperCase()}!`;
             this.spawnTxt(hex, label, '#fff');
             if (type === 'town') this.playSound('city');
@@ -1455,6 +1468,7 @@ const Game = {
             else if (type === 'mine') this.playSound('gold');
             else if (type === 'shrine') this.playSound('holy');
         }
+
         if (def?.onClaim && !free) def.onClaim(this, hex);
         if (!free) this.refreshClusterBonuses();
         return def;
