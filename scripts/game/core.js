@@ -1417,7 +1417,8 @@ const Game = {
     },
 
     claimHexLogic(hex, free) {
-        const rebelSpawnChance = free ? 0 : 0.15 + (Math.random() * 0.1);
+        // Keep rebel discoveries rarer than towns (~18%) but slightly above mines/shrines/ruins.
+        const rebelSpawnChance = free ? 0 : 0.10 + (Math.random() * 0.05);
         const shouldSpawnRebels = !free && Math.random() < rebelSpawnChance;
 
         if (shouldSpawnRebels) {

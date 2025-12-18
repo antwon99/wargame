@@ -9,6 +9,9 @@ This document summarizes the introductory rebel flow and its two supporting syst
 - `isRebelCampTile(tile)` returns whether a tile is a rebel camp.
 - `getAllRebelCamps(gameState)` gathers the current rebel camp tiles across the overworld.
 
+- Standard frontier claims (`Game.claimHexLogic`) now surface a **~10–15%** rebel camp risk when the tile isn't free. That rate
+  keeps rebel discoveries below the town weight (~18%) while still outpacing rare mines, shrines, and ruins.
+
 The helper reuses the existing overworld tile map and Hex helpers; if no safe frontier tile is available it returns `null` without crashing the caller.
 
 ## Imperial Mandates (`scripts/imperialMandates.js`)

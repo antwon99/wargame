@@ -101,7 +101,8 @@ async function testRebelCampDiscoveryHasChance() {
     const { Game, Hex } = await buildGame();
     const target = new Hex(1, 0, -1);
 
-    withMockedRandom([0.05, 0.01], () => {
+    // Floor the chance (~10%) and confirm a low roll still spawns rebels.
+    withMockedRandom([0, 0.05], () => {
         const rebelTile = Game.claimHexLogic(target, false);
         const stored = Game.overworld.hexes.get(target.toString());
         assert.strictEqual(stored, rebelTile, 'claimHexLogic should return the rebel tile when spawned');
