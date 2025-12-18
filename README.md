@@ -42,10 +42,10 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 - `scripts/script.js` relies on globals supplied by non-module scripts (`researchSystem.js`, `persistence.js`, `rebelSystem.js`, `imperialMandates.js`, `inputHelpers.js`, etc.) that are loaded above it in `Wargame.html`. The module checks `window` first, then falls back to `require()` for Node-based tests, so keep those `<script>` tags before the module entry when changing bundlers or build pipelines.
 
-### Fog visuals
+### Snow visuals
 
-- `scripts/fogVisualConfig.mjs` is the single source of truth for fog colors, opacities, ripple tuning, and parallax drift values used by the overworld and combat backdrops. Feature toggles in `scripts/script.js` read from this config (and explicit overrides) to decide whether fog is enabled, whether ripples render, and which gradients to apply. Temporary fog toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
-- Per-hex fog/shroud overlays can be supplied via the `drawTileFog` extension point passed into `drawOverworldTiles()`; the default implementation is a no-op, so custom tile fog can be layered on without changing the base renderer.
+- `scripts/snowVisualConfig.mjs` drives the seasonal snow overlay and coverage. The config determines which months render snow (October–March), the maximum gradient height, and overlay opacity. Temporary snow toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
+- Per-hex visibility overlays can be supplied via the `drawTileOverlay` extension point passed into `drawOverworldTiles()`; the default implementation shades unseen/seen tiles while keeping snow separate from tile shrouds.
 
 
 ### Testing

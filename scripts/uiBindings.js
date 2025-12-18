@@ -302,7 +302,7 @@ export function setupUIBindings(game) {
                 settings.applyVisual({ [input.dataset.visualToggle]: input.checked });
                 return;
             }
-            if (typeof game.setFogToggle === 'function') game.setFogToggle(input.dataset.visualToggle, input.checked);
+            if (typeof game.setSnowToggle === 'function') game.setSnowToggle(input.dataset.visualToggle, input.checked);
         });
     });
 

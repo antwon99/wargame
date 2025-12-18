@@ -26,11 +26,10 @@ import { OVERWORLD_TILES } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
-import { buildTileVisibilityMap, resolveFogTileMask, TILE_VISIBILITY } from '../fogMask.js';
+import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
-import { FOG_VISUAL_CONFIG, FOG_VISUAL_MODES, resolveFogInnerOpacity, resolveFogParallax, resolveFogVisualConfig } from '../fogVisualConfig.mjs';
+import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
 import { buildDefaultSettings, createSettingsService } from '../settings.js';
-import AmbienceRenderer from '../ambienceRenderer.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import AudioBridge from '../../audio/bridge.js';
@@ -48,9 +47,6 @@ const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
 const Persistence = (typeof window !== 'undefined' && window.Persistence)
     ? window.Persistence
     : (typeof require === 'function' ? require('../persistence.js') : null);
-const AmbienceRendererClass = (typeof AmbienceRenderer !== 'undefined')
-    ? AmbienceRenderer
-    : (typeof window !== 'undefined' ? window.AmbienceRenderer : null);
 const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
     bestLevel: 0,
     bestKills: 0,
@@ -70,7 +66,17 @@ function clamp01(value, fallback = 1) {
  * Build a fresh Game core instance without binding UI or persistence wiring.
  * @returns {{Game: Object, Hex: typeof Hex, Layout: Object, TIPS: string[]}}
  */
-export function createGameCore() {
+export function createGameCore(overrides = {}) {
+    const clusterBuilder = overrides.buildClusterBonusMap || buildClusterBonusMap;
+    const visibilityBuilder = overrides.buildTileVisibilityMap || buildTileVisibilityMap;
+    const snowDefaults = overrides.SNOW_VISUAL_CONFIG || SNOW_VISUAL_CONFIG;
+    const snowConfigResolver = overrides.resolveSnowVisualConfig || resolveSnowVisualConfig;
+    const bootstrapValidator = overrides.validateBootstrapDependencies || validateBootstrapDependencies;
+    const researchStateBuilder = overrides.buildResearchStateSafe || buildResearchStateSafe;
+    const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
+        ? overrides.persistence
+        : Persistence;
+
     /** ENGINE */
     const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
 
@@ -117,17 +123,6 @@ const CAMERA_MOTION_CONFIG = {
     amplitude: 9,
     parallax: 0.65,
     speed: 0.18
-};
-
-const AMBIENCE_CONFIG = {
-    enabled: false,
-    fadeRadiusFactor: 0.55,
-    fadeFeather: 0.35,
-    layers: [
-        { opacity: 0.05, drift: { x: 8, y: -3 }, scale: 520, density: 0.18 },
-        { opacity: 0.035, drift: { x: -5, y: 6 }, scale: 640, density: 0.22 },
-        { opacity: 0.028, drift: { x: 14, y: 9 }, scale: 780, density: 0.14 }
-    ]
 };
 
 /**
@@ -202,17 +197,15 @@ const Game = {
     timekeeper: new Timekeeper({ startTick: START_TICK }),
 
     overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
-    fog: { time: 0 },
+    snow: { time: 0 },
     featureToggles: {
-        fog: { ...FOG_VISUAL_CONFIG },
+        snow: { ...snowDefaults },
         camera: { ...CAMERA_MOTION_CONFIG },
-        ambience: { ...AMBIENCE_CONFIG },
         overworld: { showClaimCosts: false }
     },
     settingsStorageKey: 'wargame:player-settings',
     settingsService: null,
     playerSettings: null,
-    ambienceRenderer: null,
     camBase: { x: 0, y: 0 },
     camDrift: { time: 0 },
     persistenceAvailable: true,
@@ -225,9 +218,9 @@ const Game = {
     init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
         try {
             if (introOverlay?.init) introOverlay.init(document);
-            this.dependencyHealth = validateBootstrapDependencies({
+            this.dependencyHealth = bootstrapValidator({
                 researchSystem: ResearchSystem,
-                persistence: Persistence,
+                persistence: persistenceModule,
                 inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
                 canvas: this.canvas,
                 ctx: this.ctx,
@@ -247,7 +240,6 @@ const Game = {
                 visualAdapter: (visuals) => {
                     this.applyVisualSettings(visuals);
                     this.playerSettings = { ...(this.playerSettings || {}), visuals };
-                    this.ensureAmbienceRendererReady();
                 },
                 onError: (context, error) => this.reportRecoverableError?.(context, error)
             });
@@ -263,14 +255,13 @@ const Game = {
                 : () => this.updateHUD();
             this.timekeeper.onChange(refreshHUD);
             this.resize();
-            this.ensureAmbienceRendererReady();
             initAudioDebugPanel({
-                resolveFogSnapshot: () => this.resolveFogDebugSnapshot(),
-                setFogToggle: (key, isEnabled) => this.setFogToggle(key, isEnabled)
+                resolveSnowSnapshot: () => this.resolveSnowDebugSnapshot(),
+                setSnowToggle: (key, isEnabled) => this.setSnowToggle(key, isEnabled)
             });
             this.bindVoidClickEasterEgg();
             window.addEventListener('resize', () => this.resize());
-            this.setupInput();
+            if (typeof this.setupInput === 'function') this.setupInput();
             this.resetSession();
 
             window.addEventListener('intro:begin', () => {
@@ -285,8 +276,11 @@ const Game = {
 
             const resolveSnapshot = typeof loadSnapshot === 'function'
                 ? loadSnapshot
-                : () => (this.dependencyHealth.persistenceAvailable
-                    ? Persistence.loadSnapshot(this.activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) })
+                : () => (this.dependencyHealth.persistenceAvailable && persistenceModule
+                    ? persistenceModule.loadSnapshot(
+                        this.activeSaveSlot,
+                        { hexFactory: (q, r, s) => new Hex(q, r, s) }
+                    )
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
             const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
             if (loaded.state) {
@@ -337,7 +331,7 @@ const Game = {
     },
 
     /**
-     * Kick off the animation frame loop so rendering and fog layers stay alive
+     * Kick off the animation frame loop so rendering and snow overlays stay alive
      * even if initialization encounters recoverable errors.
      */
     armRenderLoop() {
@@ -363,7 +357,7 @@ const Game = {
 
     /**
      * Build the default player-facing settings bundle for audio and visuals.
-     * Defaults mirror the fog/audio baselines so sliders start aligned with
+     * Defaults mirror the snow/audio baselines so sliders start aligned with
      * the current build's expected presentation.
      * @returns {Object} default settings snapshot
      */
@@ -433,38 +427,33 @@ const Game = {
         return { ...defaults, ...(this.playerSettings?.audio || {}) };
     },
 
-    /** Normalize visual toggle preferences against the live fog feature toggles. */
+    /** Normalize visual toggle preferences against the live snow feature toggles. */
     getVisualSettings() {
         if (this.settingsService?.getSnapshot) return this.settingsService.getSnapshot().visuals;
-        const fog = this.featureToggles?.fog || {};
+        const snow = this.featureToggles?.snow || {};
         return {
-            enabled: fog.enabled !== false,
-            tileFogEnabled: fog.tileFogEnabled === true,
-            ambienceLayersEnabled: fog.ambienceLayersEnabled === true,
-            ambienceEnabled: fog.ambienceEnabled !== false
+            snowEnabled: snow.enabled !== false,
+            snowfallEnabled: snow.snowfallEnabled !== false
         };
     },
 
     /**
-     * Push visual toggle preferences into the fog feature toggles and cache
+     * Push visual toggle preferences into the snow feature toggles and cache
      * them for persistence.
-     * @param {Object} visualSettings fog/ambience preferences
-     * @returns {Object} resulting fog toggle collection
+     * @param {Object} visualSettings snow preferences
+     * @returns {Object} resulting snow toggle collection
      */
     applyVisualSettings(visualSettings = this.defaultPlayerSettings().visuals) {
         const defaults = this.defaultPlayerSettings().visuals;
         const safe = { ...defaults, ...(visualSettings || {}) };
-        const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
-        const nextFog = {
-            ...fogToggles,
-            enabled: safe.enabled !== false,
-            tileFogEnabled: safe.tileFogEnabled === true,
-            ambienceLayersEnabled: safe.ambienceLayersEnabled === true,
-            ambienceEnabled: safe.ambienceEnabled !== false
+        const snowToggles = this.featureToggles?.snow || { ...snowDefaults };
+        const nextSnow = {
+            ...snowToggles,
+            enabled: safe.snowEnabled !== false,
+            snowfallEnabled: safe.snowfallEnabled !== false
         };
-        this.featureToggles = { ...this.featureToggles, fog: nextFog };
-        this.ensureAmbienceRendererReady(nextFog);
-        return nextFog;
+        this.featureToggles = { ...this.featureToggles, snow: nextSnow };
+        return nextSnow;
     },
 
     /** Update an individual mixer channel from the settings sidebar. */
@@ -480,124 +469,53 @@ const Game = {
     },
 
     /**
-     * Allow tests to override ambient visuals (fog + camera drift) without mutating
-     * the core constants. Overrides must be supplied explicitly so runtime defaults
+     * Allow tests to override visual + camera defaults without mutating the
+     * core constants. Overrides must be supplied explicitly so runtime defaults
      * stay aligned with the shared configs instead of transient diagnostics.
      */
     applyFeatureOverrides(overrides = {}) {
-        const fogOverrides = overrides.fog || {};
+        const snowOverrides = overrides.snow || {};
         const cameraOverrides = overrides.camera || {};
-        const ambienceOverrides = overrides.ambience || {};
         const overworldOverrides = overrides.overworld || {};
-        const resolvedFog = resolveFogVisualConfig({ ...FOG_VISUAL_CONFIG, ...fogOverrides });
-        const fogDisabled = resolvedFog.enabled === false;
-        const ambienceEnabledOverride =
-            typeof fogOverrides.ambienceLayersEnabled === 'boolean'
-                ? fogOverrides.ambienceLayersEnabled
-                : undefined;
-        const ambienceConfig = {
-            ...AMBIENCE_CONFIG,
-            ...ambienceOverrides,
-            ...(typeof ambienceEnabledOverride === 'boolean' ? { enabled: ambienceEnabledOverride } : {}),
-            ...(fogDisabled || resolvedFog.visualMode === FOG_VISUAL_MODES.VOID ? { enabled: false } : {})
-        };
+        const resolvedSnow = snowConfigResolver({ ...snowDefaults, ...snowOverrides });
         this.featureToggles = {
-            fog: resolvedFog,
+            snow: resolvedSnow,
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
-            ambience: ambienceConfig,
             overworld: { showClaimCosts: false, ...overworldOverrides }
         };
-        // Recreate ambience renderer lazily so mode/flag changes cannot resurrect clouds in void-only mode.
-        this.ambienceRenderer = null;
     },
 
     /**
-     * Flip debug-only fog feature toggles without exposing globals. Only known
-     * boolean toggles are honored so drift parameters remain protected.
-     * @param {string} key fog toggle key to update (enabled | tileFogEnabled | ambienceLayersEnabled | ambienceEnabled)
+     * Flip debug-only snow feature toggles without exposing globals.
+     * @param {string} key snow toggle key to update (snowEnabled|snowfallEnabled)
      * @param {boolean} isEnabled desired state for the toggle
-     * @returns {Object} resulting fog toggle collection
+     * @returns {Object} resulting snow toggle collection
      */
-    setFogToggle(key, isEnabled) {
-        const supportedFogToggles = new Set(['enabled', 'tileFogEnabled', 'ambienceLayersEnabled', 'ambienceEnabled']);
-        if (!supportedFogToggles.has(key)) return this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
+    setSnowToggle(key, isEnabled) {
+        const supportedSnowToggles = new Set(['snowEnabled', 'snowfallEnabled']);
+        if (!supportedSnowToggles.has(key)) return this.featureToggles?.snow || { ...snowDefaults };
 
-        const fogToggles = this.featureToggles?.fog || { ...FOG_VISUAL_CONFIG };
-        const nextFog = { ...fogToggles, [key]: Boolean(isEnabled) };
-        this.featureToggles = { ...this.featureToggles, fog: nextFog };
+        const snowToggles = this.featureToggles?.snow || { ...snowDefaults };
+        const nextSnow = { ...snowToggles, [key]: Boolean(isEnabled) };
+        this.featureToggles = { ...this.featureToggles, snow: nextSnow };
         if (this.settingsService) {
             this.settingsService.applyVisual({ [key]: Boolean(isEnabled) });
-            return this.featureToggles?.fog || nextFog;
+            return this.featureToggles?.snow || nextSnow;
         }
-        return nextFog;
+        return nextSnow;
     },
 
     /**
-     * Gather the live fog toggle values so the audio debug overlay mirrors the
+     * Gather the live snow toggle values so the audio debug overlay mirrors the
      * current runtime configuration without reaching into Game internals.
-     * @returns {Object} snapshot of boolean fog toggles
+     * @returns {Object} snapshot of boolean snow toggles
      */
-    resolveFogDebugSnapshot() {
-        const fogToggles = this.featureToggles?.fog || {};
+    resolveSnowDebugSnapshot() {
+        const snowToggles = this.featureToggles?.snow || {};
         return {
-            enabled: fogToggles.enabled !== false,
-            tileFogEnabled: fogToggles.tileFogEnabled === true,
-            ambienceLayersEnabled: fogToggles.ambienceLayersEnabled === true,
-            ambienceEnabled: fogToggles.ambienceEnabled !== false
+            snowEnabled: snowToggles.enabled !== false,
+            snowfallEnabled: snowToggles.snowfallEnabled !== false
         };
-    },
-
-    /**
-     * Determine whether the current fog visuals should remain a pure void clear.
-     * The check uses the resolved configuration so transient debug toggles cannot
-     * accidentally resurrect ambience layers without opting into a non-default
-     * visual mode.
-     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
-     * @returns {boolean} true when the visuals should remain void-only.
-     */
-    isVoidVisualMode(fogConfig) {
-        const config = fogConfig || this.fog?.visualConfig || resolveFogVisualConfig(this.featureToggles?.fog);
-        return (config?.visualMode || FOG_VISUAL_MODES.VOID) === FOG_VISUAL_MODES.VOID;
-    },
-
-    /**
-     * Decide whether ambience clouds should render this frame based on the visual
-     * mode and the combined fog/ambience feature flags.
-     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
-     * @returns {boolean} true when ambience clouds are allowed to render.
-     */
-    shouldRenderAmbience(fogConfig) {
-        const config = fogConfig || this.fog?.visualConfig || resolveFogVisualConfig(this.featureToggles?.fog);
-        if (this.isVoidVisualMode(config)) return false;
-        return config.enabled !== false
-            && config.ambienceEnabled !== false
-            && config.ambienceLayersEnabled === true
-            && this.featureToggles?.ambience?.enabled !== false;
-    },
-
-    /**
-     * Lazily construct (or tear down) the ambience renderer based on the active
-     * visual mode and feature flags. The renderer is never instantiated while
-     * the void baseline is active, ensuring no ambience bands appear by default.
-     * @param {Object} [fogConfig] optional pre-resolved fog configuration.
-     */
-    ensureAmbienceRendererReady(fogConfig) {
-        const config = fogConfig || this.fog?.visualConfig || this.resolveFogConfig();
-        if (!this.shouldRenderAmbience(config)) {
-            this.ambienceRenderer = null;
-            return;
-        }
-
-        if (!this.ambienceRenderer && AmbienceRendererClass) {
-            this.ambienceRenderer = new AmbienceRendererClass({
-                ctx: this.ctx,
-                config: this.featureToggles.ambience
-            });
-        }
-
-        if (this.ambienceRenderer) {
-            this.ambienceRenderer.resize(this.viewport);
-        }
     },
 
     resize() {
@@ -621,7 +539,6 @@ const Game = {
             this.cam.zoom = this.deviceProfile.baseZoom;
         }
 
-        if (this.ambienceRenderer) this.ambienceRenderer.resize(this.viewport);
     },
 
     /** Start or swap the peaceful ambiance conductor playlist. */
@@ -736,12 +653,12 @@ const Game = {
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
     saveGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
             return;
         }
         const targetSlot = String(slot || this.activeSaveSlot);
-        const result = Persistence.saveSnapshot(this, targetSlot);
+        const result = persistenceModule.saveSnapshot(this, targetSlot);
         this.activeSaveSlot = result.slot;
         const formattedTime = new Date(result.savedAt).toLocaleString();
         this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
@@ -751,12 +668,12 @@ const Game = {
 
     /** Load a stored snapshot and refresh UI with the saved overworld. */
     loadGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Load skipped: persistence helper unavailable in this environment.');
             return;
         }
         const targetSlot = String(slot || this.activeSaveSlot);
-        const loaded = Persistence.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+        const loaded = persistenceModule.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (!loaded.state) {
             this.spawnTxt(new Hex(0,0), `No Save In Slot ${targetSlot}`, '#ef476f');
             this.updateSaveStatus('No save stored yet.');
@@ -778,12 +695,12 @@ const Game = {
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
     resetProgress() {
-        if (!this.persistenceAvailable || !Persistence) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
             return;
         }
-        Persistence.clearSnapshot();
-        this.stats = { ...Persistence.DEFAULT_STATS };
+        persistenceModule.clearSnapshot();
+        this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
         this.activeSaveSlot = '1';
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
         this.bootstrapNewWorld();
@@ -869,16 +786,8 @@ const Game = {
         const dt = (now - this.lastTime)/1000;
         this.lastTime = now;
         try {
-            const fogConfig = this.resolveFogConfig();
             this.ctx.globalAlpha = 1.0;
-            this.fog.time += dt;
-            const ambienceLayersEnabled = this.shouldRenderAmbience(fogConfig);
-            if (ambienceLayersEnabled) {
-                this.ensureAmbienceRendererReady(fogConfig);
-                if (this.ambienceRenderer) this.ambienceRenderer.update(dt);
-            } else {
-                this.ambienceRenderer = null;
-            }
+            this.snow.time = (this.snow.time || 0) + dt;
             this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
             if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
             else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
@@ -929,7 +838,7 @@ const Game = {
      * @returns {{technologies: Array, bonuses: object, lives: number}}
      */
     buildResearchState(saved = {}) {
-        return buildResearchStateSafe({
+        return researchStateBuilder({
             researchSystem: ResearchSystem,
             saved,
             defaultClusterRate: DEFAULT_CLUSTER_RATE,
@@ -1265,7 +1174,7 @@ const Game = {
     refreshClusterBonuses() {
         const baseRate = this.research?.bonuses?.clusterBaseRate ?? DEFAULT_CLUSTER_RATE;
         const reclamationRate = this.research?.bonuses?.landReclamationClusterBonus ?? 0;
-        const bonuses = buildClusterBonusMap(this.overworld?.hexes, { baseRate, reclamationRate });
+        const bonuses = clusterBuilder(this.overworld?.hexes, { baseRate, reclamationRate });
         this.overworld.clusterBonuses = bonuses;
         return bonuses;
     },
@@ -1563,7 +1472,7 @@ const Game = {
         if (this.updateTileAttackOverlay) {
             this.updateTileAttackOverlay(this.state === 'OVERWORLD' ? this.selectedOverworldTile : null);
         }
-        this.renderFogBackdrop(layout);
+        this.renderSnowOverlay(layout);
         if(this.state === 'COMBAT') this.drawCombat(layout); else this.drawOverworld(layout);
     },
 
@@ -1658,64 +1567,60 @@ const Game = {
     },
 
     /**
-     * Decide whether combat tiles should inherit fog/snow visibility masks.
-     * The legacy fog-of-war visuals stay disabled during war, while seasonal
-     * snow overlays may apply when enabled and the calendar falls in winter.
+     * Decide whether combat tiles should inherit visibility masks. Snow overlays
+     * apply in winter months (October–March) when snow visuals are enabled.
      *
      * @param {Date} [currentDate=new Date()] optional date override for tests.
-     * @returns {boolean} true when combat rendering should apply fog/snow masks.
+     * @returns {boolean} true when combat rendering should apply seasonal masks.
      */
-    shouldApplyCombatFog(currentDate = new Date()) {
+    shouldApplyCombatSnow(currentDate = new Date()) {
         if (this.state !== 'COMBAT') return false;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        if (!fogConfig || fogConfig.enabled === false) return false;
-        if (fogConfig.visualMode !== 'seasonalSnow') return false;
-
-        const winterMonths = new Set([11, 0, 1]);
-        return winterMonths.has(currentDate.getMonth());
+        const snowConfig = this.snow?.visualConfig || this.resolveSnowConfig(currentDate);
+        return snowConfig.enabled !== false;
     },
 
     /**
      * Build a normalized visibility map spanning overworld/frontier and combat
-     * territories. Stored on the fog namespace so tile overlays and fog masks can
+     * territories. Stored on the snow namespace so tile overlays and masks can
      * share the same resolution each frame.
      * @returns {Map<string, string>} keyed visibility states (unseen|seen|visible).
      */
     getTileVisibilityMap() {
         const isCombat = this.state === 'COMBAT';
-        const combatTerritory = this.shouldApplyCombatFog() ? this.combat?.territory : null;
-        const visibility = buildTileVisibilityMap({
+        const combatTerritory = this.shouldApplyCombatSnow() ? this.combat?.territory : null;
+        const visibility = visibilityBuilder({
             state: this.state,
             overworld: isCombat ? null : this.overworld?.hexes,
             claimable: isCombat ? null : this.overworld?.claimable,
             combat: isCombat ? combatTerritory : null
         });
-        this.fog.visibility = visibility;
+        this.snow.visibility = visibility;
         return visibility;
     },
 
     /**
-     * Resolve and cache the active fog visual configuration for the current frame.
-     * Consumers can read from `this.fog.visualConfig` without re-normalizing.
+     * Resolve and cache the active snow visual configuration for the current frame.
+     * Consumers can read from `this.snow.visualConfig` without re-normalizing.
      *
-     * @returns {Object} normalized fog configuration derived from feature toggles.
+     * @param {Date} [currentDate=new Date()] optional date override for tests.
+     * @returns {Object} normalized snow configuration derived from feature toggles.
      */
-    resolveFogConfig() {
-        const config = resolveFogVisualConfig(this.featureToggles?.fog);
-        this.fog.visualConfig = config;
+    resolveSnowConfig(currentDate = new Date()) {
+        const config = snowConfigResolver({ ...this.featureToggles?.snow, currentDate });
+        this.snow.visualConfig = config;
         return config;
     },
 
     drawOverworld(layout) {
-        const tileVisibility = this.fog?.visibility instanceof Map
-            ? this.fog.visibility
+        const tileVisibility = this.snow?.visibility instanceof Map
+            ? this.snow.visibility
             : this.getTileVisibilityMap();
-        this.fog.hexLayout = layout;
+        this.snow.hexLayout = layout;
         drawOverworldTiles(this.overworld, {
             layout,
             drawHex: (...args) => this.drawHex(...args),
             parseKey: (key) => this.parseKey(key),
-            drawTileFog: (hex, tile, visibility) => this.drawTileFog(hex, tile, visibility),
+            drawTileOverlay: (hex, tile, visibility) => this.drawTileVisibilityMask(hex, tile, visibility),
             showClaimCosts: this.shouldShowClaimCostLabels(),
             tileVisibility
         });
@@ -1730,11 +1635,9 @@ const Game = {
      * @param {Object} tile raw tile payload from map iteration.
      * @param {string} visibility normalized tile visibility label.
      */
-    drawTileFog(hex, tile, visibility) {
-        const layout = this.fog?.hexLayout;
+    drawTileVisibilityMask(hex, tile, visibility) {
+        const layout = this.snow?.hexLayout;
         if (!layout || !hex || typeof hex.toPixel !== 'function') return;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        if (fogConfig.enabled === false || fogConfig.tileFogEnabled !== true) return;
 
         const state = visibility || this.resolveHexVisibility(hex);
         if (state === TILE_VISIBILITY.VISIBLE) return;
@@ -1779,7 +1682,7 @@ const Game = {
     },
 
     /**
-     * Resolve the fog visibility state for a given hex or tile key. Defaults to
+     * Resolve the visibility state for a given hex or tile key. Defaults to
      * visible when no map entry exists to keep rendering predictable.
      *
      * @param {Hex|string} hex hex coordinate or string key.
@@ -1787,242 +1690,38 @@ const Game = {
      */
     resolveHexVisibility(hex) {
         const key = typeof hex === 'string' ? hex : hex?.toString?.();
-        if (!key || !(this.fog?.visibility instanceof Map)) return TILE_VISIBILITY.VISIBLE;
-        return this.fog.visibility.get(key) || TILE_VISIBILITY.VISIBLE;
+        if (!key || !(this.snow?.visibility instanceof Map)) return TILE_VISIBILITY.VISIBLE;
+        return this.snow.visibility.get(key) || TILE_VISIBILITY.VISIBLE;
     },
 
     /**
-     * Paint the fog backdrop. In the default void mode the function clears to the
-     * void color and returns immediately so ambience/gradients never render. When
-     * a non-default visual mode is explicitly selected, the legacy gradient stack
-     * remains available for experimentation.
+     * Paint the snow backdrop and rising gradient. The canvas is always cleared
+     * before drawing tiles so the overlay sits beneath gameplay visuals.
      *
      * @param {Object} layout active hex layout (origin + size)
-     * @param {Object} [fogMaskOptions] optional mask hooks for unexplored/frontier tiles
-     * @param {Set<string>|Array<string>|Map<string, *>} [fogMaskOptions.tileMask] precomputed tile mask keys
-     * @param {Function} [fogMaskOptions.tileMaskProvider] callback returning a mask when invoked with context
-     * @param {boolean} [fogMaskOptions.frontierOnly=false] whether the mask represents frontier tiles only
-     * @param {Function} [fogMaskOptions.onMaskResolved] callback fired with mask metadata once resolved
+     * @param {Object} [options] optional overlay hooks
+     * @param {Date} [options.currentDate] optional date override for testing.
      */
-    renderFogBackdrop(layout, fogMaskOptions = {}) {
+    renderSnowOverlay(layout, options = {}) {
         const ctx = this.ctx;
-        const fogConfig = this.fog?.visualConfig || this.resolveFogConfig();
-        const isVoidBaseline = this.isVoidVisualMode(fogConfig);
-        const fogGradientStops = fogConfig.fogGradientStops || {};
-        const rippleGradientStops = fogConfig.rippleGradientStops || {};
-        const spotlightColors = fogConfig.spotlightColors || {};
-        const voidFill = fogConfig.voidFill ?? fogConfig.baseFillColor ?? '#0b0b11';
-
+        const snowConfig = this.resolveSnowConfig(options.currentDate || new Date());
         const tileVisibility = this.getTileVisibilityMap();
-        const tileMask = resolveFogTileMask(fogMaskOptions, {
-            layout,
-            state: this.state,
-            overworld: this.overworld.hexes,
-            combat: this.combat?.territory,
-            visibility: tileVisibility
-        });
-        this.fog.tileMask = tileMask;
-        this.fog.visibility = tileVisibility;
+        this.snow.visibility = tileVisibility;
+        this.snow.hexLayout = layout;
 
-        ctx.fillStyle = voidFill;
+        ctx.fillStyle = '#0b0b11';
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        if (isVoidBaseline) return;
+        if (!snowConfig.enabled || snowConfig.coverage <= 0) return;
 
-        const ambienceCloudsEnabled = this.shouldRenderAmbience(fogConfig);
-        const legacyBackdropEnabled = fogConfig.legacyBackdropEnabled === true;
-        // When ambience visuals are disabled, fall back to a simple void fill while keeping per-tile masks intact.
-        const baseFillOnly = (!ambienceCloudsEnabled && fogConfig.baseFillOnlyWhenAmbienceDisabled !== false)
-            || !legacyBackdropEnabled;
+        const height = this.viewport.height * Math.min(1, Math.max(0, snowConfig.coverage));
+        const startY = this.viewport.height;
+        const endY = Math.max(0, this.viewport.height - height);
+        const gradient = ctx.createLinearGradient(0, startY, 0, endY);
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${snowConfig.maxOpacity})`);
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
-        const ambienceCenter = this.getTerritoryScreenCenter(layout);
-        if (ambienceCloudsEnabled) {
-            this.ensureAmbienceRendererReady(fogConfig);
-            if (this.ambienceRenderer) {
-                this.ambienceRenderer.render({ center: ambienceCenter });
-            }
-        }
-        if (fogConfig.enabled === false || baseFillOnly || legacyBackdropEnabled === false) return;
-
-        const center = ambienceCenter;
-        const { parallaxSpeed, parallaxAmplitude } = resolveFogParallax(fogConfig);
-        const drift = Math.sin(this.fog.time * parallaxSpeed) * parallaxAmplitude;
-        const radius = Math.max(this.viewport.width, this.viewport.height) * 0.8;
-        const innerRadius = Math.max(layout.size * 3, radius * 0.25);
-
-        if (fogConfig.gradientEnabled !== false) {
-            const fogGradient = ctx.createRadialGradient(
-                center.x + drift,
-                center.y - drift,
-                innerRadius,
-                center.x,
-                center.y,
-                radius
-            );
-            const innerOpacity = resolveFogInnerOpacity(fogConfig);
-            const softenedCenterOpacity = tileMask ? Math.max(innerOpacity * 0.82, innerOpacity - 0.12) : innerOpacity;
-            fogGradient.addColorStop(0, `rgba(${fogGradientStops.innerBase || '38, 40, 50'}, ${softenedCenterOpacity})`);
-            fogGradient.addColorStop(0.48, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
-            fogGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
-            ctx.fillStyle = fogGradient;
-            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        }
-
-        if (fogConfig.rippleEnabled !== false) {
-            const rippleGradient = ctx.createRadialGradient(
-                center.x - drift * 0.4,
-                center.y + drift * 0.6,
-                0,
-                center.x - drift * 0.4,
-                center.y + drift * 0.6,
-                radius
-            );
-            rippleGradient.addColorStop(0, rippleGradientStops.inner || 'rgba(255,255,255,0.03)');
-            rippleGradient.addColorStop(0.25, rippleGradientStops.mid || 'rgba(120,120,140,0.02)');
-            rippleGradient.addColorStop(1, rippleGradientStops.outer || 'rgba(0,0,0,0)');
-            const rippleOpacity = fogConfig.rippleOpacity;
-            ctx.globalAlpha = rippleOpacity;
-            ctx.fillStyle = rippleGradient;
-            ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-            ctx.globalAlpha = 1.0;
-        }
-
-        if (fogConfig.clusterGlowEnabled !== false) {
-            const clusters = this.collectExploredClusters(layout);
-            clusters.forEach((cluster) => {
-                const clusterRadius = Math.max(
-                    layout.size * 3,
-                    cluster.size * layout.size * (fogConfig.clusterRadiusMultiplier ?? 5)
-                );
-                const intensity = Math.min(0.78, (fogConfig.clusterIntensity ?? 0.32) * Math.log2(cluster.size + 1));
-                const coreBrightness = Math.min(1, intensity + (fogConfig.clusterCoreBoost ?? 0.18));
-                const spotlight = ctx.createRadialGradient(
-                    cluster.center.x,
-                    cluster.center.y,
-                    0,
-                    cluster.center.x,
-                    cluster.center.y,
-                    clusterRadius
-                );
-                spotlight.addColorStop(0, `rgba(${spotlightColors.innerBase || '180, 200, 230'}, ${coreBrightness})`);
-                spotlight.addColorStop(0.6, spotlightColors.mid || 'rgba(80, 90, 120, 0.18)');
-                spotlight.addColorStop(1, spotlightColors.outer || 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = spotlight;
-                ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-            });
-        }
-
-        if (tileMask?.mask) {
-            const maskedOpacity = fogConfig.maskedFogOpacity ?? 0.82;
-            const overlayAlpha = Math.min(1, maskedOpacity + (tileMask.frontierOnly ? 0.05 : 0));
-            const maskKeys = Array.isArray(tileMask.mask)
-                ? tileMask.mask
-                : tileMask.mask instanceof Set
-                    ? Array.from(tileMask.mask)
-                    : tileMask.mask instanceof Map
-                        ? Array.from(tileMask.mask.keys())
-                        : [];
-
-            ctx.save();
-            ctx.globalAlpha = overlayAlpha;
-            maskKeys.forEach((key) => {
-                const hex = this.parseKey(key);
-                const position = hex.toPixel(layout);
-                const maskGradient = ctx.createRadialGradient(
-                    position.x,
-                    position.y,
-                    layout.size * 0.35,
-                    position.x,
-                    position.y,
-                    layout.size * 2.4
-                );
-                maskGradient.addColorStop(0, fogGradientStops.mid || 'rgba(18, 20, 28, 0.82)');
-                maskGradient.addColorStop(1, fogGradientStops.outer || 'rgba(4, 4, 8, 0.98)');
-
-                ctx.beginPath();
-                for (let i = 0; i < 6; i += 1) {
-                    const angle = (2 * Math.PI / 6) * (i + 0.5);
-                    const x = position.x + layout.size * Math.cos(angle);
-                    const y = position.y + layout.size * Math.sin(angle);
-                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }
-                ctx.closePath();
-                ctx.fillStyle = maskGradient;
-                ctx.fill();
-            });
-            ctx.restore();
-        }
-    },
-
-    /**
-     * Derive the average screen position for explored territory so the fog can
-     * fade out from the current kingdom instead of the viewport center.
-     * @param {Object} layout active hex layout
-     * @returns {{x:number, y:number}} screen-space center of explored space
-     */
-    getTerritoryScreenCenter(layout) {
-        const points = [];
-        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
-        maps.forEach(data => {
-            const hex = data.hex || data;
-            points.push(hex.toPixel(layout));
-        });
-        if (!points.length) return { x: this.viewport.width / 2, y: this.viewport.height / 2 };
-
-        const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-        return { x: sum.x / points.length, y: sum.y / points.length };
-    },
-
-    /**
-     * Identify contiguous explored clusters so the fog can glow around player-owned
-     * territory. Only player/neutral tiles are considered to avoid spotlighting hostile land.
-     * @param {Object} layout active hex layout
-     * @returns {Array<{center:{x:number,y:number}, size:number}>}
-     */
-    collectExploredClusters(layout) {
-        const maps = this.state === 'COMBAT' ? this.combat.territory : this.overworld.hexes;
-        const visited = new Set();
-        const clusters = [];
-        const eligible = (tile) => {
-            if (!tile) return false;
-            const owner = (tile.owner || 'player').toLowerCase();
-            return owner !== 'enemy' && owner !== 'scorched';
-        };
-
-        maps.forEach((tile, key) => {
-            if (visited.has(key) || !eligible(tile)) return;
-            const queue = [key];
-            const members = [];
-
-            while (queue.length) {
-                const currentKey = queue.shift();
-                if (visited.has(currentKey)) continue;
-                visited.add(currentKey);
-                const current = maps.get(currentKey);
-                if (!eligible(current)) continue;
-
-                const currentHex = current.hex || current;
-                members.push(currentHex);
-
-                for (let i = 0; i < 6; i += 1) {
-                    const neighbor = Hex.neighbor(currentHex, i);
-                    const neighborKey = neighbor.toString();
-                    if (!visited.has(neighborKey) && maps.has(neighborKey)) queue.push(neighborKey);
-                }
-            }
-
-            if (members.length) {
-                const sum = members.reduce((acc, hex) => {
-                    const p = hex.toPixel(layout);
-                    return { x: acc.x + p.x, y: acc.y + p.y };
-                }, { x: 0, y: 0 });
-                clusters.push({
-                    center: { x: sum.x / members.length, y: sum.y / members.length },
-                    size: members.length
-                });
-            }
-        });
-
-        return clusters;
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, endY, this.viewport.width, height);
     },
     
     drawHex(layout, hex, fill, stroke, label, sub) {

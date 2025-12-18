@@ -6,8 +6,12 @@ import vm from 'vm';
 const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'script.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 const sanitizedSource = scriptSource
+    .replace(/export\s+\{[\s\S]*?\}\s+from[^;]+;?/g, '')
     .replace(/import[\s\S]*?from\s+['"][^'\"]+['"];\s*/g, '')
-    .replace(/import\s+['"][^'\"]+['"];\s*/g, '');
+    .replace(/import\s+['"][^'\"]+['"];\s*/g, '')
+    .replace(/export\s+\{[\s\S]*?\};?/g, '')
+    .replace(/^export.*$/gm, '')
+    .replace(/bootstrapGame\(\);/g, '');
 
 function createElementStub(overrides = {}) {
     const classSet = new Set();
@@ -157,13 +161,12 @@ function createImportStubs() {
         buildClusterBonusMap: () => new Map(),
         DEFAULT_CLUSTER_RATE: 0.25,
         buildTileVisibilityMap: () => new Map(),
-        resolveFogTileMask: () => ({}),
+        resolveVisibilityMask: () => ({}),
         buildResearchStateSafe: () => ({ technologies: [], bonuses: { clusterBaseRate: 0.25 } }),
         START_TICK: 0,
-        FOG_VISUAL_CONFIG: {},
-        resolveFogInnerOpacity: () => 1,
-        resolveFogParallax: () => 1,
-        resolveFogVisualConfig: () => ({}),
+        SNOW_VISUAL_CONFIG: {},
+        resolveSnowSeason: () => ({ inSeason: true, progress: 0.5 }),
+        resolveSnowVisualConfig: () => ({ enabled: true, coverage: 0.5 }),
         validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
     };
 }
@@ -192,6 +195,36 @@ async function loadGameModule({ globals = {} } = {}) {
     script.runInContext(context);
 
     (document.listeners['DOMContentLoaded'] || []).forEach(cb => cb());
+
+    if (!windowStub.Game) {
+        global.window = windowStub;
+        global.document = document;
+        global.performance = global.performance || { now: () => 0 };
+        global.requestAnimationFrame = windowStub.requestAnimationFrame;
+        global.cancelAnimationFrame = windowStub.cancelAnimationFrame;
+        const { createGameCore } = await import('../scripts/game/core.js');
+        const { Game, Hex, Layout } = createGameCore({
+            persistence: windowStub.Persistence ?? null
+        });
+        windowStub.Game = Game;
+        windowStub.Hex = Hex;
+        windowStub.Layout = Layout;
+        windowStub.Game.bindVoidClickEasterEgg = windowStub.Game.bindVoidClickEasterEgg || (() => {});
+        windowStub.Game.showOverworldUI = windowStub.Game.showOverworldUI || (() => {});
+        windowStub.Game.updateUpgradeMenu = windowStub.Game.updateUpgradeMenu || (() => {});
+        windowStub.Game.updateResearchUI = windowStub.Game.updateResearchUI || (() => {});
+        windowStub.Game.updateLeaderboardUI = windowStub.Game.updateLeaderboardUI || (() => {});
+        windowStub.Game.updateSaveStatus = windowStub.Game.updateSaveStatus || (() => {});
+        if (typeof windowStub.Game.init === 'function') {
+            const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
+            windowStub.Game.init({
+                loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
+                onHUDUpdate: () => {},
+                onSaveSlotsUpdate: () => {},
+                onPostInit: () => {}
+            });
+        }
+    }
 
     return { window: windowStub };
 }

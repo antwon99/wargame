@@ -1,4 +1,4 @@
-import { FOG_VISUAL_CONFIG } from './fogVisualConfig.mjs';
+import { SNOW_VISUAL_CONFIG } from './snowVisualConfig.mjs';
 
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {
@@ -11,10 +11,8 @@ export function buildDefaultSettings() {
     return {
         audio: { master: 1, music: 1, sfx: 1 },
         visuals: {
-            enabled: true,
-            tileFogEnabled: FOG_VISUAL_CONFIG.tileFogEnabled === true,
-            ambienceLayersEnabled: FOG_VISUAL_CONFIG.ambienceLayersEnabled === true,
-            ambienceEnabled: FOG_VISUAL_CONFIG.ambienceEnabled !== false
+            snowEnabled: SNOW_VISUAL_CONFIG.enabled !== false,
+            snowfallEnabled: SNOW_VISUAL_CONFIG.snowfallEnabled !== false
         }
     };
 }
@@ -159,10 +157,8 @@ export function createSettingsService(options = {}) {
         applyVisual(visualSettings = {}) {
             const merged = { ...getSnapshot().visuals, ...(visualSettings || {}) };
             const normalized = {
-                enabled: merged.enabled !== false,
-                tileFogEnabled: merged.tileFogEnabled === true,
-                ambienceLayersEnabled: merged.ambienceLayersEnabled === true,
-                ambienceEnabled: merged.ambienceEnabled !== false
+                snowEnabled: merged.snowEnabled !== false,
+                snowfallEnabled: merged.snowfallEnabled !== false
             };
             state = { ...getSnapshot(), visuals: normalized };
             visualAdapter(normalized);
