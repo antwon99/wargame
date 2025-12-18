@@ -1,14 +1,12 @@
 const debugState = {
     el: null,
     timer: 0,
-    fogSectionId: 'fog-debug-section',
-    resolveFogSnapshot: () => ({
-        enabled: true,
-        tileFogEnabled: false,
-        ambienceLayersEnabled: false,
-        ambienceEnabled: true
+    snowSectionId: 'snow-debug-section',
+    resolveSnowSnapshot: () => ({
+        snowEnabled: true,
+        snowfallEnabled: true
     }),
-    setFogToggle: () => {}
+    setSnowToggle: () => {}
 };
 
 function renderToggleRow(id, label, checked = false) {
@@ -16,55 +14,51 @@ function renderToggleRow(id, label, checked = false) {
     return `<label class="debug-toggle-row"><input type="checkbox" id="${id}" ${checkedAttr}>${label}</label>`;
 }
 
-function resolveFogSnapshot() {
-    const snapshot = debugState.resolveFogSnapshot?.() || {};
+function resolveSnowSnapshot() {
+    const snapshot = debugState.resolveSnowSnapshot?.() || {};
     return {
-        enabled: snapshot.enabled !== false,
-        tileFogEnabled: snapshot.tileFogEnabled === true,
-        ambienceLayersEnabled: snapshot.ambienceLayersEnabled === true,
-        ambienceEnabled: snapshot.ambienceEnabled !== false
+        snowEnabled: snapshot.snowEnabled !== false,
+        snowfallEnabled: snapshot.snowfallEnabled !== false
     };
 }
 
 /**
  * Locate the debug panel element and capture callbacks used for snapshotting
- * and toggling fog controls. Supports legacy and current IDs so we do not
+ * and toggling snow controls. Supports legacy and current IDs so we do not
  * crash when the markup lags behind script changes.
  * @param {Object} [options] optional resolver/toggle hooks from the Game runtime.
- * @param {Function} [options.resolveFogSnapshot] returns the current fog toggle state.
- * @param {Function} [options.setFogToggle] writes a fog toggle value (key, enabled).
+ * @param {Function} [options.resolveSnowSnapshot] returns the current snow toggle state.
+ * @param {Function} [options.setSnowToggle] writes a snow toggle value (key, enabled).
  */
 export function init(options = {}) {
     debugState.el = document.getElementById('audio-debug') || document.getElementById('audio-debug-panel');
     debugState.timer = 0;
-    debugState.resolveFogSnapshot = typeof options.resolveFogSnapshot === 'function'
-        ? options.resolveFogSnapshot
-        : debugState.resolveFogSnapshot;
-    debugState.setFogToggle = typeof options.setFogToggle === 'function'
-        ? options.setFogToggle
+    debugState.resolveSnowSnapshot = typeof options.resolveSnowSnapshot === 'function'
+        ? options.resolveSnowSnapshot
+        : debugState.resolveSnowSnapshot;
+    debugState.setSnowToggle = typeof options.setSnowToggle === 'function'
+        ? options.setSnowToggle
         : () => {};
 }
 
 /**
- * Wire checkbox change handlers to the injected Game fog toggle adapter so
- * developers can flip fog/backdrop options without touching globals.
+ * Wire checkbox change handlers to the injected Game snow toggle adapter so
+ * developers can flip overlays without touching globals.
  */
-export function bindFogControls() {
+export function bindSnowControls() {
     if (!debugState.el) return;
 
     const setToggle = (selector, key) => {
         const input = debugState.el.querySelector(selector);
         if (!input) return;
         input.addEventListener('change', () => {
-            debugState.setFogToggle(key, input.checked);
+            debugState.setSnowToggle(key, input.checked);
             debugState.timer = 0; // force next update to render the new state quickly
         });
     };
 
-    setToggle('#debug-fog-enabled', 'enabled');
-    setToggle('#debug-fog-tile', 'tileFogEnabled');
-    setToggle('#debug-fog-ambience', 'ambienceLayersEnabled');
-    setToggle('#debug-fog-flourishes', 'ambienceEnabled');
+    setToggle('#debug-snow-enabled', 'snowEnabled');
+    setToggle('#debug-snowfall-enabled', 'snowfallEnabled');
 }
 
 /**
@@ -83,7 +77,7 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
         ? window.AudioDebugBus.snapshot()
         : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
 
-    const fogSnapshot = resolveFogSnapshot();
+    const snowSnapshot = resolveSnowSnapshot();
 
     const activeSources = snapshot.activeSources || [];
     const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
@@ -108,16 +102,14 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
                 <div class="label">Game State</div>
                 <div>${friendlyState}</div>
             </div>
-            <div class="section" id="${debugState.fogSectionId}">
-                <div class="label">Fog + Effects</div>
-                ${renderToggleRow('debug-fog-enabled', 'Backdrop fog enabled', fogSnapshot.enabled)}
-                ${renderToggleRow('debug-fog-tile', 'Tile fog overlays', fogSnapshot.tileFogEnabled)}
-                ${renderToggleRow('debug-fog-ambience', 'Ambience clouds', fogSnapshot.ambienceLayersEnabled)}
-                ${renderToggleRow('debug-fog-flourishes', 'Fog flourishes', fogSnapshot.ambienceEnabled)}
+            <div class="section" id="${debugState.snowSectionId}">
+                <div class="label">Snow + Effects</div>
+                ${renderToggleRow('debug-snow-enabled', 'Snow overlay enabled', snowSnapshot.snowEnabled)}
+                ${renderToggleRow('debug-snowfall-enabled', 'Seasonal snowfall', snowSnapshot.snowfallEnabled)}
             </div>
         `;
 
-    bindFogControls();
+    bindSnowControls();
 }
 
-export default { init, update, bindFogControls };
+export default { init, update, bindSnowControls };

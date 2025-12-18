@@ -14,13 +14,13 @@ const defaults = buildDefaultSettings();
 
 {
     const storage = createMemoryStorage();
-    storage.setItem('settings:test', JSON.stringify({ audio: { master: 0.25 }, visuals: { enabled: false } }));
+    storage.setItem('settings:test', JSON.stringify({ audio: { master: 0.25 }, visuals: { snowEnabled: false } }));
     const service = createSettingsService({ storageKey: 'settings:test', storage, defaults });
     let emitted = null;
     service.on('change', (snapshot) => { emitted = snapshot; });
     const loaded = service.load();
     assert.strictEqual(loaded.audio.master, 0.25, 'retains saved audio slider');
-    assert.strictEqual(loaded.visuals.enabled, false, 'retains saved visual toggle');
+    assert.strictEqual(loaded.visuals.snowEnabled, false, 'retains saved visual toggle');
     assert.deepStrictEqual(emitted.visuals, loaded.visuals, 'emits change event on load');
 }
 
@@ -40,8 +40,8 @@ const defaults = buildDefaultSettings();
     let visualEvent = null;
     const service = createSettingsService({ storageKey: 'settings:visual', storage, defaults });
     service.on('visual', (payload) => { visualEvent = payload; });
-    const visuals = service.applyVisual({ tileFogEnabled: false, ambienceEnabled: false });
-    assert.strictEqual(visuals.tileFogEnabled, false, 'applies supplied visual toggle');
-    assert.strictEqual(visualEvent.ambienceEnabled, false, 'emits visual event payload');
-    assert.strictEqual(JSON.parse(storage.getItem('settings:visual')).visuals.tileFogEnabled, false, 'persists visual toggles');
+    const visuals = service.applyVisual({ snowEnabled: false, snowfallEnabled: false });
+    assert.strictEqual(visuals.snowEnabled, false, 'applies supplied visual toggle');
+    assert.strictEqual(visualEvent.snowfallEnabled, false, 'emits visual event payload');
+    assert.strictEqual(JSON.parse(storage.getItem('settings:visual')).visuals.snowEnabled, false, 'persists visual toggles');
 }

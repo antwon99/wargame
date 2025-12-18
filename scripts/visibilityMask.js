@@ -1,5 +1,5 @@
 /**
- * Resolve an optional tile mask for fog rendering without altering the current
+ * Resolve an optional tile mask for visibility overlays without altering the
  * backdrop visuals. This accepts either a precomputed mask or a provider
  * callback so callers can lazily generate frontier/unexplored tiles.
  *
@@ -11,7 +11,7 @@
  * @param {Object} [context] optional context information to pass through to provider/callback
  * @returns {{mask:Set<string>|Array<string>|Map<string, *>, maskType:string, frontierOnly:boolean, context:Object}|null}
  */
-export function resolveFogTileMask(options = {}, context = {}) {
+export function resolveVisibilityMask(options = {}, context = {}) {
     const { tileMask, tileMaskProvider, frontierOnly = false, onMaskResolved } = options;
     const maskType = frontierOnly ? 'frontier' : 'unexplored';
 
@@ -44,9 +44,9 @@ const VISIBILITY_RANK = {
  * Normalize a map of tile visibility states derived from either the overworld or
  * combat context. Overworld tiles default to visible (owned) while frontier
  * claimables are treated as "seen" discoveries. During combat we intentionally
- * ignore overworld inputs so fog overlays cannot reuse frontier outlines from
- * the campaign map. Combat tiles are marked visible only for player-owned
- * territory; enemy/neutral cells fall back to a "seen" state so fog systems can
+ * ignore overworld inputs so visibility overlays cannot reuse frontier outlines
+ * from the campaign map. Combat tiles are marked visible only for player-owned
+ * territory; enemy/neutral cells fall back to a "seen" state so overlays can
  * dim them without fully hiding layout data.
  *
  * @param {Object} [options] lookup sources for visibility signals.
@@ -85,7 +85,7 @@ export function buildTileVisibilityMap({ overworld, claimable, combat, state = '
 
 /**
  * Produce a simple mask of tile keys filtered by the requested visibility states.
- * Useful for fog overlays that need to target unseen/frontier tiles without
+ * Useful for overlays that need to target unseen/frontier tiles without
  * duplicating visibility derivation logic.
  *
  * @param {Map<string, string>} visibilityMap visibility lookup keyed by tile id.

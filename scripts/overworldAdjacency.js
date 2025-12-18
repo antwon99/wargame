@@ -4,7 +4,7 @@ import { OVERWORLD_TILES } from './overworldConfig.js';
  * Default adjacency bonus rate applied per additional tile in a contiguous cluster.
  * The rate compounds with cluster size but is independent of research bonuses.
  */
-export const DEFAULT_CLUSTER_RATE = 0.1;
+export const DEFAULT_CLUSTER_RATE = 0.25;
 
 const NEIGHBORS = [
     { q: 1, r: 0, s: -1 },
