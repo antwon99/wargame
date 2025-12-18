@@ -94,8 +94,9 @@ function testDefeatAppliesGoldPenalty() {
 
     endWar(game, 'DEFEAT');
 
-    assert.strictEqual(game.gold, 85, 'defeat should deduct at least a 15% gold penalty');
+    assert.strictEqual(game.gold, 73, 'defeat should deduct the gold penalty and the royal levy');
     assert.ok(game.messages.find((m) => m.text.includes('pillaged')), 'penalty should be surfaced via spawnTxt');
+    assert.ok(game.messages.find((m) => m.text.includes('royal levy')), 'levy should be surfaced via spawnTxt');
     assert.ok(game.floating.find((m) => m.text.includes('Lost 15g')), 'penalty should show in defeat HUD messaging');
 
     global.setTimeout = originalTimeout;
@@ -141,12 +142,30 @@ function testVictoryRaisesDifficultyByOne() {
     global.document = originalDocument;
 }
 
+function testVictoryAppliesWarTax() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
+    global.document = { getElementById: () => domStub };
+
+    const { game } = buildEndWarGame(100);
+    endWar(game, 'VICTORY');
+
+    assert.strictEqual(game.gold, 134, 'victory rewards should pay the 15% royal levy');
+    assert.ok(game.messages.find((m) => m.text.includes('royal levy')), 'levy should be surfaced via spawnTxt on victory');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function run() {
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
     testDefeatAppliesGoldPenalty();
     testDefeatPenaltyCannotGoNegative();
     testVictoryRaisesDifficultyByOne();
+    testVictoryAppliesWarTax();
     console.log('All combatEngine reward tests passed.');
 }
 

@@ -11,6 +11,9 @@ const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
     || null;
 
+/** Percentage of wartime gold the crown siphons as a royal levy. */
+const WAR_TAX_RATE = 0.15;
+
 /**
  * Resolve the Hex dependency so callers can inject test doubles instead of relying
  * on globals. Falls back to a global when available for backward compatibility.
@@ -23,6 +26,19 @@ function resolveHex(game, hexImpl) {
     const impl = hexImpl || game?.Hex || GLOBAL_HEX;
     if (!impl) throw new Error('Combat engine requires a Hex implementation');
     return impl;
+}
+
+/**
+ * Compute the net gold delta after applying the royal war tax.
+ * A zero or negative input returns zero tax so callers can safely
+ * forward resource-poor outcomes without additional checks.
+ * @param {number} goldDelta gross gold change from the outcome.
+ * @returns {{ net: number, tax: number }} net gold after tax and the tax amount.
+ */
+function applyRoyalWarTax(goldDelta) {
+    const gross = Math.max(0, Math.floor(goldDelta || 0));
+    const tax = Math.floor(gross * WAR_TAX_RATE);
+    return { net: gross - tax, tax };
 }
 
 /** Definitions for buildable structures in combat mode. */
@@ -792,10 +808,17 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         const eraBonus = Math.floor(((cal?.month || 1) - 1) / 3);
         const goldReward = 40 + (game.difficulty * 10) + (eraBonus * 5);
         const woodReward = 50 + (game.difficulty * 8) + (eraBonus * 5);
-        game.gold += goldReward;
+        const { net: taxedGoldReward, tax: victoryTax } = applyRoyalWarTax(goldReward);
+
+        if (victoryTax > 0) {
+            game.spawnTxt(new Hex(0,0), `-${victoryTax}g royal levy`, '#fbbf24');
+            game.showFloatingText(anchorX, anchorY, `Royal levy ${victoryTax}g`, 'alert-text');
+        }
+
+        game.gold += taxedGoldReward;
         game.wood += woodReward;
         game.difficulty = startingDifficulty + 1;
-        game.spawnTxt(new Hex(0,0), `VICTORY +${goldReward}g +${woodReward}w`, '#fff');
+        game.spawnTxt(new Hex(0,0), `VICTORY +${taxedGoldReward}g +${woodReward}w`, '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
@@ -805,6 +828,14 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             game.spawnTxt(new Hex(0,0), `-${goldPenalty}g pillaged`, '#f55');
             game.showFloatingText(anchorX, anchorY, `Lost ${goldPenalty}g`, 'alert-text');
         }
+
+        const { net: goldAfterTax, tax: defeatTax } = applyRoyalWarTax(game.gold);
+        if (defeatTax > 0) {
+            game.gold = goldAfterTax;
+            game.spawnTxt(new Hex(0,0), `-${defeatTax}g royal levy`, '#fbbf24');
+            game.showFloatingText(anchorX, anchorY, `Royal levy ${defeatTax}g`, 'alert-text');
+        }
+
         const losses = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
         setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
