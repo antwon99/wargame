@@ -64,8 +64,17 @@ function createManualScheduler() {
     };
 }
 
-function testAmbientRandomizerRespectsWeightsAndDelays() {
-    const randomizer = new AmbientRandomizer(() => 0.9, {
+function createSequenceRandom(...values) {
+    let idx = 0;
+    return () => {
+        const value = values[idx % values.length];
+        idx += 1;
+        return value;
+    };
+}
+
+function testAmbientRandomizerUsesFairWeightsAndDelays() {
+    const randomizer = new AmbientRandomizer(() => 0.3, {
         initialDelayRangeMs: [100, 200],
         minSilenceMs: 10,
         maxSilenceMs: 30
@@ -75,9 +84,29 @@ function testAmbientRandomizerRespectsWeightsAndDelays() {
         { key: 'light', weight: 1 },
         { key: 'heavy', weight: 3 }
     ]);
-    assert.strictEqual(track.key, 'heavy', 'randomizer should respect weighted picks');
-    assert.strictEqual(randomizer.randomInitialDelay(), 190, 'initial delay should honor provided defaults');
-    assert.strictEqual(randomizer.randomSilence({ silenceRangeMs: [10, 30] }), 28, 'silence window should derive from RNG');
+    assert.strictEqual(track.key, 'light', 'randomizer should treat all tracks equally regardless of provided weights');
+    assert.strictEqual(randomizer.randomInitialDelay(), 130, 'initial delay should honor provided defaults');
+    assert.strictEqual(randomizer.randomSilence({ silenceRangeMs: [10, 30] }), 16, 'silence window should derive from RNG');
+}
+
+function testAmbientRandomizerAvoidsImmediateRepeats() {
+    const randomizer = new AmbientRandomizer(createSequenceRandom(0.1, 0.1, 0.1), {
+        minSilenceMs: 5,
+        maxSilenceMs: 10
+    });
+
+    const tracks = [
+        { key: 'one', weight: 1 },
+        { key: 'two', weight: 1 },
+        { key: 'three', weight: 1 }
+    ];
+
+    const first = randomizer.pickTrack('ROTATION', tracks);
+    const second = randomizer.pickTrack('ROTATION', tracks);
+    const third = randomizer.pickTrack('ROTATION', tracks);
+
+    assert.notStrictEqual(first.key, second.key, 'ambient randomizer should not repeat tracks back-to-back');
+    assert.notStrictEqual(second.key, third.key, 'subsequent picks should also avoid immediate repeats');
 }
 
 function testAmbientSchedulerClearsAllTrackedTimers() {
@@ -721,7 +750,8 @@ function testImperialMessagingGuardsWardrumPlayback() {
 }
 
 function run() {
-    testAmbientRandomizerRespectsWeightsAndDelays();
+    testAmbientRandomizerUsesFairWeightsAndDelays();
+    testAmbientRandomizerAvoidsImmediateRepeats();
     testAmbientSchedulerClearsAllTrackedTimers();
     testCooldownPreventsSpam();
     testOverlapCreatesClone();
