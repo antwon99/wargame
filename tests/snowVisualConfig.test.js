@@ -19,6 +19,9 @@ async function run() {
         'coverage should stay within configured bounds'
     );
 
+    const seasonStart = resolveSnowVisualConfig({ currentDate: new Date('2024-10-01T00:00:00Z') });
+    assert.strictEqual(seasonStart.coverage, 0, 'season should start with no snow coverage');
+
     const disabledConfig = resolveSnowVisualConfig({ enabled: false, currentDate: new Date('2024-12-01T00:00:00Z') });
     assert.strictEqual(disabledConfig.enabled, false, 'explicit opt-out should disable snow even in winter');
     assert.strictEqual(disabledConfig.coverage, 0, 'disabled snow should not apply coverage');

@@ -1,28 +1,26 @@
 /**
  * Snow visual parameters that drive the seasonal overlay.
- * The overlay paints a rising white gradient from the bottom of the viewport
- * during winter months (October–March) to emphasize cold weather without
- * hiding map readability.
+ * The overlay paints a uniform white wash across the viewport during winter
+ * months (October–March). Opacity ramps up as the season deepens and fades out
+ * as spring approaches so the effect feels gradual rather than binary.
  */
 const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
 
 const SNOW_VISUAL_CONFIG = {
     enabled: true,
-    /** Toggle the seasonal gradient overlay. */
+    /** Toggle the seasonal snow overlay. */
     snowfallEnabled: true,
     /**
-     * Minimum coverage (percentage of the viewport height) when snow season
-     * begins. Coverage rises toward the peak month and fades as winter ends.
+     * Minimum opacity weighting when the snow season begins. Coverage ramps
+     * from zero at season start toward the peak month and fades back to zero
+     * as winter ends.
      */
-    minCoverage: 0.18,
-    /** Maximum coverage at peak winter. */
-    maxCoverage: 0.8,
-    /**
-     * Opacity applied at the base of the gradient. The top of the overlay
-     * always fades to transparent to preserve legibility.
-     */
+    minCoverage: 0,
+    /** Maximum opacity weighting at peak winter. */
+    maxCoverage: 1,
+    /** Maximum opacity applied to the seasonal wash at peak intensity. */
     maxOpacity: 0.82
-};
+}; 
 
 /**
  * Resolve whether snow should appear for the provided date.
@@ -33,7 +31,9 @@ function resolveSnowSeason(currentDate = new Date()) {
     const month = currentDate.getMonth();
     const index = SNOW_MONTHS.indexOf(month);
     if (index === -1) return { inSeason: false, progress: 0 };
-    const normalized = index / (SNOW_MONTHS.length - 1);
+    const daysInMonth = new Date(currentDate.getFullYear(), month + 1, 0).getDate();
+    const dayProgress = Math.max(0, Math.min(1, (currentDate.getDate() - 1) / daysInMonth));
+    const normalized = (index + dayProgress) / (SNOW_MONTHS.length - 1);
     // Ramp up toward January (midpoint) and back down by March.
     const mirrored = normalized <= 0.5 ? normalized * 2 : (1 - normalized) * 2;
     return { inSeason: true, progress: Math.max(0, Math.min(1, mirrored)) };
@@ -41,7 +41,8 @@ function resolveSnowSeason(currentDate = new Date()) {
 
 /**
  * Combine caller overrides with defaults and compute the snow coverage for the
- * active date. Coverage determines how tall the gradient appears on screen.
+ * active date. Coverage determines how intense the white overlay appears on
+ * screen.
  * @param {Object} [snowConfig] optional overrides.
  * @param {Date} [snowConfig.currentDate] optional date used instead of `new Date()`.
  * @returns {Object} normalized snow visual configuration.

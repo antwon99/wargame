@@ -1599,13 +1599,31 @@ const Game = {
     },
 
     /**
+     * Translate the in-game calendar into a Date so snow season resolution
+     * respects the campaign start month (April) instead of the player's real
+     * world clock.
+     *
+     * @param {object} [calendarOverride] optional calendar snapshot.
+     * @returns {Date} synthetic date aligned to the current in-game month/day.
+     */
+    resolveSnowDate(calendarOverride) {
+        const calendar = calendarOverride || this.timekeeper?.getCalendar?.();
+        if (!calendar) return new Date();
+
+        const monthIndex = Math.max(0, (calendar.month || 1) - 1) % 12;
+        const day = Math.max(1, Math.min(calendar.dayOfMonth || 1, calendar.daysPerMonth || 28));
+        const year = Math.max(1, calendar.year || 1);
+        return new Date(Date.UTC(2000 + year - 1, monthIndex, day));
+    },
+
+    /**
      * Resolve and cache the active snow visual configuration for the current frame.
      * Consumers can read from `this.snow.visualConfig` without re-normalizing.
      *
-     * @param {Date} [currentDate=new Date()] optional date override for tests.
+     * @param {Date} [currentDate=this.resolveSnowDate()] optional date override for tests.
      * @returns {Object} normalized snow configuration derived from feature toggles.
      */
-    resolveSnowConfig(currentDate = new Date()) {
+    resolveSnowConfig(currentDate = this.resolveSnowDate()) {
         const config = snowConfigResolver({ ...this.featureToggles?.snow, currentDate });
         this.snow.visualConfig = config;
         return config;
@@ -1695,7 +1713,7 @@ const Game = {
     },
 
     /**
-     * Paint the snow backdrop and rising gradient. The canvas is always cleared
+     * Paint the snow backdrop and seasonal wash. The canvas is always cleared
      * before drawing tiles so the overlay sits beneath gameplay visuals.
      *
      * @param {Object} layout active hex layout (origin + size)
@@ -1704,24 +1722,21 @@ const Game = {
      */
     renderSnowOverlay(layout, options = {}) {
         const ctx = this.ctx;
-        const snowConfig = this.resolveSnowConfig(options.currentDate || new Date());
+        const snowConfig = this.resolveSnowConfig(options.currentDate || this.resolveSnowDate());
         const tileVisibility = this.getTileVisibilityMap();
         this.snow.visibility = tileVisibility;
         this.snow.hexLayout = layout;
 
         ctx.fillStyle = '#0b0b11';
         ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
-        if (!snowConfig.enabled || snowConfig.coverage <= 0) return;
+        const intensity = Math.min(1, Math.max(0, snowConfig.coverage));
+        if (!snowConfig.enabled || intensity <= 0) return;
 
-        const height = this.viewport.height * Math.min(1, Math.max(0, snowConfig.coverage));
-        const startY = this.viewport.height;
-        const endY = Math.max(0, this.viewport.height - height);
-        const gradient = ctx.createLinearGradient(0, startY, 0, endY);
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${snowConfig.maxOpacity})`);
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        const opacity = Math.max(0, Math.min(1, intensity * snowConfig.maxOpacity));
+        if (opacity <= 0) return;
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, endY, this.viewport.width, height);
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.fillRect(0, 0, this.viewport.width, this.viewport.height);
     },
     
     drawHex(layout, hex, fill, stroke, label, sub) {

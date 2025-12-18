@@ -4,13 +4,13 @@ function createRecordingContext() {
     const operations = [];
     return {
         operations,
-        fillStyle: '#000',
-        fillRect: () => operations.push({ type: 'fillRect', style: 'rect' }),
-        createLinearGradient: () => {
-            const stops = [];
-            operations.push({ type: 'gradient', stops });
-            return { addColorStop: (pos, color) => stops.push({ pos, color }) };
-        }
+        get fillStyle() {
+            return operations.contextFillStyle || '#000';
+        },
+        set fillStyle(value) {
+            operations.contextFillStyle = value;
+        },
+        fillRect: (x, y, w, h) => operations.push({ type: 'fillRect', style: `fill:${operations.contextFillStyle}`, rect: [x, y, w, h] })
     };
 }
 
@@ -54,6 +54,7 @@ async function run() {
     global.window.IntroOverlay = { init: () => {} };
 
     const { createGameCore } = await import('../scripts/game/core.js');
+    const { START_TICK } = await import('../scripts/timekeeper.js');
     const { SNOW_VISUAL_CONFIG } = await import('../scripts/snowVisualConfig.mjs');
 
     const { Game, Layout } = createGameCore();
@@ -66,13 +67,21 @@ async function run() {
     Game.featureToggles.snow = { ...SNOW_VISUAL_CONFIG, snowfallEnabled: true, enabled: true };
     Game.renderSnowOverlay({ origin: Game.cam, size: 30, ...Layout }, { currentDate: new Date('2024-12-15T00:00:00Z') });
 
-    const gradientDrawn = ctx.operations.some(op => op.type === 'gradient');
-    assert.ok(gradientDrawn, 'snow overlay should draw a gradient during winter');
+    const overlayFill = ctx.operations.find(op => op.type === 'fillRect' && op.style?.startsWith('fill:rgba(255, 255, 255'));
+    assert.ok(overlayFill, 'snow overlay should wash the viewport in winter');
 
     ctx.operations.length = 0;
     Game.featureToggles.snow = { ...SNOW_VISUAL_CONFIG, enabled: false };
     Game.renderSnowOverlay({ origin: Game.cam, size: 30, ...Layout }, { currentDate: new Date('2024-12-15T00:00:00Z') });
-    assert.strictEqual(ctx.operations.some(op => op.type === 'gradient'), false, 'disabled snow should skip gradients');
+    const seasonalFillCount = ctx.operations.filter(op => op.type === 'fillRect').length;
+    assert.strictEqual(seasonalFillCount, 1, 'disabled snow should only draw the base clear');
+
+    ctx.operations.length = 0;
+    Game.featureToggles.snow = { ...SNOW_VISUAL_CONFIG };
+    Game.timekeeper.reset(START_TICK);
+    Game.renderSnowOverlay({ origin: Game.cam, size: 30, ...Layout });
+    const aprilFill = ctx.operations.find(op => op.style?.startsWith('fill:rgba(255, 255, 255'));
+    assert.strictEqual(aprilFill, undefined, 'campaign start month (April) should begin snow-free');
 
     console.log('Snow rendering tests passed.');
 }
