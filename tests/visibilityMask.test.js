@@ -1,15 +1,15 @@
 const assert = require('assert');
 
 async function run() {
-    const { resolveFogTileMask, buildTileVisibilityMap, TILE_VISIBILITY } = await import('../scripts/fogMask.js');
+    const { resolveVisibilityMask, buildTileVisibilityMap, TILE_VISIBILITY } = await import('../scripts/visibilityMask.js');
 
-    const directMask = resolveFogTileMask({ tileMask: new Set(['0,0']) });
+    const directMask = resolveVisibilityMask({ tileMask: new Set(['0,0']) });
     assert.ok(directMask, 'direct mask should return a payload');
     assert.strictEqual(directMask.maskType, 'unexplored', 'default mask type should mark unexplored tiles');
     assert.ok(directMask.mask.has('0,0'), 'payload should include provided mask keys');
 
     let callbackPayload = null;
-    const providerMask = resolveFogTileMask(
+    const providerMask = resolveVisibilityMask(
         {
             frontierOnly: true,
             tileMaskProvider: ({ state }) => (state === 'COMBAT' ? ['1,0', '2,0'] : []),
@@ -57,7 +57,7 @@ async function run() {
     assert.strictEqual(
         combatVisibility.get('3,0'),
         TILE_VISIBILITY.VISIBLE,
-        'player combat tiles should remain visible when fog applies'
+        'player combat tiles should remain visible when seasonal overlays apply'
     );
     assert.strictEqual(
         combatVisibility.get('4,0'),
@@ -65,7 +65,7 @@ async function run() {
         'enemy combat tiles should stay dimmed rather than hidden'
     );
 
-    console.log('All fog mask tests passed.');
+    console.log('All visibility mask tests passed.');
 }
 
 run();

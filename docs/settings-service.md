@@ -3,13 +3,13 @@
 The settings service isolates player-facing audio/visual preferences from the game loop so they can be unit-tested and reused without DOM or canvas dependencies.
 
 ## Responsibilities
-- Build default audio + visual bundles that mirror the fog/audio baselines.
+- Build default audio + visual bundles that mirror the snow/audio baselines.
 - Load and save settings snapshots through an injected storage adapter (localStorage by default, memory stubs in tests).
 - Normalize incoming payloads (clamping audio to 0–1 and coercing visual toggles) before persisting.
 - Emit `change`, `audio`, and `visual` events so UI and runtime systems can react without direct coupling.
 
 ## Runtime integration
-- `scripts/game/core.js` instantiates the service during `Game.init`, wiring audio/visual adapters that push values into GameAudio and fog feature toggles.
+- `scripts/game/core.js` instantiates the service during `Game.init`, wiring audio/visual adapters that push values into GameAudio and snow feature toggles.
 - UI bindings subscribe implicitly through the Game instance so slider/checkbox changes call `applyAudio` / `applyVisual` instead of directly mutating state.
 
 ## Testing notes

@@ -14,7 +14,7 @@ async function run() {
     };
 
     const events = [];
-    const fogCalls = [];
+    const overlayCalls = [];
     const claimLabels = [];
     const layout = {};
     const drawHex = (_layout, hex, _fill, _stroke, _label, sub) => {
@@ -22,9 +22,9 @@ async function run() {
         claimLabels.push(sub);
     };
     const parseKey = (key) => ({ id: key });
-    const drawTileFog = (hex, _tile, visibility, fogState) => {
-        events.push(`fog:${hex.id || hex}:${visibility}`);
-        fogCalls.push({ hex: hex.id || hex, visibility, fogState });
+    const drawTileOverlay = (hex, _tile, visibility, fogState) => {
+        events.push(`overlay:${hex.id || hex}:${visibility}`);
+        overlayCalls.push({ hex: hex.id || hex, visibility, fogState });
     };
 
     const tileVisibility = new Map([
@@ -32,17 +32,17 @@ async function run() {
         ['forest', 'seen']
     ]);
 
-    drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawTileFog, tileVisibility });
+    drawOverworldTiles(overworld, { layout, drawHex, parseKey, drawTileOverlay, tileVisibility });
 
     assert.deepStrictEqual(events, [
         'draw:castle',
-        'fog:castle:visible',
+        'overlay:castle:visible',
         'draw:forest',
-        'fog:forest:seen',
+        'overlay:forest:seen',
         'draw:1,0'
-    ], 'tile fog hook should run immediately after each tile draw');
+    ], 'tile overlay hook should run immediately after each tile draw');
     assert.deepStrictEqual(
-        fogCalls,
+        overlayCalls,
         [
             {
                 hex: 'castle',
@@ -51,9 +51,7 @@ async function run() {
                     visibility: 'visible',
                     isUnseen: false,
                     isSeen: false,
-                    isVisible: true,
-                    ambienceEnabled: true,
-                    ambienceLayersEnabled: true
+                    isVisible: true
                 }
             },
             {
@@ -63,13 +61,11 @@ async function run() {
                     visibility: 'seen',
                     isUnseen: false,
                     isSeen: true,
-                    isVisible: false,
-                    ambienceEnabled: true,
-                    ambienceLayersEnabled: true
+                    isVisible: false
                 }
             }
         ],
-        'fog hook should receive normalized state flags for each tile'
+        'overlay hook should receive normalized state flags for each tile'
     );
     assert.deepStrictEqual(claimLabels.filter(Boolean), [], 'claimable tiles should omit cost labels by default');
 
@@ -78,7 +74,7 @@ async function run() {
         layout,
         drawHex: (_layout, hex, _fill, _stroke, _label, sub) => debugLabels.push({ hex: hex.id || hex, sub }),
         parseKey,
-        drawTileFog,
+        drawTileOverlay,
         showClaimCosts: true
     });
     assert.deepStrictEqual(debugLabels.filter((entry) => Boolean(entry.sub)), [
@@ -90,11 +86,9 @@ async function run() {
         layout,
         drawHex,
         parseKey,
-        drawTileFog: (hex, tile, visibility, fogState) =>
+        drawTileOverlay: (hex, tile, visibility, fogState) =>
             ambienceFogCalls.push({ hex: hex.id || hex, visibility, fogState }),
-        tileVisibility,
-        ambienceEnabled: false,
-        ambienceLayersEnabled: false
+        tileVisibility
     });
     assert.deepStrictEqual(
         ambienceFogCalls,
@@ -106,9 +100,7 @@ async function run() {
                     visibility: 'visible',
                     isUnseen: false,
                     isSeen: false,
-                    isVisible: true,
-                    ambienceEnabled: false,
-                    ambienceLayersEnabled: false
+                    isVisible: true
                 }
             },
             {
@@ -118,13 +110,11 @@ async function run() {
                     visibility: 'seen',
                     isUnseen: false,
                     isSeen: true,
-                    isVisible: false,
-                    ambienceEnabled: false,
-                    ambienceLayersEnabled: false
+                    isVisible: false
                 }
             }
         ],
-        'ambience toggles should not change visibility state resolution passed into fog hooks'
+        'overlay hook should keep visibility flags stable when ambience flags change'
     );
 
     const warnings = [];
@@ -138,23 +128,23 @@ async function run() {
             layout,
             drawHex: noop,
             parseKey,
-            drawTileFog: noop
+            drawTileOverlay: noop
         });
         drawOverworldTiles({ hexes: new Map(), claimable: new Map() }, {
             layout,
             drawHex: noop,
             parseKey,
-            drawTileFog: noop
+            drawTileOverlay: noop
         });
 
         assert.strictEqual(warnings.length, 1, 'empty overworld draw should warn once per empty streak');
 
-        drawOverworldTiles(overworld, { layout, drawHex: noop, parseKey, drawTileFog: noop });
+        drawOverworldTiles(overworld, { layout, drawHex: noop, parseKey, drawTileOverlay: noop });
         drawOverworldTiles({ hexes: new Map(), claimable: new Map() }, {
             layout,
             drawHex: noop,
             parseKey,
-            drawTileFog: noop
+            drawTileOverlay: noop
         });
 
         assert.strictEqual(warnings.length, 2, 'warning should re-arm after a successful tile render');

@@ -10,9 +10,13 @@ const ResearchSystem = require('../scripts/researchSystem.js');
 const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'script.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 const sanitizedSource = scriptSource
+    .replace(/export\s+\{[\s\S]*?\}\s+from[^;]+;?/g, '')
     .replace(/import[\s\S]*?from\s+['"][^'\"]+['"];\s*/g, '')
     .replace(/import\s+['"][^'\"]+['"];\s*/g, '')
-    .replace(/Game\.init\(\);/g, '');
+    .replace(/export\s+\{[\s\S]*?\};?/g, '')
+    .replace(/^export.*$/gm, '')
+    .replace(/Game\.init\(\);/g, '')
+    .replace(/bootstrapGame\(\);/g, '');
 
 function createElementStub(overrides = {}) {
     const classSet = new Set();
@@ -154,18 +158,16 @@ function createImportStubs(overrides = {}) {
         buildClusterBonusMap: () => new Map(),
         DEFAULT_CLUSTER_RATE: 0.25,
         buildTileVisibilityMap: () => new Map(),
-        resolveFogTileMask: () => ({}),
-        FOG_VISUAL_CONFIG: {},
-        FOG_VISUAL_MODES: {},
-        resolveFogInnerOpacity: () => 1,
-        resolveFogParallax: () => 1,
-        resolveFogVisualConfig: () => ({})
+        resolveVisibilityMask: () => ({}),
+        SNOW_VISUAL_CONFIG: {},
+        resolveSnowSeason: () => ({ inSeason: true, progress: 0.5 }),
+        resolveSnowVisualConfig: () => ({ enabled: true, coverage: 0.5 })
     };
 
     return { ...stubs, ...overrides };
 }
 
-function loadGameModule({ importOverrides = {}, windowOverrides = {}, documentOverrides = {} } = {}) {
+async function loadGameModule({ importOverrides = {}, windowOverrides = {}, documentOverrides = {} } = {}) {
     const document = createDocumentStub(documentOverrides);
     const windowStub = createWindowStub(document, windowOverrides);
     const importStubs = createImportStubs(importOverrides);
@@ -201,11 +203,46 @@ function loadGameModule({ importOverrides = {}, windowOverrides = {}, documentOv
         gameRef.bindVoidClickEasterEgg = () => {};
     }
     (document.listeners['DOMContentLoaded'] || []).forEach(cb => cb());
+
+    if (!windowStub.Game) {
+        global.window = windowStub;
+        global.document = document;
+        global.performance = global.performance || { now: () => 0 };
+        global.requestAnimationFrame = windowStub.requestAnimationFrame;
+        global.cancelAnimationFrame = windowStub.cancelAnimationFrame;
+        const { createGameCore } = await import('../scripts/game/core.js');
+        const { Game, Hex, Layout } = createGameCore({
+            ...importOverrides,
+            persistence: windowStub.Persistence ?? null
+        });
+        windowStub.Game = Game;
+        windowStub.Hex = Hex;
+        windowStub.Layout = Layout;
+        windowStub.Game.bindVoidClickEasterEgg = windowStub.Game.bindVoidClickEasterEgg || (() => {});
+        windowStub.Game.updateSaveStatus = windowStub.Game.updateSaveStatus || (() => {});
+        windowStub.Game.showOverworldUI = windowStub.Game.showOverworldUI || (() => {});
+        windowStub.Game.updateUpgradeMenu = windowStub.Game.updateUpgradeMenu || (() => {});
+        windowStub.Game.updateResearchUI = windowStub.Game.updateResearchUI || (() => {});
+        windowStub.Game.updateLeaderboardUI = windowStub.Game.updateLeaderboardUI || (() => {});
+        if (typeof windowStub.Game.init === 'function') {
+            windowStub.Game.init({
+                loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
+                onHUDUpdate: () => {},
+                onSaveSlotsUpdate: () => {},
+                onPostInit: () => {}
+            });
+            windowStub.Game.dependencyHealth = {
+                ...(windowStub.Game.dependencyHealth || {}),
+                persistenceAvailable: Boolean(windowStub.Persistence)
+            };
+        }
+    }
+
     return { window: windowStub };
 }
 
-function testQueuedPlacementConsumesCharge() {
-    const { window } = loadGameModule();
+async function testQueuedPlacementConsumesCharge() {
+    const { window } = await loadGameModule();
     const game = window.Game;
 
     const fieldHex = new game.Hex(0, 0, 0);
@@ -242,36 +279,8 @@ function testQueuedPlacementConsumesCharge() {
     assert.strictEqual(game.awaitingReclamationTarget, false, 'state should clear after placement');
 }
 
-function testClickValidationAndPrompt() {
-    const document = createDocumentStub();
-    document.getElementById = (id) => createElementStub({ id });
-    const window = createWindowStub(document);
-    const imports = createImportStubs();
-    const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
-    const persistenceStub = {
-        DEFAULT_STATS: fallbackStats,
-        loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
-        saveSnapshot: () => ({ slot: '1', savedAt: Date.now() })
-    };
-    window.ResearchSystem = ResearchSystem;
-    window.Persistence = persistenceStub;
-    const context = vm.createContext({
-        window,
-        document,
-        ...imports,
-        ResearchSystem,
-        Persistence: persistenceStub,
-        console,
-        setTimeout,
-        clearTimeout,
-        setInterval,
-        clearInterval,
-        performance: { now: () => 0 }
-    });
-    context.globalThis = context;
-    vm.runInContext(sanitizedSource, context);
-
-    (window.document.listeners['DOMContentLoaded'] || []).forEach(cb => cb());
+async function testClickValidationAndPrompt() {
+    const { window } = await loadGameModule();
     const game = window.Game;
 
     const ownedHex = new game.Hex(0, 0, 0);
@@ -333,8 +342,8 @@ function testClickValidationAndPrompt() {
     assert.strictEqual(game.gold, 1500, 'valid placement should charge the queued cost');
 }
 
-function testNoEligibleFieldsClearsPending() {
-    const { window } = loadGameModule();
+async function testNoEligibleFieldsClearsPending() {
+    const { window } = await loadGameModule();
     const game = window.Game;
     game.spawnTxt = () => {};
     game.showFloatingText = () => {};
@@ -368,8 +377,8 @@ function testNoEligibleFieldsClearsPending() {
     assert.strictEqual(game.gold, 2000, 'failed placements should leave resources untouched');
 }
 
-function testReclamationCostScalingRespectsPurchaseHistory() {
-    const { window } = loadGameModule();
+async function testReclamationCostScalingRespectsPurchaseHistory() {
+    const { window } = await loadGameModule();
     const game = window.Game;
     game.spawnTxt = () => {};
     game.showFloatingText = () => {};
@@ -408,7 +417,7 @@ function testReclamationCostScalingRespectsPurchaseHistory() {
     assert.strictEqual(game.getTech('land-reclamation').timesPurchased, 2, 'purchases should register after successful placements');
 }
 
-function testClusterBonusesRefreshAfterReclamation() {
+async function testClusterBonusesRefreshAfterReclamation() {
     const bonusCalls = [];
     const buildClusterBonusMap = (hexes, params) => {
         const snapshot = Array.from(hexes.values()).map(tile => ({ key: tile.hex.toString(), type: tile.type }));
@@ -418,7 +427,7 @@ function testClusterBonusesRefreshAfterReclamation() {
         return result;
     };
 
-    const { window } = loadGameModule({ importOverrides: { buildClusterBonusMap } });
+    const { window } = await loadGameModule({ importOverrides: { buildClusterBonusMap } });
     const game = window.Game;
     game.spawnTxt = () => {};
     game.showFloatingText = () => {};
@@ -427,6 +436,7 @@ function testClusterBonusesRefreshAfterReclamation() {
     game.toggleResearch = () => {};
     game.research = game.buildResearchState();
     game.updateResearchBonuses();
+    bonusCalls.length = 0;
 
     const fieldHex = new game.Hex(0, 0, 0);
     const neighborHex = new game.Hex(0, 1, -1);
@@ -454,13 +464,16 @@ function testClusterBonusesRefreshAfterReclamation() {
     assert.deepStrictEqual(lastCall.snapshot.find(entry => entry.key === fieldHex.toString()).type, 'forest', 'cluster calc should observe updated tile types');
 }
 
-function run() {
-    testQueuedPlacementConsumesCharge();
-    testClickValidationAndPrompt();
-    testNoEligibleFieldsClearsPending();
-    testReclamationCostScalingRespectsPurchaseHistory();
-    testClusterBonusesRefreshAfterReclamation();
+async function run() {
+    await testQueuedPlacementConsumesCharge();
+    await testClickValidationAndPrompt();
+    await testNoEligibleFieldsClearsPending();
+    await testReclamationCostScalingRespectsPurchaseHistory();
+    await testClusterBonusesRefreshAfterReclamation();
     console.log('Land reclamation flow tests passed.');
 }
 
-run();
+run().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+});
