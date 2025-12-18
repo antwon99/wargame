@@ -124,11 +124,29 @@ function testDefeatPenaltyCannotGoNegative() {
     global.document = originalDocument;
 }
 
+function testVictoryRaisesDifficultyByOne() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
+    global.document = { getElementById: () => domStub };
+
+    const { game } = buildEndWarGame(120);
+    const startingDifficulty = game.difficulty;
+    endWar(game, 'VICTORY');
+
+    assert.strictEqual(game.difficulty, startingDifficulty + 1, 'victory should advance enemy level by one');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function run() {
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
     testDefeatAppliesGoldPenalty();
     testDefeatPenaltyCannotGoNegative();
+    testVictoryRaisesDifficultyByOne();
     console.log('All combatEngine reward tests passed.');
 }
 
