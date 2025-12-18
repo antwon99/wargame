@@ -1417,6 +1417,17 @@ const Game = {
     },
 
     claimHexLogic(hex, free) {
+        const rebelSpawnChance = free ? 0 : 0.15 + (Math.random() * 0.1);
+        const shouldSpawnRebels = !free && Math.random() < rebelSpawnChance;
+
+        if (shouldSpawnRebels) {
+            const rebelTile = this.addOverworldHex(hex, 'rebelcamp', 'rebel', { prevType: 'field', isRebelCamp: true });
+            this.spawnTxt(hex, '🏴 REBEL CAMP!', '#f55');
+            if (typeof this.playSound === 'function') this.playSound('alert');
+            this.refreshClusterBonuses();
+            return rebelTile;
+        }
+
         const weighted = [
             { type: 'field', weight: 45 },
             { type: 'forest', weight: 30 },
@@ -1445,8 +1456,21 @@ const Game = {
         }
         if (def?.onClaim && !free) def.onClaim(this, hex);
         if (!free) this.refreshClusterBonuses();
+        return def;
     },
-    addOverworldHex(hex, type) { this.overworld.hexes.set(hex.toString(), {hex, type, owner: 'player'}); },
+    /**
+     * Track a claimed overworld hex with configurable ownership and metadata for hostile discoveries.
+     * @param {object} hex axial coordinate of the tile.
+     * @param {string} type tile terrain identifier.
+     * @param {string} [owner='player'] controlling faction key.
+     * @param {object} [extras={}] optional additional properties to merge onto the tile payload.
+     * @returns {object} the stored tile record.
+     */
+    addOverworldHex(hex, type, owner = 'player', extras = {}) {
+        const record = { hex, type, owner, ...extras };
+        this.overworld.hexes.set(hex.toString(), record);
+        return record;
+    },
     calcOverworldGhosts() {
         this.overworld.claimable.clear();
         for(let [k, d] of this.overworld.hexes) {

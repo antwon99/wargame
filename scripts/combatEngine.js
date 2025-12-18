@@ -769,6 +769,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
     const normalizedOutcome = (outcome || '').toLowerCase();
     let result = outcome;
+    const startingDifficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
     const targetTile = game.pendingClearTile;
     const targetKey = targetTile?.hex?.toString?.() || targetTile?.toString?.();
     const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
@@ -793,7 +794,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         const woodReward = 50 + (game.difficulty * 8) + (eraBonus * 5);
         game.gold += goldReward;
         game.wood += woodReward;
-        game.difficulty++;
+        game.difficulty = startingDifficulty + 1;
         game.spawnTxt(new Hex(0,0), `VICTORY +${goldReward}g +${woodReward}w`, '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
     }
