@@ -181,6 +181,16 @@ class AmbientRandomizer {
         this.random = randomFn;
         this.defaults = defaults;
         this.trackSelectors = new Map();
+        this.lastTrackByMode = new Map();
+    }
+
+    /** Ensure each track has a uniform weight and stable identity. */
+    normalizeTracks(tracks = []) {
+        return tracks.map((track, idx) => ({
+            ...track,
+            weight: 1,
+            id: track.id || track.key || track.src || `v${idx}`
+        }));
     }
 
     randomSilence(config = {}) {
@@ -199,10 +209,24 @@ class AmbientRandomizer {
         if (!tracks.length) return null;
         let selector = this.trackSelectors.get(mode);
         if (!selector || selector.source !== tracks) {
-            selector = new WeightedSelector(tracks);
+            selector = new WeightedSelector(this.normalizeTracks(tracks));
+            selector.source = tracks;
             this.trackSelectors.set(mode, selector);
+        } else {
+            selector.setEntries(this.normalizeTracks(tracks));
+            selector.source = tracks;
         }
-        return selector.pick(this.random);
+
+        const lastTrack = this.lastTrackByMode.get(mode);
+        let pick = selector.pick(this.random);
+
+        if (tracks.length > 1 && lastTrack && pick?.id === lastTrack.id) {
+            const filteredEntries = selector.entries.filter((entry) => entry.id !== lastTrack.id);
+            pick = new WeightedSelector(filteredEntries).pick(this.random);
+        }
+
+        if (pick) this.lastTrackByMode.set(mode, pick);
+        return pick;
     }
 }
 
