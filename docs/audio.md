@@ -1,20 +1,20 @@
 # Audio System
 
-The game routes every sound effect through `scripts/audio.js`, which exposes an `AudioManager` instance (`window.GameAudio`) backed by the `/sfx` mp3 library. Assets are grouped by role (`/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, `/sfx/system`) to match the manifest. The manager caches `Audio` elements, enforces per-sound cooldowns, and provides optional overlap playback for rapid-fire cues such as arrows. Variations are weighted so repeated actions sound lively instead of repetitive.
+The game routes every sound effect through `scripts/audio.js`, which exposes an `AudioManager` instance (`window.GameAudio`) backed by the `/sfx` mp3 library. Assets are grouped by role (`/sfx/ambient`, `/sfx/combat`, `/sfx/system`) to match the manifest, with `/sfx/ui` reserved for future interface cues. The manager caches `Audio` elements, enforces per-sound cooldowns, and provides optional overlap playback for rapid-fire cues such as arrows. Variations are weighted so repeated actions sound lively instead of repetitive.
 
 ## Event Map
 - **wardrum.mp3** — fired immediately by `enterCombat()` as a hard transition stinger but kept out of the WAR playlist to avoid re-triggering during UI overlays.
 - **sword*.mp3** — five weighted sword impacts selected randomly for melee attacks.
 - **arrow*.mp3** — four weighted bow shots for archer volleys.
 - **tower*.mp3** — three weighted blasts for towers/castles.
-- **rare*.mp3** — three weighted cues for legendary (dragon) strikes.
+- **rare*.mp3** — three weighted cues for legendary (dragon) strikes, housed under `/sfx/combat/rare/`.
 - **defeat.mp3** — used when the player retreats or loses a war.
 - **victory.mp3** — used when the player wins a war.
 - **city.mp3** — plays when claiming a town hex.
 - **choptree.mp3** — plays when claiming a forest hex.
 - **ambient.mp3** — birds/wind loop for the overworld.
-- **ambiance_upbeat.mp3** and **ambiance_uplifting.mp3** — territory music scheduled with random silences.
-- **ambiance_sorrow.mp3** and **ambiance_dark.mp3** — war music scheduled with random silences.
+- **ambiance_upbeat.mp3**, **ambiance_uplifting.mp3**, and **ambiance_uptake.mp3** — territory music scheduled with random silences.
+- **ambiance_sorrow.mp3**, **ambiance_dark.mp3**, and **ambiance_anger.mp3** — war music scheduled with random silences.
 
 ## Ambience and Music
 - `AmbientSoundscape` (see `scripts/audio.js`) uses weighted playlists per mode (`TERRITORY` vs `WAR`) to decide which track should play next.

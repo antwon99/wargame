@@ -7,7 +7,8 @@ export const AMBIENT_STATES = {
     TERRITORY: {
         tracks: [
             { key: 'ambiance_upbeat', weight: 1, volume: 0.55 },
-            { key: 'ambiance_uplifting', weight: 1, volume: 0.55 }
+            { key: 'ambiance_uplifting', weight: 1, volume: 0.55 },
+            { key: 'ambiance_uptake', weight: 1, volume: 0.55 }
         ],
         beds: [],
         silenceRangeMs: [14000, 42000],
@@ -18,7 +19,8 @@ export const AMBIENT_STATES = {
     WAR: {
         tracks: [
             { key: 'ambiance_sorrow', weight: 1, volume: 0.62 },
-            { key: 'ambiance_dark', weight: 1, volume: 0.62 }
+            { key: 'ambiance_dark', weight: 1, volume: 0.62 },
+            { key: 'ambiance_anger', weight: 1, volume: 0.62 }
         ],
         beds: [],
         silenceRangeMs: [12000, 36000],

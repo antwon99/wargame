@@ -12,7 +12,7 @@ This document outlines the lightweight visual and audio feedback hooks that acco
 - Applied when engaging War to emphasize combat transitions.
 
 ## Sound Effects
-- Backed by the `AudioManager` in `scripts/audio.js`, which loads mp3s from the organized `/sfx/ambient`, `/sfx/combat`, `/sfx/ui`, and `/sfx/system` folders.
+- Backed by the `AudioManager` in `scripts/audio.js`, which loads mp3s from the organized `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` folders (with `/sfx/ui` kept for future interface sounds).
 - Key cues: wardrum (war start), sword (soldier attacks), arrow (archers/towers), defeat (retreat/loss), city/forest claiming, and an overworld ambient loop.
 - All calls route through the `AudioBridge` in `audio/bridge.js` so gameplay can safely proceed if audio is blocked.
 
