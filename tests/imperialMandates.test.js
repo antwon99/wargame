@@ -47,10 +47,13 @@ function addTerritory(gameState, count) {
 
 function buildNotificationBindings() {
     const notifications = [];
+    const modals = [];
     return {
         notifications,
+        modals,
         uiBindings: {
-            enqueueNotification: (payload) => notifications.push(payload)
+            enqueueNotification: (payload) => notifications.push(payload),
+            showImperialModal: (config) => modals.push(config)
         }
     };
 }
@@ -296,7 +299,7 @@ async function testInfrastructureQuotaPaths() {
     gameState.imperialFavor = 5;
     gameState.gold = 260;
     gameState.wood = 120;
-    const { uiBindings } = buildNotificationBindings();
+    const { uiBindings, modals } = buildNotificationBindings();
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
     const rebelTarget = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
     ImperialMandates.recordEvent('tile_cleared', { tile: gameState.overworld.hexes.get(rebelTarget) }, gameState, uiBindings);
@@ -313,13 +316,27 @@ async function testInfrastructureQuotaPaths() {
     let quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
     assert.strictEqual(quota.status, ImperialMandates.MandateStatus.ACTIVE, 'infrastructure quota should activate after stockpile trigger');
 
+    const initialModal = modals.find((modal) => modal.title === 'Infrastructure Quota');
+    assert.ok(initialModal, 'quota issuance should present an interactive modal');
+    assert.ok(initialModal.lines.some((line) => line.includes(`${quota.metadata.targetWood} wood`)), 'quota modal should list target wood');
+    assert.ok(initialModal.lines.some((line) => line.includes(`${quota.metadata.targetGold} gold`)), 'quota modal should list target gold');
+
     const { targetGold, targetWood } = quota.metadata;
     gameState.gold = targetGold;
     gameState.wood = targetWood;
     await advanceImperialTicks(1, gameState, uiBindings);
     quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
-    assert.strictEqual(quota.status, ImperialMandates.MandateStatus.SUCCEEDED, 'quota should succeed once targets are staged');
-    assert.ok(gameState.gold >= targetGold + 40, 'quota success should include a logistics stipend');
+    assert.strictEqual(quota.status, ImperialMandates.MandateStatus.ACTIVE, 'quota should wait for acceptance even when staged');
+    assert.strictEqual(gameState.gold, targetGold, 'gold should not change until the quota is accepted');
+    assert.strictEqual(gameState.wood, targetWood, 'wood should not change until the quota is accepted');
+
+    const acceptanceModal = modals.filter((modal) => modal.title === 'Infrastructure Quota').pop();
+    assert.ok(acceptanceModal?.onConfirm, 'ready modal should expose an acceptance handler');
+    acceptanceModal.onConfirm();
+    quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
+    assert.strictEqual(quota.status, ImperialMandates.MandateStatus.SUCCEEDED, 'quota should succeed after explicit acceptance');
+    assert.strictEqual(gameState.gold, 50, 'acceptance should withdraw staged gold before the stipend');
+    assert.strictEqual(gameState.wood, 30, 'acceptance should withdraw staged wood before the stipend');
     assert.strictEqual(gameState.imperialFavor, 8, 'quota success should boost imperial favor after early victories');
 
     ImperialMandates.resetForNewCampaign();

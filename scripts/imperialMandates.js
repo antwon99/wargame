@@ -1000,13 +1000,55 @@
      */
     function buildInfrastructureQuotaMandate() {
         const blueprint = getMandateBlueprint('infrastructure_quota') || {};
+        const describeStockpileLine = (current, target) => {
+            if (current >= target) return `ready (${current}/${target})`;
+            return `short by ${target - current} (${current}/${target})`;
+        };
+
+        /**
+         * Present an interactive modal so players can consciously remit staged materials.
+         * Ensures resources are only withdrawn once the acceptance action fires.
+         * @param {{ gameState: object, uiBindings: object, mandate: object }} ctx active mandate context.
+         */
+        const showInfrastructureQuotaModal = (ctx) => {
+            const { gameState, uiBindings, mandate } = ctx;
+            const { targetWood, targetGold } = mandate.runtime.metadata;
+            const wood = Math.max(0, gameState?.wood || 0);
+            const gold = Math.max(0, gameState?.gold || 0);
+            const meetsWood = wood >= targetWood;
+            const meetsGold = gold >= targetGold;
+            const ready = meetsWood && meetsGold;
+            const statusLine = `Current stores: ${wood} wood (${describeStockpileLine(wood, targetWood)}), ${gold} gold (${describeStockpileLine(gold, targetGold)})`;
+            const instructions = ready
+                ? 'Depots are stocked. Accept to remit materials and clear the inspection.'
+                : 'Keep stockpiling before accepting the inspection.';
+
+            showImperialMessage({
+                title: 'Infrastructure Quota',
+                lines: [
+                    `Stage ${targetWood} wood and ${targetGold} gold for the engineers.`,
+                    statusLine,
+                    instructions
+                ],
+                buttonLabel: 'Accept',
+                onConfirm: () => {
+                    if (!ready) {
+                        showMandateBanner('Depots are not fully stocked yet.', uiBindings, 'Infrastructure Quota', { tone: 'warning', duration: 3600 });
+                        return;
+                    }
+                    mandate.runtime.metadata.accepted = true;
+                    recordEvent('infrastructure_quota_accept', { mandateId: mandate.definition.id, gameState }, gameState, uiBindings);
+                }
+            }, uiBindings);
+        };
+
         return {
             ...blueprint,
             id: 'infrastructure_quota',
             title: blueprint.title || 'Infrastructure Quota',
             description: blueprint.description || 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
             duration: blueprint.duration || { weeks: 1, days: 1 },
-            createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false }),
+            createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false, accepted: false, readyPrompted: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 3 },
             triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
             onIssue: ({ gameState, uiBindings, mandate }) => {
@@ -1019,17 +1061,31 @@
                     `Stage ${mandate.runtime.metadata.targetWood} wood and ${mandate.runtime.metadata.targetGold} gold.`,
                     `Inspectors arrive by ${deadlineLabel}.`
                 ], uiBindings, 'Infrastructure Quota');
+                showInfrastructureQuotaModal({ gameState, uiBindings, mandate });
             },
-            successPredicate: (eventType, payload, ctx) => {
-                if (eventType !== 'tick') return false;
+            onEvent: (eventType, payload, ctx) => {
+                if (ctx.mandate.runtime.metadata.accepted) return;
+                const isResourceEvent = eventType === 'tick' || eventType === 'inventory_change';
+                if (!isResourceEvent) return;
                 const wood = ctx.gameState?.wood || 0;
                 const gold = ctx.gameState?.gold || 0;
-                const { targetWood, targetGold } = ctx.mandate.runtime.metadata;
-                return wood >= targetWood && gold >= targetGold;
+                const { targetWood, targetGold, readyPrompted } = ctx.mandate.runtime.metadata;
+                if (wood >= targetWood && gold >= targetGold && !readyPrompted) {
+                    ctx.mandate.runtime.metadata.readyPrompted = true;
+                    showInfrastructureQuotaModal(ctx);
+                }
             },
-            onSuccess: ({ gameState, uiBindings }) => {
-                if (typeof gameState?.gold === 'number') gameState.gold += 50;
-                if (typeof gameState?.wood === 'number') gameState.wood += 30;
+            successPredicate: (eventType, payload, ctx) => Boolean(ctx.mandate.runtime.metadata.accepted),
+            onSuccess: ({ gameState, uiBindings, mandate }) => {
+                const { targetGold = 0, targetWood = 0 } = mandate.runtime.metadata;
+                if (typeof gameState?.gold === 'number') {
+                    gameState.gold = Math.max(0, gameState.gold - targetGold);
+                    gameState.gold += 50;
+                }
+                if (typeof gameState?.wood === 'number') {
+                    gameState.wood = Math.max(0, gameState.wood - targetWood);
+                    gameState.wood += 30;
+                }
                 showMandateBanner([
                     'Materials staged. Imperial engineers send a logistics stipend.',
                     'Supplies secured: +50 gold, +30 wood.'
