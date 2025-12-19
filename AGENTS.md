@@ -14,7 +14,7 @@ This file provides Codex with a complete understanding of how to interact with t
 ## Documentation and Observability
 -   Codex should prioritize **clarity of system behavior.**  
 -   All non-trivial features must be accompanied by in-code comments or API-accessible diagnostics that explain their purpose and behavior.  
--   When creating new systems, include a brief description of their logic and thresholds, especially if tied to gameplay feedback (e.g. hallucinations, spiral triggers, sanity modifiers), **and create an accompanying doc file in `/docs/`.**
+-   When creating new systems, include a brief description of their logic and thresholds, especially if tied to gameplay feedback (e.g. timekeeper, mandate triggers, adjacency modifiers), **and create an accompanying doc file in `/docs/`.**
 
 ## Branches
 -   Most iteration will be done on the `moonshots` branch.
