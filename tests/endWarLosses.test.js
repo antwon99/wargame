@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
+const { createCombatUI } = require('../scripts/combat/ui.js');
 const ImperialMandates = require('../scripts/imperialMandates.js');
 
 class Hex {
@@ -90,34 +91,33 @@ function testEndWarHighlightsLostTiles() {
     game.state = 'COMBAT';
     game.research.lives = 0;
 
-    const originalWindow = global.window;
-    const originalDocument = global.document;
-    const uiOverworld = createElement();
-    const uiCombat = createElement();
-    const stateTxt = createElement();
-    global.window = { innerWidth: 1024, innerHeight: 768 };
-    global.document = {
-        getElementById: (id) => {
-            if (id === 'ui-overworld') return uiOverworld;
-            if (id === 'ui-combat') return uiCombat;
-            if (id === 'state-txt') return stateTxt;
-            return null;
-        }
-    };
-
     const originalHandleOutcome = ImperialMandates.handleBattleOutcome;
     const originalProtectedKeys = ImperialMandates.getProtectedOverworldKeys;
     ImperialMandates.handleBattleOutcome = () => null;
     ImperialMandates.getProtectedOverworldKeys = () => new Set();
 
+    const uiOverworld = createElement();
+    const uiCombat = createElement();
+    const stateTxt = createElement();
+    const ui = createCombatUI(game, {
+        windowRef: { innerWidth: 1024, innerHeight: 768 },
+        documentRef: {
+            getElementById: (id) => {
+                if (id === 'ui-overworld') return uiOverworld;
+                if (id === 'ui-combat') return uiCombat;
+                if (id === 'state-txt') return stateTxt;
+                return null;
+            }
+        },
+        setTimeoutRef: (fn) => { fn(); return 0; }
+    });
+
     withPatchedRandom([0.0, 0.1, 0.8], () => {
-        endWar(game, 'DEFEAT');
+        endWar(game, 'DEFEAT', null, null, { ui });
     });
 
     ImperialMandates.handleBattleOutcome = originalHandleOutcome;
     ImperialMandates.getProtectedOverworldKeys = originalProtectedKeys;
-    global.window = originalWindow;
-    global.document = originalDocument;
 
     const lossLabels = floatingTexts.filter((entry) => entry.text === 'Scorched' || entry.text === 'Seized');
     assert.strictEqual(lossLabels.length, 2, 'converted tiles should emit per-tile highlights');

@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { damageBuilding, endWar } = require('../scripts/combatEngine.js');
+const { createCombatUI } = require('../scripts/combat/ui.js');
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -82,81 +83,61 @@ function testNonPlayerAttacksGiveNoReward() {
 }
 
 function testDefeatAppliesGoldPenalty() {
-    const originalWindow = global.window;
-    const originalDocument = global.document;
-    global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
-
     const { game } = buildEndWarGame(100);
-    const originalTimeout = global.setTimeout;
-    global.setTimeout = (fn) => { fn(); return 0; };
+    const ui = createCombatUI(game, {
+        windowRef: { innerWidth: 800, innerHeight: 600 },
+        documentRef: { getElementById: () => ({ classList: { add: () => {}, remove: () => {} }, innerText: '' }) },
+        setTimeoutRef: (fn) => { fn(); return 0; }
+    });
 
-    endWar(game, 'DEFEAT');
+    endWar(game, 'DEFEAT', null, null, { ui });
 
     assert.strictEqual(game.gold, 73, 'defeat should deduct the gold penalty and the royal levy');
     assert.ok(game.messages.find((m) => m.text.includes('pillaged')), 'penalty should be surfaced via spawnTxt');
     assert.ok(game.messages.find((m) => m.text.includes('royal levy')), 'levy should be surfaced via spawnTxt');
     assert.ok(game.floating.find((m) => m.text.includes('Lost 15g')), 'penalty should show in defeat HUD messaging');
-
-    global.setTimeout = originalTimeout;
-    global.window = originalWindow;
-    global.document = originalDocument;
 }
 
 function testDefeatPenaltyCannotGoNegative() {
-    const originalWindow = global.window;
-    const originalDocument = global.document;
-    global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
-
     const { game } = buildEndWarGame(6);
-    const originalTimeout = global.setTimeout;
-    global.setTimeout = (fn) => { fn(); return 0; };
+    const ui = createCombatUI(game, {
+        windowRef: { innerWidth: 800, innerHeight: 600 },
+        documentRef: { getElementById: () => ({ classList: { add: () => {}, remove: () => {} }, innerText: '' }) },
+        setTimeoutRef: (fn) => { fn(); return 0; }
+    });
 
-    endWar(game, 'DEFEAT');
+    endWar(game, 'DEFEAT', null, null, { ui });
 
     assert.strictEqual(game.gold, 0, 'defeat penalty should never drive gold negative');
     assert.ok(game.messages.find((m) => m.text.includes('-6g')), 'spawn text should reflect the clamped penalty');
-
-    global.setTimeout = originalTimeout;
-    global.window = originalWindow;
-    global.document = originalDocument;
 }
 
 function testVictoryRaisesDifficultyByOne() {
-    const originalWindow = global.window;
-    const originalDocument = global.document;
-    global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
-
     const { game } = buildEndWarGame(120);
+    const ui = createCombatUI(game, {
+        windowRef: { innerWidth: 800, innerHeight: 600 },
+        documentRef: { getElementById: () => ({ classList: { add: () => {}, remove: () => {} }, innerText: '' }) },
+        setTimeoutRef: (fn) => { fn(); return 0; }
+    });
+
     const startingDifficulty = game.difficulty;
-    endWar(game, 'VICTORY');
+    endWar(game, 'VICTORY', null, null, { ui });
 
     assert.strictEqual(game.difficulty, startingDifficulty + 1, 'victory should advance enemy level by one');
-
-    global.window = originalWindow;
-    global.document = originalDocument;
 }
 
 function testVictoryAppliesWarTax() {
-    const originalWindow = global.window;
-    const originalDocument = global.document;
-    global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
-
     const { game } = buildEndWarGame(100);
-    endWar(game, 'VICTORY');
+    const ui = createCombatUI(game, {
+        windowRef: { innerWidth: 800, innerHeight: 600 },
+        documentRef: { getElementById: () => ({ classList: { add: () => {}, remove: () => {} }, innerText: '' }) },
+        setTimeoutRef: (fn) => { fn(); return 0; }
+    });
+
+    endWar(game, 'VICTORY', null, null, { ui });
 
     assert.strictEqual(game.gold, 134, 'victory rewards should pay the 15% royal levy');
     assert.ok(game.messages.find((m) => m.text.includes('royal levy')), 'levy should be surfaced via spawnTxt on victory');
-
-    global.window = originalWindow;
-    global.document = originalDocument;
 }
 
 function run() {

@@ -3,6 +3,20 @@
  * Functions accept the live game object so they can operate without owning
  * global state directly.
  */
+import {
+    COMBAT_BUILDINGS,
+    UNITS,
+    calculateDefeatGoldOutcome,
+    calculateVictoryRewards,
+    computeWarEntryFee,
+    deriveAIPrep,
+    formatLossSummary,
+    getBuildingStats,
+    getSpawnRate,
+    getUnitStats
+} from './combat/math.js';
+import { createCombatUI, flashOverworldLosses } from './combat/ui.js';
+
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./imperialMandates.js') : {});
@@ -10,9 +24,6 @@ const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandat
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
     || null;
-
-/** Percentage of wartime gold the crown siphons as a royal levy. */
-const WAR_TAX_RATE = 0.15;
 
 /**
  * Resolve the Hex dependency so callers can inject test doubles instead of relying
@@ -28,116 +39,7 @@ function resolveHex(game, hexImpl) {
     return impl;
 }
 
-/**
- * Compute the net gold delta after applying the royal war tax.
- * A zero or negative input returns zero tax so callers can safely
- * forward resource-poor outcomes without additional checks.
- * @param {number} goldDelta gross gold change from the outcome.
- * @returns {{ net: number, tax: number }} net gold after tax and the tax amount.
- */
-function applyRoyalWarTax(goldDelta) {
-    const gross = Math.max(0, Math.floor(goldDelta || 0));
-    const tax = Math.floor(gross * WAR_TAX_RATE);
-    return { net: gross - tax, tax };
-}
-
-/** Definitions for buildable structures in combat mode. */
-export const COMBAT_BUILDINGS = {
-    // Castle now has income:5 and prodRate:4.0
-    CASTLE: { id: 'castle', char: '🏰', hp: 3000, dmg: 50, range: 4, rate: 1.0, income: 5, prodRate: 4.0 },
-    MINE:   { id: 'mine',   char: '🟡', cost: 40, hp: 300, income: 8, rate: 3.0 },
-    BARRACKS:{ id: 'barracks', char: '⚔️', cost: 75, hp: 500, spawn: 'soldier', rate: 5.0 },
-    RANGE:  { id: 'range',  char: '🏹', cost: 100, hp: 250, spawn: 'archer', rate: 4.5 },
-    TOWER:  { id: 'tower',  char: '🛡️', cost: 120, hp: 1000, dmg: 40, range: 4, rate: 0.8 },
-    LAIR:   { id: 'lair',   char: '🌋', cost: 0, hp: 1500, spawn: 'dragon', rate: 12.0 },
-    MYSTERY:{ id: 'mystery', char: '❓', cost: 25 },
-    ROCKS:  { id: 'rocks', char: '🪨', hp: 150 }
-};
-
-/** Base unit stats before upgrades are applied. */
-export const UNITS = {
-    soldier: { hp: 150, dmg: 12, speed: 2.0, range: 1, char: '⚔️' },
-    archer:  { hp: 70,  dmg: 18, speed: 1.8, range: 3, char: '🏹' },
-    dragon:  { hp: 1200, dmg: 80, speed: 1.5, range: 2, char: '🐲' }
-};
-
-/**
- * Compute the entry fee for launching a war.
- * Scaling accounts for both difficulty and the current calendar month so long-run
- * campaigns still feel the mounting logistical strain of mobilizing armies.
- * @param {object} game current game object (difficulty may influence future fees).
- * @returns {number} gold required to initiate battle.
- */
-export function computeWarEntryFee(game) { // eslint-disable-line no-unused-vars
-    const difficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
-    const month = Math.max(1, game?.timekeeper?.getCalendar?.().month || 1);
-    const halfMonthPressure = Math.floor((month - 1) / 2); // +1 fee every two weeks of campaign time
-    const yearPressure = Math.floor((month - 1) / 12) * 5; // bump when looping the calendar
-    const base = 10;
-    const fee = base + (difficulty * 12) + halfMonthPressure * 3 + yearPressure;
-    return Math.max(0, Math.floor(fee));
-}
-
-/**
- * Calculate AI combat prep knobs that scale with campaign duration and difficulty.
- * Exposed for tests to verify long-run pacing without wiring full DOM state.
- * @param {object} game current game object.
- * @returns {{ gold: number, nextMove: number }} derived starting gold pool and initial decision cadence.
- */
-export function deriveAIPrep(game) {
-    const cal = game?.timekeeper?.getCalendar?.();
-    const monthPressure = Math.floor(((cal?.month || 1) - 1) / 2);
-    const gold = 320 + (Math.max(0, game?.difficulty || 0) * 140) + (monthPressure * 25);
-    const nextMove = Math.max(1.6, 2.6 - Math.min(1.0, (game?.difficulty || 0) * 0.08));
-    return { gold, nextMove };
-}
-
-/**
- * Compute a player's unit statistics with upgrade multipliers applied.
- * @param {object} game current game object containing upgrade levels.
- * @param {string} type unit id.
- * @returns {object} derived stat block.
- */
-export function getUnitStats(game, type) {
-    const base = UNITS[type];
-    if(!base) return { hp: 100, dmg: 10, speed: 1, range: 1 };
-    if (type === 'soldier' || type === 'archer') {
-        const level = Number(game.upgrades?.[type] ?? 1);
-        const multi = 1 + ((level - 1) * 0.2);
-        return { ...base, hp: base.hp * multi, dmg: base.dmg * multi };
-    }
-    return base;
-}
-
-/**
- * Resolve structure statistics for the specified owner, applying defense upgrades when appropriate.
- * @param {object} game current game object containing upgrade levels.
- * @param {string} type building id.
- * @param {string} owner owner key (player|enemy).
- * @returns {object} structure definition merged with modifiers.
- */
-export function getBuildingStats(game, type, owner) {
-    const def = COMBAT_BUILDINGS[type.toUpperCase()];
-    if(owner !== 'player') return def;
-    if(type === 'tower' || type === 'castle') {
-        const level = Number(game.upgrades?.defense ?? 1);
-        const multi = 1 + ((level - 1) * 0.25);
-        return { ...def, hp: def.hp * multi, dmg: def.dmg * multi };
-    }
-    return def;
-}
-
-/**
- * Apply the player's production upgrades to a baseline spawn rate.
- * @param {object} game current game object containing production upgrades.
- * @param {number} baseRate base spawn time in seconds.
- * @returns {number} adjusted spawn rate.
- */
-export function getSpawnRate(game, baseRate) {
-    const level = Number(game.upgrades?.production ?? 1);
-    const multi = Math.pow(0.9, level - 1);
-    return baseRate * multi;
-}
+// Stat and economy helpers live in ./combat/math.js to keep this engine focused on orchestration and state.
 
 /**
  * Simulate combat state for one frame: production, targeting, AI purchases, and movement.
@@ -719,70 +621,20 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
 }
 
 /**
- * Summarize overworld losses for a given war outcome so UI overlays can surface
- * a player-facing recap without duplicating string logic across branches.
- * @param {string} outcomeLabel canonical outcome label (e.g., "Defeat").
- * @param {{counts:{scorched:number, rebel:number}}} lossReport aggregated loss data.
- * @returns {string} formatted summary sentence.
- */
-export function formatLossSummary(outcomeLabel, lossReport = { counts: {} }) {
-    const counts = lossReport.counts || {};
-    const segments = [];
-    if (counts.scorched) segments.push(`${counts.scorched} tile${counts.scorched === 1 ? '' : 's'} scorched`);
-    if (counts.rebel) segments.push(`${counts.rebel} seized by rebels`);
-    const baseLabel = outcomeLabel || 'Outcome';
-    const prefix = `${baseLabel[0].toUpperCase()}${baseLabel.slice(1).toLowerCase()}`;
-    return segments.length > 0 ? `${prefix}: ${segments.join(', ')}` : `${prefix}: No land lost`;
-}
-
-/**
- * Calculate the gold penalty for losing a war. The penalty is the greater of a
- * percentage of current gold or a small flat fee so defeats always sting, but
- * it is capped at the player's available gold to prevent negative balances.
- * @param {object} game current game object.
- * @returns {number} gold to deduct.
- */
-function computeDefeatGoldPenalty(game) {
-    const availableGold = Math.max(0, Math.floor(game.gold || 0));
-    const percentPenalty = Math.floor(availableGold * 0.15);
-    const flatPenalty = 10;
-    return Math.min(availableGold, Math.max(percentPenalty, flatPenalty));
-}
-
-/**
- * Emit brief visual indicators at each converted overworld hex so players can
- * locate the fallout of a defeat/retreat without opening new UI chrome.
- * @param {object} game live game object containing FX helpers.
- * @param {{conversions:Array<{hex:object, fate:string}>}} lossReport description of converted tiles.
- */
-function flashOverworldLosses(game, lossReport = { conversions: [] }) {
-    const { conversions = [] } = lossReport;
-    if (!Array.isArray(conversions) || conversions.length === 0) return;
-
-    conversions.forEach(({ hex, fate }) => {
-        if (!hex || typeof game.projectHexToScreen !== 'function') return;
-        const pos = game.projectHexToScreen(hex);
-        if (!pos) return;
-
-        const colors = fate === 'rebel' ? ['#ef476f', '#ffd166'] : ['#9ca3af', '#6b7280'];
-        game.spawnParticleBurst?.(pos.x, pos.y, 6, colors);
-        const label = fate === 'rebel' ? 'Seized' : 'Scorched';
-        game.showFloatingText?.(pos.x, pos.y, label, 'alert-text');
-    });
-}
-
-/**
  * Resolve war termination, distributing rewards and penalties before returning to overworld state.
  * @param {object} game current game object.
  * @param {string} outcome VICTORY|DEFEAT|RETREAT label.
  * @param {Event} clickEvt initiating click (optional).
  * @param {object} [hexImpl] optional Hex implementation for summary text anchors.
+ * @param {{ ui?: object, math?: object, uiOptions?: object }} [handlers] injection points for FX and math helpers.
  */
-export function endWar(game, outcome, clickEvt, hexImpl) {
+export function endWar(game, outcome, clickEvt, hexImpl, handlers = {}) {
     const Hex = resolveHex(game, hexImpl);
+    const ui = handlers.ui || createCombatUI(game, handlers.uiOptions);
+    const math = handlers.math || { calculateVictoryRewards, calculateDefeatGoldOutcome, formatLossSummary };
+    const anchor = ui?.resolveAnchor?.(clickEvt) || { x: 0, y: 0 };
+
     game.state = 'OVERWORLD';
-    const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
-    const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
     const normalizedOutcome = (outcome || '').toLowerCase();
     let result = outcome;
     const startingDifficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
@@ -792,7 +644,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const mandateProtected = ImperialMandates?.getProtectedOverworldKeys?.() || new Set();
     mandateProtected.forEach((k) => protectedTargets.add(k));
 
-    window.exitCombat?.(normalizedOutcome);
+    ui?.exitCombat?.(normalizedOutcome);
 
     if(outcome === 'DEFEAT' && game.research.lives > 0) {
         game.research.lives -= 1;
@@ -804,57 +656,50 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     }
 
     if(result === 'VICTORY') {
-        const cal = game.timekeeper?.getCalendar?.();
-        const eraBonus = Math.floor(((cal?.month || 1) - 1) / 3);
-        const goldReward = 40 + (game.difficulty * 10) + (eraBonus * 5);
-        const woodReward = 50 + (game.difficulty * 8) + (eraBonus * 5);
-        const { net: taxedGoldReward, tax: victoryTax } = applyRoyalWarTax(goldReward);
+        const { gold = 0, wood = 0, levy = 0 } = math.calculateVictoryRewards?.(game) || {};
 
-        if (victoryTax > 0) {
-            game.spawnTxt(new Hex(0,0), `-${victoryTax}g royal levy`, '#fbbf24');
-            game.showFloatingText(anchorX, anchorY, `Royal levy ${victoryTax}g`, 'alert-text');
+        if (levy > 0) {
+            game.spawnTxt(new Hex(0,0), `-${levy}g royal levy`, '#fbbf24');
+            ui?.showFloatingText?.(anchor, `Royal levy ${levy}g`, 'alert-text');
         }
 
-        game.gold += taxedGoldReward;
-        game.wood += woodReward;
+        game.gold += gold;
+        game.wood += wood;
         game.difficulty = startingDifficulty + 1;
-        game.spawnTxt(new Hex(0,0), `VICTORY +${taxedGoldReward}g +${woodReward}w`, '#fff');
-        game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
+        game.spawnTxt(new Hex(0,0), `VICTORY +${gold}g +${wood}w`, '#fff');
+        ui?.showFloatingText?.(anchor, 'Victory!', 'gold-text');
     }
     else if(result === 'DEFEAT') {
-        const goldPenalty = computeDefeatGoldPenalty(game);
-        if (goldPenalty > 0) {
-            game.gold -= goldPenalty;
-            game.spawnTxt(new Hex(0,0), `-${goldPenalty}g pillaged`, '#f55');
-            game.showFloatingText(anchorX, anchorY, `Lost ${goldPenalty}g`, 'alert-text');
+        const { penalty = 0, levy = 0, remaining = game.gold } = math.calculateDefeatGoldOutcome?.(game) || {};
+        if (penalty > 0) {
+            game.gold -= penalty;
+            game.spawnTxt(new Hex(0,0), `-${penalty}g pillaged`, '#f55');
+            ui?.showFloatingText?.(anchor, `Lost ${penalty}g`, 'alert-text');
         }
 
-        const { net: goldAfterTax, tax: defeatTax } = applyRoyalWarTax(game.gold);
-        if (defeatTax > 0) {
-            game.gold = goldAfterTax;
-            game.spawnTxt(new Hex(0,0), `-${defeatTax}g royal levy`, '#fbbf24');
-            game.showFloatingText(anchorX, anchorY, `Royal levy ${defeatTax}g`, 'alert-text');
+        if (levy > 0) {
+            game.gold = remaining;
+            game.spawnTxt(new Hex(0,0), `-${levy}g royal levy`, '#fbbf24');
+            ui?.showFloatingText?.(anchor, `Royal levy ${levy}g`, 'alert-text');
         }
 
         const losses = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
         game.spawnTxt(new Hex(0,0), "CRUSHED...", '#f55');
-        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
-        flashOverworldLosses(game, losses);
-        game.showFloatingText(anchorX, anchorY, formatLossSummary('Defeat', losses), 'alert-text');
+        ui?.delay?.(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
+        ui?.flashOverworldLosses?.(losses);
+        ui?.showFloatingText?.(anchor, math.formatLossSummary?.('Defeat', losses) || '', 'alert-text');
     }
     else if(result === 'RETREAT') {
         const losses = loseOverworldHexes(game, Math.floor(Math.random()*5)+1, protectedTargets); // 1-5
         game.spawnTxt(new Hex(0,0), "FLED...", '#aaa');
-        setTimeout(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
-        flashOverworldLosses(game, losses);
-        game.showFloatingText(anchorX, anchorY, formatLossSummary('Retreat', losses), 'alert-text');
+        ui?.delay?.(() => game.spawnTxt(new Hex(0,0), `-${losses.lost} LAND LOST`, '#f55'), 1500);
+        ui?.flashOverworldLosses?.(losses);
+        ui?.showFloatingText?.(anchor, math.formatLossSummary?.('Retreat', losses) || '', 'alert-text');
     }
 
     recordWarEnd(game, result);
 
-    document.getElementById('ui-overworld').classList.add('visible');
-    document.getElementById('ui-combat').classList.remove('visible');
-    document.getElementById('state-txt').innerText = "KINGDOM";
+    ui?.toggleToOverworldUI?.();
     game.hideWarTip();
     game.updateHUD();
     game.armAmbientLoop();
