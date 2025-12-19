@@ -30,7 +30,7 @@ import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
-import { buildDefaultSettings, createSettingsService } from '../settings.js';
+import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import {
@@ -45,6 +45,7 @@ import {
     createHexFactory,
     createHexLayout
 } from './state.js';
+import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, setSnowToggle as setSnowToggleHelper } from './settings.js';
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
@@ -211,27 +212,24 @@ const Game = {
             this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
             this.applyFeatureOverrides();
             const settingsStorage = this.persistenceAvailable && typeof window !== 'undefined' ? window.localStorage : null;
-            this.settingsService = createSettingsService({
-                storageKey: this.settingsStorageKey,
-                storage: settingsStorage,
-                defaults: this.defaultPlayerSettings(),
-                audioAdapter: (audio) => {
-                    const normalized = this.applyAudioSettings(audio);
-                    this.playerSettings = { ...(this.playerSettings || {}), audio: normalized };
-                },
-                visualAdapter: (visuals) => {
-                    this.applyVisualSettings(visuals);
-                    this.playerSettings = { ...(this.playerSettings || {}), visuals };
-                },
-                onError: (context, error) => this.reportRecoverableError?.(context, error)
-            });
-            this.settingsService.on('change', (settings) => {
-                this.playerSettings = settings;
-                this.updateSettingsUI?.();
-            });
-            const resolvedSettings = this.settingsService.load();
-            this.settingsService.applyAudio(resolvedSettings.audio);
-            this.settingsService.applyVisual(resolvedSettings.visuals);
+            if (!this.settingsService) {
+                const { settingsService, settingsSnapshot } = composeGameSettings(this, {
+                    storageKey: this.settingsStorageKey,
+                    storage: settingsStorage
+                });
+                this.settingsService = settingsService;
+                this.playerSettings = settingsSnapshot;
+            } else if (this.settingsService?.getSnapshot) {
+                this.playerSettings = this.settingsService.getSnapshot();
+            } else {
+                this.playerSettings = this.playerSettings || this.defaultPlayerSettings();
+            }
+            if (this.settingsService?.applyAudio && this.playerSettings?.audio) {
+                this.settingsService.applyAudio(this.playerSettings.audio);
+            }
+            if (this.settingsService?.applyVisual && this.playerSettings?.visuals) {
+                this.settingsService.applyVisual(this.playerSettings.visuals);
+            }
             const refreshHUD = typeof onHUDUpdate === 'function'
                 ? () => onHUDUpdate(this)
                 : () => this.updateHUD();
@@ -474,17 +472,7 @@ const Game = {
      * @returns {Object} resulting snow toggle collection
      */
     setSnowToggle(key, isEnabled) {
-        const supportedSnowToggles = new Set(['snowEnabled', 'snowfallEnabled']);
-        if (!supportedSnowToggles.has(key)) return this.featureToggles?.snow || { ...snowDefaults };
-
-        const snowToggles = this.featureToggles?.snow || { ...snowDefaults };
-        const nextSnow = { ...snowToggles, [key]: Boolean(isEnabled) };
-        this.featureToggles = { ...this.featureToggles, snow: nextSnow };
-        if (this.settingsService) {
-            this.settingsService.applyVisual({ [key]: Boolean(isEnabled) });
-            return this.featureToggles?.snow || nextSnow;
-        }
-        return nextSnow;
+        return setSnowToggleHelper(this, key, isEnabled);
     },
 
     /**
@@ -493,11 +481,7 @@ const Game = {
      * @returns {Object} snapshot of boolean snow toggles
      */
     resolveSnowDebugSnapshot() {
-        const snowToggles = this.featureToggles?.snow || {};
-        return {
-            snowEnabled: snowToggles.enabled !== false,
-            snowfallEnabled: snowToggles.snowfallEnabled !== false
-        };
+        return resolveSnowSnapshot(this);
     },
 
     resize() {
