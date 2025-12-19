@@ -144,6 +144,104 @@
         return convertToTicks({ weeks: 1, days: 2 }, gameState);
     }
 
+    /**
+     * Resolve the tutorial completion tick from the provided game state so
+     * downstream pacing logic can avoid issuing mandates during onboarding.
+     * @param {object} gameState live game reference that may expose tutorial state.
+     * @returns {number|null} completion tick when known; null otherwise.
+     */
+    function getTutorialCompletionTick(gameState) {
+        const tutorial = gameState?.tutorial;
+        if (Number.isFinite(tutorial?.completionTick)) return tutorial.completionTick;
+        if (Number.isFinite(tutorial?.completedTick)) return tutorial.completedTick;
+        return null;
+    }
+
+    /**
+     * Count player investment into upgrades beyond their baseline starting levels.
+     * The levy uses this to gauge economic maturity rather than raw gold reserves.
+     * @param {object} gameState live game reference exposing an upgrades hash.
+     * @returns {number} total upgrade levels purchased above baseline.
+     */
+    function getUpgradeProgress(gameState) {
+        if (!gameState?.upgrades || typeof gameState.upgrades !== 'object') return 0;
+        return Object.values(gameState.upgrades)
+            .map((level) => (Number.isFinite(level) ? Math.max(0, level - 1) : 0))
+            .reduce((sum, delta) => sum + delta, 0);
+    }
+
+    /**
+     * Count developed holdings (towns, castles, mines) to avoid taxing the player
+     * before they meaningfully expand beyond starter fields.
+     * @param {object} gameState live game reference exposing overworld tiles.
+     * @returns {number} number of developed tiles under player control.
+     */
+    function getDevelopedHoldingCount(gameState) {
+        if (!gameState?.overworld?.hexes) return 0;
+        let developed = 0;
+        gameState.overworld.hexes.forEach((tile) => {
+            const type = (tile?.type || '').toLowerCase();
+            const owner = (tile?.owner || 'player').toLowerCase();
+            const isHostile = owner === 'rebel' || owner === 'scorched';
+            const isDeveloped = ['town', 'castle', 'mine', 'harbor', 'village'].includes(type);
+            if (!isHostile && isDeveloped) developed += 1;
+        });
+        return developed;
+    }
+
+    /**
+     * Coarse estimate of steady gold income based on developed holdings and
+     * upgrade investments. Avoids pulling in the full overworld income logic
+     * while still scaling levy size with economic strength.
+     * @param {object} gameState live game reference exposing overworld tiles.
+     * @returns {number} estimated gold income per tick.
+     */
+    function estimateGoldIncome(gameState) {
+        if (!gameState?.overworld?.hexes) return 0;
+        let income = 0;
+        gameState.overworld.hexes.forEach((tile) => {
+            const type = (tile?.type || '').toLowerCase();
+            if (type === 'town' || type === 'castle') income += 3;
+            else if (type === 'mine' || type === 'harbor' || type === 'village') income += 2;
+        });
+        return income + Math.floor(getUpgradeProgress(gameState) * 0.5);
+    }
+
+    /**
+     * Calculate the levy demand using income and upgrades so unspent starting gold
+     * does not inflate the required tithe.
+     * @param {object} gameState live game reference exposing overworld and upgrades.
+     * @returns {{ requiredGold: number, upgradeProgress: number, developedHoldings: number }}
+     */
+    function computeTaxLevyRequirement(gameState) {
+        const upgradeProgress = getUpgradeProgress(gameState);
+        const developedHoldings = getDevelopedHoldingCount(gameState);
+        const income = estimateGoldIncome(gameState);
+        const baseline = 125;
+        const weighted = 80 + (upgradeProgress * 18) + (developedHoldings * 12) + (income * 8);
+        const requiredGold = Math.max(baseline, Math.floor(weighted));
+        return { requiredGold, upgradeProgress, developedHoldings };
+    }
+
+    const MIN_LEVY_UPGRADE_PROGRESS = 2;
+    const MIN_LEVY_DEVELOPED_HOLDINGS = 2;
+
+    /**
+     * Enforce a lengthy grace window for the levy that respects tutorial
+     * completion so the opening minutes remain tax-free.
+     * @param {number} baseEarliestTick earliest tick derived from the mandate config.
+     * @param {object} gameState live game reference for cadence and tutorial state.
+     * @returns {number} resolved earliest issuance tick.
+     */
+    function resolveTaxLevyEarliestTick(baseEarliestTick, gameState) {
+        const graceTick = convertToTicks({ weeks: 2, days: 2 }, gameState);
+        const tutorialCompletionTick = getTutorialCompletionTick(gameState);
+        const tutorialBuffer = Number.isFinite(tutorialCompletionTick)
+            ? tutorialCompletionTick + convertToTicks({ days: 3 }, gameState)
+            : 0;
+        return Math.max(baseEarliestTick, graceTick, tutorialBuffer);
+    }
+
     function getDurationTicks(entry, ctx) {
         if (entry.definition.duration) return convertToTicks(entry.definition.duration, ctx.gameState);
         if (entry.definition.durationTicks) return entry.definition.durationTicks;
@@ -159,6 +257,10 @@
             const completionTick = state.rebelSweep?.completionTick;
             if (!Number.isFinite(completionTick)) return Number.POSITIVE_INFINITY;
             return completionTick + baseEarliestTick;
+        }
+
+        if (entry?.definition?.id === 'levy_tithed_gold') {
+            return resolveTaxLevyEarliestTick(baseEarliestTick, gameState);
         }
 
         return baseEarliestTick;
@@ -794,10 +896,16 @@
             description: blueprint.description || 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
             duration: blueprint.duration || { weeks: 1, days: 4 },
             createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
-            earliestIssue: blueprint.earliestIssue || { weeks: 1, days: 2 },
-            triggerPredicate: ({ gameState }) => (gameState?.gold || 0) >= 120,
+            earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
+            triggerPredicate: ({ gameState }) => {
+                const { requiredGold, upgradeProgress, developedHoldings } = computeTaxLevyRequirement(gameState);
+                const meetsProgressThreshold = upgradeProgress >= MIN_LEVY_UPGRADE_PROGRESS
+                    || developedHoldings >= MIN_LEVY_DEVELOPED_HOLDINGS;
+                if (!meetsProgressThreshold) return false;
+                return (gameState?.gold || 0) >= requiredGold;
+            },
             onIssue: ({ gameState, uiBindings, mandate }) => {
-                const requiredGold = Math.max(150, Math.floor((gameState?.gold || 0) * 0.6));
+                const { requiredGold } = computeTaxLevyRequirement(gameState);
                 mandate.runtime.metadata.requiredGold = requiredGold;
                 showMandateBanner([
                     `Levy announced: remit ${requiredGold} gold.`,

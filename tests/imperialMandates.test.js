@@ -22,6 +22,7 @@ function buildGameState() {
         overworld: { hexes: new Map() },
         gold: 0,
         wood: 0,
+        upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
         calcOverworldGhosts: () => {},
         playSound: () => null
     };
@@ -70,6 +71,8 @@ async function testMandateIssuanceAndDeadlines() {
     ImperialMandateManager.reset();
     const gameState = buildGameState();
     gameState.gold = 200;
+    gameState.upgrades.production = 2;
+    gameState.upgrades.mines = 2;
     const expansionDelay = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 4 }, gameState);
 
     const { notifications, uiBindings } = buildNotificationBindings();
@@ -86,9 +89,13 @@ async function testMandateIssuanceAndDeadlines() {
     state = ImperialMandates.getKingState().mandates;
     assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.PENDING, 'levy mandate should respect the weekly spacing before activating');
 
+    await advanceImperialTicks(6, gameState, uiBindings);
+    state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.PENDING, 'levy mandate should not issue during the extended grace window');
+
     await advanceImperialTicks(4, gameState, uiBindings);
     state = ImperialMandates.getKingState().mandates;
-    assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandate should issue after the first week when gold threshold is met');
+    assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandate should issue after the grace window when thresholds are met');
     assert.strictEqual(state.levy_tithed_gold.deadlineTick, state.levy_tithed_gold.issuedTick + 11, 'levy deadline should be based on durationTicks');
 
     const rebelTarget = state.destroy_first_rebel_camp.metadata.targetTileKey;
@@ -207,12 +214,14 @@ async function testTaxLevyDeadlinePaths() {
     ImperialMandateManager.reset();
     const gameState = buildGameState();
     gameState.gold = 220;
+    gameState.upgrades.production = 2;
+    gameState.upgrades.soldier = 2;
     const earlyCycle = buildNotificationBindings();
     const hudUpdates = [];
     const successBindings = { ...earlyCycle.uiBindings, updateHUD: (state) => hudUpdates.push(state.imperialFavor) };
     ImperialMandates.issuePendingMandates(gameState, successBindings);
 
-    await advanceImperialTicks(10, gameState, successBindings);
+    await advanceImperialTicks(16, gameState, successBindings);
     const levyState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     const goldBeforePayment = gameState.gold;
     assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
@@ -228,11 +237,13 @@ async function testTaxLevyDeadlinePaths() {
     ImperialMandateManager.reset();
     const struggling = buildGameState();
     struggling.gold = 130;
+    struggling.upgrades.production = 2;
+    struggling.upgrades.soldier = 2;
     const strugglingNotifications = buildNotificationBindings();
     const failureHudUpdates = [];
     const failureBindings = { ...strugglingNotifications.uiBindings, updateHUD: (state) => failureHudUpdates.push(state.imperialFavor) };
     ImperialMandates.issuePendingMandates(struggling, failureBindings);
-    await advanceImperialTicks(10, struggling, failureBindings);
+    await advanceImperialTicks(16, struggling, failureBindings);
     const failingLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(failingLevy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate for struggling treasury');
     const favorBeforeDeadlines = struggling.imperialFavor ?? 5;
@@ -287,12 +298,18 @@ async function testInfrastructureQuotaPaths() {
     gameState.wood = 120;
     const { uiBindings } = buildNotificationBindings();
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    const rebelTarget = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    ImperialMandates.recordEvent('tile_cleared', { tile: gameState.overworld.hexes.get(rebelTarget) }, gameState, uiBindings);
     const infrastructureEarliest = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 3 }, gameState);
     const spacing = ImperialMandateCalendar.getMinimumMandateSpacing(gameState);
     await advanceImperialTicks(spacing, gameState, uiBindings);
     await advanceImperialTicks(1, gameState, uiBindings);
     await advanceImperialTicks(infrastructureEarliest, gameState, uiBindings);
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    if (ImperialMandates.getKingState().mandates.infrastructure_quota.status === ImperialMandates.MandateStatus.PENDING) {
+        await advanceImperialTicks(ImperialMandateCalendar.getMinimumMandateSpacing(gameState), gameState, uiBindings);
+        ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    }
     let quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
     assert.strictEqual(quota.status, ImperialMandates.MandateStatus.ACTIVE, 'infrastructure quota should activate after stockpile trigger');
 
@@ -303,7 +320,7 @@ async function testInfrastructureQuotaPaths() {
     quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
     assert.strictEqual(quota.status, ImperialMandates.MandateStatus.SUCCEEDED, 'quota should succeed once targets are staged');
     assert.ok(gameState.gold >= targetGold + 40, 'quota success should include a logistics stipend');
-    assert.strictEqual(gameState.imperialFavor, 7, 'quota success should boost imperial favor');
+    assert.strictEqual(gameState.imperialFavor, 8, 'quota success should boost imperial favor after early victories');
 
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
