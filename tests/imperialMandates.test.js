@@ -417,6 +417,76 @@ async function testRotatingLevyMandate() {
     assert.ok((debtor.imperialFavor || 0) <= favorBeforeDefault - 1, 'levy failure should lower favor');
 }
 
+async function testRecurringMandatesReenterQueue() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    gameState.gold = 260;
+    gameState.wood = 140;
+    gameState.upgrades.production = 2;
+    gameState.upgrades.mines = 2;
+    const { uiBindings } = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+
+    const spacing = ImperialMandateCalendar.getMinimumMandateSpacing(gameState);
+    const levyWindow = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 2 }, gameState);
+    await advanceImperialTicks(spacing + levyWindow + 2, gameState, uiBindings);
+    let levy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after the pacing window');
+    const firstIssuance = levy.issuedTick;
+
+    await advanceImperialTicks(1, gameState, uiBindings);
+    levy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should complete when reserves cover the tribute');
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    levy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should cool down before immediately reissuing');
+
+    gameState.gold = (levy.metadata.requiredGold || 0) + 260;
+    await advanceImperialTicks(spacing, gameState, uiBindings);
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    levy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    assert.strictEqual(levy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should re-enter the queue after its cooldown elapses');
+    assert.ok(ImperialMandates.getKingState().lastIssuedTick >= firstIssuance + spacing, 'reissued levy should respect mandate spacing');
+}
+
+async function testFavorScaledResourceRequests() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const generous = buildGameState();
+    generous.gold = 240;
+    generous.wood = 140;
+    generous.imperialFavor = 9;
+    generous.upgrades.production = 2;
+    generous.upgrades.mines = 2;
+    const { uiBindings } = buildNotificationBindings();
+    ImperialMandates.issuePendingMandates(generous, uiBindings);
+    const pacing = ImperialMandateCalendar.getMinimumMandateSpacing(generous);
+    const levyDelay = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 2 }, generous);
+    await advanceImperialTicks(pacing + levyDelay + 2, generous, uiBindings);
+    const generousLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    const generousRequirement = generousLevy.metadata.requiredGold;
+    const generousDuration = generousLevy.deadlineTick - generousLevy.issuedTick;
+
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const strained = buildGameState();
+    strained.gold = 240;
+    strained.wood = 140;
+    strained.imperialFavor = 2;
+    strained.upgrades.production = 2;
+    strained.upgrades.mines = 2;
+    ImperialMandates.issuePendingMandates(strained, uiBindings);
+    await advanceImperialTicks(pacing + levyDelay + 2, strained, uiBindings);
+    const strainedLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    const strainedRequirement = strainedLevy.metadata.requiredGold;
+    const strainedDuration = strainedLevy.deadlineTick - strainedLevy.issuedTick;
+
+    assert.ok(strainedRequirement > generousRequirement, 'lower favor should increase the tribute size');
+    assert.ok(generousDuration >= strainedDuration, 'higher favor should grant at least as much time as low favor');
+}
+
 async function testDiplomaticEnvoysMandate() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -493,6 +563,8 @@ async function run() {
     await testInfrastructureQuotaPaths();
     await testRotatingLevyMandate();
     await testDiplomaticEnvoysMandate();
+    await testRecurringMandatesReenterQueue();
+    await testFavorScaledResourceRequests();
     await testNonBlockingTickQueue();
     console.log('All imperial mandate tests passed.');
 }

@@ -74,6 +74,25 @@
     }
 
     /**
+     * Scale mandate intensity and grace periods according to imperial favor so loyal vassals
+     * enjoy lighter requests while neglectful ones face steeper, faster demands.
+     * @param {object} gameState live game reference for favor lookup.
+     * @returns {{ demandFactor: number, timeFactor: number }} multipliers for resource asks and deadlines.
+     */
+    function getFavorPacingAdjustments(gameState) {
+        const favor = clampImperialFavor(gameState?.imperialFavor);
+        const deltaFromMidpoint = favor - DEFAULT_IMPERIAL_FAVOR;
+        const demandFactor = 1 + (DEFAULT_IMPERIAL_FAVOR - favor) * 0.04;
+        const timeFactor = 1 + (deltaFromMidpoint * 0.04);
+        return { demandFactor, timeFactor };
+    }
+
+    function scaleResourceDemand(amount, demandFactor, floor = 1) {
+        const numericAmount = Number.isFinite(amount) ? amount : 0;
+        return Math.max(floor, Math.round(numericAmount * demandFactor));
+    }
+
+    /**
      * Prevent decree presenters from invoking overlap-prone combat cues so messaging remains UI-only.
      * @param {object} [uiBindings] hooks that may include a playSound delegate.
      * @returns {object} shallow copy with guarded audio hooks.
@@ -219,7 +238,8 @@
         const income = estimateGoldIncome(gameState);
         const baseline = 125;
         const weighted = 80 + (upgradeProgress * 18) + (developedHoldings * 12) + (income * 8);
-        const requiredGold = Math.max(baseline, Math.floor(weighted));
+        const { demandFactor } = getFavorPacingAdjustments(gameState);
+        const requiredGold = Math.max(baseline, Math.floor(weighted * demandFactor));
         return { requiredGold, upgradeProgress, developedHoldings };
     }
 
@@ -243,8 +263,15 @@
     }
 
     function getDurationTicks(entry, ctx) {
-        if (entry.definition.duration) return convertToTicks(entry.definition.duration, ctx.gameState);
-        if (entry.definition.durationTicks) return entry.definition.durationTicks;
+        const { timeFactor } = getFavorPacingAdjustments(ctx.gameState);
+        if (entry.definition.duration) {
+            const base = convertToTicks(entry.definition.duration, ctx.gameState);
+            return entry.definition.scaleDurationWithFavor ? Math.max(1, Math.round(base * timeFactor)) : base;
+        }
+        if (entry.definition.durationTicks) {
+            const baseDuration = entry.definition.durationTicks;
+            return entry.definition.scaleDurationWithFavor ? Math.max(1, Math.round(baseDuration * timeFactor)) : baseDuration;
+        }
         return null;
     }
 
@@ -264,6 +291,26 @@
         }
 
         return baseEarliestTick;
+    }
+
+    function isRecurringMandate(entry) {
+        if (!entry || !entry.definition) return false;
+        if (entry.definition.repeatable === false) return false;
+        return entry.definition.id !== 'destroy_first_rebel_camp';
+    }
+
+    function getRecurrenceCooldown(entry, gameState) {
+        const minimumSpacing = getMinimumMandateSpacing(gameState);
+        const configuredCooldown = entry.definition.recurrenceCooldown
+            ? convertToTicks(entry.definition.recurrenceCooldown, gameState)
+            : 0;
+        return Math.max(minimumSpacing, configuredCooldown);
+    }
+
+    function scheduleMandateRecurrence(entry, gameState) {
+        if (!isRecurringMandate(entry)) return;
+        const cooldown = getRecurrenceCooldown(entry, gameState);
+        entry.runtime.cooldownUntilTick = state.currentTick + cooldown;
     }
 
     function hasMandateSpacingElapsed(gameState) {
@@ -489,6 +536,7 @@
             deadlineTick: entry.runtime.deadlineTick,
             issuedTick: entry.runtime.issuedTick,
             completedTick: entry.runtime.completedTick,
+            cooldownUntilTick: entry.runtime.cooldownUntilTick,
             metadata: { ...entry.runtime.metadata }
         };
     }
@@ -528,6 +576,9 @@
             entry.runtime.deadlineTick = Number.isFinite(runtime.deadlineTick) ? runtime.deadlineTick : null;
             entry.runtime.issuedTick = Number.isFinite(runtime.issuedTick) ? runtime.issuedTick : null;
             entry.runtime.completedTick = Number.isFinite(runtime.completedTick) ? runtime.completedTick : null;
+            entry.runtime.cooldownUntilTick = Number.isFinite(runtime.cooldownUntilTick)
+                ? runtime.cooldownUntilTick
+                : null;
             if (runtime.metadata && typeof runtime.metadata === 'object') {
                 entry.runtime.metadata = { ...entry.runtime.metadata, ...runtime.metadata };
             }
@@ -559,6 +610,8 @@
             status: MandateStatus.PENDING,
             deadlineTick: null,
             issuedTick: null,
+            completedTick: null,
+            cooldownUntilTick: null,
             metadata: typeof definition.createInitialState === 'function'
                 ? definition.createInitialState()
                 : {},
@@ -571,6 +624,9 @@
         entry.runtime.status = MandateStatus.PENDING;
         entry.runtime.deadlineTick = null;
         entry.runtime.issuedTick = null;
+        entry.runtime.completedTick = null;
+        entry.runtime.cooldownUntilTick = null;
+        entry.runtime.durationTicks = null;
         entry.runtime.metadata = typeof entry.definition.createInitialState === 'function'
             ? entry.definition.createInitialState()
             : {};
@@ -609,6 +665,7 @@
             entry.definition.onSuccess({ ...patchedCtx, mandate: entry, payload });
         }
         applyImperialFavorDelta(patchedCtx.gameState, patchedCtx.uiBindings, entry.definition.successFavorDelta ?? 1);
+        scheduleMandateRecurrence(entry, patchedCtx.gameState);
     }
 
     function markFailure(entry, ctx, payload) {
@@ -622,6 +679,25 @@
             entry.definition.onFailure({ ...patchedCtx, mandate: entry, payload });
         }
         applyImperialFavorDelta(patchedCtx.gameState, patchedCtx.uiBindings, entry.definition.failureFavorDelta ?? -1);
+        scheduleMandateRecurrence(entry, patchedCtx.gameState);
+    }
+
+    /**
+     * Reset completed mandates after their cooldowns elapse so recurring decrees can re-enter the queue.
+     * Cycle-tracked mandates only reset once their runtime cycle lists have been exhausted.
+     * @param {object} ctx shared context for cadence lookups.
+     */
+    function refreshRecurringMandates(ctx) {
+        state.mandates.forEach((entry) => {
+            if (entry.runtime.status === MandateStatus.ACTIVE) return;
+            if (!isRecurringMandate(entry)) return;
+            if (!Number.isFinite(entry.runtime.cooldownUntilTick)) return;
+            const cycleList = entry.runtime.metadata?.cycleList;
+            const cyclesExhausted = !Array.isArray(cycleList) || cycleList.length === 0;
+            if (!cyclesExhausted) return;
+            if (state.currentTick < entry.runtime.cooldownUntilTick) return;
+            resetMandate(entry);
+        });
     }
 
     function issueMandate(entry, ctx) {
@@ -738,6 +814,7 @@
 
         checkDeadlines(ctx);
         state.mandates.forEach((entry) => evaluateMandate(entry, eventType, payload, ctx));
+        refreshRecurringMandates(ctx);
         issuePendingMandates(ctx.gameState, ctx.uiBindings);
     }
 
@@ -895,6 +972,7 @@
             title: blueprint.title || 'Imperial Tax Levy',
             description: blueprint.description || 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
             duration: blueprint.duration || { weeks: 1, days: 4 },
+            scaleDurationWithFavor: true,
             createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
             triggerPredicate: ({ gameState }) => {
@@ -1048,14 +1126,16 @@
             title: blueprint.title || 'Infrastructure Quota',
             description: blueprint.description || 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
             duration: blueprint.duration || { weeks: 1, days: 1 },
+            scaleDurationWithFavor: true,
             createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false, accepted: false, readyPrompted: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 3 },
             triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                const { demandFactor } = getFavorPacingAdjustments(gameState);
                 const baselineWood = Math.max(0, gameState?.wood || 0);
                 const baselineGold = Math.max(0, gameState?.gold || 0);
-                mandate.runtime.metadata.targetWood = baselineWood + 60;
-                mandate.runtime.metadata.targetGold = baselineGold + 45;
+                mandate.runtime.metadata.targetWood = scaleResourceDemand(baselineWood + 60, demandFactor, 40);
+                mandate.runtime.metadata.targetGold = scaleResourceDemand(baselineGold + 45, demandFactor, 30);
                 const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
                 showMandateBanner([
                     `Stage ${mandate.runtime.metadata.targetWood} wood and ${mandate.runtime.metadata.targetGold} gold.`,
@@ -1125,6 +1205,7 @@
             title: blueprint.title || 'Rotating Imperial Levy',
             description: blueprint.description || 'Alternate between gold and timber tributes so the treasury stays balanced and the navy stays supplied.',
             duration: blueprint.duration || { weeks: 1, days: 4 },
+            scaleDurationWithFavor: true,
             createInitialState: () => ({ requiredAmount: 0, resourceType: 'gold', deadlineWarned: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 3 },
             triggerPredicate: ({ gameState }) => {
@@ -1135,7 +1216,8 @@
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const resourceType = state.currentTick % 2 === 0 ? 'gold' : 'wood';
                 const reserve = Math.max(0, gameState?.[resourceType] || 0);
-                const requiredAmount = Math.max(70, Math.floor(reserve * 0.5));
+                const { demandFactor } = getFavorPacingAdjustments(gameState);
+                const requiredAmount = scaleResourceDemand(Math.max(70, Math.floor(reserve * 0.5)), demandFactor, 50);
                 mandate.runtime.metadata.resourceType = resourceType;
                 mandate.runtime.metadata.requiredAmount = requiredAmount;
                 const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
