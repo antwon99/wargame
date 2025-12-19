@@ -33,6 +33,18 @@ import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig
 import { buildDefaultSettings, createSettingsService } from '../settings.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
+import {
+    CAMERA_MOTION_CONFIG,
+    buildCameraState,
+    buildCombatState,
+    buildCoreResourceState,
+    buildFeatureToggles,
+    buildOverworldState,
+    buildSnowState,
+    buildTimekeeperConfig,
+    createHexFactory,
+    createHexLayout
+} from './state.js';
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
@@ -80,67 +92,54 @@ export function createGameCore(overrides = {}) {
         : Persistence;
 
     /** ENGINE */
-    const SQRT3 = (window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
+    const hasWindow = typeof window !== 'undefined';
+    const sqrt3 = typeof overrides.sqrt3 === 'number'
+        ? overrides.sqrt3
+        : (hasWindow && window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
 
-    class Hex {
-    constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
-    add(b) { return new Hex(this.q + b.q, this.r + b.r, this.s + b.s); }
-    toPixel(layout) {
-        const x = (layout.f0 * this.q + layout.f1 * this.r) * layout.size;
-        const y = (layout.f2 * this.q + layout.f3 * this.r) * layout.size;
-        return { x: x + layout.origin.x, y: y + layout.origin.y };
-    }
-    static fromPixel(layout, p) {
-        const pt = { x: (p.x - layout.origin.x) / layout.size, y: (p.y - layout.origin.y) / layout.size };
-        const q = layout.b0 * pt.x + layout.b1 * pt.y;
-        const r = layout.b2 * pt.x + layout.b3 * pt.y;
-        return Hex.round({ q, r, s: -q - r });
-    }
-    static round(h) {
-        let qi = Math.round(h.q), ri = Math.round(h.r), si = Math.round(h.s);
-        const q_diff = Math.abs(qi - h.q), r_diff = Math.abs(ri - h.r), s_diff = Math.abs(si - h.s);
-        if (q_diff > r_diff && q_diff > s_diff) qi = -ri - si;
-        else if (r_diff > s_diff) ri = -qi - si;
-        else si = -qi - ri;
-        return new Hex(qi, ri, si);
-    }
-    static distance(a, b) { return (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.s - b.s)) / 2; }
-    static neighbor(hex, dir) {
-        const dirs = [new Hex(1,0,-1), new Hex(1,-1,0), new Hex(0,-1,1), new Hex(-1,0,1), new Hex(-1,1,0), new Hex(0,1,-1)];
-        return hex.add(dirs[dir]);
-    }
-    equals(b) { return this.q === b.q && this.r === b.r; }
-    toString() { return `${this.q},${this.r}`; }
-}
+    const resourceBuilder = overrides.buildCoreResourceState || buildCoreResourceState;
+    const overworldBuilder = overrides.buildOverworldState || buildOverworldState;
+    const combatBuilder = overrides.buildCombatState || buildCombatState;
+    const snowBuilder = overrides.buildSnowState || buildSnowState;
+    const cameraStateBuilder = overrides.buildCameraState || buildCameraState;
+    const featureToggleBuilder = overrides.buildFeatureToggles || buildFeatureToggles;
+    const timekeeperConfigBuilder = overrides.buildTimekeeperConfig || buildTimekeeperConfig;
 
-const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
-    f0: SQRT3, f1: SQRT3 / 2.0, f2: 0.0, f3: 3.0 / 2.0,
-    b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
-};
+    const Hex = overrides.Hex || createHexFactory(sqrt3);
+    const layoutOverride = overrides.Layout || (hasWindow && window.InputHelpers && window.InputHelpers.Layout);
+    const Layout = layoutOverride || createHexLayout(sqrt3);
+    const featureToggles = featureToggleBuilder({
+        snowDefaults: snowDefaults,
+        cameraDefaults: CAMERA_MOTION_CONFIG
+    });
+    const baseResources = resourceBuilder({
+        imperialFavor: DEFAULT_IMPERIAL_FAVOR,
+        clusterBaseRate: DEFAULT_CLUSTER_RATE,
+        fallbackStats: FALLBACK_STATS,
+        activeSaveSlot: overrides.activeSaveSlot || '1'
+    });
+    const overworldState = overworldBuilder();
+    const combatState = combatBuilder();
+    const snowState = snowBuilder();
+    const cameraState = cameraStateBuilder();
+    const timekeeperConfig = overrides.timekeeperConfig || timekeeperConfigBuilder();
 
-const CAMERA_MOTION_CONFIG = {
-    enabled: true,
-    amplitude: 9,
-    parallax: 0.65,
-    speed: 0.18
-};
-
-const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
-    ? window.PlatformAdapter
-    : {
-        detectPlatformProfile: () => ({
-            isMobile: false,
-            viewportWidth: window.innerWidth,
-            viewportHeight: window.innerHeight,
-            deviceScale: window.devicePixelRatio || 1,
-            baseZoom: 1
-        }),
-        sizeCanvasForDisplay: (canvas, ctx, profile) => {
-            if (!canvas || !ctx || !profile) return;
-            canvas.width = profile.viewportWidth;
-            canvas.height = profile.viewportHeight;
-        }
-    };
+    const Platform = (hasWindow && window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
+        ? window.PlatformAdapter
+        : {
+            detectPlatformProfile: () => ({
+                isMobile: false,
+                viewportWidth: hasWindow ? window.innerWidth : 0,
+                viewportHeight: hasWindow ? window.innerHeight : 0,
+                deviceScale: hasWindow && window.devicePixelRatio ? window.devicePixelRatio : 1,
+                baseZoom: 1
+            }),
+            sizeCanvasForDisplay: (canvas, ctx, profile) => {
+                if (!canvas || !ctx || !profile) return;
+                canvas.width = profile.viewportWidth;
+                canvas.height = profile.viewportHeight;
+            }
+        };
 
 const TIPS = [
     "SIEGE RULE: Build near Enemy structures (3-tile range) to attack.",
@@ -155,25 +154,17 @@ const TIPS = [
 
 /** ENGINE */
 const Game = {
-    canvas: document.getElementById('canvas'),
-    ctx: document.getElementById('canvas').getContext('2d'),
-    fxLayer: document.getElementById('fx-layer'),
+    canvas: null,
+    ctx: null,
+    fxLayer: null,
 
     state: 'OVERWORLD',
     paused: false,
-    gold: 300, wood: 40,
-    imperialFavor: DEFAULT_IMPERIAL_FAVOR,
-    difficulty: 0,
-    upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
-    research: { technologies: [], bonuses: { townGoldBonus: 0, forestWoodBonus: 0, clusterBaseRate: DEFAULT_CLUSTER_RATE, landReclamationClusterBonus: 0 }, lives: 0 },
-    stats: { ...FALLBACK_STATS },
-    session: { warKills: 0 },
-    activeSaveSlot: '1',
-    voidClicks: 0,
-    cam: { x: 0, y: 0, zoom: 1 },
+    ...baseResources,
     Hex,
+    Layout,
     deviceProfile: Platform.detectPlatformProfile(),
-    viewport: { width: window.innerWidth, height: window.innerHeight },
+    viewport: { width: hasWindow ? window.innerWidth : 0, height: hasWindow ? window.innerHeight : 0 },
     shakeTimer: null,
     ambientLoopStarted: false,
     pendingClearTile: null,
@@ -184,28 +175,29 @@ const Game = {
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
     imperialMandates: ImperialMandates,
-    timekeeper: new Timekeeper({ startTick: START_TICK }),
+    timekeeper: new Timekeeper(timekeeperConfig),
 
-    overworld: { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() },
-    snow: { time: 0 },
-    featureToggles: {
-        snow: { ...snowDefaults },
-        camera: { ...CAMERA_MOTION_CONFIG },
-        overworld: { showClaimCosts: false }
-    },
+    overworld: overworldState,
+    snow: snowState,
+    featureToggles,
     settingsStorageKey: 'wargame:player-settings',
     settingsService: null,
     playerSettings: null,
-    camBase: { x: 0, y: 0 },
-    camDrift: { time: 0 },
+    ...cameraState,
     persistenceAvailable: true,
-    combat: {
-        territory: new Map(), slots: new Map(), buildings: new Map(), units: [], particles: [], fx: [],
-        ai: { timer: 0, nextMove: 3.0, gold: 300 },
-        castles: { player: null, enemy: null }
-    },
+    combat: combatState,
 
     init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
+        const docAvailable = typeof document !== 'undefined';
+        if (docAvailable) {
+            this.canvas = this.canvas || document.getElementById('canvas');
+            if (!this.ctx && this.canvas?.getContext) this.ctx = this.canvas.getContext('2d');
+            this.fxLayer = this.fxLayer || document.getElementById('fx-layer');
+            this.viewport = {
+                width: typeof window !== 'undefined' ? window.innerWidth : this.viewport?.width || 0,
+                height: typeof window !== 'undefined' ? window.innerHeight : this.viewport?.height || 0
+            };
+        }
         try {
             if (introOverlay?.init) introOverlay.init(document);
             this.dependencyHealth = bootstrapValidator({
@@ -1796,3 +1788,16 @@ const Game = {
 
     return { Game, Hex, Layout, TIPS };
 }
+
+export {
+    CAMERA_MOTION_CONFIG,
+    buildCameraState,
+    buildCombatState,
+    buildCoreResourceState,
+    buildFeatureToggles,
+    buildOverworldState,
+    buildSnowState,
+    buildTimekeeperConfig,
+    createHexFactory,
+    createHexLayout
+} from './state.js';
