@@ -57,9 +57,42 @@ async function testLakeGenerationAndStamping() {
     console.log('Water lake generation + stamping test passed.');
 }
 
+async function testStampingKeepsBodiesContiguous() {
+    const { stampWaterBody } = await import('../scripts/waterGenerator.js');
+    class Hex {
+        constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
+        toString() { return `${this.q},${this.r}`; }
+    }
+
+    const game = {
+        Hex,
+        overworld: { hexes: new Map() },
+        addOverworldHex(hex, type, owner, extras = {}) {
+            const record = { hex, type, owner, ...extras };
+            this.overworld.hexes.set(hex.toString(), record);
+            return record;
+        }
+    };
+
+    const start = new Hex(0, 0);
+    const blocked = new Hex(1, 0);
+    game.addOverworldHex(start, 'water', 'player', { isWater: true });
+    game.addOverworldHex(blocked, 'forest', 'player');
+
+    const disconnectedRiver = [start, blocked, new Hex(2, 0)];
+    const claimed = stampWaterBody(game, start, disconnectedRiver, { owner: 'player' });
+
+    assert.strictEqual(claimed.length, 0, 'no new tiles should be stamped when path is blocked');
+    assert.strictEqual(game.overworld.hexes.size, 2, 'blocked coordinates prevent disjoint water placement');
+    assert.ok(!game.overworld.hexes.has('2,0'), 'unreachable river segments are discarded');
+
+    console.log('Water stamping contiguity test passed.');
+}
+
 async function run() {
     await testRiverGeneration();
     await testLakeGenerationAndStamping();
+    await testStampingKeepsBodiesContiguous();
     console.log('Water generator tests passed.');
 }
 

@@ -120,7 +120,10 @@ export function buildWaterBody(startHex, options = {}) {
 
 /**
  * Merge a generated water body into the overworld, skipping coordinates that
- * already contain tiles to avoid clobbering existing terrain.
+ * already contain tiles to avoid clobbering existing terrain. The stamping
+ * process maintains contiguity with the triggering tile by traversing the
+ * generated body in breadth-first order and discarding unreachable segments
+ * when intervening coordinates are blocked.
  *
  * @param {object} game game instance exposing addOverworldHex and overworld hex map.
  * @param {object} startHex axial coordinate that triggered the reveal.
@@ -132,17 +135,45 @@ export function stampWaterBody(game, startHex, body, options = {}) {
     const Hex = game.Hex;
     const owner = options.owner || 'player';
     const claimed = [];
+    const startKey = startHex?.toString?.() || `${startHex?.q ?? 0},${startHex?.r ?? 0}`;
 
+    // Normalize coordinates so we can reason about connectivity before stamping.
+    const tilesByKey = new Map();
     body.forEach((rawHex) => {
         const normalized = normalizeHex(rawHex);
-        const key = `${normalized.q},${normalized.r}`;
-        if (game.overworld?.hexes?.has?.(key)) return;
+        tilesByKey.set(toKey(normalized), normalized);
+    });
+    if (!tilesByKey.has(startKey)) tilesByKey.set(startKey, normalizeHex(startHex));
+
+    const isAvailable = (key) => key === startKey || !game.overworld?.hexes?.has?.(key);
+    const visited = new Set();
+    const queue = [];
+
+    if (tilesByKey.has(startKey) && isAvailable(startKey)) {
+        queue.push(startKey);
+        visited.add(startKey);
+    }
+
+    while (queue.length) {
+        const key = queue.shift();
+        const anchor = tilesByKey.get(key) || startHex;
+        DIRECTIONS.forEach((dir) => {
+            const neighborKey = toKey(addHex(anchor, dir));
+            if (!tilesByKey.has(neighborKey) || visited.has(neighborKey) || !isAvailable(neighborKey)) return;
+            visited.add(neighborKey);
+            queue.push(neighborKey);
+        });
+    }
+
+    visited.forEach((key) => {
+        if (key === startKey) return;
+        const normalized = tilesByKey.get(key);
+        if (!normalized) return;
         const hexInstance = typeof Hex === 'function' ? new Hex(normalized.q, normalized.r, normalized.s) : normalized;
         claimed.push(game.addOverworldHex(hexInstance, OVERWORLD_TILES.WATER.id, owner, { isWater: true }));
     });
 
     // Ensure the triggering tile retains its water metadata when provided.
-    const startKey = startHex?.toString?.() || `${startHex?.q ?? 0},${startHex?.r ?? 0}`;
     if (startKey && game.overworld?.hexes?.has?.(startKey)) {
         const tile = game.overworld.hexes.get(startKey);
         if (tile) tile.isWater = true;
