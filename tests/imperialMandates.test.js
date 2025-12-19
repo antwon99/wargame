@@ -2,6 +2,7 @@ const assert = require('assert');
 const RebelSystem = require('../scripts/rebelSystem.js');
 const ImperialMandates = require('../scripts/imperialMandates.js');
 const ImperialMandateManager = require('../scripts/imperialMandateManager.js');
+const ImperialMandateCalendar = require('../scripts/imperialMandateCalendar.js');
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -69,6 +70,7 @@ async function testMandateIssuanceAndDeadlines() {
     ImperialMandateManager.reset();
     const gameState = buildGameState();
     gameState.gold = 200;
+    const expansionDelay = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 4 }, gameState);
 
     const { notifications, uiBindings } = buildNotificationBindings();
     uiBindings.showImperialModal = (config) => notifications.push(config);
@@ -89,9 +91,19 @@ async function testMandateIssuanceAndDeadlines() {
     assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandate should issue after the first week when gold threshold is met');
     assert.strictEqual(state.levy_tithed_gold.deadlineTick, state.levy_tithed_gold.issuedTick + 11, 'levy deadline should be based on durationTicks');
 
-    await advanceImperialTicks(10, gameState, uiBindings);
+    const rebelTarget = state.destroy_first_rebel_camp.metadata.targetTileKey;
+    const rebelTile = gameState.overworld.hexes.get(rebelTarget);
+    const completionTick = ImperialMandates.getKingState().currentTick;
+    ImperialMandates.recordEvent('tile_cleared', { tile: rebelTile }, gameState, uiBindings);
+
+    await advanceImperialTicks(expansionDelay - 2, gameState, uiBindings);
     state = ImperialMandates.getKingState().mandates;
-    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should issue after the second week with enough territory');
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.PENDING, 'expansion mandate should wait for rebel sweep completion and the post-sweep timer');
+
+    await advanceImperialTicks(2, gameState, uiBindings);
+    state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should issue after the sweep completion delay window');
+    assert.ok(ImperialMandates.getKingState().currentTick >= completionTick + expansionDelay, 'expansion mandate should respect the new earliest issue timing');
     assert.strictEqual(state.push_the_frontier.deadlineTick, state.push_the_frontier.issuedTick + 17, 'expansion deadline should be based on durationTicks');
     assert.ok(notifications.length >= 1, 'imperial messaging should fire during mandate issuance');
 }
@@ -120,6 +132,9 @@ async function testRebelMandateResolutionAndExpiry() {
     assert.strictEqual(finalState.status, ImperialMandates.MandateStatus.SUCCEEDED, 'victory should complete the mandate');
     assert.ok(!RebelSystem.isRebelCampTile(rebelTile), 'rebel flag should be cleared after success');
     assert.ok(notificationBindings.notifications.some((m) => m.title === 'Imperial Reprimand'), 'reprimand should render on defeat once');
+    const rebelSweepSuccess = ImperialMandates.getKingState().rebelSweep;
+    assert.strictEqual(rebelSweepSuccess.outcome, ImperialMandates.MandateStatus.SUCCEEDED, 'rebel sweep outcome should be recorded on success');
+    assert.strictEqual(rebelSweepSuccess.completionTick, finalState.completedTick, 'rebel sweep completion tick should mirror the mandate completion');
 
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -128,6 +143,9 @@ async function testRebelMandateResolutionAndExpiry() {
     await advanceImperialTicks(22, stubbornGame, uiBindings);
     const failedState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
     assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'rebel mandate should fail when deadline is exceeded');
+    const rebelSweepFailure = ImperialMandates.getKingState().rebelSweep;
+    assert.strictEqual(rebelSweepFailure.outcome, ImperialMandates.MandateStatus.FAILED, 'rebel sweep outcome should be recorded on failure');
+    assert.strictEqual(rebelSweepFailure.completionTick, failedState.completedTick, 'rebel sweep failure should note the completion tick');
 }
 
 async function testFirstDecreeAnchoredThenNotifications() {
@@ -232,6 +250,9 @@ async function testExpansionRewardsAndExpiry() {
     const gameState = buildGameState();
     const { uiBindings } = buildNotificationBindings();
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    const rebelTarget = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const rebelTile = gameState.overworld.hexes.get(rebelTarget);
+    ImperialMandates.recordEvent('tile_cleared', { tile: rebelTile }, gameState, uiBindings);
     await advanceImperialTicks(20, gameState, uiBindings);
     const frontierState = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(frontierState.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should activate after early ticks');
@@ -247,6 +268,8 @@ async function testExpansionRewardsAndExpiry() {
     ImperialMandateManager.reset();
     const stalled = buildGameState();
     ImperialMandates.issuePendingMandates(stalled, uiBindings);
+    const stalledRebel = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    ImperialMandates.recordEvent('tile_cleared', { tile: stalled.overworld.hexes.get(stalledRebel) }, stalled, uiBindings);
     await advanceImperialTicks(20, stalled, uiBindings);
     const stalledMandate = ImperialMandates.getKingState().mandates.push_the_frontier;
     assert.strictEqual(stalledMandate.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should be active before expiry');
@@ -264,11 +287,11 @@ async function testInfrastructureQuotaPaths() {
     gameState.wood = 120;
     const { uiBindings } = buildNotificationBindings();
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
-
-    await advanceImperialTicks(10, gameState, uiBindings);
+    const infrastructureEarliest = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 3 }, gameState);
+    const spacing = ImperialMandateCalendar.getMinimumMandateSpacing(gameState);
+    await advanceImperialTicks(spacing, gameState, uiBindings);
     await advanceImperialTicks(1, gameState, uiBindings);
-    await advanceImperialTicks(10, gameState, uiBindings);
-    await advanceImperialTicks(10, gameState, uiBindings);
+    await advanceImperialTicks(infrastructureEarliest, gameState, uiBindings);
     ImperialMandates.issuePendingMandates(gameState, uiBindings);
     let quota = ImperialMandates.getKingState().mandates.infrastructure_quota;
     assert.strictEqual(quota.status, ImperialMandates.MandateStatus.ACTIVE, 'infrastructure quota should activate after stockpile trigger');
@@ -289,11 +312,12 @@ async function testInfrastructureQuotaPaths() {
     failing.gold = 200;
     failing.wood = 90;
     ImperialMandates.issuePendingMandates(failing, uiBindings);
-    await advanceImperialTicks(10, failing, uiBindings);
-    await advanceImperialTicks(10, failing, uiBindings);
-    await advanceImperialTicks(10, failing, uiBindings);
+    const failingEarliest = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 3 }, failing);
+    const failingSpacing = ImperialMandateCalendar.getMinimumMandateSpacing(failing);
+    await advanceImperialTicks(failingSpacing, failing, uiBindings);
+    await advanceImperialTicks(failingEarliest, failing, uiBindings);
     ImperialMandates.issuePendingMandates(failing, uiBindings);
-    await advanceImperialTicks(12, failing, uiBindings);
+    await advanceImperialTicks(ImperialMandateCalendar.convertToTicks({ weeks: 1, days: 2 }, failing) + 2, failing, uiBindings);
     ImperialMandates.issuePendingMandates(failing, uiBindings);
     const failedQuota = ImperialMandates.getKingState().mandates.infrastructure_quota;
     assert.strictEqual(failedQuota.status, ImperialMandates.MandateStatus.FAILED, 'quota should fail if inspectors are ignored');
