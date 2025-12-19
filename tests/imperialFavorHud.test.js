@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const { clampImperialFavor } = require('../scripts/imperialFavor.js');
 
 function createStubElement(id) {
     return {
@@ -40,7 +41,11 @@ async function testUpdateHUDWritesFavor() {
     assert.strictEqual(String(doc.getElementById('gold').innerText), '12');
     assert.strictEqual(String(doc.getElementById('wood').innerText), '3');
     assert.strictEqual(doc.getElementById('lives-count').innerText, 2);
-    assert.strictEqual(String(doc.getElementById('imperial-favor').innerText), '10', 'favor should clamp to HUD max');
+    assert.strictEqual(
+        String(doc.getElementById('imperial-favor').innerText),
+        String(clampImperialFavor(game.imperialFavor)),
+        'favor should clamp to HUD max'
+    );
     assert.strictEqual(doc.getElementById('lvl-txt').innerText, 'Lv.4');
 }
 

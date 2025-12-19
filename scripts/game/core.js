@@ -35,6 +35,7 @@ import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
+import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
@@ -117,24 +118,12 @@ const Layout = (window.InputHelpers && window.InputHelpers.Layout) || {
     b0: SQRT3 / 3.0, b1: -1.0 / 3.0, b2: 0.0, b3: 2.0 / 3.0
 };
 
-    const DEFAULT_IMPERIAL_FAVOR = 5;
-
 const CAMERA_MOTION_CONFIG = {
     enabled: true,
     amplitude: 9,
     parallax: 0.65,
     speed: 0.18
 };
-
-/**
- * Keep imperial favor bounded to the 1–10 HUD scale so saves and UI stay consistent.
- * @param {number} value arbitrary favor value from gameplay systems or persistence.
- * @returns {number} sanitized favor value within 1–10 (defaults to midpoint when invalid).
- */
-function clampImperialFavor(value) {
-    const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-    return Math.min(10, Math.max(1, numeric));
-}
 
 const Platform = (window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
     ? window.PlatformAdapter
