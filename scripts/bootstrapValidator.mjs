@@ -22,9 +22,12 @@ export function validateBootstrapDependencies({
     ctx = null,
     logToDebug = true
 } = {}) {
+    const persistenceAvailable = typeof persistence?.isAvailable === 'function'
+        ? persistence.isAvailable()
+        : Boolean(persistence);
     const status = {
         researchSystemAvailable: Boolean(researchSystem),
-        persistenceAvailable: Boolean(persistence),
+        persistenceAvailable,
         inputHelpersAvailable: Boolean(inputHelpers),
         canvasAvailable: Boolean(canvas && (ctx || canvas.getContext?.('2d')))
     };
