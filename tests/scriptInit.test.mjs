@@ -167,7 +167,9 @@ function createImportStubs() {
         SNOW_VISUAL_CONFIG: {},
         resolveSnowSeason: () => ({ inSeason: true, progress: 0.5 }),
         resolveSnowVisualConfig: () => ({ enabled: true, coverage: 0.5 }),
-        validateBootstrapDependencies: ({ persistence }) => ({ persistenceAvailable: Boolean(persistence) })
+        validateBootstrapDependencies: ({ persistence }) => ({
+            persistenceAvailable: Boolean(persistence?.isAvailable ? persistence.isAvailable() : persistence)
+        })
     };
 }
 
