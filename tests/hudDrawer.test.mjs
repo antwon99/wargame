@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { createHudDrawerController } from '../scripts/uiBindings.js';
+import { createHudDrawerController } from '../scripts/ui/upgradeDrawer.js';
 
 function createStubElement(id = '') {
     const attributes = new Map();

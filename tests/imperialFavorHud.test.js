@@ -27,7 +27,7 @@ function createStubDocument(ids = []) {
 async function testUpdateHUDWritesFavor() {
     const doc = createStubDocument(['gold', 'wood', 'lives-count', 'imperial-favor', 'lvl-txt']);
     global.document = doc;
-    const { updateHUD } = await import('../scripts/uiBindings.js');
+    const { updateHUD } = await import('../scripts/ui/hud.js');
 
     const game = {
         gold: 12.9,

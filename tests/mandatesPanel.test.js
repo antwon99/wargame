@@ -79,7 +79,7 @@ async function testMandatesPanelRendersList() {
             ]
         };
 
-        const { renderMandatesPanel } = await import('../scripts/uiBindings.js');
+        const { renderMandatesPanel } = await import('../scripts/ui/hud.js');
         const rendered = renderMandatesPanel();
 
         assert.strictEqual(rendered.length, 2, 'all active mandates should be rendered');
@@ -117,7 +117,7 @@ async function testMandatesPanelEmptyStateAndWarnings() {
             getActiveMandates: () => []
         };
 
-        const { renderMandatesPanel } = await import('../scripts/uiBindings.js');
+        const { renderMandatesPanel } = await import('../scripts/ui/hud.js');
         const renderedEmpty = renderMandatesPanel();
 
         assert.strictEqual(renderedEmpty.length, 0, 'no mandates should return an empty list');
@@ -199,7 +199,7 @@ async function testRenderSurvivesDomRelocation() {
             getActiveMandates: () => [{ id: 'delta', title: 'Delta', description: 'Hold the line.', deadlineTick: 3 }]
         };
 
-        const { renderMandatesPanel } = await import('../scripts/uiBindings.js');
+        const { renderMandatesPanel } = await import('../scripts/ui/hud.js');
         renderMandatesPanel();
         assert.strictEqual(firstBody.children.length, 1, 'initial body should receive rendered content');
 

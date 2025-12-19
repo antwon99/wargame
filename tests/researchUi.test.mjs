@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { updateResearchUI } from '../scripts/uiBindings.js';
+import { updateResearchUI } from '../scripts/ui/researchDrawer.js';
 import ResearchSystem from '../scripts/researchSystem.js';
 
 class StubClassList {

@@ -44,7 +44,7 @@ async function testClusterBonusRenders() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const key = '0,0';
     const cluster = { size: 3, goldBonus: 0, woodBonus: 2, adjacencyRate: 0.2, reclamationRate: 0.05 };
@@ -75,7 +75,7 @@ async function testPauseStatusUpdatesInspector() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const key = '1,0';
     const cluster = { size: 2, goldBonus: 1, woodBonus: 0, adjacencyRate: 0.1, reclamationRate: 0 };
@@ -108,7 +108,7 @@ async function testZeroBonusClustersStillCountAsAdjacency() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const key = '2,0';
     const cluster = { size: 2, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
@@ -136,7 +136,7 @@ async function testIsolatedTilesShowNoAdjacency() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const key = '3,0';
     const cluster = { size: 1, goldBonus: 0, woodBonus: 0, adjacencyRate: 0, reclamationRate: 0, totalRate: 0 };
@@ -163,7 +163,7 @@ async function testInspectorHidesOutsideOverworld() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const overlayCalls = [];
     const tile = { type: 'forest', owner: 'enemy', hex: { q: 0, r: 1, toString: () => '0,1' } };
@@ -196,7 +196,7 @@ async function testClaimablePreviewShowsCost() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const tile = { claimCost: 20, hex: { q: 0, r: 0, toString: () => '0,0' }, owner: 'neutral' };
     const game = {
@@ -231,7 +231,7 @@ async function testReclamationHintsReflectAvailability() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+    const { updateTileInspector } = await import('../scripts/ui/hud.js');
 
     const game = {
         state: 'OVERWORLD',

@@ -43,7 +43,7 @@ function createStubDocument(ids = []) {
 async function testCalendarPillRenders() {
     const doc = createStubDocument(['gold', 'wood', 'lives-count', 'imperial-favor', 'lvl-txt', 'calendar-readout']);
     global.document = doc;
-    const { updateHUD } = await import('../scripts/uiBindings.js');
+    const { updateHUD } = await import('../scripts/ui/hud.js');
     const { Timekeeper } = await import('../scripts/timekeeper.js');
 
     const timekeeper = new Timekeeper({ startTick: 6 }); // Day 7 in the 7-day week
@@ -65,7 +65,7 @@ async function testCalendarAndPauseStateChanges() {
         'gold', 'wood', 'lives-count', 'imperial-favor', 'lvl-txt', 'calendar-readout', 'btn-pause', 'pause-indicator'
     ]);
     global.document = doc;
-    const { updateHUD } = await import('../scripts/uiBindings.js');
+    const { updateHUD } = await import('../scripts/ui/hud.js');
     const { Timekeeper } = await import('../scripts/timekeeper.js');
 
     const timekeeper = new Timekeeper({ startTick: 0 });
