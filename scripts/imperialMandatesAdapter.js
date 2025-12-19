@@ -6,6 +6,9 @@
  * browser-only dependencies.
  */
 (function (global) {
+    const { buildUiAdapter = (api) => api } = (typeof require === 'function'
+        ? require('./imperialMandates/uiAdapter.js')
+        : {});
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
 
@@ -217,7 +220,7 @@
         return false;
     }
 
-    const api = {
+    const api = buildUiAdapter({
         withImperialAudioGuard,
         sanitizeUIBindings,
         renderImperialModal,
@@ -225,7 +228,7 @@
         queueImperialNotification,
         showMandateBanner,
         showRebelDecreeCallout
-    };
+    }, () => ({}));
 
     global.ImperialMandateUIAdapter = api;
     if (typeof module !== 'undefined') module.exports = api;
