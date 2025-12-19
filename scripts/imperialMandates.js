@@ -33,7 +33,8 @@
         events: [],
         lastIssuedTick: null,
         lastGameState: null,
-        lastUIBindings: {}
+        lastUIBindings: {},
+        rebelSweep: { outcome: null, completionTick: null }
     };
 
     const DEFAULT_IMPERIAL_FAVOR = 5;
@@ -98,13 +99,16 @@
      * @returns {number|null} updated favor value or null when game state is missing.
      */
     function applyImperialFavorDelta(gameState, uiBindings, delta = 0) {
-        if (!gameState) return null;
-        const current = Number.isFinite(gameState.imperialFavor)
-            ? gameState.imperialFavor
+        const targetGameState = gameState || state.lastGameState;
+        if (!targetGameState) return null;
+        const numericDelta = Number.isFinite(delta) ? delta : Number(delta);
+        const safeDelta = Number.isFinite(numericDelta) ? numericDelta : 0;
+        const current = Number.isFinite(targetGameState.imperialFavor)
+            ? targetGameState.imperialFavor
             : DEFAULT_IMPERIAL_FAVOR;
-        const next = clampImperialFavor(current + delta);
-        gameState.imperialFavor = next;
-        if (typeof uiBindings?.updateHUD === 'function') uiBindings.updateHUD(gameState);
+        const next = clampImperialFavor(current + safeDelta);
+        targetGameState.imperialFavor = next;
+        if (typeof uiBindings?.updateHUD === 'function') uiBindings.updateHUD(targetGameState);
         return next;
     }
 
@@ -147,9 +151,17 @@
     }
 
     function getEarliestIssueTick(entry, gameState) {
-        if (typeof calendarEarliestIssueTick === 'function') return calendarEarliestIssueTick(entry, gameState);
-        if (!entry?.definition?.earliestIssue) return 0;
-        return convertToTicks(entry.definition.earliestIssue, gameState);
+        const baseEarliestTick = typeof calendarEarliestIssueTick === 'function'
+            ? calendarEarliestIssueTick(entry, gameState)
+            : (entry?.definition?.earliestIssue ? convertToTicks(entry.definition.earliestIssue, gameState) : 0);
+
+        if (entry?.definition?.id === 'push_the_frontier') {
+            const completionTick = state.rebelSweep?.completionTick;
+            if (!Number.isFinite(completionTick)) return Number.POSITIVE_INFINITY;
+            return completionTick + baseEarliestTick;
+        }
+
+        return baseEarliestTick;
     }
 
     function hasMandateSpacingElapsed(gameState) {
@@ -374,6 +386,7 @@
             status: entry.runtime.status,
             deadlineTick: entry.runtime.deadlineTick,
             issuedTick: entry.runtime.issuedTick,
+            completedTick: entry.runtime.completedTick,
             metadata: { ...entry.runtime.metadata }
         };
     }
@@ -388,7 +401,8 @@
         return {
             mandates,
             currentTick: state.currentTick,
-            lastIssuedTick: state.lastIssuedTick
+            lastIssuedTick: state.lastIssuedTick,
+            rebelSweep: { ...state.rebelSweep }
         };
     }
 
@@ -411,6 +425,7 @@
             entry.runtime.status = runtime.status || MandateStatus.PENDING;
             entry.runtime.deadlineTick = Number.isFinite(runtime.deadlineTick) ? runtime.deadlineTick : null;
             entry.runtime.issuedTick = Number.isFinite(runtime.issuedTick) ? runtime.issuedTick : null;
+            entry.runtime.completedTick = Number.isFinite(runtime.completedTick) ? runtime.completedTick : null;
             if (runtime.metadata && typeof runtime.metadata === 'object') {
                 entry.runtime.metadata = { ...entry.runtime.metadata, ...runtime.metadata };
             }
@@ -460,6 +475,13 @@
         entry.runtime.reprimandShown = false;
     }
 
+    function recordRebelSweepOutcome(outcome) {
+        state.rebelSweep = {
+            outcome,
+            completionTick: state.currentTick
+        };
+    }
+
     /**
      * Reset mandate runtime state for a fresh campaign.
      * Preserves registered mandate definitions while clearing history and timers.
@@ -470,25 +492,34 @@
         state.lastIssuedTick = null;
         state.lastGameState = null;
         state.lastUIBindings = {};
+        state.rebelSweep = { outcome: null, completionTick: null };
         state.mandates.forEach(resetMandate);
     }
 
     function markSuccess(entry, ctx, payload) {
         entry.runtime.status = MandateStatus.SUCCEEDED;
         entry.runtime.completedTick = state.currentTick;
-        if (typeof entry.definition.onSuccess === 'function') {
-            entry.definition.onSuccess({ ...ctx, mandate: entry, payload });
+        const patchedCtx = { ...ctx, gameState: ctx.gameState || state.lastGameState };
+        if (entry.definition.id === 'destroy_first_rebel_camp') {
+            recordRebelSweepOutcome(MandateStatus.SUCCEEDED);
         }
-        applyImperialFavorDelta(ctx.gameState, ctx.uiBindings, entry.definition.successFavorDelta ?? 1);
+        if (typeof entry.definition.onSuccess === 'function') {
+            entry.definition.onSuccess({ ...patchedCtx, mandate: entry, payload });
+        }
+        applyImperialFavorDelta(patchedCtx.gameState, patchedCtx.uiBindings, entry.definition.successFavorDelta ?? 1);
     }
 
     function markFailure(entry, ctx, payload) {
         entry.runtime.status = MandateStatus.FAILED;
         entry.runtime.completedTick = state.currentTick;
-        if (typeof entry.definition.onFailure === 'function') {
-            entry.definition.onFailure({ ...ctx, mandate: entry, payload });
+        const patchedCtx = { ...ctx, gameState: ctx.gameState || state.lastGameState };
+        if (entry.definition.id === 'destroy_first_rebel_camp') {
+            recordRebelSweepOutcome(MandateStatus.FAILED);
         }
-        applyImperialFavorDelta(ctx.gameState, ctx.uiBindings, entry.definition.failureFavorDelta ?? -1);
+        if (typeof entry.definition.onFailure === 'function') {
+            entry.definition.onFailure({ ...patchedCtx, mandate: entry, payload });
+        }
+        applyImperialFavorDelta(patchedCtx.gameState, patchedCtx.uiBindings, entry.definition.failureFavorDelta ?? -1);
     }
 
     function issueMandate(entry, ctx) {
@@ -670,7 +701,8 @@
         return {
             mandates,
             currentTick: state.currentTick,
-            lastIssuedTick: state.lastIssuedTick
+            lastIssuedTick: state.lastIssuedTick,
+            rebelSweep: { ...state.rebelSweep }
         };
     }
 
@@ -816,14 +848,16 @@
             duration: blueprint.duration || { weeks: 2, days: 3 },
             createInitialState: () => ({ startingTerritory: 0, targetTerritory: 0, deadlineWarned: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 4 },
-            triggerPredicate: ({ gameState }) => (gameState?.overworld?.hexes?.size || 0) >= 4,
+            triggerPredicate: ({ gameState }) => Boolean(state.rebelSweep?.outcome)
+                && (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;
                 mandate.runtime.metadata.startingTerritory = currentTerritory;
                 mandate.runtime.metadata.targetTerritory = currentTerritory + 3;
                 showMandateBanner([
                     `Add ${mandate.runtime.metadata.targetTerritory - currentTerritory} holdings before the fog closes in.`,
-                    'New towns will earn a small signing bonus.'
+                    'New towns will earn a small signing bonus.',
+                    'Unlocked after sweeping the first rebel camp.'
                 ], uiBindings, 'Push the Frontier');
             },
             successPredicate: (eventType, payload, ctx) => {
