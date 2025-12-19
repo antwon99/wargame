@@ -1,4 +1,5 @@
 import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
+import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -6,13 +7,6 @@ import { createNotificationStack, getSharedStack, setSharedStack } from './notif
  */
 
 let cachedNotificationStack = null;
-const DEFAULT_IMPERIAL_FAVOR = 5;
-
-/** Clamp imperial favor values to the HUD's 1–10 range for display. */
-function clampImperialFavor(value) {
-    const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-    return Math.min(10, Math.max(1, numeric));
-}
 
 /**
  * Lazily create (or return) the shared notification stack anchored to the game container.

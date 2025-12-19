@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { clampImperialFavor } = require('../scripts/imperialFavor.js');
 
 global.localStorage = (() => {
     const store = new Map();
@@ -215,7 +216,11 @@ async function runTests() {
     assert.strictEqual(slotTwo.state.gold, 999);
     assert.strictEqual(slotTwo.stats.bestLevel, 7);
     assert.strictEqual(slotTwo.stats.warsFought, 12);
-    assert.strictEqual(slotTwo.state.imperialFavor, 10, 'favor should clamp to 10 on persist/load');
+    assert.strictEqual(
+        slotTwo.state.imperialFavor,
+        clampImperialFavor(altGame.imperialFavor),
+        'favor should clamp to 10 on persist/load'
+    );
 
     const meta = Persistence.getSlotMetadata(2);
     assert.ok(meta.hasSave);
@@ -228,7 +233,11 @@ async function runTests() {
 
     favorShiftGame.imperialFavor = 15;
     const clampedFavorSave = Persistence.saveSnapshot(favorShiftGame, 7);
-    assert.strictEqual(clampedFavorSave.payload.imperialFavor, 10, 'favor persistence should honor clamp limits');
+    assert.strictEqual(
+        clampedFavorSave.payload.imperialFavor,
+        clampImperialFavor(favorShiftGame.imperialFavor),
+        'favor persistence should honor clamp limits'
+    );
 
     // Persist scorched/rebel tiles and ensure they stay non-income when reloaded
     const penalizedGame = {

@@ -4,11 +4,17 @@
  * supporting simple Node-based tests via CommonJS exports.
  */
 (function (global) {
+    const imperialFavorHelpers = (typeof require === 'function')
+        ? require('./imperialFavor.js')
+        : global.ImperialFavor;
+    const { DEFAULT_IMPERIAL_FAVOR = 5, clampImperialFavor = (value) => {
+        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+        return Math.min(10, Math.max(1, numeric));
+    } } = imperialFavorHelpers || {};
     const STORAGE_PREFIX = 'hexWar_slot';
     const STATS_PREFIX = 'hexWar_stats_slot';
     const STORAGE_KEY = `${STORAGE_PREFIX}1`;
     const STATS_KEY = `${STATS_PREFIX}1`;
-    const DEFAULT_IMPERIAL_FAVOR = 5;
     const DEFAULT_DAYS_PER_WEEK = 7;
     const DEFAULT_WEEKS_PER_MONTH = 4;
     const DEFAULT_START_MONTH_INDEX = Number.isFinite(global.START_MONTH_INDEX) ? global.START_MONTH_INDEX : 3;
@@ -45,12 +51,6 @@
             normalized.warsFought = stats.warsPlayed;
         }
         return normalized;
-    }
-
-    /** Clamp imperial favor to the 1–10 HUD range for persistence. */
-    function clampImperialFavor(value) {
-        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-        return Math.min(10, Math.max(1, numeric));
     }
 
     /**

@@ -53,6 +53,13 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         || (typeof require === 'function' ? require('./imperialMandateCalendar.js') : null);
     const ImperialMandateRegistry = (global.ImperialMandateRegistry)
         || (typeof require === 'function' ? require('./imperialMandateRegistry.js') : null);
+    const imperialFavorHelpers = (typeof require === 'function')
+        ? require('./imperialFavor.js')
+        : global.ImperialFavor;
+    const { DEFAULT_IMPERIAL_FAVOR = 5, clampImperialFavor = (value) => {
+        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
+        return Math.min(10, Math.max(1, numeric));
+    } } = imperialFavorHelpers || {};
 
     const MandateStatus = {
         PENDING: 'PENDING',
@@ -74,7 +81,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
 
     const uiAdapter = buildUiAdapter(adapter, () => state.lastUIBindings);
 
-    const DEFAULT_IMPERIAL_FAVOR = 5;
     const DEFAULT_REBEL_DECREE_LINES = [
         'Patrol the frontier.',
         'Rebels have been sighted nearby.',
@@ -100,17 +106,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      */
     function withImperialAudioGuard(fn) {
         return uiAdapter.withImperialAudioGuard(fn);
-    }
-
-    /**
-     * Keep imperial favor bounded to the 1–10 HUD scale so mandate rewards and penalties
-     * cannot push saves outside the documented range.
-     * @param {number} value arbitrary favor value.
-     * @returns {number} clamped favor value (defaults to midpoint when invalid).
-     */
-    function clampImperialFavor(value) {
-        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-        return Math.min(10, Math.max(1, numeric));
     }
 
     /**
