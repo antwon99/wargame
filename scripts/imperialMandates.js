@@ -280,14 +280,31 @@
             ? calendarEarliestIssueTick(entry, gameState)
             : (entry?.definition?.earliestIssue ? convertToTicks(entry.definition.earliestIssue, gameState) : 0);
 
+        const frontierSweepCompleted = state.rebelSweep?.outcome === MandateStatus.SUCCEEDED
+            && Number.isFinite(state.rebelSweep?.completionTick);
+        const gateAfterFrontierSweep = (offsetTick = 0) => {
+            if (!frontierSweepCompleted) return Number.POSITIVE_INFINITY;
+            return state.rebelSweep.completionTick + Math.max(0, offsetTick);
+        };
+
         if (entry?.definition?.id === 'push_the_frontier') {
-            const completionTick = state.rebelSweep?.completionTick;
-            if (!Number.isFinite(completionTick)) return Number.POSITIVE_INFINITY;
-            return completionTick + baseEarliestTick;
+            if (!frontierSweepCompleted) return Number.POSITIVE_INFINITY;
+            return gateAfterFrontierSweep(baseEarliestTick);
         }
 
         if (entry?.definition?.id === 'levy_tithed_gold') {
-            return resolveTaxLevyEarliestTick(baseEarliestTick, gameState);
+            const levyWindow = resolveTaxLevyEarliestTick(baseEarliestTick, gameState);
+            return gateAfterFrontierSweep(levyWindow);
+        }
+
+        const gatedMandates = new Set([
+            'infrastructure_quota',
+            'rotating_resource_levy',
+            'diplomatic_envoys'
+        ]);
+
+        if (gatedMandates.has(entry?.definition?.id)) {
+            return gateAfterFrontierSweep(baseEarliestTick);
         }
 
         return baseEarliestTick;
