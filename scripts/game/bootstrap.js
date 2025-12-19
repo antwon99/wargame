@@ -1,5 +1,6 @@
 import { createGameCore } from './core.js';
 import { applyUIBindings, setupUIBindings } from '../uiBindings.js';
+import { composeGameSettings } from './settings.js';
 
 const IntroOverlay = (typeof window !== 'undefined' && window.IntroOverlay) ? window.IntroOverlay : null;
 const Persistence = (typeof window !== 'undefined' && window.Persistence)
@@ -13,6 +14,10 @@ const Persistence = (typeof window !== 'undefined' && window.Persistence)
  */
 export function bootstrapGame() {
     const { Game, Hex, Layout, TIPS } = createGameCore();
+    composeGameSettings(Game, {
+        storageKey: Game.settingsStorageKey,
+        storage: typeof window !== 'undefined' ? window.localStorage : null
+    });
     applyUIBindings(Game, { Hex, Layout, TIPS });
 
     const loadSnapshot = ({ activeSaveSlot }) => {
