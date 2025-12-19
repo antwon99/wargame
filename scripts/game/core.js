@@ -300,15 +300,20 @@ const Game = {
         }
     },
 
-    /** Issue the opening imperial mandate sequence if the manager is available. */
-    issueImperialIntroMandate() {
-        if (ImperialMandates?.issuePendingMandates) {
-            ImperialMandates.issuePendingMandates(this, {
-                showTileCallout: this.showTileCallout,
-                hideTileCallout: this.hideTileCallout
-            });
-        }
+    /**
+     * Ensure the Frontier Sweep intro mandate is active so the tutorial rebel camp
+     * is always present. Safe to call multiple times; does nothing once issued.
+     */
+    ensureFrontierSweepSeeded() {
+        if (!ImperialMandates?.issuePendingMandates) return;
+        ImperialMandates.issuePendingMandates(this, {
+            showTileCallout: this.showTileCallout,
+            hideTileCallout: this.hideTileCallout
+        });
     },
+
+    /** Issue the opening imperial mandate sequence if the manager is available. */
+    issueImperialIntroMandate() { this.ensureFrontierSweepSeeded(); },
 
     /**
      * Kick off the animation frame loop so rendering and snow overlays stay alive
@@ -581,6 +586,7 @@ const Game = {
             window.IntroOverlay.reset();
         }
         this.shouldRunImperialIntro = typeof document !== 'undefined';
+        this.ensureFrontierSweepSeeded();
         if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
             this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
@@ -1383,9 +1389,10 @@ const Game = {
     },
 
     claimHexLogic(hex, free) {
+        const random = typeof this.random === 'function' ? this.random : Math.random;
         // Keep rebel discoveries rarer than towns (~18%) but slightly above mines/shrines/ruins.
-        const rebelSpawnChance = free ? 0 : 0.10 + (Math.random() * 0.05);
-        const shouldSpawnRebels = !free && Math.random() < rebelSpawnChance;
+        const rebelSpawnChance = free ? 0 : 0.10 + (random() * 0.05);
+        const shouldSpawnRebels = !free && random() < rebelSpawnChance;
 
         if (shouldSpawnRebels) {
             const rebelTile = this.addOverworldHex(hex, 'rebelcamp', 'rebel', { prevType: 'field', isRebelCamp: true });
@@ -1401,11 +1408,11 @@ const Game = {
             { type: 'town', weight: 16 },
             { type: 'mine', weight: 5 },
             { type: 'shrine', weight: 2 },
-            { type: 'ruin', weight: 1 },
-            { type: 'water', weight: 8 }
+            { type: 'ruin', weight: 1 }
         ];
+        if (!free) weighted.push({ type: 'water', weight: 8 });
         const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-        let pick = Math.random() * totalWeight;
+        let pick = random() * totalWeight;
         let type = 'field';
         for (const entry of weighted) {
             if (pick < entry.weight) { type = entry.type; break; }
@@ -1417,7 +1424,7 @@ const Game = {
         this.addOverworldHex(hex, type, 'player', extras);
 
         if (type === 'water') {
-            const body = buildWaterBody(hex, { rng: Math.random });
+            const body = buildWaterBody(hex, { rng: random });
             const stamped = stampWaterBody(this, hex, body, { owner: 'player' });
             const totalWater = (stamped?.length || 0) + 1;
             if (!free) {
