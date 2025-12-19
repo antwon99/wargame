@@ -1,4 +1,6 @@
 import {
+    COMBAT_BUILDINGS,
+    UNITS,
     addBuilding,
     buyBuilding,
     checkConnection,
@@ -15,10 +17,16 @@ import {
     runAI,
     scorchEarth,
     spawnUnit,
-    startWar
+    startWar,
+    updateCombat
 } from '../combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from '../gameAudioHooks.js';
 import { START_TICK, Timekeeper } from '../timekeeper.js';
+import { OVERWORLD_TILES } from '../overworldConfig.js';
+import { drawOverworldTiles } from '../overworldRenderer.js';
+import { advanceOverworldTimer } from '../overworldTicks.js';
+import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
+import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
@@ -26,34 +34,6 @@ import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import { createPersistenceService } from './persistence.js';
-import {
-    addOverworldHex as addOverworldHexHelper,
-    applyOverworldSnapshot,
-    bootstrapNewWorld as bootstrapNewWorldHelper,
-    calcOverworldGhosts as calcOverworldGhostsHelper,
-    claimHexLogic as claimHexLogicHelper,
-    drawOverworld as drawOverworldHelper,
-    drawTileVisibilityMask as drawTileVisibilityMaskHelper,
-    enterReclamationTargetingState as enterReclamationTargetingStateHelper,
-    finalizeStarterTerritory as finalizeStarterTerritoryHelper,
-    hasFieldToConvert as hasFieldToConvertHelper,
-    nextQueuedReclamationCost as nextQueuedReclamationCostHelper,
-    nextQueuedReclamationType as nextQueuedReclamationTypeHelper,
-    queueLandReclamation as queueLandReclamationHelper,
-    refreshClusterBonuses as refreshClusterBonusesHelper,
-    shouldShowClaimCostLabels as shouldShowClaimCostLabelsHelper,
-    setReclamationPrompt as setReclamationPromptHelper,
-    syncReclamationAwaitState as syncReclamationAwaitStateHelper,
-    updateOverworld as updateOverworldHelper,
-    updateReclamationPromptFromQueue as updateReclamationPromptFromQueueHelper,
-    applyQueuedReclamationToTile as applyQueuedReclamationToTileHelper
-} from './overworld.js';
-import {
-    drawCombatScene,
-    stepCombatFx,
-    stepCombatParticles,
-    updateCombatFrame
-} from './combat.js';
 import {
     CAMERA_MOTION_CONFIG,
     buildCameraState,
@@ -68,7 +48,7 @@ import {
 } from './state.js';
 import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, setSnowToggle as setSnowToggleHelper } from './settings.js';
 import AudioBridge from '../../audio/bridge.js';
-import { init as initAudioDebugPanel } from '../../audio/debugPanel.js';
+import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
@@ -103,6 +83,7 @@ function clamp01(value, fallback = 1) {
  * @returns {{Game: Object, Hex: typeof Hex, Layout: Object, TIPS: string[]}}
  */
 export function createGameCore(overrides = {}) {
+    const clusterBuilder = overrides.buildClusterBonusMap || buildClusterBonusMap;
     const visibilityBuilder = overrides.buildTileVisibilityMap || buildTileVisibilityMap;
     const snowDefaults = overrides.SNOW_VISUAL_CONFIG || SNOW_VISUAL_CONFIG;
     const snowConfigResolver = overrides.resolveSnowVisualConfig || resolveSnowVisualConfig;
@@ -201,9 +182,7 @@ const Game = {
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
     imperialMandates: ImperialMandates,
-    imperialMandateManager: ImperialMandateManager,
     timekeeper: new Timekeeper(timekeeperConfig),
-    researchSystemRef: ResearchSystem,
 
     overworld: overworldState,
     snow: snowState,
@@ -230,7 +209,7 @@ const Game = {
         try {
             if (introOverlay?.init) introOverlay.init(document);
             this.dependencyHealth = bootstrapValidator({
-                researchSystem: this.researchSystemRef,
+                researchSystem: ResearchSystem,
                 persistence: persistenceService,
                 inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
                 canvas: this.canvas,
@@ -320,6 +299,8 @@ const Game = {
         } catch (error) {
             this.reportRecoverableError('game bootstrap', error);
             this.logBootstrapWarning('Bootstrap encountered recoverable issues; continuing render loop.');
+        } finally {
+            this.armRenderLoop();
         }
     },
 
@@ -337,7 +318,10 @@ const Game = {
      * Kick off the animation frame loop so rendering and snow overlays stay alive
      * even if initialization encounters recoverable errors.
      */
-    armRenderLoop() { this.lastTime = performance.now(); },
+    armRenderLoop() {
+        this.lastTime = performance.now();
+        requestAnimationFrame(t => this.loop(t));
+    },
 
     /**
      * Toggle or force the paused state so overworld ticks can be frozen without blocking UI.
@@ -575,10 +559,67 @@ const Game = {
     resetSession() { this.session = { warKills: 0 }; },
 
     /** Build the starting overworld state and clear any lingering combat/claimable data. */
-    bootstrapNewWorld() { return bootstrapNewWorldHelper(this); },
+    bootstrapNewWorld() {
+        this.state = 'OVERWORLD';
+        this.paused = false;
+        this.gold = 300; this.wood = 40; this.difficulty = 0;
+        this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
+        this.overworld.hexes = new Map();
+        this.overworld.claimable = new Map();
+        this.addOverworldHex(new Hex(0,0), 'castle');
+        for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
+        this.calcOverworldGhosts();
+        this.finalizeStarterTerritory();
+        this.syncReclamationAwaitState();
+        this.research = this.buildResearchState();
+        this.updateResearchBonuses();
+        this.resetSession();
+        this.imperialFavor = DEFAULT_IMPERIAL_FAVOR;
+        this.timekeeper.reset(START_TICK);
+        this.pendingNotifications = [];
+        this.updateSaveStatus('Fresh campaign');
+        this.showOverworldUI();
+        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
+        if (typeof window !== 'undefined' && window.IntroOverlay) {
+            window.IntroOverlay.clearIntroSeenFlag?.();
+            window.IntroOverlay.reset();
+        }
+        this.shouldRunImperialIntro = typeof document !== 'undefined';
+        if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
+            this.issueImperialIntroMandate();
+            this.shouldRunImperialIntro = false;
+        }
+    },
 
     /** Apply a hydrated snapshot to the live game state (overworld only). */
-    applySnapshot(snapshot) { return applyOverworldSnapshot(this, snapshot); },
+    applySnapshot(snapshot) {
+        this.state = 'OVERWORLD';
+        this.paused = false;
+        this.gold = snapshot.gold;
+        this.wood = snapshot.wood;
+        this.difficulty = snapshot.difficulty;
+        this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
+        this.research = this.buildResearchState(snapshot.research);
+        this.updateResearchBonuses();
+        this.pendingReclamations = [];
+        this.overworld.hexes = snapshot.overworld.hexes;
+        this.overworld.claimable = new Map();
+        this.calcOverworldGhosts();
+        this.refreshClusterBonuses();
+        this.resetSession();
+        this.imperialFavor = clampImperialFavor(snapshot.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
+        this.timekeeper.daysPerWeek = snapshot.timekeeper?.daysPerWeek || this.timekeeper.daysPerWeek;
+        this.timekeeper.weeksPerMonth = snapshot.timekeeper?.weeksPerMonth || this.timekeeper.weeksPerMonth;
+        this.timekeeper.reset(snapshot.timekeeper?.ticks || 0);
+        if (ImperialMandates?.hydrateState) {
+            ImperialMandates.hydrateState(snapshot.mandates, this);
+        }
+        this.pendingNotifications = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
+        this.syncReclamationAwaitState();
+        this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
+        this.showOverworldUI();
+        this.shouldRunImperialIntro = false;
+    },
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
     saveGame(slot = this.activeSaveSlot) {
@@ -708,6 +749,34 @@ const Game = {
         debugEl.textContent = `⚠️ ${message}`;
     },
 
+    loop(now) {
+        const dt = (now - this.lastTime)/1000;
+        this.lastTime = now;
+        try {
+            this.ctx.globalAlpha = 1.0;
+            this.snow.time = (this.snow.time || 0) + dt;
+            this.runSafely(() => this.updateCameraDrift(dt), 'camera drift update');
+            if(this.state === 'OVERWORLD') this.runSafely(() => this.updateOverworld(dt), 'overworld update');
+            else if(this.state === 'COMBAT') this.runSafely(() => this.updateCombat(dt), 'combat update');
+
+            for(let i=this.combat.fx.length-1; i>=0; i--) {
+                this.combat.fx[i].life -= dt;
+                if(this.combat.fx[i].life <= 0) this.combat.fx.splice(i,1);
+            }
+            for(let i=this.combat.particles.length-1; i>=0; i--) {
+                let p = this.combat.particles[i];
+                p.life -= dt;
+                if(p.life <= 0) { p.el.remove(); this.combat.particles.splice(i,1); }
+            }
+            this.draw();
+            updateAudioDebugPanel(dt, this.state);
+        } catch (e) {
+            this.reportRecoverableError('game loop', e);
+            this.endWar(false);
+        }
+        requestAnimationFrame(t => this.loop(t));
+    },
+
     // --- UPGRADES ---
     getUpgradeCost(type) {
         const level = this.upgrades[type];
@@ -736,9 +805,8 @@ const Game = {
      * @returns {{technologies: Array, bonuses: object, lives: number}}
      */
     buildResearchState(saved = {}) {
-        const researchSystem = this.researchSystemRef || ResearchSystem;
         return researchStateBuilder({
-            researchSystem,
+            researchSystem: ResearchSystem,
             saved,
             defaultClusterRate: DEFAULT_CLUSTER_RATE,
             logDebug: (message, error) => this.logBootstrapWarning(message, error)
@@ -792,7 +860,6 @@ const Game = {
      * @returns {object|null} resource cost, or null when invalid.
      */
     getTechCost(tech, optionId) {
-        const researchSystem = this.researchSystemRef || ResearchSystem;
         try {
             const pending = tech?.id === 'land-reclamation'
                 ? Math.max(tech.pendingPlacements || 0, 0)
@@ -800,7 +867,7 @@ const Game = {
             const normalized = pending
                 ? { ...tech, timesPurchased: (tech.timesPurchased || 0) + pending }
                 : tech;
-            return researchSystem.getCostForTech(normalized, optionId);
+            return ResearchSystem.getCostForTech(normalized, optionId);
         } catch (error) {
             this.logBootstrapWarning?.('Failed to resolve tech cost', error);
             return null;
@@ -810,8 +877,7 @@ const Game = {
     /** Check if the player can pay a specific cost. */
     canPayCost(cost) {
         if (!cost) return false;
-        const researchSystem = this.researchSystemRef || ResearchSystem;
-        return researchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost);
+        return ResearchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost);
     },
 
     /**
@@ -820,9 +886,8 @@ const Game = {
      * @param {string} [optionId] optional option key (land reclamation).
      */
     buyTechnology(techId, optionId) {
-        const researchSystem = this.researchSystemRef || ResearchSystem;
         const tech = this.getTech(techId);
-        if (!tech || !researchSystem.hasRemainingPurchases(tech)) return;
+        if (!tech || !ResearchSystem.hasRemainingPurchases(tech)) return;
 
         const cost = this.getTechCost(tech, optionId);
         if (!cost) return;
@@ -840,7 +905,7 @@ const Game = {
         this.gold -= payment.gold || 0;
         this.wood -= payment.wood || 0;
         this.applyTechEffect(tech, optionId, payment);
-        researchSystem.recordPurchase(tech);
+        ResearchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.updateHUD();
@@ -887,19 +952,35 @@ const Game = {
      * @param {string} targetType desired conversion target (forest|town).
      * @param {object} cost payment to reserve for when a valid tile is selected.
      */
-    queueLandReclamation(targetType, cost = {}) { return queueLandReclamationHelper(this, targetType, cost); },
+    queueLandReclamation(targetType, cost = {}) {
+        const normalized = targetType === 'town' ? 'town' : 'forest';
+        if (!Array.isArray(this.pendingReclamations)) this.pendingReclamations = [];
+        const tech = this.getTech('land-reclamation');
+        if (tech) tech.pendingPlacements = Math.max(0, tech.pendingPlacements || 0) + 1;
+        this.pendingReclamations.push({ targetType: normalized, cost, techId: 'land-reclamation' });
+        if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        this.syncReclamationAwaitState();
+        this.updateReclamationPromptFromQueue();
+        return this.pendingReclamations.length;
+    },
 
     /**
      * Peek at the next queued reclamation request to help the HUD surface guidance.
      * @returns {string|null} queued target type or null when none pending.
      */
-    nextQueuedReclamationType() { return nextQueuedReclamationTypeHelper(this); },
+    nextQueuedReclamationType() {
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        return pending?.targetType || null;
+    },
 
     /**
      * Peek at the pending reclamation cost so HUD hints can reflect the owed gold.
      * @returns {object|null} queued cost reference.
      */
-    nextQueuedReclamationCost() { return nextQueuedReclamationCostHelper(this); },
+    nextQueuedReclamationCost() {
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        return pending?.cost || null;
+    },
 
     /**
      * Convert a player-controlled field into the requested tile type, consuming the
@@ -909,40 +990,161 @@ const Game = {
      * @param {Hex} [fallbackHex] optional hex for error messaging when tile is missing.
      * @returns {boolean} true when a conversion occurred.
      */
-    applyQueuedReclamationToTile(tile, fallbackHex) { return applyQueuedReclamationToTileHelper(this, tile, fallbackHex); },
+    applyQueuedReclamationToTile(tile, fallbackHex) {
+        const pending = Array.isArray(this.pendingReclamations) && this.pendingReclamations[0];
+        const HexImpl = this.Hex || Hex;
+        const anchorHex = (tile && tile.hex) || fallbackHex || this.selectedOverworldTile?.hex || new HexImpl(0, 0, 0);
+        const notify = (msg, col = '#ef476f') => {
+            if (typeof this.spawnTxt === 'function') this.spawnTxt(anchorHex, msg, col);
+        };
+
+        if (!pending) {
+            notify('No reclamation charges available');
+            this.syncReclamationAwaitState();
+            return false;
+        }
+
+        const hasEligibleField = typeof this.hasFieldToConvert === 'function' ? this.hasFieldToConvert() : true;
+        if (!hasEligibleField) {
+            this.pendingReclamations.length = 0;
+            const techRef = this.getTech('land-reclamation');
+            if (techRef) techRef.pendingPlacements = 0;
+            notify('No player fields remain to reclaim');
+            this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+
+        if (!tile || tile.type !== 'field') {
+            notify('Select an owned FIELD to convert');
+            this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+        if (tile.owner && tile.owner !== 'player') {
+            notify('Enemy territory cannot be reclaimed');
+            this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
+            return false;
+        }
+
+        const targetType = pending.targetType === 'town' ? 'town' : 'forest';
+        const cost = pending.cost || { gold: 0 };
+        if (!this.canPayCost({ gold: cost.gold || 0 })) {
+            notify('Need more gold to reclaim');
+            this.syncReclamationAwaitState();
+            this.updateReclamationPromptFromQueue();
+            if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile || this.selectedOverworldTile);
+            return false;
+        }
+
+        tile.type = targetType;
+        tile.owner = tile.owner || 'player';
+        tile.wasReclaimed = true;
+        this.calcOverworldGhosts();
+
+        this.pendingReclamations.shift();
+        const tech = this.getTech('land-reclamation');
+        if (tech && tech.pendingPlacements) tech.pendingPlacements = Math.max(0, tech.pendingPlacements - 1);
+
+        // Payment is finalized only after a valid placement lands.
+        this.gold -= cost.gold || 0;
+        if (tech) ResearchSystem.recordPurchase(tech);
+        this.updateResearchBonuses();
+        this.refreshClusterBonuses();
+        this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
+        if (typeof this.updateTileInspector === 'function') this.updateTileInspector(tile);
+        this.updateHUD();
+        this.updateResearchUI?.();
+        this.updateReclamationPromptFromQueue();
+        this.syncReclamationAwaitState();
+        return true;
+    },
 
     /** True when at least one field can be reclaimed. */
-    hasFieldToConvert() { return hasFieldToConvertHelper(this); },
+    hasFieldToConvert() {
+        return Array.from(this.overworld.hexes.values())
+            .some(h => h.type === 'field' && (!h.owner || h.owner === 'player'));
+    },
 
     /**
      * Set and broadcast the reclamation targeting state so the UI and click
      * handlers know a player decision is required for placement.
      * @returns {boolean} true when at least one reclamation charge remains.
      */
-    syncReclamationAwaitState() { return syncReclamationAwaitStateHelper(this); },
+    syncReclamationAwaitState() {
+        const hasPending = Array.isArray(this.pendingReclamations) && this.pendingReclamations.length > 0;
+        this.awaitingReclamationTarget = hasPending;
+        if (hasPending) this.updateReclamationPromptFromQueue();
+        else if (typeof this.updateTileInspector === 'function') this.updateTileInspector(this.selectedOverworldTile);
+        if (!hasPending) {
+            const techRef = this.getTech('land-reclamation');
+            if (techRef) techRef.pendingPlacements = 0;
+            this.setReclamationPrompt('');
+        }
+        return hasPending;
+    },
 
     /**
      * Surface a HUD-level hint while queued reclamations await tile targeting.
      * @param {string} message user-facing guidance text; empty to hide.
      */
-    setReclamationPrompt(message) { return setReclamationPromptHelper(this, message); },
+    setReclamationPrompt(message) {
+        const hint = typeof document !== 'undefined' ? document.getElementById('reclamation-hint') : null;
+        if (!hint) return false;
+        const hasMessage = Boolean(message);
+        hint.innerText = message || '';
+        hint.setAttribute('aria-hidden', hasMessage ? 'false' : 'true');
+        return hasMessage;
+    },
 
     /**
      * Refresh the reclamation prompt text using the next queued cost/target for clarity.
      */
-    updateReclamationPromptFromQueue() { return updateReclamationPromptFromQueueHelper(this); },
+    updateReclamationPromptFromQueue() {
+        const pendingType = this.nextQueuedReclamationType();
+        const pendingCost = this.nextQueuedReclamationCost();
+        if (!pendingType || !pendingCost) return this.setReclamationPrompt('');
+        const costLabel = this.formatCost(pendingCost) || '0g';
+        return this.setReclamationPrompt(`Select an owned FIELD tile to convert (pay ${costLabel} on placement)`);
+    },
 
     /**
      * Collapse the research drawer, flag the awaiting state, and float a prompt
      * so the player knows to pick a target field immediately after purchase.
      */
-    enterReclamationTargetingState() { return enterReclamationTargetingStateHelper(this); },
+    enterReclamationTargetingState() {
+        this.syncReclamationAwaitState();
+        if (typeof this.toggleResearch === 'function') this.toggleResearch(false);
+        this.updateReclamationPromptFromQueue();
+        const x = this.viewport?.width ? this.viewport.width / 2 : 0;
+        const y = Math.max(48, (this.viewport?.height || 0) * 0.18);
+        const costLabel = this.formatCost(this.nextQueuedReclamationCost() || { gold: 0 }) || '0g';
+        const message = `Select a field to convert (${costLabel} due on placement).`;
+        if (typeof this.showFloatingText === 'function') {
+            this.showFloatingText(x, y, message, 'alert-text');
+        } else {
+            this.spawnTxt(new Hex(0,0), message, '#9be3b4');
+        }
+        if (typeof this.spawnTxt === 'function') {
+            this.spawnTxt(new Hex(0,0), 'Click a player field to reclaim.', '#9be3b4');
+        }
+    },
 
     /**
      * Rebuild the adjacency bonus cache for overworld income and UI consumers.
      * @returns {Map<string, object>} latest cluster bonus map keyed by hex key.
      */
-    refreshClusterBonuses() { return refreshClusterBonusesHelper(this); },
+    refreshClusterBonuses() {
+        const baseRate = this.research?.bonuses?.clusterBaseRate ?? DEFAULT_CLUSTER_RATE;
+        const reclamationRate = this.research?.bonuses?.landReclamationClusterBonus ?? 0;
+        const bonuses = clusterBuilder(this.overworld?.hexes, { baseRate, reclamationRate });
+        this.overworld.clusterBonuses = bonuses;
+        return bonuses;
+    },
 
     /**
      * Normalize starter tile ownership and rebuild the adjacency cache so the inspector
@@ -950,7 +1152,12 @@ const Game = {
      * @returns {Map<string, object>} updated cluster bonus map keyed by hex key.
      */
     finalizeStarterTerritory() {
-        return finalizeStarterTerritoryHelper(this);
+        if (this.overworld?.hexes instanceof Map) {
+            this.overworld.hexes.forEach((tile) => {
+                if (tile && !tile.owner) tile.owner = 'player';
+            });
+        }
+        return this.refreshClusterBonuses();
     },
 
     getUnitStats(type) { return getUnitStats(this, type); },
@@ -963,7 +1170,17 @@ const Game = {
         return 1 + ((this.upgrades.mines - 1) * 0.2);
     },
 
-    updateOverworld(dt) { return updateOverworldHelper(this, dt); },
+    updateOverworld(dt) {
+        advanceOverworldTimer(this, dt, {
+            mandateManager: ImperialMandateManager,
+            imperialMandates: ImperialMandates,
+            uiBindings: {
+                showTileCallout: this.showTileCallout,
+                hideTileCallout: this.hideTileCallout,
+                enqueueNotification: this.enqueueNotification
+            }
+        });
+    },
 
     /**
      * Keep the camera gently drifting around the viewport center so the overworld
@@ -987,9 +1204,7 @@ const Game = {
         this.cam.y = this.camBase.y + offsetY;
     },
 
-    updateCombat(dt) { return updateCombatFrame(this, dt); },
-    stepCombatFx(dt) { return stepCombatFx(this, dt); },
-    stepCombatParticles(dt) { return stepCombatParticles(this, dt); },
+    updateCombat(dt) { return updateCombat(this, dt, this.Hex); },
 
     /** Track leaderboard totals when the player lands a final blow. */
     registerKill(owner) { return registerKill(this, owner); },
@@ -1168,7 +1383,62 @@ const Game = {
         return undefined;
     },
 
-    claimHexLogic(hex, free) { return claimHexLogicHelper(this, hex, free); },
+    claimHexLogic(hex, free) {
+        // Keep rebel discoveries rarer than towns (~18%) but slightly above mines/shrines/ruins.
+        const rebelSpawnChance = free ? 0 : 0.10 + (Math.random() * 0.05);
+        const shouldSpawnRebels = !free && Math.random() < rebelSpawnChance;
+
+        if (shouldSpawnRebels) {
+            const rebelTile = this.addOverworldHex(hex, 'rebelcamp', 'rebel', { prevType: 'field', isRebelCamp: true });
+            this.spawnTxt(hex, '🏴 REBEL CAMP!', '#f55');
+            if (typeof this.playSound === 'function') this.playSound('alert');
+            this.refreshClusterBonuses();
+            return rebelTile;
+        }
+
+        const weighted = [
+            { type: 'field', weight: 40 },
+            { type: 'forest', weight: 28 },
+            { type: 'town', weight: 16 },
+            { type: 'mine', weight: 5 },
+            { type: 'shrine', weight: 2 },
+            { type: 'ruin', weight: 1 },
+            { type: 'water', weight: 8 }
+        ];
+        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+        let pick = Math.random() * totalWeight;
+        let type = 'field';
+        for (const entry of weighted) {
+            if (pick < entry.weight) { type = entry.type; break; }
+            pick -= entry.weight;
+        }
+
+        const def = OVERWORLD_TILES[type.toUpperCase()];
+        const extras = type === 'water' ? { isWater: true } : {};
+        this.addOverworldHex(hex, type, 'player', extras);
+
+        if (type === 'water') {
+            const body = buildWaterBody(hex, { rng: Math.random });
+            const stamped = stampWaterBody(this, hex, body, { owner: 'player' });
+            const totalWater = (stamped?.length || 0) + 1;
+            if (!free) {
+                const headline = def?.char ? `${def.char} WATER!` : 'WATER!';
+                this.spawnTxt(hex, headline, '#74c0fc');
+                if (totalWater > 1) this.spawnTxt(hex, `+${totalWater - 1} hex water body`, '#74c0fc');
+            }
+        } else if (!free) {
+            const label = def?.char ? `${def.char} ${type.toUpperCase()}!` : `${type.toUpperCase()}!`;
+            this.spawnTxt(hex, label, '#fff');
+            if (type === 'town') this.playSound('city');
+            else if (type === 'forest') this.playSound('choptree');
+            else if (type === 'mine') this.playSound('gold');
+            else if (type === 'shrine') this.playSound('holy');
+        }
+
+        if (def?.onClaim && !free) def.onClaim(this, hex);
+        if (!free) this.refreshClusterBonuses();
+        return def;
+    },
     /**
      * Track a claimed overworld hex with configurable ownership and metadata for hostile discoveries.
      * @param {object} hex axial coordinate of the tile.
@@ -1177,8 +1447,23 @@ const Game = {
      * @param {object} [extras={}] optional additional properties to merge onto the tile payload.
      * @returns {object} the stored tile record.
      */
-    addOverworldHex(hex, type, owner = 'player', extras = {}) { return addOverworldHexHelper(this, hex, type, owner, extras); },
-    calcOverworldGhosts() { return calcOverworldGhostsHelper(this); },
+    addOverworldHex(hex, type, owner = 'player', extras = {}) {
+        const record = { hex, type, owner, ...extras };
+        this.overworld.hexes.set(hex.toString(), record);
+        return record;
+    },
+    calcOverworldGhosts() {
+        this.overworld.claimable.clear();
+        for(let [k, d] of this.overworld.hexes) {
+            for(let i=0; i<6; i++) {
+                const n = Hex.neighbor(d.hex, i);
+                if(!this.overworld.hexes.has(n.toString())) {
+                    const dist = Hex.distance(new Hex(0,0), n);
+                    this.overworld.claimable.set(n.toString(), Math.floor(12 + dist * 6));
+                }
+            }
+        }
+    },
     parseKey(k) { const p = k.split(','); return new Hex(parseInt(p[0]), parseInt(p[1])); },
     /** Convert a hex coordinate into the current camera projection. */
     projectHexToScreen(pos) {
@@ -1196,7 +1481,81 @@ const Game = {
         if(this.state === 'COMBAT') this.drawCombat(layout); else this.drawOverworld(layout);
     },
 
-    drawCombat(layout) { return drawCombatScene(this, layout); },
+    drawCombat(layout) {
+        for(let [k, t] of this.combat.territory) {
+            const visibility = this.resolveHexVisibility(t.hex || k);
+            const visibleTile = visibility === TILE_VISIBILITY.VISIBLE;
+            const seenTile = visibility === TILE_VISIBILITY.SEEN;
+
+            let fill = '#222';
+            if(t.owner === 'player') fill = '#1b4332';
+            else if(t.owner === 'enemy') fill = '#590d22';
+            else if(t.owner === 'scorched') fill = '#111'; // Scorched Color
+            else if(t.owner === 'neutral' || !t.owner) fill = '#4a525e';
+
+            if (!visibleTile) {
+                fill = seenTile ? 'rgba(28, 32, 38, 0.75)' : '#08090f';
+            }
+
+            this.drawHex(layout, t.hex, fill, '#000');
+            const type = this.combat.slots.get(k);
+            if(type && this.isFrontier(k, 'player')) {
+                const def = COMBAT_BUILDINGS[type.toUpperCase()];
+                if(def) {
+                    this.ctx.globalAlpha = visibleTile ? 0.5 : 0.3;
+                    this.drawHex(layout, t.hex, 'rgba(255,255,255,0.1)', '#fff', def.char, def.cost !== undefined ? `${def.cost}g` : '');
+                    this.ctx.globalAlpha = 1.0;
+                }
+            }
+        }
+        for(let [k, b] of this.combat.buildings) {
+            const def = COMBAT_BUILDINGS[b.type.toUpperCase()];
+            if(!def) continue;
+            const visibility = this.resolveHexVisibility(k);
+            if (visibility === TILE_VISIBILITY.UNSEEN) continue;
+            const muted = visibility === TILE_VISIBILITY.SEEN;
+            let fill = b.owner === 'player' ? '#2d6a4f' : '#800f2f';
+            if (b.type === 'lair') fill = '#4a004a';
+            if (muted) fill = 'rgba(74, 82, 94, 0.9)';
+            if(b.pulse > 0) { b.pulse -= 0.05; fill = '#fff'; }
+            const originalAlpha = this.ctx.globalAlpha;
+            if (muted) this.ctx.globalAlpha = 0.55;
+            this.drawHex(layout, this.parseKey(k), fill, '#fff', def.char);
+            this.ctx.globalAlpha = originalAlpha;
+        }
+        this.combat.units.forEach(u => {
+            const def = UNITS[u.type];
+            if(!def) return;
+            const visibility = this.resolveHexVisibility(u.pos);
+            if (visibility === TILE_VISIBILITY.UNSEEN) return;
+            const muted = visibility === TILE_VISIBILITY.SEEN;
+            const p = (new Hex(u.pos.q, u.pos.r, u.pos.s)).toPixel(layout);
+            const size = u.type === 'dragon' ? 16 * this.cam.zoom : 10 * this.cam.zoom;
+            const originalAlpha = this.ctx.globalAlpha;
+            this.ctx.fillStyle = muted ? '#7a8694' : (u.owner === 'player' ? '#06d6a0' : '#ef476f');
+            if (u.type === 'dragon') this.ctx.fillStyle = muted ? '#9273b6' : '#d4f';
+            if (muted) this.ctx.globalAlpha = 0.55;
+            this.ctx.beginPath(); this.ctx.arc(p.x, p.y, size, 0, Math.PI*2); this.ctx.fill();
+            this.ctx.strokeStyle = '#fff'; this.ctx.stroke();
+            this.ctx.font = `${(u.type==='dragon'?20:12)*this.cam.zoom}px sans-serif`;
+            this.ctx.textAlign='center'; this.ctx.textBaseline='middle';
+            this.ctx.fillText(def.char, p.x, p.y);
+            this.ctx.globalAlpha = originalAlpha;
+        });
+
+        // DRAW FX
+        this.combat.fx.forEach(fx => {
+            const p1 = fx.startHex.toPixel(layout);
+            const p2 = (new Hex(fx.endPos.q, fx.endPos.r, fx.endPos.s)).toPixel(layout);
+            
+            this.ctx.strokeStyle = fx.color;
+            this.ctx.lineWidth = 3 * this.cam.zoom;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p1.x, p1.y);
+            this.ctx.lineTo(p2.x, p2.y);
+            this.ctx.stroke();
+        });
+    },
 
     /**
      * Determine whether debug overlays should stamp claim costs onto frontier tiles.
@@ -1204,7 +1563,13 @@ const Game = {
      * the global DebugToggles hook for development sessions.
      * @returns {boolean} true when claim cost labels should render.
      */
-    shouldShowClaimCostLabels() { return shouldShowClaimCostLabelsHelper(this); },
+    shouldShowClaimCostLabels() {
+        const toggle = this.featureToggles?.overworld?.showClaimCosts;
+        const debugToggle = (typeof window !== 'undefined' && window.DebugToggles)
+            ? window.DebugToggles.showClaimCosts
+            : false;
+        return Boolean(toggle || debugToggle);
+    },
 
     /**
      * Decide whether combat tiles should inherit visibility masks. Snow overlays
@@ -1269,7 +1634,20 @@ const Game = {
         return config;
     },
 
-    drawOverworld(layout) { return drawOverworldHelper(this, layout); },
+    drawOverworld(layout) {
+        const tileVisibility = this.snow?.visibility instanceof Map
+            ? this.snow.visibility
+            : this.getTileVisibilityMap();
+        this.snow.hexLayout = layout;
+        drawOverworldTiles(this.overworld, {
+            layout,
+            drawHex: (...args) => this.drawHex(...args),
+            parseKey: (key) => this.parseKey(key),
+            drawTileOverlay: (hex, tile, visibility) => this.drawTileVisibilityMask(hex, tile, visibility),
+            showClaimCosts: this.shouldShowClaimCostLabels(),
+            tileVisibility
+        });
+    },
 
     /**
      * Shade a single hex according to its visibility state. Unseen tiles receive
@@ -1280,7 +1658,51 @@ const Game = {
      * @param {Object} tile raw tile payload from map iteration.
      * @param {string} visibility normalized tile visibility label.
      */
-    drawTileVisibilityMask(hex, tile, visibility) { return drawTileVisibilityMaskHelper(this, hex, tile, visibility); },
+    drawTileVisibilityMask(hex, tile, visibility) {
+        const layout = this.snow?.hexLayout;
+        if (!layout || !hex || typeof hex.toPixel !== 'function') return;
+
+        const state = visibility || this.resolveHexVisibility(hex);
+        if (state === TILE_VISIBILITY.VISIBLE) return;
+
+        const ctx = this.ctx;
+        const center = hex.toPixel(layout);
+        const maskSize = Math.max(4 * this.cam.zoom, layout.size - Math.max(2.5 * this.cam.zoom, layout.size * 0.08));
+
+        ctx.save();
+        ctx.beginPath();
+        for (let i = 0; i < 6; i += 1) {
+            const angle = 2 * Math.PI / 6 * (i + 0.5);
+            const x = center.x + maskSize * Math.cos(angle);
+            const y = center.y + maskSize * Math.sin(angle);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        if (state === TILE_VISIBILITY.UNSEEN) {
+            ctx.fillStyle = 'rgba(5, 6, 12, 0.9)';
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        const gradient = ctx.createRadialGradient(center.x, center.y, maskSize * 0.1, center.x, center.y, maskSize);
+        gradient.addColorStop(0, 'rgba(32, 38, 46, 0.38)');
+        gradient.addColorStop(1, 'rgba(12, 14, 18, 0.6)');
+
+        const originalComposite = ctx.globalCompositeOperation;
+        const originalAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.globalCompositeOperation = 'saturation';
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = 'rgba(132, 138, 148, 1)';
+        ctx.fill();
+        ctx.globalAlpha = originalAlpha;
+        ctx.globalCompositeOperation = originalComposite;
+        ctx.restore();
+    },
 
     /**
      * Resolve the visibility state for a given hex or tile key. Defaults to
