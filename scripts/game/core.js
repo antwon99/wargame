@@ -33,7 +33,6 @@ import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig
 import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
 import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
-import { createPersistenceService } from './persistence.js';
 import {
     CAMERA_MOTION_CONFIG,
     buildCameraState,
@@ -125,11 +124,6 @@ export function createGameCore(overrides = {}) {
     const snowState = snowBuilder();
     const cameraState = cameraStateBuilder();
     const timekeeperConfig = overrides.timekeeperConfig || timekeeperConfigBuilder();
-    const persistenceService = overrides.persistenceService || createPersistenceService({
-        persistence: persistenceModule,
-        fallbackStats: FALLBACK_STATS,
-        hexFactory: (q, r, s) => new Hex(q, r, s)
-    });
 
     const Platform = (hasWindow && window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
         ? window.PlatformAdapter
@@ -191,8 +185,7 @@ const Game = {
     settingsService: null,
     playerSettings: null,
     ...cameraState,
-    persistenceService,
-    persistenceAvailable: persistenceService.isAvailable(),
+    persistenceAvailable: true,
     combat: combatState,
 
     init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
@@ -210,13 +203,13 @@ const Game = {
             if (introOverlay?.init) introOverlay.init(document);
             this.dependencyHealth = bootstrapValidator({
                 researchSystem: ResearchSystem,
-                persistence: persistenceService,
+                persistence: persistenceModule,
                 inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
                 canvas: this.canvas,
                 ctx: this.ctx,
                 debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
             });
-            this.persistenceAvailable = this.dependencyHealth.persistenceAvailable && persistenceService.isAvailable();
+            this.persistenceAvailable = this.dependencyHealth.persistenceAvailable;
             this.applyFeatureOverrides();
             const settingsStorage = this.persistenceAvailable && typeof window !== 'undefined' ? window.localStorage : null;
             if (!this.settingsService) {
@@ -263,8 +256,11 @@ const Game = {
 
             const resolveSnapshot = typeof loadSnapshot === 'function'
                 ? loadSnapshot
-                : () => (this.dependencyHealth.persistenceAvailable
-                    ? persistenceService.loadSnapshot(this.activeSaveSlot)
+                : () => (this.dependencyHealth.persistenceAvailable && persistenceModule
+                    ? persistenceModule.loadSnapshot(
+                        this.activeSaveSlot,
+                        { hexFactory: (q, r, s) => new Hex(q, r, s) }
+                    )
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
             const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
             if (loaded.state) {
@@ -623,12 +619,12 @@ const Game = {
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
     saveGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !this.persistenceService?.isAvailable?.()) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
             return;
         }
         const targetSlot = String(slot || this.activeSaveSlot);
-        const result = this.persistenceService.saveSnapshot(this, targetSlot);
+        const result = persistenceModule.saveSnapshot(this, targetSlot);
         this.activeSaveSlot = result.slot;
         const formattedTime = new Date(result.savedAt).toLocaleString();
         this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
@@ -638,12 +634,12 @@ const Game = {
 
     /** Load a stored snapshot and refresh UI with the saved overworld. */
     loadGame(slot = this.activeSaveSlot) {
-        if (!this.persistenceAvailable || !this.persistenceService?.isAvailable?.()) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Load skipped: persistence helper unavailable in this environment.');
             return;
         }
         const targetSlot = String(slot || this.activeSaveSlot);
-        const loaded = this.persistenceService.loadSnapshot(targetSlot);
+        const loaded = persistenceModule.loadSnapshot(targetSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
         if (!loaded.state) {
             this.spawnTxt(new Hex(0,0), `No Save In Slot ${targetSlot}`, '#ef476f');
             this.updateSaveStatus('No save stored yet.');
@@ -665,13 +661,13 @@ const Game = {
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
     resetProgress() {
-        if (!this.persistenceAvailable || !this.persistenceService?.isAvailable?.()) {
+        if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
             return;
         }
-        const resetState = this.persistenceService.resetSnapshots();
-        this.stats = { ...(resetState?.stats || FALLBACK_STATS) };
-        this.activeSaveSlot = resetState?.slot || '1';
+        persistenceModule.clearSnapshot();
+        this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
+        this.activeSaveSlot = '1';
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
         this.bootstrapNewWorld();
         this.updateLeaderboardUI();
@@ -688,7 +684,10 @@ const Game = {
      * Safe to invoke multiple times; the backlog drains once per call when handlers exist.
      */
     flushPendingNotifications() {
-        this.persistenceService.replayNotifications(this);
+        if (!Array.isArray(this.pendingNotifications) || !this.pendingNotifications.length) return;
+        if (typeof this.enqueueNotification !== 'function') return;
+        this.pendingNotifications.forEach((note) => this.enqueueNotification(note));
+        this.pendingNotifications = [];
     },
 
     /**
