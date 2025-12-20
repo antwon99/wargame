@@ -27,13 +27,39 @@
         return null;
     }
 
+    function getHexDistance(tile = {}) {
+        if (!tile.hex) return 0;
+        const { q = 0, r = 0, s = -q - r } = tile.hex;
+        return Math.abs(q) + Math.abs(r) + Math.abs(s);
+    }
+
+    function selectFallbackCandidate(hexes, includeAll = false) {
+        const playerTiles = [];
+        const neutralTiles = [];
+
+        hexes.forEach((tile) => {
+            const payload = tile || {};
+            if (!payload.hex || isRebelCampTile(payload) || payload.type === 'castle') return;
+            const distance = getHexDistance(payload);
+            if (payload.owner === 'player') playerTiles.push({ payload, distance });
+            else if (includeAll) neutralTiles.push({ payload, distance });
+        });
+
+        const sortByDistance = (a, b) => b.distance - a.distance || (ensureKey(a.payload) || '')
+            .localeCompare(ensureKey(b.payload) || '');
+        playerTiles.sort(sortByDistance);
+        neutralTiles.sort(sortByDistance);
+        return (playerTiles[0]?.payload) || (neutralTiles[0]?.payload) || null;
+    }
+
     /**
      * Spawns a rebel camp on a tile near the edge of revealed territory.
      * Attempts to pick a tile reasonably close to the player's current area.
-     * Returns the tile object (or null if no suitable tile was found).
+     * Falls back to outer-ring player territory when no frontier candidates are available
+     * and throws when no safe placement exists.
      * @param {object} gameState live game state containing overworld data.
      * @param {object} [options] optional configuration (currently unused placeholder).
-     * @returns {object|null} rebel tile reference or null when placement fails.
+     * @returns {object|null} rebel tile reference or throws when placement fails.
      */
     function spawnRebelCampNearFrontier(gameState, options = {}) { // eslint-disable-line no-unused-vars
         const hexes = gameState?.overworld?.hexes;
@@ -56,10 +82,18 @@
             if (hasFrontier) candidates.push(tile);
         });
 
-        if (!candidates.length) return null;
+        let chosen = null;
+        if (candidates.length) {
+            const randomIndex = Math.floor((options.random || Math.random)() * candidates.length);
+            chosen = candidates[randomIndex];
+        } else {
+            chosen = selectFallbackCandidate(hexes, true);
+        }
 
-        const index = Math.floor(Math.random() * candidates.length);
-        const chosen = candidates[index];
+        if (!chosen) {
+            throw new Error('No valid tiles available to seed a rebel camp.');
+        }
+
         chosen.prevType = chosen.prevType || chosen.type || 'field';
         chosen.type = 'rebelcamp';
         chosen.isRebelCamp = true;
