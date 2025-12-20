@@ -81,7 +81,7 @@ async function testMandateBootstrapFallbacks() {
 
     let threw = false;
     try {
-        await Game.bootstrapNewWorld();
+        Game.bootstrapNewWorld();
     } catch (error) {
         threw = true;
         assert.ok(
@@ -106,54 +106,6 @@ async function testMandateBootstrapFallbacks() {
     assert.ok(warnings.some((msg) => typeof msg === 'string'), 'Fallback path should surface a warning.');
 
     delete global.window;
-}
-
-async function testImperialMandatesLazyLoadInBrowser() {
-    ImperialMandates.resetForNewCampaign();
-    ImperialMandateManager.reset();
-    delete global.ImperialMandates;
-
-    const warnings = [];
-    const lazyMandates = require('../scripts/imperialMandates.js');
-    lazyMandates.resetForNewCampaign();
-
-    global.window = {
-        InputHelpers: { SQRT3: Math.sqrt(3) },
-        IntroOverlay: { active: false, clearIntroSeenFlag: () => {}, reset: () => {} },
-        __imperialMandatesLoading: Promise.resolve({ default: lazyMandates })
-    };
-    global.document = {
-        getElementById: () => null,
-        querySelector: () => null,
-        addEventListener: () => {},
-        removeEventListener: () => {}
-    };
-
-    const { createGameCore } = await import('../scripts/game/core.js');
-    const { Game } = createGameCore();
-    Game.logBootstrapWarning = (message) => warnings.push(message);
-    Game.updateSaveStatus = () => {};
-    Game.showOverworldUI = () => {};
-    Game.spawnTxt = () => {};
-    Game.playSound = () => {};
-    Game.showTileCallout = () => {};
-    Game.hideTileCallout = () => {};
-
-    await Game.bootstrapNewWorld();
-
-    const seededMandate = (window.ImperialMandates || lazyMandates).getKingState().mandates.destroy_first_rebel_camp;
-    assert.strictEqual(
-        seededMandate.status,
-        lazyMandates.MandateStatus.ACTIVE,
-        'Frontier Sweep should seed after lazy-loading imperial mandates'
-    );
-    assert.ok(
-        warnings.some((msg) => /lazy loader/i.test(String(msg))),
-        'Lazy load path should emit a warning when globals are missing'
-    );
-
-    delete global.window;
-    delete global.document;
 }
 
 function clearFrontierSweep(gameState, uiBindings) {
@@ -693,7 +645,6 @@ async function testNonBlockingTickQueue() {
 
 async function run() {
     await testMandateBootstrapFallbacks();
-    await testImperialMandatesLazyLoadInBrowser();
     await testMandateIssuanceAndDeadlines();
     await testFrontierlessMapsStillSeedRebels();
     await testRebelMandateResolutionAndExpiry();

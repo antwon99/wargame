@@ -20,7 +20,7 @@ async function run() {
     Game.playSound = () => {};
     Game.showTileCallout = () => {};
     Game.hideTileCallout = () => {};
-    await Game.bootstrapNewWorld();
+    Game.bootstrapNewWorld();
 
     const mandateState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
     assert.strictEqual(mandateState.status, ImperialMandates.MandateStatus.ACTIVE, 'Frontier Sweep should start active.');

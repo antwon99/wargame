@@ -266,7 +266,7 @@ export function setupUIBindings(game) {
     if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
     const resetBtn = document.getElementById('btn-reset');
-    if (resetBtn) resetBtn.onclick = async () => { await game.resetProgress(); game.updateSaveSlotsUI(); };
+    if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
 
     const pauseBtn = document.getElementById('btn-pause');
     if (pauseBtn) pauseBtn.onclick = () => game.togglePause();

@@ -225,7 +225,7 @@ async function loadGameModule({ importOverrides = {}, windowOverrides = {}, docu
         windowStub.Game.updateResearchUI = windowStub.Game.updateResearchUI || (() => {});
         windowStub.Game.updateLeaderboardUI = windowStub.Game.updateLeaderboardUI || (() => {});
         if (typeof windowStub.Game.init === 'function') {
-            await windowStub.Game.init({
+            windowStub.Game.init({
                 loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
                 onHUDUpdate: () => {},
                 onSaveSlotsUpdate: () => {},

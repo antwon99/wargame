@@ -190,7 +190,7 @@ const Game = {
     persistenceAvailable: true,
     combat: combatState,
 
-    async init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
+    init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
         const docAvailable = typeof document !== 'undefined';
         if (docAvailable) {
             this.canvas = this.canvas || document.getElementById('canvas');
@@ -248,8 +248,7 @@ const Game = {
 
             window.addEventListener('intro:begin', () => {
                 if (!this.shouldRunImperialIntro) return;
-                this.issueImperialIntroMandate()
-                    .catch((error) => this.reportRecoverableError('imperial intro bootstrap', error));
+                this.issueImperialIntroMandate();
                 this.shouldRunImperialIntro = false;
             });
 
@@ -265,7 +264,7 @@ const Game = {
                         { hexFactory: (q, r, s) => new Hex(q, r, s) }
                     )
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
-            const loaded = await resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
+            const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
             if (loaded.state) {
                 try {
                     this.applySnapshot(loaded.state);
@@ -273,10 +272,10 @@ const Game = {
                     this.activeSaveSlot = loaded.slot || '1';
                 } catch (error) {
                     this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
-                    await this.bootstrapNewWorld();
+                    this.bootstrapNewWorld();
                 }
             } else {
-                await this.bootstrapNewWorld();
+                this.bootstrapNewWorld();
             }
 
             refreshHUD();
@@ -306,47 +305,19 @@ const Game = {
     /**
      * Ensure the Frontier Sweep intro mandate is active so the tutorial rebel camp
      * is always present. Emits a loud warning and throws when mandate issuance is
-     * unavailable to avoid silent failures during tutorial bootstrap. Falls back to
-     * a lazy-loaded imperial mandate bundle when globals are missing in browser contexts.
+     * unavailable to avoid silent failures during tutorial bootstrap.
      */
-    async ensureFrontierSweepSeeded() {
-        const hasWindow = typeof window !== 'undefined';
+    ensureFrontierSweepSeeded() {
         const liveImperialMandates = this.imperialMandates || ImperialMandates
-            || (hasWindow ? window.ImperialMandates : null);
-        let mandateCandidate = liveImperialMandates;
-        let issuer = mandateCandidate?.issuePendingMandates || mandateCandidate?.issueInitialMandate;
-
-        if (!issuer) {
-            const doc = typeof document !== 'undefined' ? document : null;
-            const loaderFromDom = (hasWindow && window.__imperialMandatesLoading)
-                ? window.__imperialMandatesLoading
-                : (doc?.querySelector ? (() => {
-                    const existingTag = doc.querySelector('script[src*="imperialMandates.js"]');
-                    if (!existingTag) return null;
-                    return new Promise((resolve, reject) => {
-                        existingTag.addEventListener('load', () => resolve(window.ImperialMandates));
-                        existingTag.addEventListener('error', reject);
-                    });
-                })() : null);
-
-            const loader = loaderFromDom || import('../imperialMandates.js');
-            if (hasWindow && !window.__imperialMandatesLoading) {
-                window.__imperialMandatesLoading = loader;
-            }
-
-            try {
-                const loaded = await loader;
-                const resolvedMandates = loaded?.default || loaded?.ImperialMandates || loaded || null;
-                if (hasWindow && !window.ImperialMandates && resolvedMandates) {
-                    window.ImperialMandates = resolvedMandates;
-                }
-                mandateCandidate = resolvedMandates || (hasWindow ? window.ImperialMandates : null);
-            } catch (error) {
-                this.logBootstrapWarning('Imperial mandates failed to load; tutorial seeding may be incomplete.', error);
-            }
-
-            issuer = mandateCandidate?.issuePendingMandates || mandateCandidate?.issueInitialMandate;
-        }
+            || (typeof window !== 'undefined' ? window.ImperialMandates : null);
+        const mandateCandidate = liveImperialMandates;
+        const fallbackMandates = ((!mandateCandidate || (
+            typeof mandateCandidate.issuePendingMandates !== 'function'
+            && typeof mandateCandidate.issueInitialMandate !== 'function'
+        )) && typeof require === 'function')
+            ? require('../imperialMandates.js')
+            : mandateCandidate;
+        const issuer = fallbackMandates?.issuePendingMandates || fallbackMandates?.issueInitialMandate;
 
         if (!issuer) {
             const error = new Error('ImperialMandates.issuePendingMandates is unavailable during bootstrap.');
@@ -354,21 +325,21 @@ const Game = {
             throw error;
         }
 
-        if (mandateCandidate !== liveImperialMandates) {
-            this.logBootstrapWarning('Imperial mandates were missing; seeding Frontier Sweep via lazy loader.');
-        } else if (mandateCandidate && typeof mandateCandidate.issuePendingMandates !== 'function') {
+        if (fallbackMandates !== liveImperialMandates) {
+            this.logBootstrapWarning('Imperial mandates were missing; seeding Frontier Sweep via fallback loader.');
+        } else if (fallbackMandates && typeof fallbackMandates.issuePendingMandates !== 'function') {
             this.logBootstrapWarning('Imperial mandates are missing issuePendingMandates; using compatibility issuer.');
         }
 
-        issuer.call(mandateCandidate, this, {
+        issuer.call(fallbackMandates, this, {
             showTileCallout: this.showTileCallout,
             hideTileCallout: this.hideTileCallout
         });
-        this.imperialMandates = mandateCandidate;
+        this.imperialMandates = fallbackMandates;
     },
 
     /** Issue the opening imperial mandate sequence if the manager is available. */
-    async issueImperialIntroMandate() { await this.ensureFrontierSweepSeeded(); },
+    issueImperialIntroMandate() { this.ensureFrontierSweepSeeded(); },
 
     /**
      * Kick off the animation frame loop so rendering and snow overlays stay alive
@@ -615,7 +586,7 @@ const Game = {
     resetSession() { this.session = { warKills: 0 }; },
 
     /** Build the starting overworld state and clear any lingering combat/claimable data. */
-    async bootstrapNewWorld() {
+    bootstrapNewWorld() {
         this.state = 'OVERWORLD';
         this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
@@ -641,9 +612,9 @@ const Game = {
             window.IntroOverlay.reset();
         }
         this.shouldRunImperialIntro = typeof document !== 'undefined';
-        await this.ensureFrontierSweepSeeded();
+        this.ensureFrontierSweepSeeded();
         if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
-            await this.issueImperialIntroMandate();
+            this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
         }
     },
@@ -721,7 +692,7 @@ const Game = {
     },
 
     /** Wipe stored data and rebuild the starting overworld for a new run. */
-    async resetProgress() {
+    resetProgress() {
         if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Reset skipped: persistence helper unavailable in this environment.');
             return;
@@ -730,7 +701,7 @@ const Game = {
         this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
         this.activeSaveSlot = '1';
         if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
-        await this.bootstrapNewWorld();
+        this.bootstrapNewWorld();
         this.updateLeaderboardUI();
         this.updateHUD();
         this.updateUpgradeMenu();
