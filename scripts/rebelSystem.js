@@ -87,11 +87,13 @@
             const randomIndex = Math.floor((options.random || Math.random)() * candidates.length);
             chosen = candidates[randomIndex];
         } else {
-            chosen = selectFallbackCandidate(hexes, true);
+            const fallbackPlayer = selectFallbackCandidate(hexes, false);
+            const neutralFallback = fallbackPlayer || selectFallbackCandidate(hexes, true);
+            chosen = neutralFallback || null;
         }
 
         if (!chosen) {
-            throw new Error('No valid tiles available to seed a rebel camp.');
+            throw new Error('No valid tiles available to seed a rebel camp after frontier and fallback scans.');
         }
 
         chosen.prevType = chosen.prevType || chosen.type || 'field';
