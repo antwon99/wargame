@@ -1404,10 +1404,12 @@ const Game = {
             { type: 'ruin', weight: 1 },
             { type: 'water', weight: 8 }
         ];
-        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+        // Early-game tutorial tiles should stay landlocked to guarantee the rebel camp and decree are visible.
+        const eligibleWeights = free ? weighted.filter((entry) => entry.type !== 'water') : weighted;
+        const totalWeight = eligibleWeights.reduce((sum, entry) => sum + entry.weight, 0);
         let pick = Math.random() * totalWeight;
         let type = 'field';
-        for (const entry of weighted) {
+        for (const entry of eligibleWeights) {
             if (pick < entry.weight) { type = entry.type; break; }
             pick -= entry.weight;
         }
