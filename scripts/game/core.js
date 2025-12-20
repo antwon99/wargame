@@ -367,25 +367,8 @@ const Game = {
         this.imperialMandates = mandateCandidate;
     },
 
-    /**
-     * Issue the opening imperial mandate sequence if the manager is available.
-     *
-     * A missing imperial mandates bundle usually indicates the bootstrap script
-     * tag failed to load or was omitted from the HTML. Surface that failure as a
-     * loud error so the tutorial does not silently skip its rebel camp seeding.
-     * @throws {Error} when imperialMandates.js was not loaded into the page.
-     */
-    async issueImperialIntroMandate() {
-        const hasWindow = typeof window !== 'undefined';
-        if (hasWindow && !window.ImperialMandates) {
-            const message = 'Imperial mandates bootstrap failed: expected window.ImperialMandates from imperialMandates.js.';
-            const error = new Error(message);
-            this.logBootstrapWarning(message, error);
-            throw error;
-        }
-
-        await this.ensureFrontierSweepSeeded();
-    },
+    /** Issue the opening imperial mandate sequence if the manager is available. */
+    async issueImperialIntroMandate() { await this.ensureFrontierSweepSeeded(); },
 
     /**
      * Kick off the animation frame loop so rendering and snow overlays stay alive
