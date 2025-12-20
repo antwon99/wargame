@@ -50,7 +50,9 @@ import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
-const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
+const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
+    ? window.ImperialMandates
+    : (typeof require === 'function' ? require('../imperialMandates.js') : null);
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
     ? window.ImperialMandateManager
     : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
@@ -302,14 +304,38 @@ const Game = {
 
     /**
      * Ensure the Frontier Sweep intro mandate is active so the tutorial rebel camp
-     * is always present. Safe to call multiple times; does nothing once issued.
+     * is always present. Emits a loud warning and throws when mandate issuance is
+     * unavailable to avoid silent failures during tutorial bootstrap.
      */
     ensureFrontierSweepSeeded() {
-        if (!ImperialMandates?.issuePendingMandates) return;
-        ImperialMandates.issuePendingMandates(this, {
+        const liveImperialMandates = this.imperialMandates || ImperialMandates
+            || (typeof window !== 'undefined' ? window.ImperialMandates : null);
+        const mandateCandidate = liveImperialMandates;
+        const fallbackMandates = ((!mandateCandidate || (
+            typeof mandateCandidate.issuePendingMandates !== 'function'
+            && typeof mandateCandidate.issueInitialMandate !== 'function'
+        )) && typeof require === 'function')
+            ? require('../imperialMandates.js')
+            : mandateCandidate;
+        const issuer = fallbackMandates?.issuePendingMandates || fallbackMandates?.issueInitialMandate;
+
+        if (!issuer) {
+            const error = new Error('ImperialMandates.issuePendingMandates is unavailable during bootstrap.');
+            this.logBootstrapWarning('Imperial mandates are unavailable; Frontier Sweep cannot be seeded.', error);
+            throw error;
+        }
+
+        if (fallbackMandates !== liveImperialMandates) {
+            this.logBootstrapWarning('Imperial mandates were missing; seeding Frontier Sweep via fallback loader.');
+        } else if (fallbackMandates && typeof fallbackMandates.issuePendingMandates !== 'function') {
+            this.logBootstrapWarning('Imperial mandates are missing issuePendingMandates; using compatibility issuer.');
+        }
+
+        issuer.call(fallbackMandates, this, {
             showTileCallout: this.showTileCallout,
             hideTileCallout: this.hideTileCallout
         });
+        this.imperialMandates = fallbackMandates;
     },
 
     /** Issue the opening imperial mandate sequence if the manager is available. */
