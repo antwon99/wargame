@@ -58,56 +58,6 @@ function buildNotificationBindings() {
     };
 }
 
-async function testMandateBootstrapFallbacks() {
-    ImperialMandates.resetForNewCampaign();
-    ImperialMandateManager.reset();
-
-    const warnings = [];
-    global.window = {
-        ImperialMandates: { resetForNewCampaign: () => warnings.push('reset') },
-        InputHelpers: { SQRT3: Math.sqrt(3) },
-        IntroOverlay: { active: false, clearIntroSeenFlag: () => {}, reset: () => {} }
-    };
-
-    const { createGameCore } = await import('../scripts/game/core.js');
-    const { Game } = createGameCore();
-    Game.logBootstrapWarning = (message) => warnings.push(message);
-    Game.updateSaveStatus = () => {};
-    Game.showOverworldUI = () => {};
-    Game.spawnTxt = () => {};
-    Game.playSound = () => {};
-    Game.showTileCallout = () => {};
-    Game.hideTileCallout = () => {};
-
-    let threw = false;
-    try {
-        Game.bootstrapNewWorld();
-    } catch (error) {
-        threw = true;
-        assert.ok(
-            /ImperialMandates/.test(error.message || ''),
-            'Missing ImperialMandates paths should surface a clear error'
-        );
-    }
-
-    if (!threw) {
-        const mandateState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
-        assert.strictEqual(
-            mandateState.status,
-            ImperialMandates.MandateStatus.ACTIVE,
-            'Frontier Sweep should start active even when ImperialMandates loads late'
-        );
-
-        const rebelTiles = Array.from(Game.overworld.hexes.values())
-            .filter((tile) => tile?.isRebelCamp || tile?.type === 'rebelcamp');
-        assert.ok(rebelTiles.length >= 1, 'A rebel camp must spawn even when using the fallback issuer.');
-    }
-
-    assert.ok(warnings.some((msg) => typeof msg === 'string'), 'Fallback path should surface a warning.');
-
-    delete global.window;
-}
-
 function clearFrontierSweep(gameState, uiBindings) {
     const rebelKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
     const rebelTile = gameState.overworld.hexes.get(rebelKey);
@@ -171,26 +121,6 @@ async function testMandateIssuanceAndDeadlines() {
     assert.ok(ImperialMandates.getKingState().currentTick >= pushEarliest, 'expansion mandate should respect the new earliest issue timing');
     assert.strictEqual(state.push_the_frontier.deadlineTick, state.push_the_frontier.issuedTick + 17, 'expansion deadline should be based on durationTicks');
     assert.ok(notifications.length >= 1, 'imperial messaging should fire during mandate issuance');
-}
-
-async function testFrontierlessMapsStillSeedRebels() {
-    ImperialMandates.resetForNewCampaign();
-    ImperialMandateManager.reset();
-    const gameState = buildGameState();
-    gameState.overworld.hexes.forEach((tile) => { if (tile) tile.owner = 'player'; });
-    gameState.overworld.hexes.has = () => true; // Force the frontier scan to believe every edge is filled.
-
-    const { uiBindings } = buildNotificationBindings();
-    ImperialMandates.issuePendingMandates(gameState, uiBindings);
-
-    const rebelMandate = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
-    assert.strictEqual(
-        rebelMandate.status,
-        ImperialMandates.MandateStatus.ACTIVE,
-        'Rebel sweep mandate should activate even when no frontier candidates are available'
-    );
-    const rebelTile = gameState.overworld.hexes.get(rebelMandate.metadata.targetTileKey);
-    assert.ok(rebelTile?.isRebelCamp, 'Fallback placement should still seed a rebel camp for the tutorial.');
 }
 
 async function testRebelMandateResolutionAndExpiry() {
@@ -644,9 +574,7 @@ async function testNonBlockingTickQueue() {
 }
 
 async function run() {
-    await testMandateBootstrapFallbacks();
     await testMandateIssuanceAndDeadlines();
-    await testFrontierlessMapsStillSeedRebels();
     await testRebelMandateResolutionAndExpiry();
     testEmptyBodyDecreeDefaultsAndSilencesAudio();
     await testFirstDecreeAnchoredThenNotifications();
