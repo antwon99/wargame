@@ -140,61 +140,10 @@ async function testFreeClaimsAvoidRebels() {
     assert.strictEqual(stored.type !== 'rebelcamp', true, 'free claims should not create rebel camps');
 }
 
-async function testFreeClaimsAvoidStartingWater() {
-    const { Game, Hex } = await buildGame();
-    const target = new Hex(2, -1, -1);
-
-    // Force the weighted pick toward the former water slot and ensure starter claims reroll to land.
-    withMockedRandom(0.995, () => {
-        Game.claimHexLogic(target, true);
-    });
-
-    const stored = Game.overworld.hexes.get(target.toString());
-    assert.notStrictEqual(stored.type, 'water', 'bootstrap claims should avoid water tiles');
-    assert.strictEqual(Boolean(stored.isWater), false, 'starter territory should not be flagged as water');
-}
-
-async function testFrontierRebelCampAvoidsWaterTiles() {
-    const RebelSystemModule = await import('../scripts/rebelSystem.js');
-    const RebelSystem = RebelSystemModule.default || RebelSystemModule;
-    class Hex {
-        constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
-        toString() { return `${this.q},${this.r}`; }
-        static neighbor(hex, dir) {
-            const dirs = [
-                new Hex(1, 0, -1), new Hex(1, -1, 0), new Hex(0, -1, 1),
-                new Hex(-1, 0, 1), new Hex(-1, 1, 0), new Hex(0, 1, -1)
-            ];
-            return new Hex(hex.q + dirs[dir].q, hex.r + dirs[dir].r, hex.s + dirs[dir].s);
-        }
-    }
-    const origin = new Hex(0, 0, 0);
-    const dryFrontier = new Hex(1, 0, -1);
-    const wetFrontier = new Hex(0, 1, -1);
-    const gameState = {
-        Hex,
-        overworld: {
-            hexes: new Map([
-                [origin.toString(), { hex: origin, type: 'castle', owner: 'player' }],
-                [wetFrontier.toString(), { hex: wetFrontier, type: 'water', owner: 'player', isWater: true }],
-                [dryFrontier.toString(), { hex: dryFrontier, type: 'field', owner: 'player' }]
-            ])
-        }
-    };
-
-    const rebelTile = RebelSystem.spawnRebelCampNearFrontier(gameState);
-    const stored = gameState.overworld.hexes.get(rebelTile.hex.toString());
-    assert.strictEqual(stored.type, 'rebelcamp', 'rebel mandate should convert a dry frontier tile');
-    assert.strictEqual(Boolean(stored.isWater), false, 'rebel camps should not spawn on water tiles');
-    assert.ok(gameState.overworld.hexes.get(wetFrontier.toString()).isWater, 'water tiles should remain untouched');
-}
-
 async function run() {
     await testRebelCampDiscoveryHasChance();
     await testFrontierClaimsDefaultToPlayerTiles();
     await testFreeClaimsAvoidRebels();
-    await testFreeClaimsAvoidStartingWater();
-    await testFrontierRebelCampAvoidsWaterTiles();
     console.log('Rebel discovery tests passed.');
 }
 

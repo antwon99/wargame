@@ -42,12 +42,6 @@
         if (!HexImpl || typeof HexImpl.neighbor !== 'function') return null;
 
         const candidates = [];
-        const preferred = [];
-        const isWaterTile = (tile = {}) => {
-            const normalizedType = typeof tile.type === 'string' ? tile.type.toLowerCase() : '';
-            return tile.isWater || normalizedType === 'water';
-        };
-
         hexes.forEach((data) => {
             const tile = data || {};
             if (!tile.hex || isRebelCampTile(tile) || tile.type === 'castle') return;
@@ -59,16 +53,13 @@
                     break;
                 }
             }
-            if (!hasFrontier) return;
-            candidates.push(tile);
-            if (!isWaterTile(tile)) preferred.push(tile);
+            if (hasFrontier) candidates.push(tile);
         });
 
-        const pool = preferred.length ? preferred : candidates;
-        if (!pool.length) return null;
+        if (!candidates.length) return null;
 
-        const index = Math.floor(Math.random() * pool.length);
-        const chosen = pool[index];
+        const index = Math.floor(Math.random() * candidates.length);
+        const chosen = candidates[index];
         chosen.prevType = chosen.prevType || chosen.type || 'field';
         chosen.type = 'rebelcamp';
         chosen.isRebelCamp = true;
