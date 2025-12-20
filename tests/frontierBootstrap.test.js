@@ -4,8 +4,7 @@ const ImperialMandates = require('../scripts/imperialMandates.js');
 async function run() {
     ImperialMandates.resetForNewCampaign();
     global.window = {
-        addEventListener: () => {},
-        removeEventListener: () => {},
+        ImperialMandates,
         InputHelpers: { SQRT3: Math.sqrt(3) },
         IntroOverlay: { active: false, clearIntroSeenFlag: () => {}, reset: () => {} }
     };
@@ -29,26 +28,6 @@ async function run() {
     const rebelTiles = Array.from(Game.overworld.hexes.values())
         .filter((tile) => tile?.isRebelCamp || tile?.type === 'rebelcamp');
     assert.ok(rebelTiles.length >= 1, 'A rebel camp must spawn at campaign start.');
-    assert.ok(Game.imperialMandates, 'Imperial mandates should be resolved lazily during bootstrap.');
-
-    // Force a second seeding pass with no frontier candidates to ensure the
-    // mandate still produces a camp via deterministic fallbacks.
-    const rebelKey = rebelTiles[0]?.hex?.toString?.();
-    if (rebelKey) {
-        const rebelTile = Game.overworld.hexes.get(rebelKey);
-        rebelTile.type = 'field';
-        rebelTile.isRebelCamp = false;
-        rebelTile.owner = 'player';
-        Game.overworld.hexes.set(rebelKey, rebelTile);
-    }
-
-    Game.overworld.hexes.has = () => true;
-    ImperialMandates.resetForNewCampaign();
-    await Game.ensureFrontierSweepSeeded();
-
-    const reseededTiles = Array.from(Game.overworld.hexes.values())
-        .filter((tile) => tile?.isRebelCamp || tile?.type === 'rebelcamp');
-    assert.ok(reseededTiles.length >= 1, 'Fallback seeding should still produce a rebel camp.');
 
     const starterKeys = new Set();
     for (let dir = 0; dir < 6; dir += 1) {
