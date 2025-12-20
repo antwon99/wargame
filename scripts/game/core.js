@@ -50,9 +50,9 @@ import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
-const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
+let ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
-    : (typeof require === 'function' ? require('../imperialMandates.js') : null);
+    : null;
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
     ? window.ImperialMandateManager
     : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
@@ -73,6 +73,55 @@ const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
     lastSaveISO: null
 };
 
+let cachedImperialMandatesError = null;
+
+/**
+ * Resolve the imperial mandates bundle lazily so bootstrap can succeed in
+ * headless test environments or when the window global is still warming up.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.hasWindow=false] whether a browser window exists.
+ * @returns {Promise<object|null>} resolved mandate helpers if available.
+ */
+async function loadImperialMandates({ hasWindow = false } = {}) {
+    const windowCandidate = (hasWindow && typeof window !== 'undefined') ? window.ImperialMandates : null;
+    if (windowCandidate) {
+        ImperialMandates = windowCandidate;
+        cachedImperialMandatesError = null;
+        return windowCandidate;
+    }
+
+    if (ImperialMandates) return ImperialMandates;
+
+    let resolved = null;
+    cachedImperialMandatesError = null;
+
+    if (typeof require === 'function') {
+        try {
+            const required = require('../imperialMandates.js');
+            resolved = required?.default || required?.ImperialMandates || required || null;
+        } catch (error) {
+            cachedImperialMandatesError = error;
+        }
+    }
+
+    if (!resolved && typeof import === 'function') {
+        try {
+            const loaded = await import('../imperialMandates.js');
+            resolved = loaded?.default || loaded?.ImperialMandates || loaded || null;
+        } catch (error) {
+            cachedImperialMandatesError = cachedImperialMandatesError || error;
+        }
+    }
+
+    if (hasWindow && typeof window !== 'undefined' && resolved && !window.ImperialMandates) {
+        window.ImperialMandates = resolved;
+    }
+
+    ImperialMandates = resolved || ImperialMandates;
+    return resolved;
+}
+
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {
     const numeric = Number.isFinite(value) ? value : fallback;
@@ -90,6 +139,7 @@ export function createGameCore(overrides = {}) {
     const snowConfigResolver = overrides.resolveSnowVisualConfig || resolveSnowVisualConfig;
     const bootstrapValidator = overrides.validateBootstrapDependencies || validateBootstrapDependencies;
     const researchStateBuilder = overrides.buildResearchStateSafe || buildResearchStateSafe;
+    const imperialMandateLoader = overrides.loadImperialMandates || loadImperialMandates;
     const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
         ? overrides.persistence
         : Persistence;
@@ -329,27 +379,36 @@ const Game = {
                     });
                 })() : null);
 
-            const loader = loaderFromDom || import('../imperialMandates.js');
-            if (hasWindow && !window.__imperialMandatesLoading) {
-                window.__imperialMandatesLoading = loader;
+            if (loaderFromDom) {
+                if (hasWindow && !window.__imperialMandatesLoading) {
+                    window.__imperialMandatesLoading = loaderFromDom;
+                }
+
+                try {
+                    const loaded = await loaderFromDom;
+                    mandateCandidate = loaded || (hasWindow ? window.ImperialMandates : null);
+                } catch (error) {
+                    cachedImperialMandatesError = cachedImperialMandatesError || error;
+                }
             }
 
-            try {
-                const loaded = await loader;
-                const resolvedMandates = loaded?.default || loaded?.ImperialMandates || loaded || null;
-                if (hasWindow && !window.ImperialMandates && resolvedMandates) {
-                    window.ImperialMandates = resolvedMandates;
+            if (!mandateCandidate) {
+                try {
+                    mandateCandidate = await imperialMandateLoader({ hasWindow })
+                        || (hasWindow ? window.ImperialMandates : null);
+                } catch (error) {
+                    cachedImperialMandatesError = cachedImperialMandatesError || error;
                 }
-                mandateCandidate = resolvedMandates || (hasWindow ? window.ImperialMandates : null);
-            } catch (error) {
-                this.logBootstrapWarning('Imperial mandates failed to load; tutorial seeding may be incomplete.', error);
             }
 
             issuer = mandateCandidate?.issuePendingMandates || mandateCandidate?.issueInitialMandate;
         }
 
         if (!issuer) {
-            const error = new Error('ImperialMandates.issuePendingMandates is unavailable during bootstrap.');
+            const detail = cachedImperialMandatesError?.message
+                ? ` (${cachedImperialMandatesError.message})`
+                : '';
+            const error = new Error(`Imperial mandates unavailable during tutorial bootstrap${detail}.`);
             this.logBootstrapWarning('Imperial mandates are unavailable; Frontier Sweep cannot be seeded.', error);
             throw error;
         }
@@ -365,6 +424,10 @@ const Game = {
             hideTileCallout: this.hideTileCallout
         });
         this.imperialMandates = mandateCandidate;
+        ImperialMandates = mandateCandidate;
+        if (hasWindow && window.ImperialMandates !== mandateCandidate) {
+            window.ImperialMandates = mandateCandidate;
+        }
     },
 
     /**
@@ -377,8 +440,23 @@ const Game = {
      */
     async issueImperialIntroMandate() {
         const hasWindow = typeof window !== 'undefined';
-        if (hasWindow && !window.ImperialMandates) {
-            const message = 'Imperial mandates bootstrap failed: expected window.ImperialMandates from imperialMandates.js.';
+        const introOverlay = hasWindow ? window.IntroOverlay : null;
+        if (introOverlay?.active) {
+            this.shouldRunImperialIntro = true;
+            this.logBootstrapWarning('Intro overlay still active; deferring Imperial intro mandate until dismissal.');
+            return;
+        }
+
+        const liveImperialMandates = this.imperialMandates || ImperialMandates
+            || (hasWindow ? window.ImperialMandates : null);
+        if (!liveImperialMandates || (
+            typeof liveImperialMandates.issuePendingMandates !== 'function'
+            && typeof liveImperialMandates.issueInitialMandate !== 'function'
+        )) {
+            const detail = cachedImperialMandatesError?.message
+                ? ` (${cachedImperialMandatesError.message})`
+                : '';
+            const message = `Imperial mandates bootstrap failed: missing mandate helpers${detail}.`;
             const error = new Error(message);
             this.logBootstrapWarning(message, error);
             throw error;
@@ -659,9 +737,20 @@ const Game = {
         }
         this.shouldRunImperialIntro = typeof document !== 'undefined';
         await this.ensureFrontierSweepSeeded();
-        if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
+        if (!this.shouldRunImperialIntro) return;
+
+        const introOverlay = typeof window !== 'undefined' ? window.IntroOverlay : null;
+        if (introOverlay?.active) {
+            this.logBootstrapWarning('Intro overlay active; Imperial intro mandate will run after dismissal.');
+            return;
+        }
+
+        try {
             await this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
+        } catch (error) {
+            this.shouldRunImperialIntro = true;
+            throw error;
         }
     },
 

@@ -29,12 +29,13 @@ function buildGameState() {
     const camp = RebelSystem.spawnRebelCampNearFrontier(gameState, { random: () => 0 });
     assert.ok(camp, 'Fallback placement should still return a rebel tile.');
     assert.strictEqual(camp.type, 'rebelcamp', 'Fallback should convert the chosen tile into a rebel camp.');
+    assert.strictEqual(camp.hex.toString(), '1,1', 'Outer-ring fallback should prioritize the farthest player tile.');
 
     const doomedState = { Hex, overworld: { hexes: new Map([[ '0,0', { hex: new Hex(0, 0), type: 'castle' } ]]) } };
     doomedState.overworld.hexes.has = () => true;
     assert.throws(
         () => RebelSystem.spawnRebelCampNearFrontier(doomedState, { random: () => 0 }),
-        /No valid tiles/,
+        /after frontier and fallback scans/, 
         'An explicit error should surface when no placement tiles exist.'
     );
 
