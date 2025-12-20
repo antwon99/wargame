@@ -217,7 +217,7 @@ async function loadGameModule({ globals = {} } = {}) {
         windowStub.Game.updateSaveStatus = windowStub.Game.updateSaveStatus || (() => {});
         if (typeof windowStub.Game.init === 'function') {
             const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
-            windowStub.Game.init({
+            await windowStub.Game.init({
                 loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
                 onHUDUpdate: () => {},
                 onSaveSlotsUpdate: () => {},
