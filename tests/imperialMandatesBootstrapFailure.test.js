@@ -11,14 +11,14 @@ async function run() {
     };
 
     const { createGameCore } = await import('../scripts/game/core.js');
-    const { Game } = createGameCore({ loadImperialMandates: () => Promise.resolve(null) });
+    const { Game } = createGameCore();
 
     await assert.rejects(
-        () => Game.ensureFrontierSweepSeeded(),
+        () => Game.issueImperialIntroMandate(),
         (error) => {
             assert.match(
                 error.message,
-                /imperial mandates unavailable/i,
+                /imperial mandates bootstrap failed/i,
                 'bootstrap should explicitly fail when imperial mandates bundle is missing'
             );
             return true;
