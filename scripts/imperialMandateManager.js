@@ -6,8 +6,17 @@
  * driving deadlines from the authoritative tick counter.
  */
 (function (global) {
-    const ImperialMandates = (global.ImperialMandates)
-        || (typeof require === 'function' ? require('./imperialMandates.js') : null);
+    function resolveImperialMandates() {
+        if (global.ImperialMandates) return global.ImperialMandates;
+        if (typeof require === 'function') {
+            try {
+                return require('./imperialMandates.js');
+            } catch (error) {
+                return null;
+            }
+        }
+        return null;
+    }
 
     let queuedTicks = 0;
     let scheduled = false;
@@ -22,6 +31,7 @@
 
     function flushTicks(gameState, uiBindings) {
         scheduled = false;
+        const ImperialMandates = resolveImperialMandates();
         if (!ImperialMandates?.recordEvent) {
             queuedTicks = 0;
             return;
