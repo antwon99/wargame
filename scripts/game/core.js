@@ -676,7 +676,9 @@ const Game = {
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-        if (window.IntroOverlay?.reset) window.IntroOverlay.reset();
+        if (typeof window !== 'undefined' && window.IntroOverlay?.reset) {
+            window.IntroOverlay.reset();
+        }
     },
 
     /**
