@@ -193,7 +193,8 @@ async function runTests() {
             }
         }) }
     };
-    Persistence.saveSnapshot(saveGame, 1);
+    const primarySave = Persistence.saveSnapshot(saveGame, 1);
+    assert.ok(primarySave.success, 'happy-path saves should succeed');
     const loaded = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     assert.ok(loaded.state);
     assert.strictEqual(loaded.state.gold, 77);
@@ -209,7 +210,8 @@ async function runTests() {
 
     // Multi-slot isolation
     const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestLevel: 7, warsFought: 12 } };
-    Persistence.saveSnapshot(altGame, 2);
+    const altSave = Persistence.saveSnapshot(altGame, 2);
+    assert.ok(altSave.success, 'secondary saves should succeed');
     const slotOne = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     const slotTwo = Persistence.loadSnapshot(2, { hexFactory: (q, r, s) => new Hex(q, r, s) });
     assert.strictEqual(slotOne.state.gold, 77);
@@ -294,6 +296,27 @@ async function runTests() {
     assert.deepStrictEqual(exoticTypes, ['mine', 'ruin', 'shrine']);
     const exoticIncome = calcIncome(exoticReload.state.overworld.hexes);
     assert.deepStrictEqual(exoticIncome, { gold: 4, wood: 0 }, 'income should honor saved mine/ruin data');
+
+    // Storage errors should be reported without crashing gameplay flows
+    const failingAdapter = Persistence.createStorageAdapter({
+        getItem: () => null,
+        setItem: () => {
+            const err = new Error('Quota exceeded');
+            err.name = 'QuotaExceededError';
+            throw err;
+        },
+        removeItem: () => {},
+        keys: () => []
+    });
+    Persistence.setStorageAdapter(failingAdapter);
+
+    const failureSave = Persistence.saveSnapshot(saveGame, 'quota');
+    assert.strictEqual(failureSave.success, false, 'failing adapters should return a failure status');
+    assert.strictEqual(failureSave.error, 'quota-exceeded', 'quota errors should be labeled for UI messaging');
+    assert.ok(failureSave.payload.stats.lastSaveISO, 'even failed saves should timestamp the payload for status displays');
+
+    // Reset adapter so downstream tests exercise the standard in-memory store
+    Persistence.setStorageAdapter(Persistence.createStorageAdapter(global.localStorage));
 
     // Remote/alternate storage adapter swap
     const remoteStore = new Map();

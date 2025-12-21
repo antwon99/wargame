@@ -621,15 +621,34 @@ const Game = {
     saveGame(slot = this.activeSaveSlot) {
         if (!this.persistenceAvailable || !persistenceModule) {
             this.logBootstrapWarning('Save skipped: persistence helper unavailable in this environment.');
-            return;
+            return { success: false, error: 'unavailable', slot: String(slot || this.activeSaveSlot) };
         }
         const targetSlot = String(slot || this.activeSaveSlot);
         const result = persistenceModule.saveSnapshot(this, targetSlot);
         this.activeSaveSlot = result.slot;
+        if (!result.success) {
+            const warning = result.error === 'quota-exceeded'
+                ? 'Save failed: storage quota exceeded.'
+                : 'Save failed: storage unavailable.';
+            this.logBootstrapWarning(warning);
+            this.updateSaveStatus(warning);
+            if (typeof this.enqueueNotification === 'function') {
+                this.enqueueNotification({
+                    id: 'save-failed',
+                    title: 'Save Failed',
+                    lines: [warning],
+                    tone: 'warning'
+                });
+            } else {
+                this.spawnTxt(new Hex(0,0), 'Save Failed', '#ef476f');
+            }
+            return result;
+        }
         const formattedTime = new Date(result.savedAt).toLocaleString();
         this.updateSaveStatus(`Saved Slot ${this.activeSaveSlot} @ ${formattedTime}`);
         this.updateSaveSlotsUI();
         this.spawnTxt(new Hex(0,0), 'Progress Saved', '#9be3b4');
+        return result;
     },
 
     /** Load a stored snapshot and refresh UI with the saved overworld. */

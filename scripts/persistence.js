@@ -373,9 +373,10 @@
 
     /**
      * Save the game snapshot + leaderboard stats to a specific save slot.
+     * Storage writes are wrapped so quota/unavailable adapters never crash the game loop.
      * @param {object} game current Game instance.
      * @param {string|number} [slot='1'] slot number to persist into.
-     * @returns {{savedAt: string, payload: object, slot: string}} time and payload details for UI/debugging.
+     * @returns {{savedAt: string, payload: object, slot: string, success: boolean, error?: string}} time, payload, and status details.
      */
     function saveSnapshot(game, slot = '1') {
         const payload = serializeGameState(game);
@@ -383,11 +384,33 @@
         const slotKey = storageKeyForSlot(slot);
         const statKey = statsKeyForSlot(slot);
         payload.stats.lastSaveISO = savedAt;
-        if (storageAdapter) {
+        if (!storageAdapter) {
+            console.warn('Save skipped: storage unavailable.');
+            return {
+                savedAt,
+                payload,
+                slot: String(slot),
+                success: false,
+                error: 'unavailable'
+            };
+        }
+
+        try {
             storageAdapter.setItem(slotKey, JSON.stringify(payload));
             storageAdapter.setItem(statKey, JSON.stringify(payload.stats));
+            return { savedAt, payload, slot: String(slot), success: true };
+        } catch (error) {
+            const isQuotaExceeded = error?.name === 'QuotaExceededError' || error?.code === 22;
+            const errorCode = isQuotaExceeded ? 'quota-exceeded' : 'write-failed';
+            console.warn('Failed to persist snapshot', error);
+            return {
+                savedAt,
+                payload,
+                slot: String(slot),
+                success: false,
+                error: errorCode
+            };
         }
-        return { savedAt, payload, slot: String(slot) };
     }
 
     /**
