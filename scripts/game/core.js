@@ -699,13 +699,16 @@ const Game = {
      * @param {Error} error thrown error instance or message
      */
     reportRecoverableError(context, error) {
-        const debugEl = document.getElementById('debug-log');
         const header = '⚠️ Recoverable error';
         const contextLabel = context ? `Context: ${context}` : 'Context: (unspecified)';
         const errorMessage = error?.message || String(error || 'Unknown error');
         const stack = (error && typeof error.stack === 'string') ? error.stack : 'No stack trace available.';
 
         console.error(`${contextLabel}: ${errorMessage}`, error);
+
+        if (typeof document === 'undefined') return;
+
+        const debugEl = document.getElementById('debug-log');
         if (!debugEl) return;
 
         debugEl.classList.add('visible');
