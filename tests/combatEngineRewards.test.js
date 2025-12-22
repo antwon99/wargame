@@ -67,6 +67,29 @@ function buildEndWarGame(startingGold = 100) {
     return { game, hex };
 }
 
+function createDomStub() {
+    const stub = {
+        classList: { add: () => {}, remove: () => {} },
+        innerText: '',
+        appendChild: () => {},
+        setAttribute: () => {},
+        style: { setProperty: () => {} },
+        remove: () => {},
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 })
+    };
+    stub.createElement = () => ({
+        classList: { add: () => {}, remove: () => {} },
+        appendChild: () => {},
+        setAttribute: () => {},
+        addEventListener: () => {},
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 }),
+        style: { setProperty: () => {} },
+        remove: () => {},
+        innerText: ''
+    });
+    return stub;
+}
+
 function testPlayerMustLandFinalBlowForWood() {
     const { game } = buildGame('player');
     damageBuilding(game, '0,0', 10, 'player');
@@ -85,12 +108,12 @@ function testDefeatAppliesGoldPenalty() {
     const originalWindow = global.window;
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(100);
     const originalTimeout = global.setTimeout;
-    global.setTimeout = (fn) => { fn(); return 0; };
+    global.setTimeout = () => 0;
 
     endWar(game, 'DEFEAT');
 
@@ -108,12 +131,12 @@ function testDefeatPenaltyCannotGoNegative() {
     const originalWindow = global.window;
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(6);
     const originalTimeout = global.setTimeout;
-    global.setTimeout = (fn) => { fn(); return 0; };
+    global.setTimeout = () => 0;
 
     endWar(game, 'DEFEAT');
 
@@ -129,8 +152,8 @@ function testVictoryRaisesDifficultyByOne() {
     const originalWindow = global.window;
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(120);
     const startingDifficulty = game.difficulty;
@@ -146,8 +169,8 @@ function testVictoryAppliesWarTax() {
     const originalWindow = global.window;
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
-    const domStub = { classList: { add: () => {}, remove: () => {} }, innerText: '' };
-    global.document = { getElementById: () => domStub };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(100);
     endWar(game, 'VICTORY');

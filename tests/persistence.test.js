@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { clampImperialFavor } = require('../scripts/imperialFavor.js');
+const { canUseLocalStorage } = require('../scripts/storageProbe.js');
 
 global.localStorage = (() => {
     const store = new Map();
@@ -48,6 +49,10 @@ async function runTests() {
         });
         return { gold, wood };
     };
+
+    assert.strictEqual(canUseLocalStorage({ localStorage: global.localStorage }), true, 'probe should allow usable storage');
+    const throwingStorage = { get localStorage() { throw new Error('denied'); } };
+    assert.strictEqual(canUseLocalStorage(throwingStorage), false, 'probe should fail when accessors throw');
 
     // Serialize
     const mandateSnapshot = {

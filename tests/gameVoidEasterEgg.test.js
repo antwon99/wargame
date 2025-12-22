@@ -6,7 +6,7 @@ const Persistence = require('../scripts/persistence.js');
 const capturedTexts = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}), addEventListener: () => {} };
 const genericElement = {
-    style: {},
+    style: { setProperty: () => {} },
     addEventListener: () => {},
     onclick: null,
     dataset: {},
@@ -52,11 +52,8 @@ global.Persistence = Persistence;
 global.VoidEasterEgg = VoidEasterEgg;
 global.InputHelpers = { SQRT3: Math.sqrt(3), Layout: {} };
 
-afterEnvironment(() => { require('../scripts/script.js'); });
-
-function afterEnvironment(cb) {
-    cb();
-}
+const { bootstrapGame } = require('../scripts/script.js');
+bootstrapGame();
 
 function runVoidClickScenario() {
     const Game = window.Game;

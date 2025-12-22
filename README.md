@@ -1,5 +1,7 @@
 # Hex Kingdom
 
+![CI](https://github.com/antwon99/wargame/actions/workflows/ci.yml/badge.svg)
+
 This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html` with the ES module entry point `scripts/script.js`, which stitches together the overworld loop, combat engine, UI bindings, persistence, and audio systems (all housed under `scripts/`).
 
 ## Getting Started
@@ -38,9 +40,14 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 - If you split the project into additional files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
 
-### Script bootstrap order
+### Build and bundle
 
-- `scripts/script.js` relies on globals supplied by non-module scripts (`researchSystem.js`, `persistence.js`, `rebelSystem.js`, `imperialMandates.js`, `inputHelpers.js`, etc.) that are loaded above it in `Wargame.html`. The module checks `window` first, then falls back to `require()` for Node-based tests, so keep those `<script>` tags before the module entry when changing bundlers or build pipelines.
+- Use Rollup to bundle the in-page scripts into a single deferred asset for release:
+  ```bash
+  npm run build
+  ```
+  - The build step emits a hashed bundle under `dist/assets/` and injects it into `dist/Wargame.html` with `defer`.
+  - Legacy globals are preserved via `scripts/globalShim.js` so existing runtime checks continue to work in the bundle.
 
 ### Snow visuals
 
@@ -50,11 +57,11 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ### Testing
 
-- Run the Node-based checks with:
+- Run the consolidated suite with:
   ```bash
-  for f in tests/*.test.js; do node "$f"; done
+  npm test
   ```
-  - Key suites: audio routing (`tests/audio.test.js`), juice helpers, persistence, input helpers, and void easter egg behavior.
+  - The test runner stubs DOM APIs and executes both `.js` and `.mjs` suites.
 
 ## Audio
 
