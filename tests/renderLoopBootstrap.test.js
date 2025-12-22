@@ -50,7 +50,8 @@ global.Persistence = Persistence;
 global.performance = { now: () => 42 };
 global.requestAnimationFrame = (cb) => { rafCalls.push(cb); return 1; };
 
-require('../scripts/script.js');
+const { bootstrapGame } = require('../scripts/script.js');
+bootstrapGame();
 
 function run() {
     const Game = window.Game;
