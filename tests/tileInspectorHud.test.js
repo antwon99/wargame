@@ -267,6 +267,34 @@ async function testReclamationHintsReflectAvailability() {
     );
 }
 
+async function testRebelOwnedTilesMarkHostile() {
+    const doc = createDocument([
+        'tile-inspector',
+        'tile-inspector-label',
+        'tile-inspector-bonus',
+        'tile-inspector-adjacency',
+        'tile-inspector-adjacency-summary',
+        'tile-inspector-adjacency-detail'
+    ]);
+    global.document = doc;
+    global.RebelSystem = require('../scripts/rebelSystem.js');
+    const { updateTileInspector } = await import('../scripts/uiBindings.js');
+
+    const tile = { type: 'rebel', owner: 'rebel', hex: { q: 4, r: 0, toString: () => '4,0' } };
+    const game = {
+        state: 'OVERWORLD',
+        paused: false,
+        overworld: { clusterBonuses: new Map() },
+        updateTileAttackOverlay: () => {}
+    };
+
+    updateTileInspector(game, tile);
+
+    const panel = doc.getElementById('tile-inspector');
+    assert.ok(panel.classList.contains('hostile'), 'rebel-owned tiles should be marked hostile in the inspector');
+    delete global.RebelSystem;
+}
+
 async function run() {
     await testClusterBonusRenders();
     await testPauseStatusUpdatesInspector();
@@ -275,6 +303,7 @@ async function run() {
     await testInspectorHidesOutsideOverworld();
     await testClaimablePreviewShowsCost();
     await testReclamationHintsReflectAvailability();
+    await testRebelOwnedTilesMarkHostile();
     delete global.document;
     console.log('Tile inspector HUD tests passed.');
 }

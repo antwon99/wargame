@@ -5,15 +5,40 @@
  */
 (function (global) {
     /**
-     * Determine whether a tile has been marked as a rebel camp.
+     * Determine whether a tile has been marked as a rebel camp or rebel-held tile.
      * @param {object} tile tile payload from the overworld map.
-     * @returns {boolean} true when the tile represents a rebel camp.
+     * @returns {boolean} true when the tile represents rebel presence.
      */
     function isRebelCampTile(tile) {
         if (!tile) return false;
         if (tile.isRebelCamp) return true;
+        if (tile.owner === 'rebel') return true;
         const type = typeof tile.type === 'string' ? tile.type.toLowerCase() : '';
-        return type === 'rebelcamp' || type === 'rebel camp';
+        return type === 'rebelcamp' || type === 'rebel camp' || type === 'rebel';
+    }
+
+    /**
+     * Roll a terrain type using the same weighted distribution as frontier claims.
+     * @param {function} rng random number generator returning [0,1).
+     * @returns {string} selected terrain type.
+     */
+    function rollReplacementTerrain(rng = Math.random) {
+        const weighted = [
+            { type: 'field', weight: 40 },
+            { type: 'forest', weight: 28 },
+            { type: 'town', weight: 16 },
+            { type: 'mine', weight: 5 },
+            { type: 'shrine', weight: 2 },
+            { type: 'ruin', weight: 1 },
+            { type: 'water', weight: 8 }
+        ];
+        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+        let pick = rng() * totalWeight;
+        for (const entry of weighted) {
+            if (pick < entry.weight) return entry.type;
+            pick -= entry.weight;
+        }
+        return 'field';
     }
 
     function getHexImpl(gameState) {
@@ -86,10 +111,34 @@
         return rebels;
     }
 
+    /**
+     * Clear a rebel camp or rebel-held tile, restoring it to a normal terrain roll.
+     * @param {object} tile rebel tile payload to convert.
+     * @param {object} gameState live game state containing overworld data.
+     * @param {object} [options] optional configuration (rng override for tests).
+     * @returns {object|null} updated tile payload.
+     */
+    function restoreRebelTile(tile, gameState, options = {}) {
+        if (!tile) return null;
+        const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+        const type = rollReplacementTerrain(rng);
+        const updated = { ...tile, type, owner: 'player', isRebelCamp: false };
+        if (type === 'water') updated.isWater = true;
+        else if (updated.isWater) delete updated.isWater;
+        if (updated.prevType) delete updated.prevType;
+
+        const key = ensureKey(updated);
+        if (key && gameState?.overworld?.hexes) {
+            gameState.overworld.hexes.set(key, updated);
+        }
+        return updated;
+    }
+
     const api = {
         spawnRebelCampNearFrontier,
         isRebelCampTile,
-        getAllRebelCamps
+        getAllRebelCamps,
+        restoreRebelTile
     };
 
     global.RebelSystem = api;

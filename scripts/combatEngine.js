@@ -6,6 +6,9 @@
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./imperialMandates.js') : {});
+const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
+    ? window.RebelSystem
+    : (typeof require === 'function' ? require('./rebelSystem.js') : null);
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -820,6 +823,18 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.difficulty = startingDifficulty + 1;
         game.spawnTxt(new Hex(0,0), `VICTORY +${taxedGoldReward}g +${woodReward}w`, '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
+
+        // Clearing rebel pressure should convert the tile back into normal terrain.
+        const shouldRestoreRebel = targetTile
+            && (RebelSystem?.isRebelCampTile?.(targetTile)
+                || targetTile.owner === 'rebel'
+                || targetTile.type === 'rebel');
+        if (shouldRestoreRebel) {
+            RebelSystem?.restoreRebelTile?.(targetTile, game);
+            if (typeof game.refreshClusterBonuses === 'function') {
+                game.refreshClusterBonuses();
+            }
+        }
     }
     else if(result === 'DEFEAT') {
         const goldPenalty = computeDefeatGoldPenalty(game);

@@ -951,7 +951,7 @@ function updateTileInspector(game, tile) {
 
     const claimCost = typeof tile.claimCost === 'number' ? tile.claimCost : null;
     const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(tile);
-    const isHostile = !claimCost && (isRebelTile || tile.owner === 'enemy');
+    const isHostile = !claimCost && (isRebelTile || tile.owner === 'enemy' || tile.owner === 'rebel');
     const labelText = claimCost !== null
         ? 'Unclaimed Frontier'
         : tile.type
@@ -1057,7 +1057,7 @@ function updateTileAttackOverlay(game, tile) {
     const btn = document.getElementById('tile-attack-overlay-btn');
     if (!layer || !btn) return;
 
-    const isHostile = tile && (RebelSystem.isRebelCampTile?.(tile) || tile.owner === 'enemy');
+    const isHostile = tile && (RebelSystem.isRebelCampTile?.(tile) || tile.owner === 'enemy' || tile.owner === 'rebel');
     const shouldHide = !tile || !isHostile || game.state !== 'OVERWORLD';
     if (shouldHide) {
         btn.style.display = 'none';
