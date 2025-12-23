@@ -28,11 +28,8 @@ import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
-import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
-import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
 import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
-import { validateBootstrapDependencies } from '../bootstrapValidator.mjs';
 import {
     CAMERA_MOTION_CONFIG,
     buildCameraState,
@@ -54,6 +51,177 @@ const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandat
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
     ? window.ImperialMandateManager
     : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
+const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
+const fallbackSnowVisualConfig = {
+    enabled: true,
+    snowfallEnabled: true,
+    minCoverage: 0,
+    maxCoverage: 1,
+    maxOpacity: 0.82
+};
+const fallbackResolveSnowVisualConfig = (snowConfig = {}) => {
+    const normalized = { ...fallbackSnowVisualConfig, ...(snowConfig || {}) };
+    const date = snowConfig.currentDate instanceof Date ? snowConfig.currentDate : new Date();
+    const month = date.getMonth();
+    const index = SNOW_MONTHS.indexOf(month);
+    if (index === -1) {
+        return {
+            ...normalized,
+            enabled: false,
+            coverage: 0,
+            seasonProgress: 0
+        };
+    }
+
+    const daysInMonth = new Date(date.getFullYear(), month + 1, 0).getDate();
+    const dayProgress = Math.max(0, Math.min(1, (date.getDate() - 1) / daysInMonth));
+    const normalizedProgress = (index + dayProgress) / (SNOW_MONTHS.length - 1);
+    const mirrored = normalizedProgress <= 0.5 ? normalizedProgress * 2 : (1 - normalizedProgress) * 2;
+    const seasonProgress = Math.max(0, Math.min(1, mirrored));
+    const enabled = normalized.enabled !== false && normalized.snowfallEnabled !== false;
+    const coverage = enabled
+        ? normalized.minCoverage + (normalized.maxCoverage - normalized.minCoverage) * seasonProgress
+        : 0;
+
+    return {
+        ...normalized,
+        enabled: enabled && index !== -1,
+        coverage,
+        seasonProgress
+    };
+};
+let cachedSnowVisualConfig = fallbackSnowVisualConfig;
+let cachedSnowConfigResolver = fallbackResolveSnowVisualConfig;
+let snowConfigPromise = null;
+const resolveSnowVisualConfigModule = () => {
+    if (!snowConfigPromise) {
+        snowConfigPromise = import('../snowVisualConfig.mjs')
+            .then((module) => {
+                cachedSnowVisualConfig = module.SNOW_VISUAL_CONFIG || fallbackSnowVisualConfig;
+                cachedSnowConfigResolver = module.resolveSnowVisualConfig || fallbackResolveSnowVisualConfig;
+            })
+            .catch(() => {
+                cachedSnowVisualConfig = cachedSnowVisualConfig || fallbackSnowVisualConfig;
+                cachedSnowConfigResolver = cachedSnowConfigResolver || fallbackResolveSnowVisualConfig;
+            });
+    }
+
+    return {
+        SNOW_VISUAL_CONFIG: cachedSnowVisualConfig,
+        resolveSnowVisualConfig: cachedSnowConfigResolver
+    };
+};
+const fallbackValidateBootstrapDependencies = ({
+    researchSystem = (typeof window !== 'undefined' ? window.ResearchSystem : null),
+    persistence = (typeof window !== 'undefined' ? window.Persistence : null),
+    inputHelpers = (typeof window !== 'undefined' ? window.InputHelpers : null),
+    debugEl = (typeof document !== 'undefined' ? document.getElementById('debug-log') : null),
+    canvas = (typeof document !== 'undefined' ? document.getElementById('canvas') : null),
+    ctx = null,
+    logToDebug = true
+} = {}) => {
+    const status = {
+        researchSystemAvailable: Boolean(researchSystem),
+        persistenceAvailable: Boolean(persistence),
+        inputHelpersAvailable: Boolean(inputHelpers),
+        canvasAvailable: Boolean(canvas && (ctx || canvas.getContext?.('2d')))
+    };
+
+    const missingHelpers = [];
+    if (!status.researchSystemAvailable) missingHelpers.push('ResearchSystem (tech tree)');
+    if (!status.persistenceAvailable) missingHelpers.push('Persistence (save system)');
+    if (!status.inputHelpersAvailable) missingHelpers.push('InputHelpers (hex math)');
+    if (!status.canvasAvailable) missingHelpers.push('Canvas rendering context');
+
+    if (missingHelpers.length && logToDebug && debugEl) {
+        debugEl.classList?.add?.('visible');
+        debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
+    }
+
+    return { ...status, missingHelpers };
+};
+let cachedBootstrapValidator = fallbackValidateBootstrapDependencies;
+let bootstrapValidatorPromise = null;
+
+/**
+ * Resolve the bootstrap validator without requiring the ES module.
+ * @returns {function} bootstrap validator implementation.
+ */
+const resolveBootstrapValidator = () => {
+    if (!bootstrapValidatorPromise) {
+        bootstrapValidatorPromise = import('../bootstrapValidator.mjs')
+            .then((module) => {
+                cachedBootstrapValidator = module.validateBootstrapDependencies || fallbackValidateBootstrapDependencies;
+            })
+            .catch(() => {
+                cachedBootstrapValidator = cachedBootstrapValidator || fallbackValidateBootstrapDependencies;
+            });
+    }
+
+    return cachedBootstrapValidator;
+};
+const fallbackBuildResearchStateSafe = ({
+    researchSystem,
+    saved = {},
+    defaultClusterRate = 0,
+    logDebug
+} = {}) => {
+    const baseState = () => ({
+        technologies: [],
+        bonuses: {
+            townGoldBonus: 0,
+            forestWoodBonus: 0,
+            clusterBaseRate: defaultClusterRate,
+            landReclamationClusterBonus: 0
+        },
+        lives: 0
+    });
+
+    const emitLog = (message, error) => {
+        if (typeof logDebug === 'function') logDebug(message, error);
+    };
+
+    if (!researchSystem || typeof researchSystem.instantiateTechnologies !== 'function') {
+        emitLog('ResearchSystem unavailable; using default research state.');
+        return baseState();
+    }
+
+    try {
+        const technologies = researchSystem.instantiateTechnologies(saved.technologies || []);
+        const livesTech = technologies.find((tech) => tech.id === 'lives');
+        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
+        const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
+        const bonuses = baseState().bonuses;
+        return { technologies, bonuses, lives: remainingLives };
+    } catch (error) {
+        emitLog('Research snapshot hydration failed; using safe defaults.', error);
+        return baseState();
+    }
+};
+let cachedResearchStateBuilder = null;
+let researchStateBuilderPromise = null;
+
+/**
+ * Resolve the research state builder without requiring the ES module.
+ * @returns {function} research state builder implementation.
+ */
+const resolveResearchStateBuilder = () => {
+    if (!cachedResearchStateBuilder) {
+        cachedResearchStateBuilder = fallbackBuildResearchStateSafe;
+    }
+
+    if (!researchStateBuilderPromise) {
+        researchStateBuilderPromise = import('../researchStateBuilder.mjs')
+            .then((module) => {
+                cachedResearchStateBuilder = module.buildResearchStateSafe || fallbackBuildResearchStateSafe;
+            })
+            .catch(() => {
+                cachedResearchStateBuilder = cachedResearchStateBuilder || fallbackBuildResearchStateSafe;
+            });
+    }
+
+    return cachedResearchStateBuilder;
+};
 // Cache the research system once so the Game bootstrap never throws on missing globals.
 const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
     ? window.ResearchSystem
@@ -84,10 +252,11 @@ function clamp01(value, fallback = 1) {
 export function createGameCore(overrides = {}) {
     const clusterBuilder = overrides.buildClusterBonusMap || buildClusterBonusMap;
     const visibilityBuilder = overrides.buildTileVisibilityMap || buildTileVisibilityMap;
-    const snowDefaults = overrides.SNOW_VISUAL_CONFIG || SNOW_VISUAL_CONFIG;
-    const snowConfigResolver = overrides.resolveSnowVisualConfig || resolveSnowVisualConfig;
-    const bootstrapValidator = overrides.validateBootstrapDependencies || validateBootstrapDependencies;
-    const researchStateBuilder = overrides.buildResearchStateSafe || buildResearchStateSafe;
+    const snowModule = resolveSnowVisualConfigModule();
+    const snowDefaults = overrides.SNOW_VISUAL_CONFIG || snowModule.SNOW_VISUAL_CONFIG;
+    const snowConfigResolver = overrides.resolveSnowVisualConfig || snowModule.resolveSnowVisualConfig;
+    const bootstrapValidator = overrides.validateBootstrapDependencies || resolveBootstrapValidator();
+    const researchStateBuilder = overrides.buildResearchStateSafe || resolveResearchStateBuilder();
     const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
         ? overrides.persistence
         : Persistence;
