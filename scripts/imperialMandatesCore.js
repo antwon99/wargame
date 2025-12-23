@@ -1,3 +1,7 @@
+const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
+    ? window.RebelSystem
+    : (typeof require === 'function' ? require('./rebelSystem.js') : null);
+
 function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
     const fallback = {
         withImperialAudioGuard: (fn) => (typeof fn === 'function' ? fn() : null),
@@ -371,8 +375,15 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
 
     function resetTrackedRebel(tile, gameState) {
         if (!tile) return;
+        if (RebelSystem?.restoreRebelTile) {
+            RebelSystem.restoreRebelTile(tile, gameState);
+            return;
+        }
+
         tile.isRebelCamp = false;
+        tile.owner = 'player';
         if (tile.type === 'rebelcamp') tile.type = tile.prevType || 'field';
+        if (tile.prevType) delete tile.prevType;
         const tileKey = getTileKey(tile);
         if (tileKey && gameState?.overworld?.hexes) {
             gameState.overworld.hexes.set(tileKey, tile);
