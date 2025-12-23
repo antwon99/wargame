@@ -28,7 +28,6 @@ import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
-import { buildResearchStateSafe } from '../researchStateBuilder.mjs';
 import { SNOW_VISUAL_CONFIG, resolveSnowVisualConfig } from '../snowVisualConfig.mjs';
 import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
@@ -54,6 +53,68 @@ const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandat
 const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
     ? window.ImperialMandateManager
     : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
+const fallbackBuildResearchStateSafe = ({
+    researchSystem,
+    saved = {},
+    defaultClusterRate = 0,
+    logDebug
+} = {}) => {
+    const baseState = () => ({
+        technologies: [],
+        bonuses: {
+            townGoldBonus: 0,
+            forestWoodBonus: 0,
+            clusterBaseRate: defaultClusterRate,
+            landReclamationClusterBonus: 0
+        },
+        lives: 0
+    });
+
+    const emitLog = (message, error) => {
+        if (typeof logDebug === 'function') logDebug(message, error);
+    };
+
+    if (!researchSystem || typeof researchSystem.instantiateTechnologies !== 'function') {
+        emitLog('ResearchSystem unavailable; using default research state.');
+        return baseState();
+    }
+
+    try {
+        const technologies = researchSystem.instantiateTechnologies(saved.technologies || []);
+        const livesTech = technologies.find((tech) => tech.id === 'lives');
+        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
+        const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
+        const bonuses = baseState().bonuses;
+        return { technologies, bonuses, lives: remainingLives };
+    } catch (error) {
+        emitLog('Research snapshot hydration failed; using safe defaults.', error);
+        return baseState();
+    }
+};
+let cachedResearchStateBuilder = null;
+let researchStateBuilderPromise = null;
+
+/**
+ * Resolve the research state builder without requiring the ES module.
+ * @returns {function} research state builder implementation.
+ */
+const resolveResearchStateBuilder = () => {
+    if (!cachedResearchStateBuilder) {
+        cachedResearchStateBuilder = fallbackBuildResearchStateSafe;
+    }
+
+    if (!researchStateBuilderPromise) {
+        researchStateBuilderPromise = import('../researchStateBuilder.mjs')
+            .then((module) => {
+                cachedResearchStateBuilder = module.buildResearchStateSafe || fallbackBuildResearchStateSafe;
+            })
+            .catch(() => {
+                cachedResearchStateBuilder = cachedResearchStateBuilder || fallbackBuildResearchStateSafe;
+            });
+    }
+
+    return cachedResearchStateBuilder;
+};
 // Cache the research system once so the Game bootstrap never throws on missing globals.
 const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
     ? window.ResearchSystem
@@ -87,7 +148,7 @@ export function createGameCore(overrides = {}) {
     const snowDefaults = overrides.SNOW_VISUAL_CONFIG || SNOW_VISUAL_CONFIG;
     const snowConfigResolver = overrides.resolveSnowVisualConfig || resolveSnowVisualConfig;
     const bootstrapValidator = overrides.validateBootstrapDependencies || validateBootstrapDependencies;
-    const researchStateBuilder = overrides.buildResearchStateSafe || buildResearchStateSafe;
+    const researchStateBuilder = overrides.buildResearchStateSafe || resolveResearchStateBuilder();
     const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
         ? overrides.persistence
         : Persistence;
