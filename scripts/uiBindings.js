@@ -1070,6 +1070,7 @@ function updateTileAttackOverlay(game, tile) {
     btn.style.top = `${pos.y - 56}px`;
     btn.onclick = (e) => {
         e?.stopPropagation?.();
+        btn.style.display = 'none';
         game.beginBattleFromTile(tile, e);
     };
 }

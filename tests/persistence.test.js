@@ -97,6 +97,7 @@ async function runTests() {
     assert.strictEqual(snap.stats.totalKills, 5);
     assert.strictEqual(snap.stats.bestKills, 0);
     assert.strictEqual(snap.stats.bestLevel, 0);
+    assert.strictEqual(snap.stats.warsWon, 0);
     assert.strictEqual(snap.stats.warsFought, 0);
     assert.strictEqual(snap.stats.lastOutcome, 'N/A');
     assert.strictEqual(snap.gold, 100);
@@ -126,6 +127,7 @@ async function runTests() {
     assert.deepStrictEqual(only.hex.q, 0);
     assert.strictEqual(result.stats.totalKills, 3);
     assert.strictEqual(result.stats.bestLevel, 4, 'legacy bestDifficulty should map to bestLevel');
+    assert.strictEqual(result.stats.warsWon, 0, 'missing warsWon should hydrate to default');
     assert.strictEqual(result.stats.warsFought, 6, 'legacy warsPlayed should map to warsFought');
     assert.strictEqual(result.imperialFavor, 3);
     assert.strictEqual(result.timekeeper.ticks, 4);
@@ -184,7 +186,7 @@ async function runTests() {
         imperialFavor: 9,
         timekeeper: { ticks: 8, daysPerWeek: 7, weeksPerMonth: 4 },
         overworld: { hexes: new Map([['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }]]) },
-        stats: { totalKills: 11, bestKills: 13, bestLevel: 2, warsFought: 8, lastOutcome: 'VICTORY' },
+        stats: { totalKills: 11, bestKills: 13, bestLevel: 2, warsWon: 3, warsFought: 8, lastOutcome: 'VICTORY' },
         imperialMandates: { serializeState: () => ({
             currentTick: 10,
             lastIssuedTick: 8,
@@ -206,6 +208,7 @@ async function runTests() {
     assert.strictEqual(loaded.stats.totalKills, 11);
     assert.strictEqual(loaded.stats.bestKills, 13);
     assert.strictEqual(loaded.stats.bestLevel, 2);
+    assert.strictEqual(loaded.stats.warsWon, 3);
     assert.strictEqual(loaded.stats.warsFought, 8);
     assert.strictEqual(loaded.stats.lastOutcome, 'VICTORY');
     assert.ok(loaded.stats.lastSaveISO, 'last save timestamp should be preserved');
@@ -214,7 +217,7 @@ async function runTests() {
     assert.strictEqual(loaded.state.mandates.currentTick, 10);
 
     // Multi-slot isolation
-    const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestLevel: 7, warsFought: 12 } };
+    const altGame = { ...saveGame, gold: 999, imperialFavor: 12, stats: { totalKills: 42, bestLevel: 7, warsWon: 5, warsFought: 12 } };
     const altSave = Persistence.saveSnapshot(altGame, 2);
     assert.ok(altSave.success, 'secondary saves should succeed');
     const slotOne = Persistence.loadSnapshot(1, { hexFactory: (q, r, s) => new Hex(q, r, s) });
@@ -222,6 +225,7 @@ async function runTests() {
     assert.strictEqual(slotOne.state.gold, 77);
     assert.strictEqual(slotTwo.state.gold, 999);
     assert.strictEqual(slotTwo.stats.bestLevel, 7);
+    assert.strictEqual(slotTwo.stats.warsWon, 5);
     assert.strictEqual(slotTwo.stats.warsFought, 12);
     assert.strictEqual(
         slotTwo.state.imperialFavor,

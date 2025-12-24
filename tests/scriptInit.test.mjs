@@ -216,7 +216,7 @@ async function loadGameModule({ globals = {} } = {}) {
         windowStub.Game.updateLeaderboardUI = windowStub.Game.updateLeaderboardUI || (() => {});
         windowStub.Game.updateSaveStatus = windowStub.Game.updateSaveStatus || (() => {});
         if (typeof windowStub.Game.init === 'function') {
-            const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
+            const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsWon: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
             windowStub.Game.init({
                 loadSnapshot: () => ({ state: null, stats: { ...fallbackStats }, slot: '1' }),
                 onHUDUpdate: () => {},
@@ -239,8 +239,8 @@ async function testInitWithGlobalsPresent() {
             getAvailableTechs: () => []
         },
         Persistence: {
-            DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null },
-            loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null }, slot: '1' }),
+            DEFAULT_STATS: { bestLevel: 1, bestKills: 2, totalKills: 3, warsWon: 0, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null },
+            loadSnapshot: () => ({ state: null, stats: { bestLevel: 1, bestKills: 2, totalKills: 3, warsWon: 0, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null }, slot: '1' }),
             saveSnapshot: () => {}
         }
     };

@@ -820,7 +820,6 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
 
         game.gold += taxedGoldReward;
         game.wood += woodReward;
-        game.difficulty = startingDifficulty + 1;
         game.spawnTxt(new Hex(0,0), `VICTORY +${taxedGoldReward}g +${woodReward}w`, '#fff');
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
 
@@ -830,6 +829,13 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
                 || targetTile.owner === 'rebel'
                 || targetTile.type === 'rebel');
         if (shouldRestoreRebel) {
+            const currentWins = Math.max(
+                Number.isFinite(game.stats?.warsWon) ? game.stats.warsWon : 0,
+                Math.max(0, Number.isFinite(game.difficulty) ? game.difficulty : 0)
+            );
+            // Enemy level now scales strictly with rebel camp victories (wars won).
+            game.stats.warsWon = currentWins + 1;
+            game.difficulty = game.stats.warsWon;
             RebelSystem?.restoreRebelTile?.(targetTile, game);
             if (typeof game.refreshClusterBonuses === 'function') {
                 game.refreshClusterBonuses();
