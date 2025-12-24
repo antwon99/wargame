@@ -15,7 +15,7 @@ async function run() {
     assert.strictEqual(Game.fxLayer, null, 'FX layer should be null before init.');
     delete global.document;
 
-    const fallbackStats = { bestLevel: 1, bestKills: 2, totalKills: 3, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null };
+    const fallbackStats = { bestLevel: 1, bestKills: 2, totalKills: 3, warsWon: 5, warsFought: 4, lastOutcome: 'N/A', lastSaveISO: null };
     const resources = buildCoreResourceState({ fallbackStats });
     resources.stats.bestLevel = 99;
     const pristineResources = buildCoreResourceState({ fallbackStats });

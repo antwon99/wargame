@@ -43,7 +43,7 @@ function buildGame() {
         overworld,
         research: { lives: 0 },
         difficulty: 0,
-        stats: { totalKills: 0, bestKills: 0, bestLevel: 0, warsFought: 0 },
+        stats: { totalKills: 0, bestKills: 0, bestLevel: 0, warsWon: 0, warsFought: 0 },
         session: { warKills: 0 },
         cam: { x: 0, y: 0, zoom: 1 },
         viewport: { width: 800, height: 600 },

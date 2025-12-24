@@ -59,7 +59,7 @@ function buildGame() {
         updateHUD: () => {},
         playSound: () => {},
         gold: 0,
-        stats: { totalKills: 0, bestKills: 0, bestLevel: 0, warsFought: 0 },
+        stats: { totalKills: 0, bestKills: 0, bestLevel: 0, warsWon: 0, warsFought: 0 },
         session: { warKills: 0 },
         combat: {
             units: [archer, soldier],

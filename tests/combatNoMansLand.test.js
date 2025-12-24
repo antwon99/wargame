@@ -77,7 +77,7 @@ function buildGame() {
         spawnBurstAtHex: () => {},
         resetSession() { this.session = { warKills: 0 }; },
         session: { warKills: 0 },
-        stats: { warsFought: 0, bestKills: 0 },
+        stats: { warsWon: 0, warsFought: 0, bestKills: 0 },
         updateLeaderboardUI: () => {},
         state: 'OVERWORLD',
         combat,

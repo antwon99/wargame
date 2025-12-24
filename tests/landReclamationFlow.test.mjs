@@ -171,7 +171,7 @@ async function loadGameModule({ importOverrides = {}, windowOverrides = {}, docu
     const document = createDocumentStub(documentOverrides);
     const windowStub = createWindowStub(document, windowOverrides);
     const importStubs = createImportStubs(importOverrides);
-    const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
+    const fallbackStats = { bestLevel: 0, bestKills: 0, totalKills: 0, warsWon: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null };
     windowStub.ResearchSystem = ResearchSystem;
     const persistenceStub = {
         DEFAULT_STATS: fallbackStats,

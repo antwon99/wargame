@@ -3,7 +3,7 @@ import { createGameCore } from '../scripts/game/core.js';
 
 function testResetProgressWithoutWindow() {
     const persistence = {
-        DEFAULT_STATS: { bestLevel: 0, bestKills: 0, totalKills: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null },
+        DEFAULT_STATS: { bestLevel: 0, bestKills: 0, totalKills: 0, warsWon: 0, warsFought: 0, lastOutcome: 'N/A', lastSaveISO: null },
         cleared: false,
         clearSnapshot() {
             this.cleared = true;

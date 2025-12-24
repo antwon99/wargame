@@ -1,5 +1,6 @@
 const assert = require('assert');
-const { damageBuilding, endWar } = require('../scripts/combatEngine.js');
+let damageBuilding;
+let endWar;
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -41,7 +42,7 @@ function buildEndWarGame(startingGold = 100) {
         difficulty: 0,
         messages: [],
         floating: [],
-        stats: { bestLevel: 0, bestKills: 0, warsFought: 0 },
+        stats: { bestLevel: 0, bestKills: 0, warsWon: 0, warsFought: 0 },
         session: { warKills: 0 },
         research: { lives: 0 },
         overworld: { hexes: new Map([[hex.toString(), { type: 'plain', owner: 'player', hex }]]) },
@@ -156,10 +157,12 @@ function testVictoryRaisesDifficultyByOne() {
     global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(120);
-    const startingDifficulty = game.difficulty;
+    game.pendingClearTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: new Hex(0, 0) };
+    const startingWins = game.stats.warsWon;
     endWar(game, 'VICTORY');
 
-    assert.strictEqual(game.difficulty, startingDifficulty + 1, 'victory should advance enemy level by one');
+    assert.strictEqual(game.stats.warsWon, startingWins + 1, 'victory should increment wars won after clearing a rebel camp');
+    assert.strictEqual(game.difficulty, game.stats.warsWon, 'enemy level should mirror wars won');
 
     global.window = originalWindow;
     global.document = originalDocument;
@@ -183,12 +186,24 @@ function testVictoryAppliesWarTax() {
 }
 
 function run() {
+    const originalWindow = global.window;
+    global.window = {
+        ImperialMandates: {
+            handleBattleOutcome: () => {},
+            getProtectedOverworldKeys: () => new Set()
+        }
+    };
+    const modulePath = require.resolve('../scripts/combatEngine.js');
+    delete require.cache[modulePath];
+    ({ damageBuilding, endWar } = require('../scripts/combatEngine.js'));
+
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
     testDefeatAppliesGoldPenalty();
     testDefeatPenaltyCannotGoNegative();
     testVictoryRaisesDifficultyByOne();
     testVictoryAppliesWarTax();
+    global.window = originalWindow;
     console.log('All combatEngine reward tests passed.');
 }
 
