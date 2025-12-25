@@ -236,7 +236,8 @@ async function testTaxLevyDeadlinePaths() {
     const goldBeforePayment = gameState.gold;
     assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after early ticks');
 
-    await advanceImperialTicks(1, gameState, successBindings);
+    const confirmResult = ImperialMandates.confirmMandateResources('levy_tithed_gold', gameState, successBindings);
+    assert.ok(confirmResult.ok, 'levy confirmation should succeed once resources are ready');
     const resolvedLevy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(resolvedLevy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should succeed once funds are ready');
     assert.ok(gameState.gold < goldBeforePayment, 'levy payout should reduce total gold');
@@ -400,7 +401,8 @@ async function testRotatingLevyMandate() {
     const { resourceType, requiredAmount } = levy.metadata;
     gameState[resourceType] = requiredAmount;
     const favorBeforeTribute = gameState.imperialFavor || 0;
-    await advanceImperialTicks(1, gameState, uiBindings);
+    const confirmResult = ImperialMandates.confirmMandateResources('rotating_resource_levy', gameState, uiBindings);
+    assert.ok(confirmResult.ok, 'rotating levy should confirm once resources are ready');
     levy = ImperialMandates.getKingState().mandates.rotating_resource_levy;
     assert.strictEqual(levy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should resolve when the tribute is ready');
     assert.strictEqual(gameState[resourceType], Math.floor(requiredAmount * 0.35), 'levy should deduct the tribute and return a rebate');
@@ -453,7 +455,8 @@ async function testRecurringMandatesReenterQueue() {
     assert.strictEqual(levy.status, ImperialMandates.MandateStatus.ACTIVE, 'levy should activate after the pacing window');
     const firstIssuance = levy.issuedTick;
 
-    await advanceImperialTicks(1, gameState, uiBindings);
+    const confirmResult = ImperialMandates.confirmMandateResources('levy_tithed_gold', gameState, uiBindings);
+    assert.ok(confirmResult.ok, 'levy should confirm when reserves cover the tribute');
     levy = ImperialMandates.getKingState().mandates.levy_tithed_gold;
     assert.strictEqual(levy.status, ImperialMandates.MandateStatus.SUCCEEDED, 'levy should complete when reserves cover the tribute');
 
@@ -529,7 +532,8 @@ async function testDiplomaticEnvoysMandate() {
     const favorBeforeEnvoys = gameState.imperialFavor || 0;
     gameState.imperialFavor = targetFavor;
     gameState.gold = giftCost;
-    await advanceImperialTicks(1, gameState, uiBindings);
+    const confirmResult = ImperialMandates.confirmMandateResources('diplomatic_envoys', gameState, uiBindings);
+    assert.ok(confirmResult.ok, 'envoy confirmation should succeed once favor and gifts are ready');
     envoys = ImperialMandates.getKingState().mandates.diplomatic_envoys;
     assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.SUCCEEDED, 'envoy mandate should succeed when favor and gifts align');
     assert.strictEqual(gameState.gold, 0, 'envoy gifts should deduct the treasury');

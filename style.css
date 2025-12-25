@@ -569,6 +569,48 @@
             color: #c2c8e0;
             line-height: 1.35;
         }
+        .mandate-card__resources {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            background: rgba(10, 14, 24, 0.45);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .mandate-card__resource {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: #cbd5f5;
+        }
+        .mandate-card__resource-label {
+            font-weight: 600;
+            color: #cbd5ff;
+        }
+        .mandate-card__resource-progress {
+            font-weight: 700;
+            color: #9be3b4;
+        }
+        .mandate-card__confirm {
+            align-self: flex-start;
+            margin-top: 2px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(123, 255, 180, 0.6);
+            background: rgba(46, 196, 122, 0.18);
+            color: #b6f5ce;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+        }
+        .mandate-card__confirm:hover {
+            background: rgba(46, 196, 122, 0.3);
+        }
         .mandate-card__deadline {
             display: flex;
             align-items: center;

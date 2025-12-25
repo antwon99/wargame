@@ -61,13 +61,17 @@ async function testMandatesPanelRendersList() {
         global.ImperialMandates = {
             MandateStatus: { ACTIVE: 'ACTIVE', SUCCEEDED: 'SUCCEEDED' },
             describeDeadlineTick: (tick) => ({ label: `Month ${tick}`, remainingDays: tick - 2 }),
+            confirmMandateResources: () => ({ ok: true }),
             getActiveMandates: () => [
                 {
                     id: 'alpha',
                     title: 'Alpha Directive',
                     description: 'Push the frontier to the river.',
                     status: 'ACTIVE',
-                    deadlineTick: 9
+                    deadlineTick: 9,
+                    resourceReady: true,
+                    resourceConfirmed: false,
+                    resourceRequirements: [{ key: 'gold', label: 'Coins', current: 80, target: 100, unit: 'coins' }]
                 },
                 {
                     id: 'beta',
@@ -92,6 +96,12 @@ async function testMandatesPanelRendersList() {
         assert.strictEqual(firstHeader.children[0].innerText, 'Alpha Directive', 'title should match mandate data');
         const firstBadge = firstHeader.children[1];
         assert.ok(firstBadge.className.includes('mandate-badge--active'), 'active mandate should show active badge');
+        const resourceGroup = firstCard.children[2];
+        assert.ok(resourceGroup.className.includes('mandate-card__resources'), 'resource summary should render for resource mandates');
+        const resourceRow = resourceGroup.children[0];
+        assert.ok(resourceRow.children[1].innerText.includes('80/100'), 'resource progress should show current and target values');
+        const confirmButton = resourceGroup.children[1];
+        assert.strictEqual(confirmButton.innerText, 'Send', 'resource-ready mandates should show a send button');
 
         const secondCard = list.children[1];
         const secondBadge = secondCard.children[0].children[1];
