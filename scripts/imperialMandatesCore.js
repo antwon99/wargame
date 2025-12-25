@@ -132,6 +132,96 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     }
 
     /**
+     * Build a per-mandate resource checklist for UI overlays or confirmations.
+     * @param {{ definition: object, runtime: object }} entry mandate entry to inspect.
+     * @param {object|null} gameState latest known game state reference.
+     * @returns {Array<{ key: string, label: string, current: number, target: number, unit: string }>}
+     */
+    function buildMandateResourceChecklist(entry, gameState) {
+        if (!entry) return [];
+        const safeGameState = gameState || state.lastGameState || {};
+        const favor = clampImperialFavor(safeGameState.imperialFavor);
+        const gold = Math.max(0, safeGameState.gold || 0);
+        const wood = Math.max(0, safeGameState.wood || 0);
+
+        switch (entry.definition.id) {
+            case 'levy_tithed_gold': {
+                const target = Number(entry.runtime.metadata.requiredGold) || 0;
+                if (target <= 0) return [];
+                return [{ key: 'gold', label: 'Coins', current: gold, target, unit: 'coins' }];
+            }
+            case 'infrastructure_quota': {
+                const targetWood = Number(entry.runtime.metadata.targetWood) || 0;
+                const targetGold = Number(entry.runtime.metadata.targetGold) || 0;
+                const requirements = [];
+                if (targetWood > 0) requirements.push({
+                    key: 'wood',
+                    label: 'Wood',
+                    current: wood,
+                    target: targetWood,
+                    unit: 'wood'
+                });
+                if (targetGold > 0) requirements.push({
+                    key: 'gold',
+                    label: 'Coins',
+                    current: gold,
+                    target: targetGold,
+                    unit: 'coins'
+                });
+                return requirements;
+            }
+            case 'rotating_resource_levy': {
+                const target = Number(entry.runtime.metadata.requiredAmount) || 0;
+                const resourceType = entry.runtime.metadata.resourceType || 'gold';
+                if (target <= 0) return [];
+                const current = resourceType === 'wood' ? wood : gold;
+                return [{
+                    key: resourceType,
+                    label: resourceType === 'wood' ? 'Wood' : 'Coins',
+                    current,
+                    target,
+                    unit: resourceType === 'wood' ? 'wood' : 'coins'
+                }];
+            }
+            case 'diplomatic_envoys': {
+                const giftCost = Number(entry.runtime.metadata.giftCost) || 0;
+                const targetFavor = Number(entry.runtime.metadata.targetFavor) || 0;
+                const requirements = [];
+                if (giftCost > 0) requirements.push({
+                    key: 'gold',
+                    label: 'Coins',
+                    current: gold,
+                    target: giftCost,
+                    unit: 'coins'
+                });
+                if (targetFavor > 0) requirements.push({
+                    key: 'favor',
+                    label: 'Imperial Favor',
+                    current: favor,
+                    target: targetFavor,
+                    unit: 'favor'
+                });
+                return requirements;
+            }
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Check whether a mandate's resource checklist is fully satisfied.
+     * @param {{ definition: object, runtime: object }} entry active mandate entry.
+     * @param {object|null} gameState latest known game state reference.
+     * @returns {{ ready: boolean, requirements: Array<object> }}
+     */
+    function getMandateResourceStatus(entry, gameState) {
+        const requirements = buildMandateResourceChecklist(entry, gameState);
+        if (!requirements.length) return { ready: false, requirements };
+        const ready = requirements.every((resource) => resource.current >= resource.target);
+        return { ready, requirements };
+    }
+
+    /**
      * Prevent decree presenters from invoking overlap-prone combat cues so messaging remains UI-only.
      * @param {object} [uiBindings] hooks that may include a playSound delegate.
      * @returns {object} shallow copy with guarded audio hooks.
@@ -411,6 +501,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     }
 
     function snapshotMandate(entry) {
+        const { ready, requirements } = getMandateResourceStatus(entry, state.lastGameState);
         return {
             id: entry.definition.id,
             title: entry.definition.title,
@@ -420,7 +511,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             issuedTick: entry.runtime.issuedTick,
             completedTick: entry.runtime.completedTick,
             cooldownUntilTick: entry.runtime.cooldownUntilTick,
-            metadata: { ...entry.runtime.metadata }
+            metadata: { ...entry.runtime.metadata },
+            resourceRequirements: requirements,
+            resourceReady: ready,
+            resourceConfirmed: Boolean(entry.runtime.metadata.confirmed)
         };
     }
 
@@ -702,6 +796,34 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     }
 
     /**
+     * Confirm payment-ready mandates and immediately evaluate their success conditions.
+     * @param {string} mandateId mandate identifier to confirm.
+     * @param {object} [gameState] optional live game reference for resource checks.
+     * @param {object} [uiBindings] optional UI hooks for messaging.
+     * @returns {{ ok: boolean, reason?: string, requirements?: Array<object> }}
+     */
+    function confirmMandateResources(mandateId, gameState, uiBindings) {
+        const entry = state.mandates.get(mandateId);
+        if (!entry || entry.runtime.status !== MandateStatus.ACTIVE) {
+            return { ok: false, reason: 'inactive' };
+        }
+        if (entry.runtime.metadata.confirmed) {
+            return { ok: false, reason: 'already-confirmed' };
+        }
+        const ctx = buildContext(gameState, uiBindings);
+        const { ready, requirements } = getMandateResourceStatus(entry, ctx.gameState);
+        if (!requirements.length) {
+            return { ok: false, reason: 'no-resources' };
+        }
+        if (!ready) {
+            return { ok: false, reason: 'insufficient-resources', requirements };
+        }
+        entry.runtime.metadata.confirmed = true;
+        recordEvent('mandate_confirmed', { mandateId, requirements }, ctx.gameState, ctx.uiBindings);
+        return { ok: true, requirements };
+    }
+
+    /**
      * Retrieve active mandates in snapshot form for UI overlays or diagnostics.
      * @returns {Array} shallow copies of active mandate runtime data.
      */
@@ -856,7 +978,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             description: blueprint.description || 'Deliver a gold tithe to the capital. Maintain reserves long enough for the courier to collect payment.',
             duration: blueprint.duration || { weeks: 1, days: 4 },
             scaleDurationWithFavor: true,
-            createInitialState: () => ({ requiredGold: 0, deadlineWarned: false }),
+            createInitialState: () => ({ requiredGold: 0, deadlineWarned: false, confirmed: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
             triggerPredicate: ({ gameState }) => {
                 const { requiredGold, upgradeProgress, developedHoldings } = computeTaxLevyRequirement(gameState);
@@ -873,12 +995,11 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     `Collectors arrive by ${formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState)}.`
                 ], uiBindings, 'Imperial Tax Levy');
             },
-            successPredicate: (eventType, payload, ctx) => {
-                if (eventType !== 'tick') return false;
-                const gold = ctx.gameState?.gold || 0;
-                const required = ctx.mandate.runtime.metadata.requiredGold;
-                return gold >= required;
-            },
+            successPredicate: (eventType, payload, ctx) => (
+                eventType === 'mandate_confirmed'
+                && payload?.mandateId === ctx.mandate.definition.id
+                && ctx.mandate.runtime.metadata.confirmed
+            ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
                 const required = mandate.runtime.metadata.requiredGold;
                 if (typeof gameState?.gold === 'number') {
@@ -997,8 +1118,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                         showMandateBanner('Depots are not fully stocked yet.', uiBindings, 'Infrastructure Quota', { tone: 'warning', duration: 3600 });
                         return;
                     }
-                    mandate.runtime.metadata.accepted = true;
-                    recordEvent('infrastructure_quota_accept', { mandateId: mandate.definition.id, gameState }, gameState, uiBindings);
+                    confirmMandateResources(mandate.definition.id, gameState, uiBindings);
                 }
             }, uiBindings);
         };
@@ -1010,7 +1130,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             description: blueprint.description || 'Stage materials for imperial engineers so roads, depots, and waystations can be laid without delay.',
             duration: blueprint.duration || { weeks: 1, days: 1 },
             scaleDurationWithFavor: true,
-            createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false, accepted: false, readyPrompted: false }),
+            createInitialState: () => ({ targetWood: 0, targetGold: 0, deadlineWarned: false, confirmed: false, readyPrompted: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 3 },
             triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
             onIssue: ({ gameState, uiBindings, mandate }) => {
@@ -1027,7 +1147,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 showInfrastructureQuotaModal({ gameState, uiBindings, mandate });
             },
             onEvent: (eventType, payload, ctx) => {
-                if (ctx.mandate.runtime.metadata.accepted) return;
+                if (ctx.mandate.runtime.metadata.confirmed) return;
                 const isResourceEvent = eventType === 'tick' || eventType === 'inventory_change';
                 if (!isResourceEvent) return;
                 const wood = ctx.gameState?.wood || 0;
@@ -1038,7 +1158,11 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     showInfrastructureQuotaModal(ctx);
                 }
             },
-            successPredicate: (eventType, payload, ctx) => Boolean(ctx.mandate.runtime.metadata.accepted),
+            successPredicate: (eventType, payload, ctx) => (
+                eventType === 'mandate_confirmed'
+                && payload?.mandateId === ctx.mandate.definition.id
+                && ctx.mandate.runtime.metadata.confirmed
+            ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
                 const { targetGold = 0, targetWood = 0 } = mandate.runtime.metadata;
                 if (typeof gameState?.gold === 'number') {
@@ -1089,7 +1213,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             description: blueprint.description || 'Alternate between gold and timber tributes so the treasury stays balanced and the navy stays supplied.',
             duration: blueprint.duration || { weeks: 1, days: 4 },
             scaleDurationWithFavor: true,
-            createInitialState: () => ({ requiredAmount: 0, resourceType: 'gold', deadlineWarned: false }),
+            createInitialState: () => ({ requiredAmount: 0, resourceType: 'gold', deadlineWarned: false, confirmed: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 3 },
             triggerPredicate: ({ gameState }) => {
                 const holdings = gameState?.overworld?.hexes?.size || 0;
@@ -1109,12 +1233,11 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     'Rotation shifts the next levy to the opposite reserve.'
                 ], uiBindings, 'Rotating Imperial Levy');
             },
-            successPredicate: (eventType, payload, ctx) => {
-                if (eventType !== 'tick') return false;
-                const { resourceType, requiredAmount } = ctx.mandate.runtime.metadata;
-                const reserve = ctx.gameState?.[resourceType] || 0;
-                return reserve >= requiredAmount;
-            },
+            successPredicate: (eventType, payload, ctx) => (
+                eventType === 'mandate_confirmed'
+                && payload?.mandateId === ctx.mandate.definition.id
+                && ctx.mandate.runtime.metadata.confirmed
+            ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
                 const { resourceType, requiredAmount } = mandate.runtime.metadata;
                 if (typeof gameState?.[resourceType] === 'number') {
@@ -1156,9 +1279,9 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             ...blueprint,
             id: 'diplomatic_envoys',
             title: blueprint.title || 'Dispatch Diplomatic Envoys',
-            description: blueprint.description || 'Spend favor and coin to keep frontier courts aligned with the Empire.',
+            description: blueprint.description || 'Maintain favor and pay coin to keep frontier courts aligned with the Empire.',
             duration: blueprint.duration || { weeks: 1 },
-            createInitialState: () => ({ targetFavor: 0, giftCost: 0, deadlineWarned: false }),
+            createInitialState: () => ({ targetFavor: 0, giftCost: 0, deadlineWarned: false, confirmed: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
             triggerPredicate: ({ gameState }) => {
                 const favor = clampImperialFavor(gameState?.imperialFavor);
@@ -1176,13 +1299,11 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     `Secure favor ${targetFavor}+ by ${deadlineLabel}.`
                 ], uiBindings, 'Diplomatic Envoys');
             },
-            successPredicate: (eventType, payload, ctx) => {
-                if (eventType !== 'tick') return false;
-                const favor = clampImperialFavor(ctx.gameState?.imperialFavor);
-                const gold = ctx.gameState?.gold || 0;
-                const { targetFavor, giftCost } = ctx.mandate.runtime.metadata;
-                return favor >= targetFavor && gold >= giftCost;
-            },
+            successPredicate: (eventType, payload, ctx) => (
+                eventType === 'mandate_confirmed'
+                && payload?.mandateId === ctx.mandate.definition.id
+                && ctx.mandate.runtime.metadata.confirmed
+            ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
                 const { giftCost } = mandate.runtime.metadata;
                 if (typeof gameState?.gold === 'number') {
@@ -1224,6 +1345,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         registerMandate,
         issuePendingMandates,
         recordEvent,
+        confirmMandateResources,
         getActiveMandates,
         describeDeadlineTick,
         resetForNewCampaign,

@@ -405,6 +405,13 @@ function formatRemainingDays(remaining) {
     return `${remaining} days remaining`;
 }
 
+function formatResourceProgress(resource) {
+    const current = Number.isFinite(resource.current) ? resource.current : 0;
+    const target = Number.isFinite(resource.target) ? resource.target : 0;
+    const unit = resource.unit ? ` ${resource.unit}` : '';
+    return `${current}/${target}${unit}`;
+}
+
 /**
  * Render the current set of active imperial mandates into the HUD flyout.
  * Pulls from ImperialMandates.getActiveMandates() to stay in sync with the
@@ -433,6 +440,8 @@ export function renderMandatesPanel() {
     activeMandates.forEach((mandate) => {
         const deadlineMeta = renderDeadlineMeta(mandate, api);
         const badgeTone = getMandateBadgeTone(mandate, deadlineMeta);
+        const resourceRequirements = Array.isArray(mandate.resourceRequirements) ? mandate.resourceRequirements : [];
+        const hasResources = resourceRequirements.length > 0;
 
         const card = document.createElement('article');
         card.className = 'mandate-card';
@@ -454,6 +463,42 @@ export function renderMandatesPanel() {
         const desc = document.createElement('p');
         desc.className = 'mandate-card__description';
         desc.innerText = mandate.description;
+
+        if (hasResources) {
+            const resources = document.createElement('div');
+            resources.className = 'mandate-card__resources';
+
+            resourceRequirements.forEach((resource) => {
+                const row = document.createElement('div');
+                row.className = 'mandate-card__resource';
+
+                const label = document.createElement('span');
+                label.className = 'mandate-card__resource-label';
+                label.innerText = resource.label || 'Resource';
+
+                const progress = document.createElement('span');
+                progress.className = 'mandate-card__resource-progress';
+                progress.innerText = formatResourceProgress(resource);
+
+                row.appendChild(label);
+                row.appendChild(progress);
+                resources.appendChild(row);
+            });
+
+            if (mandate.resourceReady && !mandate.resourceConfirmed) {
+                const confirm = document.createElement('button');
+                confirm.type = 'button';
+                confirm.className = 'mandate-card__confirm';
+                confirm.innerText = 'Send';
+                confirm.onclick = () => {
+                    const result = api?.confirmMandateResources?.(mandate.id);
+                    if (result?.ok) renderMandatesPanel();
+                };
+                resources.appendChild(confirm);
+            }
+
+            card.appendChild(resources);
+        }
 
         const footer = document.createElement('div');
         footer.className = 'mandate-card__deadline';
