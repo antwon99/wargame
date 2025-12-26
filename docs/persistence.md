@@ -8,7 +8,7 @@ This prototype now ships with a lightweight persistence layer backed by `localSt
 
 ## What gets saved
 - Resources, difficulty, upgrades, and every discovered overworld hex.
-- Hex records now include mines, shrines, and ruins alongside the legacy castle/field/forest/town/rebel entries; snapshots preserve their IDs for income and hook processing on load.
+- Hex records now include mines, shrines, ruins, and rebel camps alongside the legacy castle/field/forest/town entries; snapshots preserve their IDs for income and hook processing on load. Legacy rebel-held tiles are normalized into rebel camps when loading.
 - **Imperial favor** and the **Timekeeper** state (ticks + calendar config) so the HUD calendar and favor pill resume where the player left off.
 - Pending HUD **notifications** and **imperial mandate timers** so deadline banners and decree reminders survive reloads.
 - Leaderboard stats: total kills, best kill streak per war, highest level reached, wars fought, the last outcome, and the most recent save timestamp.

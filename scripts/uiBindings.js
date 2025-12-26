@@ -908,6 +908,20 @@ export function updateHUD(game) {
 }
 
 /**
+ * Resolve the latest overworld tile payload for a selected tile reference.
+ * Ensures UI affordances (like attack overlays) follow post-combat map updates.
+ * @param {object} game live game singleton.
+ * @param {object|null} tile selected tile payload.
+ * @returns {object|null} most recent tile data when known.
+ */
+function resolveOverworldTile(game, tile) {
+    if (!tile || !game?.overworld?.hexes) return tile;
+    const key = tile.hex?.toString?.() || tile.toString?.();
+    if (!key) return tile;
+    return game.overworld.hexes.get(key) || tile;
+}
+
+/**
  * Update the tile inspector widget to surface contextual actions like Attack for hostile tiles.
  * @param {object} game live game singleton.
  * @param {object|null} tile currently selected overworld tile.
@@ -994,18 +1008,19 @@ function updateTileInspector(game, tile) {
         return;
     }
 
-    const claimCost = typeof tile.claimCost === 'number' ? tile.claimCost : null;
-    const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(tile);
-    const isHostile = !claimCost && (isRebelTile || tile.owner === 'enemy' || tile.owner === 'rebel');
+    const resolvedTile = resolveOverworldTile(game, tile);
+    const claimCost = typeof resolvedTile.claimCost === 'number' ? resolvedTile.claimCost : null;
+    const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(resolvedTile);
+    const isHostile = !claimCost && (isRebelTile || resolvedTile.owner === 'enemy');
     const labelText = claimCost !== null
         ? 'Unclaimed Frontier'
-        : tile.type
-            ? tile.type.toString().replace(/-/g, ' ')
+        : resolvedTile.type
+            ? resolvedTile.type.toString().replace(/-/g, ' ')
             : 'Unknown Tile';
 
     label.innerText = labelText.toUpperCase();
     panel.classList.toggle('hostile', !!isHostile);
-    game.updateTileAttackOverlay?.(isHostile ? tile : null);
+    game.updateTileAttackOverlay?.(isHostile ? resolvedTile : null);
 
     if (bonus) {
         bonus.classList.toggle('paused', !!game.paused);
@@ -1019,21 +1034,21 @@ function updateTileInspector(game, tile) {
             return;
         }
 
-        if (awaitingReclamation && tile.owner === 'enemy') {
+        if (awaitingReclamation && resolvedTile.owner === 'enemy') {
             bonus.innerText = 'Enemy tile — reclaim a player field instead.';
             bonus.title = 'Land reclamation can only target neutral or player-owned fields.';
             hideAdjacency();
             return;
         }
 
-        if (awaitingReclamation && tile.type !== 'field') {
+        if (awaitingReclamation && resolvedTile.type !== 'field') {
             bonus.innerText = 'Reclamation ready: select a player-controlled field to convert.';
             bonus.title = 'Only fields can be upgraded via land reclamation.';
             hideAdjacency();
             return;
         }
 
-        if (pendingReclamations && tile.type === 'field' && tile.owner !== 'enemy') {
+        if (pendingReclamations && resolvedTile.type === 'field' && resolvedTile.owner !== 'enemy') {
             const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
             const costLine = pendingCostLabel ? ` (${pendingCostLabel} on placement)` : '';
             bonus.innerText = `Reclaim ready: convert to ${targetLabel}${costLine}.`;
@@ -1042,9 +1057,9 @@ function updateTileInspector(game, tile) {
             return;
         }
 
-        const key = tile.hex?.toString?.() || `${tile.hex?.q ?? 0},${tile.hex?.r ?? 0}`;
+        const key = resolvedTile.hex?.toString?.() || `${resolvedTile.hex?.q ?? 0},${resolvedTile.hex?.r ?? 0}`;
         const clusterMap = game.overworld?.clusterBonuses;
-        const cluster = key && clusterMap?.has(key) ? clusterMap.get(key) : tile.clusterBonus;
+        const cluster = key && clusterMap?.has(key) ? clusterMap.get(key) : resolvedTile.clusterBonus;
         if (game.featureToggles?.debug?.logAdjacency && cluster) {
             console.debug('Tile adjacency bonuses', { key, cluster });
         }
@@ -1102,21 +1117,23 @@ function updateTileAttackOverlay(game, tile) {
     const btn = document.getElementById('tile-attack-overlay-btn');
     if (!layer || !btn) return;
 
-    const isHostile = tile && (RebelSystem.isRebelCampTile?.(tile) || tile.owner === 'enemy' || tile.owner === 'rebel');
-    const shouldHide = !tile || !isHostile || game.state !== 'OVERWORLD';
+    const resolvedTile = resolveOverworldTile(game, tile);
+    const isHostile = resolvedTile
+        && (RebelSystem.isRebelCampTile?.(resolvedTile) || resolvedTile.owner === 'enemy');
+    const shouldHide = !resolvedTile || !isHostile || game.state !== 'OVERWORLD';
     if (shouldHide) {
         btn.style.display = 'none';
         return;
     }
 
-    const pos = game.projectHexToScreen(tile.hex || tile);
+    const pos = game.projectHexToScreen(resolvedTile.hex || resolvedTile);
     btn.style.display = 'inline-flex';
     btn.style.left = `${pos.x - 30}px`;
     btn.style.top = `${pos.y - 56}px`;
     btn.onclick = (e) => {
         e?.stopPropagation?.();
         btn.style.display = 'none';
-        game.beginBattleFromTile(tile, e);
+        game.beginBattleFromTile(resolvedTile, e);
     };
 }
 

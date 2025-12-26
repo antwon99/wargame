@@ -15,7 +15,7 @@ This balance pass realigns the overworld calendar to 7-day weeks and 4-week mont
 - War entry fees: `10 + (difficulty * 12) + (⌊(month-1)/2⌋ * 3) + (year-1) * 5`.
 - Victory rewards scale with difficulty and era (every 3 months) to keep wars funding the next push.
 - AI prep uses the same calendar: starting gold rises with difficulty and months, and the decision cadence tightens as levels climb.
-- Rebels claim 65% of post-war penalty tiles to keep frontier pressure rising.
+- Rebel camps claim 65% of post-war penalty tiles to keep frontier pressure rising.
 
 ## Validation
 - `tests/longRunSim.test.js` simulates three months of income to verify gold/wood flow under the 28-day loop and checks AI prep scaling.

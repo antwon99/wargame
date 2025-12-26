@@ -6,8 +6,8 @@ hex map, identifies connected components of like-type, like-owner tiles, and cac
 result so income ticks and UI renders stay in sync.
 
 ## Cluster Logic
-- Only owned, non-scorched, non-rebel tiles participate in clusters. Enemy and rebel
-  tiles never contribute to adjacency bonuses.
+- Only owned, non-scorched, non-rebel-camp tiles participate in clusters. Enemy and rebel
+  camps never contribute to adjacency bonuses.
 - Clusters are flood-filled based on axial neighbors. A tile that is isolated (cluster
   size 1) produces no adjacency bonus.
 - The base rate is **10% per additional tile** in the cluster. A three-tile town cluster

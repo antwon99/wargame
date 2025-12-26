@@ -119,12 +119,12 @@ function testEndWarHighlightsLostTiles() {
     global.window = originalWindow;
     global.document = originalDocument;
 
-    const lossLabels = floatingTexts.filter((entry) => entry.text === 'Scorched' || entry.text === 'Seized');
+    const lossLabels = floatingTexts.filter((entry) => entry.text === 'Scorched' || entry.text === 'Rebel Camp');
     assert.strictEqual(lossLabels.length, 2, 'converted tiles should emit per-tile highlights');
     const summary = floatingTexts.find((entry) => entry.text.startsWith('Defeat:'));
     assert.ok(summary, 'defeat should surface a summary floating label');
     assert.ok(summary.text.includes('1 tile scorched'), 'summary should count scorched tiles');
-    assert.ok(summary.text.includes('1 seized'), 'summary should count rebel takeovers');
+    assert.ok(summary.text.includes('1 rebel camp'), 'summary should count rebel camps');
     assert.strictEqual(game.overworld.hexes.get(protectedTile.hex.toString()).type, 'field', 'pending target should remain protected');
     assert.ok(bursts.length >= 2, 'particle bursts should accompany tile highlights');
     assert.strictEqual(game.state, 'OVERWORLD', 'endWar should return game to overworld state');

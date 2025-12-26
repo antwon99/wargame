@@ -9,7 +9,6 @@ The overworld map uses a small, icon-driven vocabulary so tiles are immediately 
 | Forest | 🌲 | `#2d6a4f` | +1 wood | — | Triggers lumberjack research bonuses. |
 | Town | 🏠 | `#5e548e` | +2 gold | — | Plays the `city` chime when claimed. |
 | Scorched | 🔥 | `#3b2a2a` | — | — | No income; used for lost/ash territory. |
-| Rebel | ⚔️ | `#a4161a` | — | — | No income; hostile territory marker. |
 | Rebel Camp | 🏴 | `#7f1d1d` | — | — | No income; hostile spawning camp. |
 | Mine | ⛏️ | `#7f5539` | +3 gold | — | Grants an immediate +35 gold payout on claim and plays the `gold` cue. |
 | Shrine | ⛪ | `#c9ada7` | — | +1 favor | Awards +2 Imperial Favor when claimed and keeps adding +1 favor each income tick. Plays the `holy` cue on claim. |
@@ -23,5 +22,5 @@ The tile inspector mirrors the HUD’s 28-day pacing by showing per-tick adjacen
 | State | Displayed label | Bonus line | Overlay behavior |
 | --- | --- | --- | --- |
 | No selection (OVERWORLD) | “Select a tile to inspect” | “Cluster bonuses appear…” or “Paused — cluster bonuses frozen…” depending on the pause toggle | Attack overlay cleared |
-| Hostile/rebel selection | Uppercased tile type | `+Xg +Yw — N-tile …` plus adjacency/reclamation tooltip | Attack overlay anchored to tile |
+| Hostile selection | Uppercased tile type | `+Xg +Yw — N-tile …` plus adjacency/reclamation tooltip | Attack overlay anchored to tile |
 | Non-OVERWORLD states (e.g., combat) | Inspector hidden | Bonus/tooltip cleared | Attack overlay cleared |

@@ -110,31 +110,8 @@ function testRebelCampVictoryRestoresTerrain() {
     assert.ok(!updated.prevType, 'rebel metadata should be removed after conversion');
 }
 
-function testRebelOwnedVictoryRestoresTerrain() {
-    const game = buildGame();
-    const hex = new Hex(1, 0);
-    const tile = { hex, type: 'rebel', owner: 'rebel' };
-    game.overworld.hexes.set(hex.toString(), tile);
-    game.pendingClearTile = tile;
-    game.state = 'COMBAT';
-
-    withUiShell(() => {
-        withMandateStubs(() => {
-            withPatchedRandom([0.95], () => {
-                endWar(game, 'VICTORY');
-            });
-        });
-    });
-
-    const updated = game.overworld.hexes.get(hex.toString());
-    assert.strictEqual(updated.owner, 'player', 'victory should restore rebel-owned tiles to player control');
-    assert.strictEqual(updated.type, 'water', 'terrain roll should respect weighted probabilities');
-    assert.strictEqual(updated.isWater, true, 'water rolls should carry the water flag');
-}
-
 function run() {
     testRebelCampVictoryRestoresTerrain();
-    testRebelOwnedVictoryRestoresTerrain();
     console.log('Rebel tile recovery tests passed.');
 }
 

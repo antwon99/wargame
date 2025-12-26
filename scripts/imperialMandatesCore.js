@@ -321,7 +321,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         gameState.overworld.hexes.forEach((tile) => {
             const type = (tile?.type || '').toLowerCase();
             const owner = (tile?.owner || 'player').toLowerCase();
-            const isHostile = owner === 'rebel' || owner === 'scorched';
+            const isRebelCamp = RebelSystem?.isRebelCampTile?.(tile)
+                || tile?.type === 'rebelcamp'
+                || tile?.isRebelCamp;
+            const isHostile = owner === 'scorched' || isRebelCamp;
             const isDeveloped = ['town', 'castle', 'mine', 'harbor', 'village'].includes(type);
             if (!isHostile && isDeveloped) developed += 1;
         });
@@ -400,10 +403,9 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             ? calendarEarliestIssueTick(entry, gameState)
             : (entry?.definition?.earliestIssue ? convertToTicks(entry.definition.earliestIssue, gameState) : 0);
 
-        const frontierSweepCompleted = state.rebelSweep?.outcome === MandateStatus.SUCCEEDED
-            && Number.isFinite(state.rebelSweep?.completionTick);
+        const frontierSweepResolved = Number.isFinite(state.rebelSweep?.completionTick);
         const gateAfterFrontierSweep = (offsetTick = 0) => {
-            if (!frontierSweepCompleted) return Number.POSITIVE_INFINITY;
+            if (!frontierSweepResolved) return Number.POSITIVE_INFINITY;
             return state.rebelSweep.completionTick + Math.max(0, offsetTick);
         };
 
@@ -1047,7 +1049,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 showMandateBanner([
                     `Add ${mandate.runtime.metadata.targetTerritory - currentTerritory} holdings before the fog closes in.`,
                     'New towns will earn a small signing bonus.',
-                    'Unlocked after sweeping the first rebel camp.'
+                    'Unlocked once the frontier sweep decree resolves.'
                 ], uiBindings, 'Push the Frontier');
             },
             successPredicate: (eventType, payload, ctx) => {
