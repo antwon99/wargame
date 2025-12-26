@@ -68,8 +68,9 @@ function testFrontierConversionMarksOuterRingFirst() {
     assert.strictEqual(gameState.overworld.hexes.size, coords.length, 'converted tiles should remain on the map');
     assert.strictEqual(scorchedFrontier.type, 'scorched', 'farthest frontier tile should be scorched first');
     assert.strictEqual(scorchedFrontier.owner, 'scorched', 'scorched tiles should carry a matching owner flag');
-    assert.strictEqual(rebelFrontier.type, 'rebel', 'subsequent frontier should convert after recalculation');
-    assert.strictEqual(rebelFrontier.owner, 'rebel', 'rebel takeovers should mark ownership');
+    assert.strictEqual(rebelFrontier.type, 'rebelcamp', 'subsequent frontier should convert after recalculation');
+    assert.strictEqual(rebelFrontier.owner, 'rebel', 'rebel camps should mark rebel ownership');
+    assert.strictEqual(rebelFrontier.isRebelCamp, true, 'rebel camps should be flagged for combat cleanup');
     assert.ok(gameState.overworld.hexes.has('2,0'), 'inner tiles should remain until they become exposed');
     assert.ok(gameState.ghostsCalculated, 'overworld ghost recalculation should run after conversions');
 }
@@ -100,7 +101,7 @@ function testLossReportTracksFates() {
     withMockedRandom([0.2, 0.7, 0.2], () => {
         const report = loseOverworldHexes(gameState, 3);
         assert.strictEqual(report.counts.scorched, 2, 'loss report should tally scorched tiles');
-        assert.strictEqual(report.counts.rebel, 1, 'loss report should tally rebel takeovers');
+        assert.strictEqual(report.counts.rebelcamp, 1, 'loss report should tally rebel camps');
         assert.strictEqual(report.conversions[0].hex.toString(), '3,0', 'report should carry converted hex references for FX');
     });
 }

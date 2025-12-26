@@ -631,14 +631,14 @@ export function startWar(game, clickEvt, hexImpl) {
 /**
  * Strip overworld control as a defeat/retreat penalty while honoring
  * protected coordinates (e.g., the rebel camp that initiated the war).
- * Frontier tiles are converted into either scorched ruins or rebel-owned
- * territory (50/50 chance) instead of being deleted outright. We maintain the
- * coordinates in the map for UI continuity while treating the converted tiles
- * as "lost" for subsequent frontier calculations.
+ * Frontier tiles are converted into either scorched ruins or rebel camps
+ * instead of being deleted outright. We maintain the coordinates in the map
+ * for UI continuity while treating the converted tiles as "lost" for
+ * subsequent frontier calculations.
  * @param {object} game current game object.
  * @param {number} count number of tiles to convert.
  * @param {Set<string>} [protectedKeys] tile keys that cannot be converted.
- * @returns {{lost:number, conversions:Array<{key:string, fate:string, hex:object}>, counts:{scorched:number, rebel:number}, convertedKeys:Set<string>}}
+ * @returns {{lost:number, conversions:Array<{key:string, fate:string, hex:object}>, counts:{scorched:number, rebelcamp:number}, convertedKeys:Set<string>}}
  *          report describing converted tiles.
  */
 export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
@@ -669,11 +669,11 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
 
     const convertTileToPenalty = (key, fateOverride) => {
         const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
-        const fate = fateOverride || (Math.random() < 0.65 ? 'rebel' : 'scorched');
+        const fate = fateOverride || (Math.random() < 0.65 ? 'rebelcamp' : 'scorched');
         tile.type = fate;
-        tile.owner = fate;
+        tile.owner = fate === 'rebelcamp' ? 'rebel' : fate;
         tile.hex = tile.hex || parseKey(key);
-        if (tile.isRebelCamp && fate !== 'rebelcamp') tile.isRebelCamp = false;
+        tile.isRebelCamp = fate === 'rebelcamp';
         game.overworld.hexes.set(key, tile);
         return { key, fate, hex: tile.hex };
     };
@@ -710,7 +710,7 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
 
     const counts = conversions.reduce(
         (tally, conv) => ({ ...tally, [conv.fate]: (tally[conv.fate] || 0) + 1 }),
-        { scorched: 0, rebel: 0 }
+        { scorched: 0, rebelcamp: 0 }
     );
 
     return {
@@ -725,14 +725,14 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
  * Summarize overworld losses for a given war outcome so UI overlays can surface
  * a player-facing recap without duplicating string logic across branches.
  * @param {string} outcomeLabel canonical outcome label (e.g., "Defeat").
- * @param {{counts:{scorched:number, rebel:number}}} lossReport aggregated loss data.
+ * @param {{counts:{scorched:number, rebelcamp:number}}} lossReport aggregated loss data.
  * @returns {string} formatted summary sentence.
  */
 export function formatLossSummary(outcomeLabel, lossReport = { counts: {} }) {
     const counts = lossReport.counts || {};
     const segments = [];
     if (counts.scorched) segments.push(`${counts.scorched} tile${counts.scorched === 1 ? '' : 's'} scorched`);
-    if (counts.rebel) segments.push(`${counts.rebel} seized by rebels`);
+    if (counts.rebelcamp) segments.push(`${counts.rebelcamp} rebel camp${counts.rebelcamp === 1 ? '' : 's'} entrenched`);
     const baseLabel = outcomeLabel || 'Outcome';
     const prefix = `${baseLabel[0].toUpperCase()}${baseLabel.slice(1).toLowerCase()}`;
     return segments.length > 0 ? `${prefix}: ${segments.join(', ')}` : `${prefix}: No land lost`;
@@ -767,9 +767,9 @@ function flashOverworldLosses(game, lossReport = { conversions: [] }) {
         const pos = game.projectHexToScreen(hex);
         if (!pos) return;
 
-        const colors = fate === 'rebel' ? ['#ef476f', '#ffd166'] : ['#9ca3af', '#6b7280'];
+        const colors = fate === 'rebelcamp' ? ['#ef476f', '#ffd166'] : ['#9ca3af', '#6b7280'];
         game.spawnParticleBurst?.(pos.x, pos.y, 6, colors);
-        const label = fate === 'rebel' ? 'Seized' : 'Scorched';
+        const label = fate === 'rebelcamp' ? 'Rebel Camp' : 'Scorched';
         game.showFloatingText?.(pos.x, pos.y, label, 'alert-text');
     });
 }
@@ -825,9 +825,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
 
         // Clearing rebel pressure should convert the tile back into normal terrain.
         const shouldRestoreRebel = targetTile
-            && (RebelSystem?.isRebelCampTile?.(targetTile)
-                || targetTile.owner === 'rebel'
-                || targetTile.type === 'rebel');
+            && RebelSystem?.isRebelCampTile?.(targetTile);
         if (shouldRestoreRebel) {
             const currentWins = Math.max(
                 Number.isFinite(game.stats?.warsWon) ? game.stats.warsWon : 0,

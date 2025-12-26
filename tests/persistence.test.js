@@ -30,7 +30,7 @@ async function runTests() {
         forest: { wood: 1 },
         field: {},
         scorched: {},
-        rebel: {},
+        rebelcamp: {},
         mine: { gold: 3 },
         shrine: {},
         ruin: { gold: 1 }
@@ -41,7 +41,8 @@ async function runTests() {
         let wood = 0;
         hexMap.forEach((tile) => {
             const owner = (tile.owner || '').toLowerCase();
-            if (owner === 'scorched' || owner === 'rebel') return;
+            const isRebelCamp = tile.type === 'rebelcamp' || tile.isRebelCamp;
+            if (owner === 'scorched' || isRebelCamp) return;
             const type = typeof tile.type === 'string' ? tile.type.toLowerCase() : '';
             const income = INCOME_TABLE[type] || {};
             if (income.gold) gold += income.gold;
@@ -155,6 +156,20 @@ async function runTests() {
     assert.strictEqual(sanitized.overworld.hexes.get('2,0').owner, null, 'unknown owners should be coerced to null');
     assert.strictEqual(sanitized.overworld.hexes.get('3,0').owner, 'rebel', 'recognized owners should be normalized to lowercase');
 
+    const legacyRebelSnapshot = {
+        overworld: {
+            hexes: [
+                { q: 4, r: 0, s: -4, type: 'rebel', owner: 'rebel' }
+            ]
+        },
+        stats: {}
+    };
+    const legacyRebelState = Persistence.deserializeGameState(legacyRebelSnapshot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    const legacyRebelTile = legacyRebelState.overworld.hexes.get('4,0');
+    assert.strictEqual(legacyRebelTile.type, 'rebelcamp', 'legacy rebel tiles should normalize to rebel camps');
+    assert.strictEqual(legacyRebelTile.owner, 'rebel', 'legacy rebel ownership should persist');
+    assert.strictEqual(legacyRebelTile.isRebelCamp, true, 'legacy rebels should carry camp metadata');
+
     // Legacy saves without timekeeper data should inherit calendar defaults
     const legacySnapshot = {
         gold: 10,
@@ -250,7 +265,7 @@ async function runTests() {
         'favor persistence should honor clamp limits'
     );
 
-    // Persist scorched/rebel tiles and ensure they stay non-income when reloaded
+    // Persist scorched/rebel camp tiles and ensure they stay non-income when reloaded
     const penalizedGame = {
         gold: 0,
         wood: 0,
@@ -258,7 +273,7 @@ async function runTests() {
         upgrades: {},
         overworld: {
             hexes: new Map([
-                ['0,0', { hex: new Hex(0, 0, 0), type: 'town', owner: 'rebel' }],
+                ['0,0', { hex: new Hex(0, 0, 0), type: 'rebelcamp', owner: 'rebel', isRebelCamp: true }],
                 ['1,0', { hex: new Hex(1, 0, -1), type: 'scorched', owner: 'scorched' }]
             ])
         },
@@ -276,6 +291,7 @@ async function runTests() {
 
     const rebelTile = reloadedPenalty.state.overworld.hexes.get('0,0');
     assert.strictEqual(rebelTile.owner, 'rebel');
+    assert.strictEqual(rebelTile.type, 'rebelcamp');
     const income = calcIncome(reloadedPenalty.state.overworld.hexes);
     assert.deepStrictEqual(income, { gold: 0, wood: 0 });
 

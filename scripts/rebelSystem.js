@@ -5,7 +5,7 @@
  */
 (function (global) {
     /**
-     * Determine whether a tile has been marked as a rebel camp or rebel-held tile.
+     * Determine whether a tile has been marked as a rebel camp.
      * @param {object} tile tile payload from the overworld map.
      * @returns {boolean} true when the tile represents rebel presence.
      */
@@ -14,7 +14,7 @@
         if (tile.isRebelCamp) return true;
         if (tile.owner === 'rebel') return true;
         const type = typeof tile.type === 'string' ? tile.type.toLowerCase() : '';
-        return type === 'rebelcamp' || type === 'rebel camp' || type === 'rebel';
+        return type === 'rebelcamp' || type === 'rebel camp';
     }
 
     /**
@@ -112,7 +112,7 @@
     }
 
     /**
-     * Clear a rebel camp or rebel-held tile, restoring it to a normal terrain roll.
+     * Clear a rebel camp, restoring it to a normal terrain roll.
      * @param {object} tile rebel tile payload to convert.
      * @param {object} gameState live game state containing overworld data.
      * @param {object} [options] optional configuration (rng override for tests).

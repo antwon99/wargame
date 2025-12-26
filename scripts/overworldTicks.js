@@ -1,6 +1,10 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 
+const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
+    ? window.RebelSystem
+    : (typeof globalThis !== 'undefined' ? globalThis.RebelSystem : null);
+
 /**
  * Calculate and apply overworld income for a single tick.
  * Expects a game-like object exposing economy fields, tile maps, and UI hooks.
@@ -24,7 +28,10 @@ export function applyOverworldIncome(game, options = {}) {
     let favorInc = 0;
     for (const [, d] of game.overworld.hexes) {
         const owner = (d.owner || '').toLowerCase();
-        if (owner === 'scorched' || owner === 'rebel') continue;
+        const isRebelCamp = RebelSystem?.isRebelCampTile?.(d)
+            || d?.type === 'rebelcamp'
+            || d?.isRebelCamp;
+        if (owner === 'scorched' || isRebelCamp) continue;
 
         const def = OVERWORLD_TILES[d.type?.toUpperCase()];
         if (!def) continue;

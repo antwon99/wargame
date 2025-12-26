@@ -297,7 +297,6 @@
             'forest',
             'town',
             'scorched',
-            'rebel',
             'rebelcamp',
             'mine',
             'shrine',
@@ -343,7 +342,8 @@
         const overworldHexes = new Map();
         (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner }) => {
             if (!Number.isFinite(q) || !Number.isFinite(r) || !Number.isFinite(s)) return;
-            const normalizedType = typeof type === 'string' ? type.toLowerCase() : null;
+            let normalizedType = typeof type === 'string' ? type.toLowerCase() : null;
+            if (normalizedType === 'rebel') normalizedType = 'rebelcamp';
             if (!normalizedType || !allowedTileIds.has(normalizedType)) return;
 
             let normalizedOwner = null;
@@ -353,7 +353,15 @@
             }
 
             const hex = makeHex(q, r, s);
-            const payload = { hex, type: normalizedType, owner: normalizedOwner };
+            if (normalizedType === 'rebelcamp' && !normalizedOwner) {
+                normalizedOwner = 'rebel';
+            }
+            const payload = {
+                hex,
+                type: normalizedType,
+                owner: normalizedOwner,
+                isRebelCamp: normalizedType === 'rebelcamp'
+            };
             overworldHexes.set(hex.toString(), payload);
         });
 

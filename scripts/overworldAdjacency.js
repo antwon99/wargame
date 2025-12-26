@@ -1,5 +1,9 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
 
+const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
+    ? window.RebelSystem
+    : (typeof globalThis !== 'undefined' ? globalThis.RebelSystem : null);
+
 /**
  * Default adjacency bonus rate applied per additional tile in a contiguous cluster.
  * The rate compounds with cluster size but is independent of research bonuses.
@@ -82,7 +86,10 @@ export function computeReverseAdjacencyMultiplier(
 function isClusterEligible(tile) {
     if (!tile) return false;
     const owner = (tile.owner || 'player').toLowerCase();
-    if (owner === 'rebel' || owner === 'scorched') return false;
+    const isRebelCamp = RebelSystem?.isRebelCampTile?.(tile)
+        || tile?.type === 'rebelcamp'
+        || tile?.isRebelCamp;
+    if (owner === 'scorched' || isRebelCamp) return false;
     return Boolean(tile.type && tile.hex);
 }
 

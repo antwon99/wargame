@@ -163,6 +163,34 @@ async function testRebelMandateResolutionAndExpiry() {
     assert.strictEqual(rebelSweepFailure.completionTick, failedState.completedTick, 'rebel sweep failure should note the completion tick');
 }
 
+async function testMandatesCycleAfterRebelFailure() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    gameState.gold = 220;
+    gameState.upgrades.production = 2;
+    gameState.upgrades.mines = 2;
+    const { uiBindings } = buildNotificationBindings();
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    await advanceImperialTicks(22, gameState, uiBindings);
+
+    const failedState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'frontier sweep should fail when deadline expires');
+
+    const completionTick = ImperialMandates.getKingState().currentTick;
+    const levyGrace = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 2 }, gameState);
+    const spacing = ImperialMandateCalendar.getMinimumMandateSpacing(gameState);
+    const earliestLevy = completionTick + levyGrace;
+    const spacingGate = ImperialMandates.getKingState().lastIssuedTick + spacing;
+    const ticksUntilLevy = Math.max(0, Math.max(earliestLevy, spacingGate) - ImperialMandates.getKingState().currentTick - 1);
+    if (ticksUntilLevy > 0) await advanceImperialTicks(ticksUntilLevy, gameState, uiBindings);
+
+    await advanceImperialTicks(1, gameState, uiBindings);
+    const levyState = ImperialMandates.getKingState().mandates.levy_tithed_gold;
+    assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandates should still issue after a failed frontier sweep');
+}
+
 async function testFirstDecreeAnchoredThenNotifications() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -580,6 +608,7 @@ async function testNonBlockingTickQueue() {
 async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
+    await testMandatesCycleAfterRebelFailure();
     testEmptyBodyDecreeDefaultsAndSilencesAudio();
     await testFirstDecreeAnchoredThenNotifications();
     await testTaxLevyDeadlinePaths();

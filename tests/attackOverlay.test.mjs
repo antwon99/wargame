@@ -45,13 +45,15 @@ function run() {
 
     const game = {
         state: 'OVERWORLD',
+        overworld: { hexes: new Map() },
         beginBattleFromTile: () => { game.battleStarted = true; },
         projectHexToScreen: () => ({ x: 120, y: 160 })
     };
 
     applyUIBindings(game);
 
-    const tile = { isRebelCamp: true, hex: { toString: () => '0,0' } };
+    const tile = { isRebelCamp: true, type: 'rebelcamp', owner: 'rebel', hex: { toString: () => '0,0' } };
+    game.overworld.hexes.set('0,0', tile);
     game.updateTileAttackOverlay(tile);
 
     assert.strictEqual(button.style.display, 'inline-flex', 'attack overlay should render when a rebel camp is selected');
@@ -60,6 +62,10 @@ function run() {
 
     assert.strictEqual(button.style.display, 'none', 'attack overlay should hide immediately after clicking attack');
     assert.strictEqual(game.battleStarted, true, 'attack click should begin combat');
+
+    game.overworld.hexes.set('0,0', { hex: tile.hex, type: 'field', owner: 'player' });
+    game.updateTileAttackOverlay(tile);
+    assert.strictEqual(button.style.display, 'none', 'attack overlay should remain hidden if the rebel camp is gone');
 
     global.document = originalDocument;
     global.window = originalWindow;
