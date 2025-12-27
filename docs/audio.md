@@ -30,7 +30,7 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 | Return to TERRITORY | `exitCombat()` | Fades tail of war track | 0–4s | Reset conductor, re-arm territory playlist and debug bus intent |
 
 ## Integration Notes
-- The `AudioBridge` in `audio/bridge.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).
+- The `AudioBridge` in `scripts/audio/bridge.js` safely delegates to `GameAudio` and `AmbientSoundscape`, no-oping when the APIs are unavailable (e.g., tests).
 - `armAmbientLoop()` locks the conductor into `TERRITORY` mode and begins scheduling the peaceful playlist.
 - `haltAmbientLoop()` clears the conductor so no playlists continue running in the background.
 - `enterCombat()` stops any active ambience immediately, plays `wardrum.mp3`, and moves the conductor into `WAR` mode.
