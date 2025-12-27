@@ -1,5 +1,5 @@
 const assert = require('assert');
-const Calendar = require('../scripts/imperialMandateCalendar.js');
+const Calendar = require('../scripts/mandates/imperialMandateCalendar.js');
 Calendar.initImperialMandateCalendar?.(globalThis);
 
 function buildGameState(overrides = {}) {

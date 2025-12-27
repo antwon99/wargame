@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
-const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
 const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
     ? ImperialMandatesBootstrap.initImperialMandates(global)
     : ImperialMandatesBootstrap;

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const createImperialMandates = require('../scripts/imperialMandatesCore.js');
+const createImperialMandates = require('../scripts/mandates/imperialMandatesCore.js');
 
 function buildAdapterSpy() {
     const calls = [];

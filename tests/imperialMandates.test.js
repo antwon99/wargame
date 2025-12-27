@@ -1,8 +1,8 @@
 const assert = require('assert');
 const RebelSystem = require('../scripts/rebelSystem.js');
-const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
-const ImperialMandateManager = require('../scripts/imperialMandateManager.js');
-const ImperialMandateCalendar = require('../scripts/imperialMandateCalendar.js');
+const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
+const ImperialMandateManager = require('../scripts/mandates/imperialMandateManager.js');
+const ImperialMandateCalendar = require('../scripts/mandates/imperialMandateCalendar.js');
 
 RebelSystem.initRebelSystem?.(global);
 ImperialMandateCalendar.initImperialMandateCalendar?.(global);

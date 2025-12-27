@@ -46,15 +46,15 @@ function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
 function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !== 'undefined' ? window : globalThis)) {
     const global = runtimeGlobal;
     const RebelSystem = (global.RebelSystem)
-        || (typeof require === 'function' ? require('./rebelSystem.js') : {});
+        || (typeof require === 'function' ? require('../rebelSystem.js') : {});
     const TutorialCallouts = (global.TutorialCallouts)
-        || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
+        || (typeof require === 'function' ? require('../tutorialCallouts.js') : null);
     const MandateCalendar = (global.ImperialMandateCalendar)
         || (typeof require === 'function' ? require('./imperialMandateCalendar.js') : null);
     const ImperialMandateRegistry = (global.ImperialMandateRegistry)
         || (typeof require === 'function' ? require('./imperialMandateRegistry.js') : null);
     const imperialFavorHelpers = (typeof require === 'function')
-        ? require('./imperialFavor.js')
+        ? require('../imperialFavor.js')
         : global.ImperialFavor;
     const { DEFAULT_IMPERIAL_FAVOR = 5, clampImperialFavor = (value) => {
         const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;

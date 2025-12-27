@@ -17,11 +17,11 @@ keeps the browser globals consistent with the runtime dependency graph.
 9. `initDebugToggle` (`scripts/debugToggle.js`)
 10. `initRebelSystem` (`scripts/rebelSystem.js`)
 11. `initTutorialCallouts` (`scripts/tutorialCallouts.js`)
-12. `initImperialMandateCalendar` (`scripts/imperialMandateCalendar.js`)
-13. `initImperialMandatesCore` (`scripts/imperialMandatesCore.js`)
-14. `initImperialMandatesAdapter` (`scripts/imperialMandatesAdapter.js`)
-15. `initImperialMandateManager` (`scripts/imperialMandateManager.js`)
-16. `initImperialMandates` (`scripts/imperialMandates.js`)
+12. `initImperialMandateCalendar` (`scripts/mandates/imperialMandateCalendar.js`)
+13. `initImperialMandatesCore` (`scripts/mandates/imperialMandatesCore.js`)
+14. `initImperialMandatesAdapter` (`scripts/mandates/imperialMandatesAdapter.js`)
+15. `initImperialMandateManager` (`scripts/mandates/imperialMandateManager.js`)
+16. `initImperialMandates` (`scripts/mandates/imperialMandates.js`)
 17. `initStorageProbe` (`scripts/storageProbe.js`)
 
 ## Why this order

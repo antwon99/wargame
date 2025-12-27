@@ -640,7 +640,7 @@ function testExitCombatRehomesAmbientAndPlaysOutcome() {
 }
 
 function testImperialQueuesAvoidWardrums() {
-    const modulePath = require.resolve('../scripts/imperialMandates.js');
+    const modulePath = require.resolve('../scripts/mandates/imperialMandates.js');
     const previousRebelSystem = global.RebelSystem;
     const previousTutorial = global.TutorialCallouts;
     delete require.cache[modulePath];
@@ -659,7 +659,7 @@ function testImperialQueuesAvoidWardrums() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+    const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
     const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
         ? ImperialMandatesBootstrap.initImperialMandates(global)
         : ImperialMandatesBootstrap;
@@ -688,7 +688,7 @@ function testImperialQueuesAvoidWardrums() {
 }
 
 function testImperialMessagingGuardsWardrumPlayback() {
-    const modulePath = require.resolve('../scripts/imperialMandates.js');
+    const modulePath = require.resolve('../scripts/mandates/imperialMandates.js');
     const previousRebelSystem = global.RebelSystem;
     const previousTutorial = global.TutorialCallouts;
     const previousGameAudio = global.GameAudio;
@@ -714,7 +714,7 @@ function testImperialMessagingGuardsWardrumPlayback() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+    const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
     const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
         ? ImperialMandatesBootstrap.initImperialMandates(global)
         : ImperialMandatesBootstrap;
