@@ -13,9 +13,9 @@ function createStubImperialApi() {
 }
 
 function loadManagerWithStub(stub) {
-    delete require.cache[require.resolve('../scripts/imperialMandateManager.js')];
+    delete require.cache[require.resolve('../scripts/mandates/imperialMandateManager.js')];
     global.ImperialMandates = stub.api;
-    const manager = require('../scripts/imperialMandateManager.js');
+    const manager = require('../scripts/mandates/imperialMandateManager.js');
     manager.initImperialMandateManager?.(global);
     return manager;
 }
@@ -49,7 +49,7 @@ async function testTickSpacingAndBindingCache() {
 async function run() {
     await testTickSpacingAndBindingCache();
     delete global.ImperialMandates;
-    delete require.cache[require.resolve('../scripts/imperialMandateManager.js')];
+    delete require.cache[require.resolve('../scripts/mandates/imperialMandateManager.js')];
     console.log('Imperial mandate manager spacing tests passed.');
 }
 

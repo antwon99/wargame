@@ -12,7 +12,7 @@
  */
 function createImperialMandateUIAdapter(global = typeof window !== 'undefined' ? window : globalThis) {
     const TutorialCallouts = (global.TutorialCallouts)
-        || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
+        || (typeof require === 'function' ? require('../tutorialCallouts.js') : null);
 
     const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
 

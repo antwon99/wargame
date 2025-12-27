@@ -14,7 +14,7 @@ This document summarizes the introductory rebel flow and its two supporting syst
 
 The helper reuses the existing overworld tile map and Hex helpers; if no safe frontier tile is available it returns `null` without crashing the caller.
 
-## Imperial Mandates (`scripts/imperialMandates.js`)
+## Imperial Mandates (`scripts/mandates/imperialMandates.js`)
 
 - Acts as the **King controller** that owns mandate lifecycles.
 - Uses a lightweight `MandateStatus` enum and a `kingState` object to track the first order: `destroy_first_rebel_camp`.

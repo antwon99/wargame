@@ -253,7 +253,7 @@ export function createGameCore(overrides = {}) {
         : null;
     const imperialMandateManager = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'imperialMandateManager')
         ? dependencyOverrides.imperialMandateManager
-        : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
+        : (typeof require === 'function' ? require('../mandates/imperialMandateManager.js') : null);
     const platformAdapter = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'platformAdapter')
         ? dependencyOverrides.platformAdapter
         : null;

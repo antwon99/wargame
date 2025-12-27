@@ -5,7 +5,7 @@
  */
 const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
-    : (typeof require === 'function' ? require('./imperialMandates.js') : {});
+    : (typeof require === 'function' ? require('./mandates/imperialMandates.js') : {});
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
     ? window.RebelSystem
     : (typeof require === 'function' ? require('./rebelSystem.js') : null);
