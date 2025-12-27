@@ -2,7 +2,7 @@ const assert = require('assert');
 
 function run() {
     const { createGameCore } = require('../scripts/game/core.js');
-    const { Game } = createGameCore({ persistence: null });
+    const { Game } = createGameCore({ dependencies: { persistence: null } });
     const researchState = Game.buildResearchState();
 
     assert.ok(Array.isArray(researchState.technologies), 'Research technologies should be an array.');

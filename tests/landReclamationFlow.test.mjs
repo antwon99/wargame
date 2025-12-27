@@ -213,7 +213,11 @@ async function loadGameModule({ importOverrides = {}, windowOverrides = {}, docu
         const { createGameCore } = await import('../scripts/game/core.js');
         const { Game, Hex, Layout } = createGameCore({
             ...importOverrides,
-            persistence: windowStub.Persistence ?? null
+            dependencies: {
+                persistence: windowStub.Persistence ?? null,
+                researchSystem: windowStub.ResearchSystem ?? null,
+                inputHelpers: windowStub.InputHelpers ?? null
+            }
         });
         windowStub.Game = Game;
         windowStub.Hex = Hex;

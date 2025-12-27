@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { ensureGlobalShims, publishBootstrapHandles } = require('../scripts/globalShim.js');
+const { buildBootstrapDependencies, ensureGlobalShims, publishBootstrapHandles } = require('../scripts/globalShim.js');
 
 function run() {
     const scope = {};
@@ -16,8 +16,23 @@ function run() {
         StorageProbe: {}
     };
 
+    const dependencies = buildBootstrapDependencies(scope, {
+        inputHelpers: providers.InputHelpers,
+        researchSystem: providers.ResearchSystem,
+        rebelSystem: providers.RebelSystem,
+        imperialMandates: providers.ImperialMandates,
+        imperialMandateManager: providers.ImperialMandateManager,
+        platformAdapter: providers.PlatformAdapter,
+        tutorialCallouts: providers.TutorialCallouts,
+        introOverlay: providers.IntroOverlay,
+        persistence: providers.Persistence,
+        storageProbe: providers.StorageProbe
+    });
+    assert.strictEqual(scope.InputHelpers, undefined, 'dependency builder should not mutate scope');
+    assert.strictEqual(dependencies.inputHelpers, providers.InputHelpers, 'dependency builder should use explicit providers');
+
     const missing = ensureGlobalShims(scope, providers);
-    assert.deepStrictEqual(missing, [], 'shim should populate all required globals');
+    assert.deepStrictEqual(missing, [], 'shim should populate all required globals when invoked');
 
     let didBootstrap = false;
     publishBootstrapHandles(() => { didBootstrap = true; }, () => ({}), scope);

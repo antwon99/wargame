@@ -3,11 +3,6 @@ import { applyUIBindings, setupUIBindings } from '../uiBindings.js';
 import { composeGameSettings } from './settings.js';
 import { canUseLocalStorage } from '../storageProbe.js';
 
-const IntroOverlay = (typeof window !== 'undefined' && window.IntroOverlay) ? window.IntroOverlay : null;
-const Persistence = (typeof window !== 'undefined' && window.Persistence)
-    ? window.Persistence
-    : (typeof require === 'function' ? require('../persistence.js') : null);
-
 /**
  * Resolve a safe storage provider for settings persistence. Guards against
  * environments where localStorage is blocked or throws and reports the
@@ -34,11 +29,14 @@ export function resolveSettingsStorage(scope = typeof window !== 'undefined' ? w
 /**
  * Compose the Game core with UI bindings and persistence wiring so the
  * browser entry point only needs to import a single bootstrap.
+ *
+ * @param {object} dependencies explicit runtime helpers (persistence, input helpers, overlays).
  * @returns {Object} active Game instance
  */
-export function bootstrapGame() {
-    const { Game, Hex, Layout, TIPS } = createGameCore();
-    const { storage, warning, error } = resolveSettingsStorage(typeof window !== 'undefined' ? window : null);
+export function bootstrapGame(dependencies = {}) {
+    const scope = dependencies.windowScope || (typeof window !== 'undefined' ? window : null);
+    const { Game, Hex, Layout, TIPS } = createGameCore({ dependencies });
+    const { storage, warning, error } = resolveSettingsStorage(scope);
 
     composeGameSettings(Game, {
         storageKey: Game.settingsStorageKey,
@@ -59,19 +57,22 @@ export function bootstrapGame() {
     }
 
     const loadSnapshot = ({ activeSaveSlot }) => {
-        if (!Persistence) {
-            return { state: null, stats: { ...Game.stats }, slot: activeSaveSlot };
-        }
-        return Persistence.loadSnapshot(activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
-    };
+    const persistence = Object.prototype.hasOwnProperty.call(dependencies, 'persistence')
+        ? dependencies.persistence
+        : null;
+    if (!persistence) {
+        return { state: null, stats: { ...Game.stats }, slot: activeSaveSlot };
+    }
+    return persistence.loadSnapshot(activeSaveSlot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+};
 
-    if (typeof window !== 'undefined') {
-        window.Hex = Hex;
-        window.Game = Game;
+    if (scope) {
+        scope.Hex = Hex;
+        scope.Game = Game;
     }
 
     Game.init({
-        introOverlay: IntroOverlay,
+        introOverlay: dependencies.introOverlay || null,
         loadSnapshot,
         onHUDUpdate: () => Game.updateHUD(),
         onSaveSlotsUpdate: () => Game.updateSaveSlotsUI(),

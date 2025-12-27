@@ -204,7 +204,11 @@ async function loadGameModule({ globals = {} } = {}) {
         global.cancelAnimationFrame = windowStub.cancelAnimationFrame;
         const { createGameCore } = await import('../scripts/game/core.js');
         const { Game, Hex, Layout } = createGameCore({
-            persistence: windowStub.Persistence ?? null
+            dependencies: {
+                persistence: windowStub.Persistence ?? null,
+                researchSystem: windowStub.ResearchSystem ?? null,
+                inputHelpers: windowStub.InputHelpers ?? null
+            }
         });
         windowStub.Game = Game;
         windowStub.Hex = Hex;
