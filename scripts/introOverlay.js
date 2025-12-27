@@ -176,11 +176,42 @@ const IntroOverlay = {
     }
 };
 
-if (typeof window !== 'undefined') {
-    window.IntroOverlay = IntroOverlay;
-    window.addEventListener('DOMContentLoaded', () => IntroOverlay.init());
+/**
+ * Register the intro overlay helper and optionally schedule DOM wiring.
+ * @param {Window|Object} [target] global object to attach IntroOverlay to.
+ * @param {Object} [options] optional init overrides for tests.
+ * @param {Document|Object|null} [options.document] document-like scope to query.
+ * @param {boolean} [options.defer=true] whether to wait for DOMContentLoaded.
+ * @returns {{ IntroOverlay: Object, listener: Function|null }}
+ */
+function initIntroOverlay(target = typeof window !== 'undefined' ? window : undefined, options = {}) {
+    const doc = options.document || target?.document || (typeof document !== 'undefined' ? document : null);
+    if (target) {
+        target.IntroOverlay = IntroOverlay;
+    }
+
+    let listener = null;
+    const shouldDefer = options.defer !== false && doc?.addEventListener;
+    let initialized = null;
+    const runInit = () => {
+        initialized = IntroOverlay.init(doc);
+        return initialized;
+    };
+
+    if (doc && shouldDefer && doc.readyState === 'loading') {
+        listener = () => {
+            runInit();
+            doc.removeEventListener('DOMContentLoaded', listener);
+        };
+        doc.addEventListener('DOMContentLoaded', listener);
+    } else if (doc) {
+        runInit();
+    }
+
+    return { IntroOverlay, listener, initialized };
 }
 
 if (typeof module !== 'undefined') {
+    IntroOverlay.initIntroOverlay = initIntroOverlay;
     module.exports = IntroOverlay;
 }

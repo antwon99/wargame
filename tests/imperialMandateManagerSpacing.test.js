@@ -15,7 +15,9 @@ function createStubImperialApi() {
 function loadManagerWithStub(stub) {
     delete require.cache[require.resolve('../scripts/imperialMandateManager.js')];
     global.ImperialMandates = stub.api;
-    return require('../scripts/imperialMandateManager.js');
+    const manager = require('../scripts/imperialMandateManager.js');
+    manager.initImperialMandateManager?.(global);
+    return manager;
 }
 
 async function testTickSpacingAndBindingCache() {

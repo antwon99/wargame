@@ -4,6 +4,7 @@ import { buildResearchStateSafe } from '../scripts/researchStateBuilder.mjs';
 
 const require = createRequire(import.meta.url);
 const ResearchSystem = require('../scripts/researchSystem.js');
+ResearchSystem.initResearchSystem?.(globalThis);
 
 function captureLogs() {
     const entries = [];

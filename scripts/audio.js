@@ -35,11 +35,26 @@ export {
     exitCombat
 };
 
-if (typeof window !== 'undefined') {
-    window.AudioManager = AudioManager;
-    window.GameAudio = GameAudio;
-    window.AmbientSoundscape = AmbientSoundscape;
-    window.SFX_GROUPS = SFX_GROUPS;
-    window.enterCombat = enterCombat;
-    window.exitCombat = exitCombat;
+/**
+ * Attach audio helpers to the provided global scope for browser debugging.
+ * @param {Window|Object} [target] global object to attach audio helpers to.
+ * @returns {{ AudioManager: Function, GameAudio: Object, AmbientSoundscape: Object, SFX_GROUPS: Object, enterCombat: Function, exitCombat: Function }}
+ */
+export function initAudio(target = typeof window !== 'undefined' ? window : undefined) {
+    if (target) {
+        target.AudioManager = AudioManager;
+        target.GameAudio = GameAudio;
+        target.AmbientSoundscape = AmbientSoundscape;
+        target.SFX_GROUPS = SFX_GROUPS;
+        target.enterCombat = enterCombat;
+        target.exitCombat = exitCombat;
+    }
+    return {
+        AudioManager,
+        GameAudio,
+        AmbientSoundscape,
+        SFX_GROUPS,
+        enterCombat,
+        exitCombat
+    };
 }

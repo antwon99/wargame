@@ -1,5 +1,6 @@
 const assert = require('assert');
 const Persistence = require('../scripts/persistence.js');
+Persistence.initPersistence?.(globalThis);
 
 const rafCalls = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}) };

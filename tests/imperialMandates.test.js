@@ -1,8 +1,15 @@
 const assert = require('assert');
 const RebelSystem = require('../scripts/rebelSystem.js');
-const ImperialMandates = require('../scripts/imperialMandates.js');
+const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
 const ImperialMandateManager = require('../scripts/imperialMandateManager.js');
 const ImperialMandateCalendar = require('../scripts/imperialMandateCalendar.js');
+
+RebelSystem.initRebelSystem?.(global);
+ImperialMandateCalendar.initImperialMandateCalendar?.(global);
+ImperialMandateManager.initImperialMandateManager?.(global);
+const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
+    ? ImperialMandatesBootstrap.initImperialMandates(global)
+    : ImperialMandatesBootstrap;
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

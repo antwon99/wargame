@@ -7,7 +7,11 @@
  * as parameters so they can be tested in isolation and reused by UI overlays
  * without coupling to global mandate state.
  */
-(function (global) {
+/**
+ * Build the imperial mandate calendar API for shared cadence utilities.
+ * @returns {Object} imperial mandate calendar helpers.
+ */
+function createImperialMandateCalendar() {
     const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const DEFAULT_TIME_CONFIG = { daysPerWeek: 7, weeksPerMonth: 4 };
 
@@ -157,6 +161,24 @@
         getEarliestIssueTick
     };
 
-    global.ImperialMandateCalendar = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const ImperialMandateCalendar = createImperialMandateCalendar();
+
+/**
+ * Register the mandate calendar helpers on the provided global scope.
+ * @param {Window|Object} [target] global object to attach ImperialMandateCalendar to.
+ * @returns {Object} imperial mandate calendar API.
+ */
+function initImperialMandateCalendar(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.ImperialMandateCalendar = ImperialMandateCalendar;
+    }
+    return ImperialMandateCalendar;
+}
+
+if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateCalendar, {
+    initImperialMandateCalendar,
+    createImperialMandateCalendar
+});

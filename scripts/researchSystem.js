@@ -3,7 +3,11 @@
  * Definitions here are DOM-free so both the browser game and Node tests can
  * share logic without invoking the full renderer.
  */
-(function (global) {
+/**
+ * Build the research system API with base tech definitions.
+ * @returns {Object} research system helpers and static tech definitions.
+ */
+function createResearchSystem() {
     const BASE_TECHNOLOGIES = [
         {
             id: 'lives',
@@ -148,6 +152,25 @@
         recordPurchase
     };
 
-    global.ResearchSystem = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const ResearchSystem = createResearchSystem();
+
+/**
+ * Register the research helpers on the provided global scope.
+ * @param {Window|Object} [target] global object to attach ResearchSystem to.
+ * @returns {Object} research system API.
+ */
+function initResearchSystem(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.ResearchSystem = ResearchSystem;
+    }
+    return ResearchSystem;
+}
+
+if (typeof module !== 'undefined') {
+    ResearchSystem.initResearchSystem = initResearchSystem;
+    ResearchSystem.createResearchSystem = createResearchSystem;
+    module.exports = ResearchSystem;
+}

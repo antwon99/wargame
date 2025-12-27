@@ -1,5 +1,6 @@
 const assert = require('assert');
 const Persistence = require('../scripts/persistence.js');
+Persistence.initPersistence?.(globalThis);
 const { createCampaignStore } = require('../scripts/campaignStore.js');
 
 function testNormalizesLegacyStats() {

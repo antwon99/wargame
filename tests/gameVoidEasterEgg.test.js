@@ -1,6 +1,8 @@
 const assert = require('assert');
 const VoidEasterEgg = require('../scripts/voidEasterEgg.js');
+VoidEasterEgg.initVoidEasterEgg?.(globalThis);
 const Persistence = require('../scripts/persistence.js');
+Persistence.initPersistence?.(globalThis);
 
 // Set up a barebones DOM + window environment so script.js can register the Game singleton.
 const capturedTexts = [];

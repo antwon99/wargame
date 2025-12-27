@@ -37,6 +37,7 @@ async function run() {
         })
     };
 
+    createImperialMandates.initImperialMandatesCore?.(global);
     const mandates = createImperialMandates(adapter, global);
     mandates.resetForNewCampaign();
 

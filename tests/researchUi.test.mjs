@@ -2,6 +2,8 @@ import assert from 'assert';
 import { updateResearchUI } from '../scripts/uiBindings.js';
 import ResearchSystem from '../scripts/researchSystem.js';
 
+ResearchSystem.initResearchSystem?.(globalThis);
+
 class StubClassList {
     constructor() {
         this._set = new Set();

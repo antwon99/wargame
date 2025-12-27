@@ -277,7 +277,9 @@ async function testRebelCampTilesMarkHostile() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    global.RebelSystem = require('../scripts/rebelSystem.js');
+    const RebelSystem = require('../scripts/rebelSystem.js');
+    RebelSystem.initRebelSystem?.(global);
+    global.RebelSystem = RebelSystem;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 
     const tile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: { q: 4, r: 0, toString: () => '4,0' } };

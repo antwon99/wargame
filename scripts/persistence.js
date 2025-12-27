@@ -3,7 +3,12 @@
  * The functions here are written to be browser-friendly while also
  * supporting simple Node-based tests via CommonJS exports.
  */
-(function (global) {
+/**
+ * Build the persistence API against a provided global-like scope.
+ * @param {Window|Object} global host scope for storage and constants.
+ * @returns {Object} persistence API with save/load helpers.
+ */
+function createPersistence(global) {
     const imperialFavorHelpers = (typeof require === 'function')
         ? require('./imperialFavor.js')
         : global.ImperialFavor;
@@ -492,7 +497,7 @@
         normalizeTimekeeperSnapshot
     };
 
-    global.Persistence = {
+    const api = {
         STORAGE_KEY,
         STORAGE_PREFIX,
         STATS_KEY,
@@ -514,8 +519,25 @@
         SnapshotSerializer,
         StatHelpers
     };
+    return api;
+}
 
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = global.Persistence;
+const Persistence = createPersistence(typeof window !== 'undefined' ? window : globalThis);
+
+/**
+ * Register the persistence API on the provided global scope.
+ * @param {Window|Object} [target] global object to attach Persistence to.
+ * @returns {Object} Persistence helper API.
+ */
+function initPersistence(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.Persistence = Persistence;
     }
-})(typeof window !== 'undefined' ? window : globalThis);
+    return Persistence;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    Persistence.initPersistence = initPersistence;
+    Persistence.createPersistence = createPersistence;
+    module.exports = Persistence;
+}

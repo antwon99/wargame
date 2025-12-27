@@ -26,10 +26,18 @@ export function canUseLocalStorage(scope = typeof window !== 'undefined' ? windo
 
 const api = { canUseLocalStorage };
 
-if (typeof window !== 'undefined') {
-    window.StorageProbe = api;
+/**
+ * Register the storage probe helper on the provided global scope.
+ * @param {Window|Object} [target] global object to attach StorageProbe to.
+ * @returns {Object} storage probe API.
+ */
+export function initStorageProbe(target = typeof window !== 'undefined' ? window : undefined) {
+    if (target) {
+        target.StorageProbe = api;
+    }
+    return api;
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = api;
+    module.exports = { ...api, initStorageProbe };
 }

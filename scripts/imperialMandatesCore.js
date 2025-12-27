@@ -1,7 +1,3 @@
-const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
-    ? window.RebelSystem
-    : (typeof require === 'function' ? require('./rebelSystem.js') : null);
-
 function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
     const fallback = {
         withImperialAudioGuard: (fn) => (typeof fn === 'function' ? fn() : null),
@@ -1364,4 +1360,17 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     return api;
 }
 
+/**
+ * Register the core mandate factory on the provided global scope.
+ * @param {Window|Object} [target] global object to attach createImperialMandates to.
+ * @returns {{ createImperialMandates: Function }} core mandate factory handle.
+ */
+function initImperialMandatesCore(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.createImperialMandates = createImperialMandates;
+    }
+    return { createImperialMandates };
+}
+
+createImperialMandates.initImperialMandatesCore = initImperialMandatesCore;
 module.exports = createImperialMandates;
