@@ -46,11 +46,6 @@ import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, s
 import AudioBridge from '../../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
-const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem) ? window.RebelSystem : null;
-const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates) ? window.ImperialMandates : null;
-const ImperialMandateManager = (typeof window !== 'undefined' && window.ImperialMandateManager)
-    ? window.ImperialMandateManager
-    : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
 const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
 const fallbackSnowVisualConfig = {
     enabled: true,
@@ -112,9 +107,9 @@ const resolveSnowVisualConfigModule = () => {
     };
 };
 const fallbackValidateBootstrapDependencies = ({
-    researchSystem = (typeof window !== 'undefined' ? window.ResearchSystem : null),
-    persistence = (typeof window !== 'undefined' ? window.Persistence : null),
-    inputHelpers = (typeof window !== 'undefined' ? window.InputHelpers : null),
+    researchSystem = null,
+    persistence = null,
+    inputHelpers = null,
     debugEl = (typeof document !== 'undefined' ? document.getElementById('debug-log') : null),
     canvas = (typeof document !== 'undefined' ? document.getElementById('canvas') : null),
     ctx = null,
@@ -222,24 +217,6 @@ const resolveResearchStateBuilder = () => {
 
     return cachedResearchStateBuilder;
 };
-// Cache the research system once so the Game bootstrap never throws on missing globals.
-const ResearchSystem = (typeof window !== 'undefined' && window.ResearchSystem)
-    ? window.ResearchSystem
-    : (typeof require === 'function' ? require('../researchSystem.js') : null);
-// Persistence is optional in headless test environments; load defensively so init can proceed without saves.
-const Persistence = (typeof window !== 'undefined' && window.Persistence)
-    ? window.Persistence
-    : (typeof require === 'function' ? require('../persistence.js') : null);
-const FALLBACK_STATS = Persistence?.DEFAULT_STATS || {
-    bestLevel: 0,
-    bestKills: 0,
-    totalKills: 0,
-    warsWon: 0,
-    warsFought: 0,
-    lastOutcome: 'N/A',
-    lastSaveISO: null
-};
-
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {
     const numeric = Number.isFinite(value) ? value : fallback;
@@ -248,9 +225,11 @@ function clamp01(value, fallback = 1) {
 
 /**
  * Build a fresh Game core instance without binding UI or persistence wiring.
+ * @param {object} [overrides] optional overrides for factories and runtime dependencies.
  * @returns {{Game: Object, Hex: typeof Hex, Layout: Object, TIPS: string[]}}
  */
 export function createGameCore(overrides = {}) {
+    const dependencyOverrides = overrides.dependencies || {};
     const clusterBuilder = overrides.buildClusterBonusMap || buildClusterBonusMap;
     const visibilityBuilder = overrides.buildTileVisibilityMap || buildTileVisibilityMap;
     const snowModule = resolveSnowVisualConfigModule();
@@ -258,15 +237,50 @@ export function createGameCore(overrides = {}) {
     const snowConfigResolver = overrides.resolveSnowVisualConfig || snowModule.resolveSnowVisualConfig;
     const bootstrapValidator = overrides.validateBootstrapDependencies || resolveBootstrapValidator();
     const researchStateBuilder = overrides.buildResearchStateSafe || resolveResearchStateBuilder();
+    const researchSystem = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'researchSystem')
+        ? dependencyOverrides.researchSystem
+        : (typeof require === 'function' ? require('../researchSystem.js') : null);
     const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
         ? overrides.persistence
-        : Persistence;
+        : (Object.prototype.hasOwnProperty.call(dependencyOverrides, 'persistence')
+            ? dependencyOverrides.persistence
+            : (typeof require === 'function' ? require('../persistence.js') : null));
+    const inputHelpers = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'inputHelpers')
+        ? dependencyOverrides.inputHelpers
+        : null;
+    const imperialMandates = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'imperialMandates')
+        ? dependencyOverrides.imperialMandates
+        : null;
+    const imperialMandateManager = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'imperialMandateManager')
+        ? dependencyOverrides.imperialMandateManager
+        : (typeof require === 'function' ? require('../imperialMandateManager.js') : null);
+    const platformAdapter = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'platformAdapter')
+        ? dependencyOverrides.platformAdapter
+        : null;
+    const introOverlayDefault = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'introOverlay')
+        ? dependencyOverrides.introOverlay
+        : null;
+    const gameAudio = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'gameAudio')
+        ? dependencyOverrides.gameAudio
+        : null;
+    const debugToggles = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'debugToggles')
+        ? dependencyOverrides.debugToggles
+        : null;
+    const fallbackStats = persistenceModule?.DEFAULT_STATS || {
+        bestLevel: 0,
+        bestKills: 0,
+        totalKills: 0,
+        warsWon: 0,
+        warsFought: 0,
+        lastOutcome: 'N/A',
+        lastSaveISO: null
+    };
 
     /** ENGINE */
     const hasWindow = typeof window !== 'undefined';
     const sqrt3 = typeof overrides.sqrt3 === 'number'
         ? overrides.sqrt3
-        : (hasWindow && window.InputHelpers && window.InputHelpers.SQRT3) || Math.sqrt(3);
+        : inputHelpers?.SQRT3 || Math.sqrt(3);
 
     const resourceBuilder = overrides.buildCoreResourceState || buildCoreResourceState;
     const overworldBuilder = overrides.buildOverworldState || buildOverworldState;
@@ -277,7 +291,7 @@ export function createGameCore(overrides = {}) {
     const timekeeperConfigBuilder = overrides.buildTimekeeperConfig || buildTimekeeperConfig;
 
     const Hex = overrides.Hex || createHexFactory(sqrt3);
-    const layoutOverride = overrides.Layout || (hasWindow && window.InputHelpers && window.InputHelpers.Layout);
+    const layoutOverride = overrides.Layout || inputHelpers?.Layout;
     const Layout = layoutOverride || createHexLayout(sqrt3);
     const featureToggles = featureToggleBuilder({
         snowDefaults: snowDefaults,
@@ -286,7 +300,7 @@ export function createGameCore(overrides = {}) {
     const baseResources = resourceBuilder({
         imperialFavor: DEFAULT_IMPERIAL_FAVOR,
         clusterBaseRate: DEFAULT_CLUSTER_RATE,
-        fallbackStats: FALLBACK_STATS,
+        fallbackStats,
         activeSaveSlot: overrides.activeSaveSlot || '1'
     });
     const overworldState = overworldBuilder();
@@ -295,8 +309,8 @@ export function createGameCore(overrides = {}) {
     const cameraState = cameraStateBuilder();
     const timekeeperConfig = overrides.timekeeperConfig || timekeeperConfigBuilder();
 
-    const Platform = (hasWindow && window.PlatformAdapter && window.PlatformAdapter.detectPlatformProfile)
-        ? window.PlatformAdapter
+    const Platform = platformAdapter?.detectPlatformProfile
+        ? platformAdapter
         : {
             detectPlatformProfile: () => ({
                 isMobile: false,
@@ -345,7 +359,8 @@ const Game = {
     awaitingReclamationTarget: false,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
 
-    imperialMandates: ImperialMandates,
+    imperialMandates,
+    introOverlay: introOverlayDefault,
     timekeeper: new Timekeeper(timekeeperConfig),
 
     overworld: overworldState,
@@ -358,7 +373,7 @@ const Game = {
     persistenceAvailable: true,
     combat: combatState,
 
-    init({ introOverlay = (typeof window !== 'undefined' ? window.IntroOverlay : null), loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
+    init({ introOverlay = introOverlayDefault, loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
         const docAvailable = typeof document !== 'undefined';
         if (docAvailable) {
             this.canvas = this.canvas || document.getElementById('canvas');
@@ -371,10 +386,11 @@ const Game = {
         }
         try {
             if (introOverlay?.init) introOverlay.init(document);
+            this.introOverlay = introOverlay;
             this.dependencyHealth = bootstrapValidator({
-                researchSystem: ResearchSystem,
+                researchSystem,
                 persistence: persistenceModule,
-                inputHelpers: typeof window !== 'undefined' ? window.InputHelpers : null,
+                inputHelpers,
                 canvas: this.canvas,
                 ctx: this.ctx,
                 debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
@@ -472,8 +488,8 @@ const Game = {
 
     /** Issue the opening imperial mandate sequence if the manager is available. */
     issueImperialIntroMandate() {
-        if (ImperialMandates?.issuePendingMandates) {
-            ImperialMandates.issuePendingMandates(this, {
+        if (imperialMandates?.issuePendingMandates) {
+            imperialMandates.issuePendingMandates(this, {
                 showTileCallout: this.showTileCallout,
                 hideTileCallout: this.hideTileCallout
             });
@@ -563,7 +579,7 @@ const Game = {
     applyAudioSettings(audioSettings = this.defaultPlayerSettings().audio) {
         const defaults = this.defaultPlayerSettings().audio;
         const safe = { ...defaults, ...(audioSettings || {}) };
-        const manager = window.GameAudio;
+        const manager = gameAudio;
         manager?.setMasterVolume?.(clamp01(safe.master, defaults.master));
         manager?.setMusicVolume?.(clamp01(safe.music, defaults.music));
         manager?.setSfxVolume?.(clamp01(safe.sfx, defaults.sfx));
@@ -700,12 +716,12 @@ const Game = {
      * remain functional in constrained environments.
      */
     isPointerOnDrawnHex(x, y) {
-        if (typeof InputHelpers === 'undefined' || typeof InputHelpers.isPointerOnDrawnHex !== 'function') {
+        if (!inputHelpers || typeof inputHelpers.isPointerOnDrawnHex !== 'function') {
             const layout = { origin: this.cam, size: 30 * this.cam.zoom, ...Layout };
             return { hit: true, hex: Hex.fromPixel(layout, { x, y }) };
         }
 
-        const result = InputHelpers.isPointerOnDrawnHex({
+        const result = inputHelpers.isPointerOnDrawnHex({
             x,
             y,
             cam: this.cam,
@@ -745,13 +761,13 @@ const Game = {
         this.pendingNotifications = [];
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
-        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
-        if (typeof window !== 'undefined' && window.IntroOverlay) {
-            window.IntroOverlay.clearIntroSeenFlag?.();
-            window.IntroOverlay.reset();
+        if (imperialMandates?.resetForNewCampaign) imperialMandates.resetForNewCampaign();
+        if (this.introOverlay) {
+            this.introOverlay.clearIntroSeenFlag?.();
+            this.introOverlay.reset?.();
         }
         this.shouldRunImperialIntro = typeof document !== 'undefined';
-        if (!this.shouldRunImperialIntro || (typeof window !== 'undefined' && window.IntroOverlay && window.IntroOverlay.active === false)) {
+        if (!this.shouldRunImperialIntro || this.introOverlay?.active === false) {
             this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
         }
@@ -777,8 +793,8 @@ const Game = {
         this.timekeeper.daysPerWeek = snapshot.timekeeper?.daysPerWeek || this.timekeeper.daysPerWeek;
         this.timekeeper.weeksPerMonth = snapshot.timekeeper?.weeksPerMonth || this.timekeeper.weeksPerMonth;
         this.timekeeper.reset(snapshot.timekeeper?.ticks || 0);
-        if (ImperialMandates?.hydrateState) {
-            ImperialMandates.hydrateState(snapshot.mandates, this);
+        if (imperialMandates?.hydrateState) {
+            imperialMandates.hydrateState(snapshot.mandates, this);
         }
         this.pendingNotifications = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
         this.syncReclamationAwaitState();
@@ -857,7 +873,7 @@ const Game = {
         persistenceModule.clearSnapshot();
         this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
         this.activeSaveSlot = '1';
-        if (ImperialMandates?.resetForNewCampaign) ImperialMandates.resetForNewCampaign();
+        if (imperialMandates?.resetForNewCampaign) imperialMandates.resetForNewCampaign();
         this.bootstrapNewWorld();
         this.updateLeaderboardUI();
         this.updateHUD();
@@ -865,8 +881,8 @@ const Game = {
         this.updateSaveSlotsUI();
         this.toggleSidebar(false);
         this.spawnTxt(new Hex(0,0), 'Progress Reset', '#ffd166');
-        if (typeof window !== 'undefined' && window.IntroOverlay?.reset) {
-            window.IntroOverlay.reset();
+        if (this.introOverlay?.reset) {
+            this.introOverlay.reset();
         }
     },
 
@@ -999,7 +1015,7 @@ const Game = {
      */
     buildResearchState(saved = {}) {
         return researchStateBuilder({
-            researchSystem: ResearchSystem,
+            researchSystem,
             saved,
             defaultClusterRate: DEFAULT_CLUSTER_RATE,
             logDebug: (message, error) => this.logBootstrapWarning(message, error)
@@ -1053,6 +1069,7 @@ const Game = {
      * @returns {object|null} resource cost, or null when invalid.
      */
     getTechCost(tech, optionId) {
+        if (!researchSystem?.getCostForTech) return null;
         try {
             const pending = tech?.id === 'land-reclamation'
                 ? Math.max(tech.pendingPlacements || 0, 0)
@@ -1060,7 +1077,7 @@ const Game = {
             const normalized = pending
                 ? { ...tech, timesPurchased: (tech.timesPurchased || 0) + pending }
                 : tech;
-            return ResearchSystem.getCostForTech(normalized, optionId);
+            return researchSystem.getCostForTech(normalized, optionId);
         } catch (error) {
             this.logBootstrapWarning?.('Failed to resolve tech cost', error);
             return null;
@@ -1070,7 +1087,8 @@ const Game = {
     /** Check if the player can pay a specific cost. */
     canPayCost(cost) {
         if (!cost) return false;
-        return ResearchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost);
+        if (!researchSystem?.isAffordable) return false;
+        return researchSystem.isAffordable({ gold: this.gold, wood: this.wood }, cost);
     },
 
     /**
@@ -1079,8 +1097,9 @@ const Game = {
      * @param {string} [optionId] optional option key (land reclamation).
      */
     buyTechnology(techId, optionId) {
+        if (!researchSystem?.hasRemainingPurchases) return;
         const tech = this.getTech(techId);
-        if (!tech || !ResearchSystem.hasRemainingPurchases(tech)) return;
+        if (!tech || !researchSystem.hasRemainingPurchases(tech)) return;
 
         const cost = this.getTechCost(tech, optionId);
         if (!cost) return;
@@ -1098,7 +1117,7 @@ const Game = {
         this.gold -= payment.gold || 0;
         this.wood -= payment.wood || 0;
         this.applyTechEffect(tech, optionId, payment);
-        ResearchSystem.recordPurchase(tech);
+        researchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.updateHUD();
@@ -1245,7 +1264,7 @@ const Game = {
 
         // Payment is finalized only after a valid placement lands.
         this.gold -= cost.gold || 0;
-        if (tech) ResearchSystem.recordPurchase(tech);
+        if (tech) researchSystem.recordPurchase(tech);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');
@@ -1365,8 +1384,8 @@ const Game = {
 
     updateOverworld(dt) {
         advanceOverworldTimer(this, dt, {
-            mandateManager: ImperialMandateManager,
-            imperialMandates: ImperialMandates,
+            mandateManager: imperialMandateManager,
+            imperialMandates,
             uiBindings: {
                 showTileCallout: this.showTileCallout,
                 hideTileCallout: this.hideTileCallout,
@@ -1758,9 +1777,7 @@ const Game = {
      */
     shouldShowClaimCostLabels() {
         const toggle = this.featureToggles?.overworld?.showClaimCosts;
-        const debugToggle = (typeof window !== 'undefined' && window.DebugToggles)
-            ? window.DebugToggles.showClaimCosts
-            : false;
+        const debugToggle = debugToggles?.showClaimCosts || false;
         return Boolean(toggle || debugToggle);
     },
 

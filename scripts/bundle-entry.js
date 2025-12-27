@@ -16,14 +16,19 @@ import './imperialMandateManager.js';
 import './imperialMandates.js';
 import './storageProbe.js';
 import { bootstrapGame, createGameCore } from './script.js';
-import { ensureGlobalShims, publishBootstrapHandles } from './globalShim.js';
+import { buildBootstrapDependencies, publishBootstrapHandles } from './globalShim.js';
 
-ensureGlobalShims();
-publishBootstrapHandles(bootstrapGame, createGameCore);
+const dependencies = buildBootstrapDependencies(typeof window !== 'undefined' ? window : globalThis);
+const bootstrapWithDependencies = (overrides = {}) => bootstrapGame({ ...dependencies, ...overrides });
+const createGameCoreWithDependencies = (overrides = {}) => createGameCore({
+    ...overrides,
+    dependencies: { ...dependencies, ...(overrides.dependencies || {}) }
+});
+
+publishBootstrapHandles(bootstrapWithDependencies, createGameCoreWithDependencies);
 
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
-        ensureGlobalShims();
-        bootstrapGame();
+        bootstrapWithDependencies();
     });
 }

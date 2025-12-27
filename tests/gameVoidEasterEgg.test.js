@@ -53,7 +53,10 @@ global.VoidEasterEgg = VoidEasterEgg;
 global.InputHelpers = { SQRT3: Math.sqrt(3), Layout: {} };
 
 const { bootstrapGame } = require('../scripts/script.js');
-bootstrapGame();
+bootstrapGame({
+    inputHelpers: global.InputHelpers,
+    persistence: Persistence
+});
 
 function runVoidClickScenario() {
     const Game = window.Game;

@@ -10,7 +10,7 @@ function testResetProgressWithoutWindow() {
         }
     };
 
-    const { Game } = createGameCore({ persistence });
+    const { Game } = createGameCore({ dependencies: { persistence } });
     Game.persistenceAvailable = true;
     Game.bootstrapNewWorld = () => {};
     Game.updateLeaderboardUI = () => {};

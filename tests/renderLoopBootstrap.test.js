@@ -51,7 +51,10 @@ global.performance = { now: () => 42 };
 global.requestAnimationFrame = (cb) => { rafCalls.push(cb); return 1; };
 
 const { bootstrapGame } = require('../scripts/script.js');
-bootstrapGame();
+bootstrapGame({
+    inputHelpers: global.InputHelpers,
+    persistence: Persistence
+});
 
 function run() {
     const Game = window.Game;

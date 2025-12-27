@@ -83,7 +83,11 @@ async function buildGame() {
     const { createGameCore } = await import('../scripts/game/core.js');
     const { Game, Hex } = createGameCore({
         buildClusterBonusMap: () => new Map(),
-        buildTileVisibilityMap: () => new Map()
+        buildTileVisibilityMap: () => new Map(),
+        dependencies: {
+            inputHelpers: global.window.InputHelpers,
+            introOverlay: global.window.IntroOverlay
+        }
     });
 
     Game.ctx = ctx;
