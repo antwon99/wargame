@@ -1,6 +1,6 @@
 # Audio System Overview
 
-The game routes all sounds through the `scripts/audio.js` stack: a manifest-driven `GameAudio` manager, a randomizing `AmbientSoundscape` scheduler, and a thin `AudioBridge` facade in `audio/bridge.js`.
+The game routes all sounds through the `scripts/audio.js` stack: a manifest-driven `GameAudio` manager, a randomizing `AmbientSoundscape` scheduler, and a thin `AudioBridge` facade in `scripts/audio/bridge.js`.
 
 ## Manifest (GameAudio)
 - `SFX_MANIFEST` in `scripts/audio.js` maps keys to `{ src, loop?, volume?, cooldownMs?, allowOverlap?, isAmbient?, variations? }` entries. Keys are stable handles consumed by gameplay code (`AudioBridge.play('arrow')`). Manifest entries source mp3s from the organized `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` subfolders; `/sfx/ui` remains available for future HUD interactions.
@@ -19,7 +19,7 @@ The game routes all sounds through the `scripts/audio.js` stack: a manifest-driv
 - `AmbientSoundscape.enterMode(mode)` / `AmbientSoundscape.start()`: Swap and launch the scheduler for `TERRITORY` vs `WAR` playlists.
 
 ## Debug Overlay
-`audio/debugPanel.js` reads from the global `AudioDebugBus.snapshot()` to render:
+`scripts/audio/debugPanel.js` reads from the global `AudioDebugBus.snapshot()` to render:
 - Intended track (last scheduled by `AmbientSoundscape`)
 - Active audio sources with filenames/keys
 - Master volume and current game state

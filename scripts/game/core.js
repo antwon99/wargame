@@ -43,8 +43,8 @@ import {
     createHexLayout
 } from './state.js';
 import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, setSnowToggle as setSnowToggleHelper } from './settings.js';
-import AudioBridge from '../../audio/bridge.js';
-import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../../audio/debugPanel.js';
+import AudioBridge from '../audio/bridge.js';
+import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
 const fallbackSnowVisualConfig = {
