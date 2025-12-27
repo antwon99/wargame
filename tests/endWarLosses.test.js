@@ -1,6 +1,9 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
-const ImperialMandates = require('../scripts/imperialMandates.js');
+const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
+    ? ImperialMandatesBootstrap.initImperialMandates(global)
+    : ImperialMandatesBootstrap;
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

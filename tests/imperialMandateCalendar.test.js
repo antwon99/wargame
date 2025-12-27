@@ -1,5 +1,6 @@
 const assert = require('assert');
 const Calendar = require('../scripts/imperialMandateCalendar.js');
+Calendar.initImperialMandateCalendar?.(globalThis);
 
 function buildGameState(overrides = {}) {
     return { timekeeper: { daysPerWeek: 6, weeksPerMonth: 3, ...overrides } };

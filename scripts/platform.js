@@ -85,10 +85,19 @@ function sizeCanvasForDisplay(canvas, ctx, profile) {
 
 const PlatformAdapter = { detectPlatformProfile, sizeCanvasForDisplay };
 
-if (typeof module !== 'undefined') {
-    module.exports = PlatformAdapter;
+/**
+ * Register the platform helpers on the provided global scope.
+ * @param {Window|Object} [target] global object to attach PlatformAdapter to.
+ * @returns {Object} platform helper API.
+ */
+function initPlatformAdapter(target = typeof window !== 'undefined' ? window : undefined) {
+    if (target) {
+        target.PlatformAdapter = PlatformAdapter;
+    }
+    return PlatformAdapter;
 }
 
-if (typeof window !== 'undefined') {
-    window.PlatformAdapter = PlatformAdapter;
+if (typeof module !== 'undefined') {
+    PlatformAdapter.initPlatformAdapter = initPlatformAdapter;
+    module.exports = PlatformAdapter;
 }

@@ -3,7 +3,12 @@
  * Designed to be DOM-free so both the browser runtime and Node-based tests can exercise
  * the logic without heavy environment dependencies.
  */
-(function (global) {
+/**
+ * Build the rebel system API for spawning and tracking rebel camps.
+ * @param {Window|Object} [global] host scope for optional Hex access.
+ * @returns {Object} rebel system helpers.
+ */
+function createRebelSystem(global = typeof window !== 'undefined' ? window : globalThis) {
     /**
      * Determine whether a tile has been marked as a rebel camp.
      * @param {object} tile tile payload from the overworld map.
@@ -141,6 +146,24 @@
         restoreRebelTile
     };
 
-    global.RebelSystem = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const RebelSystem = createRebelSystem();
+
+/**
+ * Register the rebel helpers on the provided global scope.
+ * @param {Window|Object} [target] global object to attach RebelSystem to.
+ * @returns {Object} rebel system API.
+ */
+function initRebelSystem(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.RebelSystem = RebelSystem;
+    }
+    return RebelSystem;
+}
+
+if (typeof module !== 'undefined') module.exports = Object.assign(RebelSystem, {
+    initRebelSystem,
+    createRebelSystem
+});

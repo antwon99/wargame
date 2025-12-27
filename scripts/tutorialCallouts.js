@@ -3,7 +3,12 @@
  * The callout uses simple above/below placement and can be reused for future tutorials
  * without requiring additional overlay systems.
  */
-(function (global) {
+/**
+ * Build the tutorial callouts API for tutorial overlays.
+ * @param {Window|Object} [global] host scope for layout + timers.
+ * @returns {Object} tutorial callout helpers.
+ */
+function createTutorialCallouts(global = typeof window !== 'undefined' ? window : globalThis) {
     let activeCallout = null;
 
     function clearAutoHideTimer() {
@@ -203,6 +208,24 @@
     }
 
     const api = { showTileCallout, hideTileCallout };
-    global.TutorialCallouts = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const TutorialCallouts = createTutorialCallouts();
+
+/**
+ * Register the tutorial callouts on the provided global scope.
+ * @param {Window|Object} [target] global object to attach TutorialCallouts to.
+ * @returns {Object} tutorial callout API.
+ */
+function initTutorialCallouts(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.TutorialCallouts = TutorialCallouts;
+    }
+    return TutorialCallouts;
+}
+
+if (typeof module !== 'undefined') module.exports = Object.assign(TutorialCallouts, {
+    initTutorialCallouts,
+    createTutorialCallouts
+});

@@ -5,12 +5,20 @@
  * asynchronously, preventing UI overlays from freezing player input while still
  * driving deadlines from the authoritative tick counter.
  */
-(function (global) {
+/**
+ * Build the imperial mandate manager API for deferred tick handling.
+ * @param {Window|Object} [global] host scope for mandate lookups.
+ * @returns {Object} imperial mandate manager helpers.
+ */
+function createImperialMandateManager(global = typeof window !== 'undefined' ? window : globalThis) {
     function resolveImperialMandates() {
         if (global.ImperialMandates) return global.ImperialMandates;
         if (typeof require === 'function') {
             try {
-                return require('./imperialMandates.js');
+                const module = require('./imperialMandates.js');
+                return module?.initImperialMandates
+                    ? module.initImperialMandates(global)
+                    : module;
             } catch (error) {
                 return null;
             }
@@ -79,6 +87,24 @@
 
     const api = { advanceTick, reset };
 
-    global.ImperialMandateManager = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const ImperialMandateManager = createImperialMandateManager();
+
+/**
+ * Register the mandate manager on the provided global scope.
+ * @param {Window|Object} [target] global object to attach ImperialMandateManager to.
+ * @returns {Object} imperial mandate manager API.
+ */
+function initImperialMandateManager(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.ImperialMandateManager = ImperialMandateManager;
+    }
+    return ImperialMandateManager;
+}
+
+if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateManager, {
+    initImperialMandateManager,
+    createImperialMandateManager
+});

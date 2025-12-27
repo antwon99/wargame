@@ -5,7 +5,12 @@
  * core state machine can run in headless environments without pulling in
  * browser-only dependencies.
  */
-(function (global) {
+/**
+ * Build the imperial mandate UI adapter API.
+ * @param {Window|Object} [global] host scope for DOM + audio access.
+ * @returns {Object} UI adapter helpers for imperial mandates.
+ */
+function createImperialMandateUIAdapter(global = typeof window !== 'undefined' ? window : globalThis) {
     const TutorialCallouts = (global.TutorialCallouts)
         || (typeof require === 'function' ? require('./tutorialCallouts.js') : null);
 
@@ -227,6 +232,24 @@
         showRebelDecreeCallout
     };
 
-    global.ImperialMandateUIAdapter = api;
-    if (typeof module !== 'undefined') module.exports = api;
-})(typeof window !== 'undefined' ? window : globalThis);
+    return api;
+}
+
+const ImperialMandateUIAdapter = createImperialMandateUIAdapter();
+
+/**
+ * Register the mandate UI adapter on the provided global scope.
+ * @param {Window|Object} [target] global object to attach ImperialMandateUIAdapter to.
+ * @returns {Object} imperial mandate UI adapter API.
+ */
+function initImperialMandatesAdapter(target = typeof window !== 'undefined' ? window : globalThis) {
+    if (target) {
+        target.ImperialMandateUIAdapter = ImperialMandateUIAdapter;
+    }
+    return ImperialMandateUIAdapter;
+}
+
+if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateUIAdapter, {
+    initImperialMandatesAdapter,
+    createImperialMandateUIAdapter
+});

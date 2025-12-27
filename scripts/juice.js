@@ -26,9 +26,19 @@ const Juice = {
     }
 };
 
-if (typeof module !== 'undefined') {
-    module.exports = Juice;
+/**
+ * Attach the juice helpers to the provided global scope.
+ * @param {Window|Object} [target] global object to attach Juice to.
+ * @returns {Object} Juice helper API.
+ */
+function initJuice(target = typeof window !== 'undefined' ? window : undefined) {
+    if (target) {
+        target.Juice = Juice;
+    }
+    return Juice;
 }
-if (typeof window !== 'undefined') {
-    window.Juice = Juice;
+
+if (typeof module !== 'undefined') {
+    Juice.initJuice = initJuice;
+    module.exports = Juice;
 }

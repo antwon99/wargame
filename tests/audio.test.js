@@ -9,6 +9,7 @@ let AmbientRandomizer;
 let enterCombat;
 let exitCombat;
 let attachCombatStingerGuards;
+let initAudio;
 
 async function loadAudioModule() {
     const audioModule = await import('../scripts/audio.js');
@@ -21,8 +22,13 @@ async function loadAudioModule() {
         AmbientRandomizer,
         enterCombat,
         exitCombat,
-        attachCombatStingerGuards
+        attachCombatStingerGuards,
+        initAudio
     } = audioModule);
+
+    if (typeof initAudio === 'function') {
+        initAudio();
+    }
 }
 
 function createStubFactory(log) {
@@ -653,7 +659,10 @@ function testImperialQueuesAvoidWardrums() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandates = require('../scripts/imperialMandates.js');
+    const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+    const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
+        ? ImperialMandatesBootstrap.initImperialMandates(global)
+        : ImperialMandatesBootstrap;
     ImperialMandates.resetForNewCampaign();
 
     const playLog = [];
@@ -705,7 +714,10 @@ function testImperialMessagingGuardsWardrumPlayback() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandates = require('../scripts/imperialMandates.js');
+    const ImperialMandatesBootstrap = require('../scripts/imperialMandates.js');
+    const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
+        ? ImperialMandatesBootstrap.initImperialMandates(global)
+        : ImperialMandatesBootstrap;
     ImperialMandates.resetForNewCampaign();
 
     const origin = new Hex(0, 0);

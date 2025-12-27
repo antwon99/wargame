@@ -29,9 +29,19 @@ const VoidEasterEgg = {
     }
 };
 
-if (typeof module !== 'undefined') {
-    module.exports = VoidEasterEgg;
+/**
+ * Register the void easter egg helper on the provided global scope.
+ * @param {Window|Object} [target] global object to attach VoidEasterEgg to.
+ * @returns {Object} VoidEasterEgg helper API.
+ */
+function initVoidEasterEgg(target = typeof window !== 'undefined' ? window : undefined) {
+    if (target) {
+        target.VoidEasterEgg = VoidEasterEgg;
+    }
+    return VoidEasterEgg;
 }
-if (typeof window !== 'undefined') {
-    window.VoidEasterEgg = VoidEasterEgg;
+
+if (typeof module !== 'undefined') {
+    VoidEasterEgg.initVoidEasterEgg = initVoidEasterEgg;
+    module.exports = VoidEasterEgg;
 }

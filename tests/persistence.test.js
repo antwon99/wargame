@@ -1,6 +1,8 @@
 const assert = require('assert');
 const { clampImperialFavor } = require('../scripts/imperialFavor.js');
-const { canUseLocalStorage } = require('../scripts/storageProbe.js');
+const StorageProbe = require('../scripts/storageProbe.js');
+StorageProbe.initStorageProbe?.(globalThis);
+const { canUseLocalStorage } = StorageProbe;
 
 global.localStorage = (() => {
     const store = new Map();
@@ -21,6 +23,7 @@ global.Hex = class Hex {
 };
 
 const Persistence = require('../scripts/persistence.js');
+Persistence.initPersistence?.(globalThis);
 
 async function runTests() {
     const { Timekeeper, START_TICK } = await import('../scripts/timekeeper.js');

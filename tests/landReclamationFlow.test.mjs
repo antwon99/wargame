@@ -6,6 +6,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const ResearchSystem = require('../scripts/researchSystem.js');
+ResearchSystem.initResearchSystem?.(globalThis);
 
 const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'script.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');

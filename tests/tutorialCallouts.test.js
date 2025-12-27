@@ -118,6 +118,7 @@ function withStubbedDom(cb) {
     delete global.TutorialCallouts;
     delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
     const TutorialCallouts = require('../scripts/tutorialCallouts.js');
+    TutorialCallouts.initTutorialCallouts?.(env.window);
     try {
         cb(TutorialCallouts, env);
     } finally {
@@ -165,6 +166,7 @@ function testOnConfirmRunsWithoutDom() {
     delete global.TutorialCallouts;
     delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
     const TutorialCallouts = require('../scripts/tutorialCallouts.js');
+    TutorialCallouts.initTutorialCallouts?.(globalThis);
     let confirmed = false;
     TutorialCallouts.showTileCallout({}, {}, { onConfirm: () => { confirmed = true; } });
     assert.ok(confirmed, 'onConfirm should execute when document is unavailable');

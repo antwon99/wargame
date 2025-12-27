@@ -1,6 +1,8 @@
 const assert = require('assert');
 const Juice = require('../scripts/juice.js');
 
+Juice.initJuice?.();
+
 function testBurstRange() {
     const vectors = Juice.createBurstVectors(8, 15, 35);
     assert.strictEqual(vectors.length, 8);

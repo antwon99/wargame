@@ -41,7 +41,9 @@ function buildStubDocument() {
 
 function testDismissAddsHiddenClass() {
     const doc = buildStubDocument();
-    const initialized = IntroOverlay.init(doc);
+    const initialized = IntroOverlay.initIntroOverlay
+        ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false }).initialized
+        : IntroOverlay.init(doc);
     assert.ok(initialized, 'init should wire the overlay when elements exist');
 
     doc.btnEl.trigger('click');
@@ -54,7 +56,9 @@ function testTransitionClearsPointerFlow() {
     IntroOverlay.beginBtn = null;
     IntroOverlay.bodyEl = null;
     IntroOverlay.active = true;
-    IntroOverlay.init(doc);
+    IntroOverlay.initIntroOverlay
+        ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
+        : IntroOverlay.init(doc);
 
     doc.btnEl.trigger('click');
     doc.overlayEl.trigger('transitionend');
@@ -77,7 +81,9 @@ function testInitAppliesSeasonalCopy() {
     IntroOverlay.beginBtn = null;
     IntroOverlay.bodyEl = null;
     IntroOverlay.active = true;
-    IntroOverlay.init(doc);
+    IntroOverlay.initIntroOverlay
+        ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
+        : IntroOverlay.init(doc);
 
     assert.ok(doc.bodyEl.textContent.length > 0, 'init should populate intro copy text');
     assert.ok(doc.bodyEl.textContent.includes('April'), 'init copy should reference the April start');

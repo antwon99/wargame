@@ -117,8 +117,18 @@ function isPointerOnDrawnHex(options) {
 }
 
 if (typeof module !== 'undefined') {
-    module.exports = { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel };
+    module.exports = { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel, initInputHelpers };
 }
-if (typeof window !== 'undefined') {
-    window.InputHelpers = { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel };
+
+/**
+ * Register input helpers on the provided global scope for browser access.
+ * @param {Window|Object} [target] global object to attach InputHelpers to.
+ * @returns {{ Layout: Object, SQRT3: number, isPointerOnDrawnHex: Function, pixelToAxial: Function, cubeToPixel: Function }}
+ */
+function initInputHelpers(target = typeof window !== 'undefined' ? window : undefined) {
+    const api = { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel };
+    if (target) {
+        target.InputHelpers = api;
+    }
+    return api;
 }
