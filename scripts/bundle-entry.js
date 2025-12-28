@@ -1,14 +1,14 @@
-import { initInputHelpers } from './inputHelpers.js';
-import { initIntroOverlay } from './introOverlay.js';
-import { initAudio } from './audio.js';
+import { Layout, SQRT3, cubeToPixel, initInputHelpers, isPointerOnDrawnHex, pixelToAxial } from './inputHelpers.js';
+import { IntroOverlay, initIntroOverlay } from './introOverlay.js';
+import { GameAudio, initAudio } from './audio.js';
 import { initJuice } from './juice.js';
-import { initPersistence } from './persistence.js';
-import { initResearchSystem } from './researchSystem.js';
+import { Persistence, initPersistence } from './persistence.js';
+import { ResearchSystem, initResearchSystem } from './researchSystem.js';
 import { initVoidEasterEgg } from './voidEasterEgg.js';
-import { initPlatformAdapter } from './platform.js';
+import { PlatformAdapter, initPlatformAdapter } from './platform.js';
 import { initDebugToggle } from './debugToggle.js';
-import { initRebelSystem } from './rebelSystem.js';
-import { initTutorialCallouts } from './tutorialCallouts.js';
+import { RebelSystem, initRebelSystem } from './rebelSystem.js';
+import { TutorialCallouts, initTutorialCallouts } from './tutorialCallouts.js';
 import ImperialMandateCalendar from './mandates/imperialMandateCalendar.js';
 import createImperialMandates from './mandates/imperialMandatesCore.js';
 import ImperialMandateUIAdapter from './mandates/imperialMandatesAdapter.js';
@@ -16,11 +16,17 @@ import ImperialMandateManager from './mandates/imperialMandateManager.js';
 import { initImperialMandates } from './mandates/imperialMandates.js';
 import { initStorageProbe } from './storageProbe.js';
 import { bootstrapGame, createGameCore } from './script.js';
-import { buildBootstrapDependencies, publishBootstrapHandles } from './globalShim.js';
+import { publishBootstrapHandles } from './globalShim.js';
 
 const bootstrapScope = typeof window !== 'undefined' ? window : globalThis;
 
-initInputHelpers?.(bootstrapScope);
+const inputHelpers = initInputHelpers?.(bootstrapScope) || {
+    Layout,
+    SQRT3,
+    isPointerOnDrawnHex,
+    pixelToAxial,
+    cubeToPixel
+};
 initIntroOverlay?.(bootstrapScope);
 initAudio?.(bootstrapScope);
 initJuice?.(bootstrapScope);
@@ -34,11 +40,26 @@ initTutorialCallouts?.(bootstrapScope);
 ImperialMandateCalendar?.initImperialMandateCalendar?.(bootstrapScope);
 createImperialMandates?.initImperialMandatesCore?.(bootstrapScope);
 ImperialMandateUIAdapter?.initImperialMandatesAdapter?.(bootstrapScope);
-ImperialMandateManager?.initImperialMandateManager?.(bootstrapScope);
-initImperialMandates?.(bootstrapScope);
-initStorageProbe?.(bootstrapScope);
+const imperialMandateManager = ImperialMandateManager?.initImperialMandateManager?.(bootstrapScope) || ImperialMandateManager;
+const imperialMandates = initImperialMandates?.(bootstrapScope) || null;
+const storageProbe = initStorageProbe?.(bootstrapScope) || null;
+const debugToggles = bootstrapScope?.DebugToggles || null;
 
-const dependencies = buildBootstrapDependencies(typeof window !== 'undefined' ? window : globalThis);
+const dependencies = {
+    inputHelpers,
+    researchSystem: ResearchSystem,
+    rebelSystem: RebelSystem,
+    imperialMandates,
+    imperialMandateManager,
+    platformAdapter: PlatformAdapter,
+    tutorialCallouts: TutorialCallouts,
+    introOverlay: IntroOverlay,
+    persistence: Persistence,
+    storageProbe,
+    gameAudio: GameAudio,
+    debugToggles,
+    windowScope: bootstrapScope
+};
 const bootstrapWithDependencies = (overrides = {}) => bootstrapGame({ ...dependencies, ...overrides });
 const createGameCoreWithDependencies = (overrides = {}) => createGameCore({
     ...overrides,
