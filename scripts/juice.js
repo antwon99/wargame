@@ -38,6 +38,8 @@ function initJuice(target = typeof window !== 'undefined' ? window : undefined) 
     return Juice;
 }
 
+export { Juice, initJuice };
+
 if (typeof module !== 'undefined') {
     Juice.initJuice = initJuice;
     module.exports = Juice;

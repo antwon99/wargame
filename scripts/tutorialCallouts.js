@@ -225,6 +225,8 @@ function initTutorialCallouts(target = typeof window !== 'undefined' ? window : 
     return TutorialCallouts;
 }
 
+export { createTutorialCallouts, TutorialCallouts, initTutorialCallouts };
+
 if (typeof module !== 'undefined') module.exports = Object.assign(TutorialCallouts, {
     initTutorialCallouts,
     createTutorialCallouts
