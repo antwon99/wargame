@@ -121,6 +121,8 @@ const DebugToggle = {
     toggleClaimCostLabels
 };
 
+export { DebugToggle, initDebugToggle, toggleDebug, setDebugVisibility, toggleClaimCostLabels };
+
 if (typeof module !== 'undefined') {
     module.exports = DebugToggle;
 }

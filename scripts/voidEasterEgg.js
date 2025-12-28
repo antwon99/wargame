@@ -41,6 +41,8 @@ function initVoidEasterEgg(target = typeof window !== 'undefined' ? window : und
     return VoidEasterEgg;
 }
 
+export { VoidEasterEgg, initVoidEasterEgg };
+
 if (typeof module !== 'undefined') {
     VoidEasterEgg.initVoidEasterEgg = initVoidEasterEgg;
     module.exports = VoidEasterEgg;

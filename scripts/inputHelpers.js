@@ -132,3 +132,5 @@ function initInputHelpers(target = typeof window !== 'undefined' ? window : unde
     }
     return api;
 }
+
+export { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel, initInputHelpers };

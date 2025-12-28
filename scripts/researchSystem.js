@@ -169,6 +169,8 @@ function initResearchSystem(target = typeof window !== 'undefined' ? window : gl
     return ResearchSystem;
 }
 
+export { createResearchSystem, ResearchSystem, initResearchSystem };
+
 if (typeof module !== 'undefined') {
     ResearchSystem.initResearchSystem = initResearchSystem;
     ResearchSystem.createResearchSystem = createResearchSystem;
