@@ -22,7 +22,7 @@ import {
 } from '../combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from '../gameAudioHooks.js';
 import { START_TICK, Timekeeper } from '../timekeeper.js';
-import { OVERWORLD_TILES } from '../overworldConfig.js';
+import { OVERWORLD_TERRAIN_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
@@ -1608,22 +1608,7 @@ const Game = {
             return rebelTile;
         }
 
-        const weighted = [
-            { type: 'field', weight: 40 },
-            { type: 'forest', weight: 28 },
-            { type: 'town', weight: 16 },
-            { type: 'mine', weight: 5 },
-            { type: 'shrine', weight: 2 },
-            { type: 'ruin', weight: 1 },
-            { type: 'water', weight: 8 }
-        ];
-        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-        let pick = Math.random() * totalWeight;
-        let type = 'field';
-        for (const entry of weighted) {
-            if (pick < entry.weight) { type = entry.type; break; }
-            pick -= entry.weight;
-        }
+        const type = rollWeightedTerrainType(OVERWORLD_TERRAIN_WEIGHTS, Math.random);
 
         const def = OVERWORLD_TILES[type.toUpperCase()];
         const extras = type === 'water' ? { isWater: true } : {};

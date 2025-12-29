@@ -3,6 +3,7 @@
  * Designed to be DOM-free so both the browser runtime and Node-based tests can exercise
  * the logic without heavy environment dependencies.
  */
+import { OVERWORLD_TERRAIN_WEIGHTS, rollWeightedTerrainType } from './overworldConfig.js';
 /**
  * Build the rebel system API for spawning and tracking rebel camps.
  * @param {Window|Object} [global] host scope for optional Hex access.
@@ -28,22 +29,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
      * @returns {string} selected terrain type.
      */
     function rollReplacementTerrain(rng = Math.random) {
-        const weighted = [
-            { type: 'field', weight: 40 },
-            { type: 'forest', weight: 28 },
-            { type: 'town', weight: 16 },
-            { type: 'mine', weight: 5 },
-            { type: 'shrine', weight: 2 },
-            { type: 'ruin', weight: 1 },
-            { type: 'water', weight: 8 }
-        ];
-        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-        let pick = rng() * totalWeight;
-        for (const entry of weighted) {
-            if (pick < entry.weight) return entry.type;
-            pick -= entry.weight;
-        }
-        return 'field';
+        return rollWeightedTerrainType(OVERWORLD_TERRAIN_WEIGHTS, rng);
     }
 
     function getHexImpl(gameState) {
