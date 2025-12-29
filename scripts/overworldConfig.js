@@ -2,6 +2,36 @@
  * Shared overworld constants for tile metadata and income definitions.
  * Separated for reuse across core gameplay logic and node-based tests.
  */
+/**
+ * Weighted terrain table for overworld claims and rebel camp restoration.
+ * Weights are relative (not percentages) and should stay in sync across systems.
+ */
+export const OVERWORLD_TERRAIN_WEIGHTS = [
+    { type: 'field', weight: 40 },
+    { type: 'forest', weight: 28 },
+    { type: 'town', weight: 16 },
+    { type: 'mine', weight: 5 },
+    { type: 'shrine', weight: 2 },
+    { type: 'ruin', weight: 1 },
+    { type: 'water', weight: 8 }
+];
+
+/**
+ * Roll a terrain type from a weighted table used by overworld expansion.
+ * @param {Array<{type: string, weight: number}>} weights weighted terrain entries.
+ * @param {function} [rng=Math.random] random number generator returning [0, 1).
+ * @returns {string} chosen terrain type string.
+ */
+export function rollWeightedTerrainType(weights = OVERWORLD_TERRAIN_WEIGHTS, rng = Math.random) {
+    const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+    let pick = rng() * totalWeight;
+    for (const entry of weights) {
+        if (pick < entry.weight) return entry.type;
+        pick -= entry.weight;
+    }
+    return weights[0]?.type || 'field';
+}
+
 export const OVERWORLD_TILES = {
     CASTLE: { id: 'castle', color: '#445', char: '🏰', income: { gold: 3, wood: 1 } },
     FIELD: { id: 'field', color: '#90be6d', char: '🌾', income: {} },
