@@ -9,7 +9,7 @@ The overworld map uses a small, icon-driven vocabulary so tiles are immediately 
 | Forest | 🌲 | `#2d6a4f` | +1 wood | — | Triggers lumberjack research bonuses. |
 | Town | 🏠 | `#5e548e` | +2 gold | — | Plays the `city` chime when claimed. |
 | Scorched | 🔥 | `#3b2a2a` | — | — | No income; used for lost/ash territory. |
-| Rebel Camp | 🏴 | `#7f1d1d` | — | — | No income; hostile spawning camp. |
+| Rebel Camp | 🏴 | `#7f1d1d` | — | — | No income; hostile spawning camp. Restores to normal terrain after victory using the shared weighted roll. |
 | Mine | ⛏️ | `#7f5539` | +3 gold | — | Grants an immediate +35 gold payout on claim and plays the `gold` cue. |
 | Shrine | ⛪ | `#c9ada7` | — | +1 favor | Awards +2 Imperial Favor when claimed and keeps adding +1 favor each income tick. Plays the `holy` cue on claim. |
 | Ruin | 🏚️ | `#6c757d` | +1 gold | — | Has a 20% chance each tick to award +10 bonus gold (with a floating text callout). |
