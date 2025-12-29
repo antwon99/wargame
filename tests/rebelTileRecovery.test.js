@@ -284,8 +284,8 @@ function testRebelCampVictoryNotifiesMandates() {
 
     withUiShell(() => {
         withMandateStubs({
-            handleTileCleared: (clearedTile, gameState) => {
-                clearedCalls.push({ clearedTile, gameState });
+            handleTileCleared: (clearedTile, gameState, uiBindings, explicitTileKey) => {
+                clearedCalls.push({ clearedTile, gameState, explicitTileKey });
             }
         }, () => {
             withPatchedRandom([0.0], () => {
@@ -297,6 +297,7 @@ function testRebelCampVictoryNotifiesMandates() {
     assert.strictEqual(clearedCalls.length, 1, 'victory should notify mandates when a rebel camp is restored');
     assert.strictEqual(clearedCalls[0].clearedTile?.hex?.toString(), hex.toString(), 'tile cleared event should include a stable key');
     assert.strictEqual(clearedCalls[0].gameState, game, 'tile cleared event should forward the live game state');
+    assert.strictEqual(clearedCalls[0].explicitTileKey, hex.toString(), 'tile cleared event should pass the pending tile key');
 }
 
 function run() {
