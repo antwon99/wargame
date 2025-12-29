@@ -664,6 +664,21 @@ function testBattleOutcomeTriggersMandateIssuanceWithoutRebelSweepTick() {
     }, 'issuePendingMandates should tolerate missing rebel sweep completion ticks');
 }
 
+function testTileClearedUsesExplicitKey() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+
+    ImperialMandates.issuePendingMandates(gameState);
+    const rebelKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const mismatchedTile = { hex: new Hex(9, 9), type: 'field' };
+
+    ImperialMandates.handleTileCleared(mismatchedTile, gameState, {}, rebelKey);
+
+    const updatedMandate = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(updatedMandate.status, ImperialMandates.MandateStatus.SUCCEEDED, 'explicit tile keys should resolve the rebel sweep mandate');
+}
+
 async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
@@ -680,6 +695,7 @@ async function run() {
     await testFavorScaledResourceRequests();
     await testNonBlockingTickQueue();
     testBattleOutcomeTriggersMandateIssuanceWithoutRebelSweepTick();
+    testTileClearedUsesExplicitKey();
     console.log('All imperial mandate tests passed.');
 }
 

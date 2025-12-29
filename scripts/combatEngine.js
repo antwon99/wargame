@@ -871,7 +871,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
                 game.refreshClusterBonuses();
             }
             if (mandatesApi?.handleTileCleared) {
-                mandatesApi.handleTileCleared(restoredTile || resolvedTile, game);
+                mandatesApi.handleTileCleared(restoredTile || resolvedTile, game, undefined, targetKey);
             }
         }
     }

@@ -866,9 +866,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @param {object} tile cleared tile payload.
      * @param {object} gameState live game state reference.
      * @param {object} [uiBindings] optional UI hooks for decree rendering.
+     * @param {string|null} [explicitTileKey] stable tile key to use when the tile reference may change.
      */
-    function handleTileCleared(tile, gameState, uiBindings = {}) {
-        const targetTileKey = getTileKey(tile);
+    function handleTileCleared(tile, gameState, uiBindings = {}, explicitTileKey = null) {
+        const targetTileKey = explicitTileKey || getTileKey(tile);
         recordEvent('tile_cleared', { tile, targetTileKey }, gameState, uiBindings);
     }
 
