@@ -30,6 +30,7 @@ import { buildWaterBody, stampWaterBody } from '../waterGenerator.js';
 import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
+import { RebelSystem } from '../rebelSystem.js';
 import {
     CAMERA_MOTION_CONFIG,
     buildCameraState,
@@ -354,6 +355,7 @@ const Game = {
     ambientLoopStarted: false,
     pendingClearTile: null,
     pendingClearTileKey: null,
+    pendingClearTileWasRebel: null,
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
     pendingReclamations: [],
@@ -1482,9 +1484,11 @@ const Game = {
         if (targetTile) {
             this.pendingClearTile = targetTile;
             this.pendingClearTileKey = targetTile?.hex?.toString?.() || targetTile?.toString?.() || null;
+            this.pendingClearTileWasRebel = RebelSystem?.isRebelCampTile?.(targetTile) || false;
         } else {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
+            this.pendingClearTileWasRebel = null;
         }
         this.startWar(clickEvt);
     },
@@ -1576,6 +1580,7 @@ const Game = {
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
+            this.pendingClearTileWasRebel = null;
         }
         if (this.state === 'COMBAT' && this.updateTileInspector) this.updateTileInspector(null);
     },
@@ -1600,6 +1605,7 @@ const Game = {
         endWar(this, outcome, clickEvt, this.Hex);
         this.pendingClearTile = null;
         this.pendingClearTileKey = null;
+        this.pendingClearTileWasRebel = null;
         this.setSelectedOverworldTile(null);
         return undefined;
     },

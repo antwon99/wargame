@@ -797,6 +797,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const overworldHexes = game?.overworld?.hexes;
     const overworldTile = targetKey ? overworldHexes?.get?.(targetKey) : null;
     const resolvedTargetTile = overworldTile || targetTile;
+    const warStartedAgainstRebel = typeof game.pendingClearTileWasRebel === 'boolean'
+        ? game.pendingClearTileWasRebel
+        : Boolean(RebelSystem?.isRebelCampTile?.(resolvedTargetTile));
 
     window.exitCombat?.(normalizedOutcome);
 
@@ -830,7 +833,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         const resolvedTile = resolvedTargetTile;
         const shouldRestoreRebel = resolvedTile
             && RebelSystem?.isRebelCampTile?.(resolvedTile);
-        if (shouldRestoreRebel) {
+        if (warStartedAgainstRebel) {
             const currentWins = Math.max(
                 Number.isFinite(game.stats?.warsWon) ? game.stats.warsWon : 0,
                 Math.max(0, Number.isFinite(game.difficulty) ? game.difficulty : 0)
@@ -838,6 +841,8 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             // Enemy level now scales strictly with rebel camp victories (wars won).
             game.stats.warsWon = currentWins + 1;
             game.difficulty = game.stats.warsWon;
+        }
+        if (shouldRestoreRebel) {
             const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
             const restoredKey = restoredTile?.hex?.toString?.() || targetKey;
             if (restoredTile && restoredKey && overworldHexes?.set) {
