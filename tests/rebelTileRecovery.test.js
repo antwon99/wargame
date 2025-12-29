@@ -9,6 +9,13 @@ const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
     toString() { return `${this.q},${this.r}`; }
+    static neighbor(hex, dir) {
+        const dirs = [
+            new Hex(1, 0, -1), new Hex(1, -1, 0), new Hex(0, -1, 1),
+            new Hex(-1, 0, 1), new Hex(-1, 1, 0), new Hex(0, 1, -1)
+        ];
+        return new Hex(hex.q + dirs[dir].q, hex.r + dirs[dir].r, hex.s + dirs[dir].s);
+    }
 }
 
 function createElement() {
@@ -51,6 +58,15 @@ function buildGame() {
     return game;
 }
 
+function seedOverworld(game) {
+    const addTile = (hex) => game.overworld.hexes.set(hex.toString(), { hex, type: 'field' });
+    addTile(new Hex(0, 0));
+    addTile(new Hex(1, 0));
+    addTile(new Hex(0, 1));
+    addTile(new Hex(1, 1));
+    addTile(new Hex(-1, 0));
+}
+
 function withPatchedRandom(sequence, fn) {
     const original = Math.random;
     let idx = 0;
@@ -70,12 +86,14 @@ function withUiShell(fn) {
     const stateTxt = createElement();
     global.window = { innerWidth: 1024, innerHeight: 768, exitCombat: () => null };
     global.document = {
+        createElement,
         getElementById: (id) => {
             if (id === 'ui-overworld') return uiOverworld;
             if (id === 'ui-combat') return uiCombat;
             if (id === 'state-txt') return stateTxt;
             return null;
-        }
+        },
+        body: createElement()
     };
     try { fn(); } finally { global.window = originalWindow; global.document = originalDocument; }
 }
@@ -125,6 +143,46 @@ function testRebelCampVictoryRestoresTerrain() {
     assert.strictEqual(refreshCalls, 1, 'refreshClusterBonuses should run after rebel restoration');
 }
 
+function testMandatedRebelCampVictoryUpdatesStatsAndMandate() {
+    ImperialMandates.resetForNewCampaign();
+    const game = buildGame();
+    seedOverworld(game);
+
+    ImperialMandates.issuePendingMandates(game, {
+        enqueueNotification: () => null,
+        showTileCallout: (tile, gameState, options) => {
+            if (typeof options?.onConfirm === 'function') options.onConfirm();
+        },
+        hideTileCallout: () => null
+    });
+
+    const mandateState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    const targetKey = mandateState.metadata.targetTileKey;
+    assert.ok(targetKey, 'mandate should track the rebel camp tile');
+    const rebelTile = game.overworld.hexes.get(targetKey);
+    assert.ok(RebelSystem.isRebelCampTile(rebelTile), 'targeted tile should be a rebel camp');
+
+    game.pendingClearTile = rebelTile;
+    game.pendingClearTileKey = targetKey;
+    game.pendingClearTileWasRebel = true;
+    game.state = 'COMBAT';
+
+    withUiShell(() => {
+        withPatchedRandom([0.0], () => {
+            endWar(game, 'VICTORY');
+        });
+    });
+
+    assert.strictEqual(game.stats.warsWon, 1, 'victory should increment wars won');
+    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should match wars won count');
+
+    const restoredTile = game.overworld.hexes.get(targetKey);
+    assert.ok(!RebelSystem.isRebelCampTile(restoredTile), 'victory should restore the rebel camp tile');
+
+    const resolvedMandate = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(resolvedMandate.status, ImperialMandates.MandateStatus.SUCCEEDED, 'mandate should resolve to success');
+}
+
 function testRebelCampRestoreRollsFromWeights() {
     const game = buildGame();
     const hex = new Hex(1, 1);
@@ -166,6 +224,7 @@ function testRebelCampVictoryNotifiesMandates() {
 
 function run() {
     testRebelCampVictoryRestoresTerrain();
+    testMandatedRebelCampVictoryUpdatesStatsAndMandate();
     testRebelCampRestoreRollsFromWeights();
     testRebelCampVictoryNotifiesMandates();
     console.log('Rebel tile recovery tests passed.');
