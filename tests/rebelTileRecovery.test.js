@@ -113,6 +113,12 @@ function withMandateStubs(stubs, fn) {
     }
 }
 
+function withRebelRestoreStub(stub, fn) {
+    const originalRestore = RebelSystem.restoreRebelTile;
+    RebelSystem.restoreRebelTile = stub;
+    try { fn(); } finally { RebelSystem.restoreRebelTile = originalRestore; }
+}
+
 function testRebelCampVictoryRestoresTerrain() {
     const game = buildGame();
     const hex = new Hex(0, 0);
@@ -183,6 +189,47 @@ function testMandatedRebelCampVictoryUpdatesStatsAndMandate() {
     assert.strictEqual(resolvedMandate.status, ImperialMandates.MandateStatus.SUCCEEDED, 'mandate should resolve to success');
 }
 
+function testRebelCampVictoryRestoresWhenFlagCleared() {
+    const game = buildGame();
+    const hex = new Hex(3, 0);
+    const tile = { hex, type: 'field', owner: 'player' };
+    game.overworld.hexes.set(hex.toString(), tile);
+    game.pendingClearTile = tile;
+    game.pendingClearTileKey = hex.toString();
+    game.pendingClearTileWasRebel = true;
+    game.state = 'COMBAT';
+    let refreshCalls = 0;
+    game.refreshClusterBonuses = () => {
+        refreshCalls += 1;
+    };
+    const clearedCalls = [];
+    let restoreArgs;
+
+    withUiShell(() => {
+        withMandateStubs({
+            handleTileCleared: (clearedTile, gameState) => {
+                clearedCalls.push({ clearedTile, gameState });
+            }
+        }, () => {
+            withRebelRestoreStub((tileArg, gameState) => {
+                restoreArgs = { tileArg, gameState };
+                return { ...tileArg, restored: true };
+            }, () => {
+                withPatchedRandom([0.0], () => {
+                    endWar(game, 'VICTORY');
+                });
+            });
+        });
+    });
+
+    assert.ok(restoreArgs, 'victory should attempt rebel restoration when flagged as rebel war');
+    assert.strictEqual(restoreArgs.tileArg, tile, 'restore should receive the resolved target tile');
+    assert.strictEqual(restoreArgs.gameState, game, 'restore should receive the live game state');
+    assert.strictEqual(refreshCalls, 1, 'refreshClusterBonuses should run after restoration');
+    assert.strictEqual(clearedCalls.length, 1, 'handleTileCleared should fire after restoration');
+    assert.strictEqual(clearedCalls[0].clearedTile?.restored, true, 'restored tile should be forwarded to mandates');
+}
+
 function testRebelCampRestoreRollsFromWeights() {
     const game = buildGame();
     const hex = new Hex(1, 1);
@@ -225,6 +272,7 @@ function testRebelCampVictoryNotifiesMandates() {
 function run() {
     testRebelCampVictoryRestoresTerrain();
     testMandatedRebelCampVictoryUpdatesStatsAndMandate();
+    testRebelCampVictoryRestoresWhenFlagCleared();
     testRebelCampRestoreRollsFromWeights();
     testRebelCampVictoryNotifiesMandates();
     console.log('Rebel tile recovery tests passed.');
