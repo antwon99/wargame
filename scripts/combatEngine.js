@@ -824,7 +824,8 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
 
         // Clearing rebel pressure should convert the tile back into normal terrain.
-        const overworldTile = targetKey ? game?.overworld?.hexes?.get?.(targetKey) : null;
+        const overworldHexes = game?.overworld?.hexes;
+        const overworldTile = targetKey ? overworldHexes?.get?.(targetKey) : null;
         const resolvedTile = overworldTile || targetTile;
         const shouldRestoreRebel = resolvedTile
             && RebelSystem?.isRebelCampTile?.(resolvedTile);
@@ -836,7 +837,11 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             // Enemy level now scales strictly with rebel camp victories (wars won).
             game.stats.warsWon = currentWins + 1;
             game.difficulty = game.stats.warsWon;
-            RebelSystem?.restoreRebelTile?.(resolvedTile, game);
+            const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
+            const restoredKey = restoredTile?.hex?.toString?.() || targetKey;
+            if (restoredTile && restoredKey && overworldHexes?.set) {
+                overworldHexes.set(restoredKey, restoredTile);
+            }
             if (typeof game.refreshClusterBonuses === 'function') {
                 game.refreshClusterBonuses();
             }
