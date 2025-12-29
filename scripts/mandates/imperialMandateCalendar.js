@@ -178,6 +178,12 @@ function initImperialMandateCalendar(target = typeof window !== 'undefined' ? wi
     return ImperialMandateCalendar;
 }
 
+ImperialMandateCalendar.initImperialMandateCalendar = initImperialMandateCalendar;
+ImperialMandateCalendar.createImperialMandateCalendar = createImperialMandateCalendar;
+
+export { initImperialMandateCalendar, createImperialMandateCalendar };
+export default ImperialMandateCalendar;
+
 if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateCalendar, {
     initImperialMandateCalendar,
     createImperialMandateCalendar

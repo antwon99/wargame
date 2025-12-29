@@ -104,6 +104,12 @@ function initImperialMandateManager(target = typeof window !== 'undefined' ? win
     return ImperialMandateManager;
 }
 
+ImperialMandateManager.initImperialMandateManager = initImperialMandateManager;
+ImperialMandateManager.createImperialMandateManager = createImperialMandateManager;
+
+export { initImperialMandateManager, createImperialMandateManager };
+export default ImperialMandateManager;
+
 if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateManager, {
     initImperialMandateManager,
     createImperialMandateManager

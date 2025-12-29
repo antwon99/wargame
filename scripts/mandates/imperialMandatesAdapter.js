@@ -249,6 +249,12 @@ function initImperialMandatesAdapter(target = typeof window !== 'undefined' ? wi
     return ImperialMandateUIAdapter;
 }
 
+ImperialMandateUIAdapter.initImperialMandatesAdapter = initImperialMandatesAdapter;
+ImperialMandateUIAdapter.createImperialMandateUIAdapter = createImperialMandateUIAdapter;
+
+export { initImperialMandatesAdapter, createImperialMandateUIAdapter };
+export default ImperialMandateUIAdapter;
+
 if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateUIAdapter, {
     initImperialMandatesAdapter,
     createImperialMandateUIAdapter
