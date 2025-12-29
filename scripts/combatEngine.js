@@ -846,8 +846,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
 
         // Clearing rebel pressure should convert the tile back into normal terrain.
         const resolvedTile = resolvedTargetTile;
-        const shouldRestoreRebel = resolvedTile
-            && RebelSystem?.isRebelCampTile?.(resolvedTile);
+        const shouldRestoreRebel = warStartedAgainstRebel && resolvedTile;
         if (warStartedAgainstRebel) {
             const currentWins = Math.max(
                 Number.isFinite(game.stats?.warsWon) ? game.stats.warsWon : 0,
