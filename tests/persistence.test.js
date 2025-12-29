@@ -110,6 +110,19 @@ async function runTests() {
     assert.strictEqual(snap.notifications.length, 2, 'pending notifications should persist');
     assert.strictEqual(snap.mandates.currentTick, mandateSnapshot.currentTick, 'mandate state should persist');
 
+    const difficultyAlignment = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
+        { difficulty: 2 },
+        { warsWon: 5 }
+    );
+    assert.strictEqual(difficultyAlignment.state.difficulty, 5, 'difficulty should reconcile to the highest progress value');
+    assert.strictEqual(difficultyAlignment.stats.warsWon, 5, 'warsWon should reconcile to the highest progress value');
+
+    const missingWarsWon = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
+        { difficulty: 3 },
+        { totalKills: 9 }
+    );
+    assert.strictEqual(missingWarsWon.stats.warsWon, 3, 'missing warsWon should inherit the current difficulty');
+
     // Deserialize
     const snapshot = {
         gold: 12,
