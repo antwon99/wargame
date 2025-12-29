@@ -157,7 +157,10 @@ function testVictoryRaisesDifficultyByOne() {
     global.document = { getElementById: () => domStub, createElement: domStub.createElement };
 
     const { game } = buildEndWarGame(120);
-    game.pendingClearTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: new Hex(0, 0) };
+    const rebelHex = new Hex(0, 0);
+    const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
+    game.overworld.hexes.set(rebelHex.toString(), rebelTile);
+    game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
     const startingWins = game.stats.warsWon;
     endWar(game, 'VICTORY');
 
