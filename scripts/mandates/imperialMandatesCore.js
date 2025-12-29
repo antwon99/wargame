@@ -1373,4 +1373,9 @@ function initImperialMandatesCore(target = typeof window !== 'undefined' ? windo
 }
 
 createImperialMandates.initImperialMandatesCore = initImperialMandatesCore;
-module.exports = createImperialMandates;
+export { initImperialMandatesCore };
+export default createImperialMandates;
+
+if (typeof module !== 'undefined') {
+    module.exports = createImperialMandates;
+}
