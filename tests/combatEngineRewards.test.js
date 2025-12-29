@@ -45,6 +45,7 @@ function buildEndWarGame(startingGold = 100) {
         stats: { bestLevel: 0, bestKills: 0, warsWon: 0, warsFought: 0 },
         session: { warKills: 0 },
         research: { lives: 0 },
+        pendingClearTileWasRebel: null,
         overworld: { hexes: new Map([[hex.toString(), { type: 'plain', owner: 'player', hex }]]) },
         combat: { territory: new Map(), buildings: new Map(), slots: new Map(), units: [], fx: [], castles: {} },
         timekeeper: { getCalendar: () => ({ month: 1 }) },
@@ -162,6 +163,7 @@ function testVictoryRaisesDifficultyByOne() {
     game.overworld.hexes.set(rebelHex.toString(), rebelTile);
     game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
     game.pendingClearTileKey = rebelHex.toString();
+    game.pendingClearTileWasRebel = true;
     const startingWins = game.stats.warsWon;
     endWar(game, 'VICTORY');
 
@@ -184,6 +186,7 @@ function testVictoryRestoresRebelCampWithStalePendingTile() {
     const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
     game.overworld.hexes.set(rebelHex.toString(), rebelTile);
     game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
+    game.pendingClearTileWasRebel = true;
     const startingWins = game.stats.warsWon;
 
     endWar(game, 'VICTORY');
@@ -217,13 +220,44 @@ function testVictoryAppliesWarTax() {
     global.document = originalDocument;
 }
 
+function testVictoryUsesRebelStartFlagAfterRestoration() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+
+    const { game } = buildEndWarGame(120);
+    const rebelHex = new Hex(3, -2);
+    const restoredTile = { type: 'forest', owner: 'player', hex: rebelHex };
+    game.overworld.hexes.set(rebelHex.toString(), restoredTile);
+    game.pendingClearTile = restoredTile;
+    game.pendingClearTileKey = rebelHex.toString();
+    game.pendingClearTileWasRebel = true;
+    const startingWins = game.stats.warsWon;
+
+    endWar(game, 'VICTORY');
+
+    assert.strictEqual(
+        game.stats.warsWon,
+        startingWins + 1,
+        'victory should honor the rebel-start flag even if the tile was already restored'
+    );
+    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should mirror wars won after flagged rebel victory');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function run() {
     const originalWindow = global.window;
+    const rebelSystem = require('../scripts/rebelSystem.js');
     global.window = {
         ImperialMandates: {
             handleBattleOutcome: () => {},
             getProtectedOverworldKeys: () => new Set()
-        }
+        },
+        RebelSystem: rebelSystem
     };
     const modulePath = require.resolve('../scripts/combatEngine.js');
     delete require.cache[modulePath];
@@ -236,6 +270,7 @@ function run() {
     testVictoryRaisesDifficultyByOne();
     testVictoryRestoresRebelCampWithStalePendingTile();
     testVictoryAppliesWarTax();
+    testVictoryUsesRebelStartFlagAfterRestoration();
     global.window = originalWindow;
     console.log('All combatEngine reward tests passed.');
 }
