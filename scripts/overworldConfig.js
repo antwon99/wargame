@@ -7,7 +7,7 @@
  * Weights are relative (not percentages) and should stay in sync across systems.
  */
 export const OVERWORLD_TERRAIN_WEIGHTS = [
-    { type: 'field', weight: 40 },
+    { type: 'field', weight: 45 },
     { type: 'forest', weight: 28 },
     { type: 'town', weight: 16 },
     { type: 'mine', weight: 5 },

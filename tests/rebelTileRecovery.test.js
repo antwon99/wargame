@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
+const RebelSystem = require('../scripts/rebelSystem.js');
 const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
 const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
     ? ImperialMandatesBootstrap.initImperialMandates(global)
@@ -119,8 +120,21 @@ function testRebelCampVictoryRestoresTerrain() {
     assert.strictEqual(refreshCalls, 1, 'refreshClusterBonuses should run after rebel restoration');
 }
 
+function testRebelCampRestoreRollsFromWeights() {
+    const game = buildGame();
+    const hex = new Hex(1, 1);
+    const tile = { hex, type: 'rebelcamp', owner: 'rebel', isRebelCamp: true };
+    game.overworld.hexes.set(hex.toString(), tile);
+
+    const updated = RebelSystem.restoreRebelTile(tile, game, { rng: () => 0.999 });
+
+    assert.strictEqual(updated.type, 'water', 'restored rebel tiles should use weighted terrain rolls');
+    assert.strictEqual(updated.isWater, true, 'water rolls should mark tiles as water for rendering');
+}
+
 function run() {
     testRebelCampVictoryRestoresTerrain();
+    testRebelCampRestoreRollsFromWeights();
     console.log('Rebel tile recovery tests passed.');
 }
 
