@@ -242,6 +242,36 @@ function testRebelCampRestoreRollsFromWeights() {
     assert.strictEqual(updated.isWater, true, 'water rolls should mark tiles as water for rendering');
 }
 
+function testRebelCampRestoreRefreshesSelection() {
+    const game = buildGame();
+    const hex = new Hex(4, 1);
+    const tile = { hex, type: 'rebelcamp', owner: 'rebel', isRebelCamp: true };
+    game.overworld.hexes.set(hex.toString(), tile);
+    game.pendingClearTile = tile;
+    game.pendingClearTileKey = hex.toString();
+    game.selectedOverworldTile = tile;
+    game.state = 'COMBAT';
+    const selectionUpdates = [];
+    game.setSelectedOverworldTile = (selection) => {
+        selectionUpdates.push(selection);
+        game.selectedOverworldTile = selection;
+    };
+
+    withUiShell(() => {
+        withMandateStubs(null, () => {
+            withRebelRestoreStub((tileArg) => ({ ...tileArg, type: 'field', owner: 'player' }), () => {
+                withPatchedRandom([0.0], () => {
+                    endWar(game, 'VICTORY');
+                });
+            });
+        });
+    });
+
+    assert.strictEqual(selectionUpdates.length, 1, 'restored rebel tiles should refresh the selection');
+    assert.strictEqual(game.selectedOverworldTile?.type, 'field', 'selection should reflect restored terrain state');
+    assert.strictEqual(game.selectedOverworldTile?.owner, 'player', 'selection should reflect restored ownership');
+}
+
 function testRebelCampVictoryNotifiesMandates() {
     const game = buildGame();
     const hex = new Hex(2, 2);
@@ -274,6 +304,7 @@ function run() {
     testMandatedRebelCampVictoryUpdatesStatsAndMandate();
     testRebelCampVictoryRestoresWhenFlagCleared();
     testRebelCampRestoreRollsFromWeights();
+    testRebelCampRestoreRefreshesSelection();
     testRebelCampVictoryNotifiesMandates();
     console.log('Rebel tile recovery tests passed.');
 }
