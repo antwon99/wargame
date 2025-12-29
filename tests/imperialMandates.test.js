@@ -642,6 +642,28 @@ async function testNonBlockingTickQueue() {
     assert.strictEqual(finalTicks, initialTicks + 1, 'flush should advance the authoritative tick counter');
 }
 
+function testBattleOutcomeTriggersMandateIssuanceWithoutRebelSweepTick() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    const { uiBindings } = buildNotificationBindings();
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    const rebelSweep = ImperialMandates.getKingState().rebelSweep;
+    assert.strictEqual(rebelSweep.completionTick, null, 'rebel sweep should not have a completion tick before the first victory');
+
+    const rebelKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
+    const rebelTile = gameState.overworld.hexes.get(rebelKey);
+
+    assert.doesNotThrow(() => {
+        ImperialMandates.handleBattleOutcome('VICTORY', rebelTile, gameState, uiBindings);
+    }, 'handleBattleOutcome should not throw when issuing mandates after victory');
+
+    assert.doesNotThrow(() => {
+        ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    }, 'issuePendingMandates should tolerate missing rebel sweep completion ticks');
+}
+
 async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
@@ -657,6 +679,7 @@ async function run() {
     await testRecurringMandatesReenterQueue();
     await testFavorScaledResourceRequests();
     await testNonBlockingTickQueue();
+    testBattleOutcomeTriggersMandateIssuanceWithoutRebelSweepTick();
     console.log('All imperial mandate tests passed.');
 }
 
