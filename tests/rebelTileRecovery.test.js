@@ -97,6 +97,10 @@ function testRebelCampVictoryRestoresTerrain() {
     game.overworld.hexes.set(hex.toString(), tile);
     game.pendingClearTile = tile;
     game.state = 'COMBAT';
+    let refreshCalls = 0;
+    game.refreshClusterBonuses = () => {
+        refreshCalls += 1;
+    };
 
     withUiShell(() => {
         withMandateStubs(() => {
@@ -107,10 +111,12 @@ function testRebelCampVictoryRestoresTerrain() {
     });
 
     const updated = game.overworld.hexes.get(hex.toString());
+    assert.notStrictEqual(updated, tile, 'restored tiles should be written back to overworld hexes');
     assert.strictEqual(updated.owner, 'player', 'victory should restore rebel camps to player control');
     assert.strictEqual(updated.type, 'field', 'victory should roll a new terrain type');
     assert.ok(!updated.isRebelCamp, 'rebel camp flags should clear after victory');
     assert.ok(!updated.prevType, 'rebel metadata should be removed after conversion');
+    assert.strictEqual(refreshCalls, 1, 'refreshClusterBonuses should run after rebel restoration');
 }
 
 function run() {
