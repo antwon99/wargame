@@ -189,6 +189,50 @@ function testMandatedRebelCampVictoryUpdatesStatsAndMandate() {
     assert.strictEqual(resolvedMandate.status, ImperialMandates.MandateStatus.SUCCEEDED, 'mandate should resolve to success');
 }
 
+function testMandatedRebelCampVictoryRestoresTileAndOverlay() {
+    ImperialMandates.resetForNewCampaign();
+    const game = buildGame();
+    seedOverworld(game);
+
+    ImperialMandates.issuePendingMandates(game, {
+        enqueueNotification: () => null,
+        showTileCallout: (tile, gameState, options) => {
+            if (typeof options?.onConfirm === 'function') options.onConfirm();
+        },
+        hideTileCallout: () => null
+    });
+
+    const mandateState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    const targetKey = mandateState.metadata.targetTileKey;
+    const rebelTile = game.overworld.hexes.get(targetKey);
+
+    game.pendingClearTile = rebelTile;
+    game.pendingClearTileKey = targetKey;
+    game.pendingClearTileWasRebel = true;
+    game.state = 'COMBAT';
+
+    const originalRestore = RebelSystem.restoreRebelTile;
+    let restoreCalls = 0;
+
+    withUiShell(() => {
+        withRebelRestoreStub((tileArg, gameState) => {
+            restoreCalls += 1;
+            return originalRestore(tileArg, gameState, { rng: () => 0 });
+        }, () => {
+            withPatchedRandom([0.0], () => {
+                endWar(game, 'VICTORY');
+            });
+        });
+    });
+
+    assert.strictEqual(restoreCalls, 1, 'victory should restore the rebel camp tile');
+    const restoredTile = game.overworld.hexes.get(targetKey);
+    assert.ok(!RebelSystem.isRebelCampTile(restoredTile), 'rebel camp victory should clear the attack overlay state');
+
+    const resolvedMandate = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(resolvedMandate.status, ImperialMandates.MandateStatus.SUCCEEDED, 'mandate should resolve to success');
+}
+
 function testRebelCampVictoryRestoresWhenFlagCleared() {
     const game = buildGame();
     const hex = new Hex(3, 0);
@@ -303,6 +347,7 @@ function testRebelCampVictoryNotifiesMandates() {
 function run() {
     testRebelCampVictoryRestoresTerrain();
     testMandatedRebelCampVictoryUpdatesStatsAndMandate();
+    testMandatedRebelCampVictoryRestoresTileAndOverlay();
     testRebelCampVictoryRestoresWhenFlagCleared();
     testRebelCampRestoreRollsFromWeights();
     testRebelCampRestoreRefreshesSelection();
