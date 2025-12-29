@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
 const RebelSystem = require('../scripts/rebelSystem.js');
+const { OVERWORLD_TERRAIN_WEIGHTS } = require('../scripts/overworldConfig.js');
 const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
 const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
     ? ImperialMandatesBootstrap.initImperialMandates(global)
@@ -286,6 +287,29 @@ function testRebelCampRestoreRollsFromWeights() {
     assert.strictEqual(updated.isWater, true, 'water rolls should mark tiles as water for rendering');
 }
 
+function testRebelCampRestoreFiltersRebelCampWeight() {
+    const originalWeights = OVERWORLD_TERRAIN_WEIGHTS.slice();
+    OVERWORLD_TERRAIN_WEIGHTS.length = 0;
+    OVERWORLD_TERRAIN_WEIGHTS.push(
+        { type: 'rebelcamp', weight: 100 },
+        { type: 'field', weight: 1 }
+    );
+
+    try {
+        const game = buildGame();
+        const hex = new Hex(2, 1);
+        const tile = { hex, type: 'rebelcamp', owner: 'rebel', isRebelCamp: true };
+        game.overworld.hexes.set(hex.toString(), tile);
+
+        const updated = RebelSystem.restoreRebelTile(tile, game, { rng: () => 0.0 });
+
+        assert.strictEqual(updated.type, 'field', 'restored rebel tiles should never return rebel camps');
+    } finally {
+        OVERWORLD_TERRAIN_WEIGHTS.length = 0;
+        OVERWORLD_TERRAIN_WEIGHTS.push(...originalWeights);
+    }
+}
+
 function testRebelCampRestoreRefreshesSelection() {
     const game = buildGame();
     const hex = new Hex(4, 1);
@@ -350,6 +374,7 @@ function run() {
     testMandatedRebelCampVictoryRestoresTileAndOverlay();
     testRebelCampVictoryRestoresWhenFlagCleared();
     testRebelCampRestoreRollsFromWeights();
+    testRebelCampRestoreFiltersRebelCampWeight();
     testRebelCampRestoreRefreshesSelection();
     testRebelCampVictoryNotifiesMandates();
     console.log('Rebel tile recovery tests passed.');
