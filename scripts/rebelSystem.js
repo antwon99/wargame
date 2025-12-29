@@ -10,6 +10,18 @@ import { OVERWORLD_TERRAIN_WEIGHTS, rollWeightedTerrainType } from './overworldC
  * @returns {Object} rebel system helpers.
  */
 function createRebelSystem(global = typeof window !== 'undefined' ? window : globalThis) {
+    const REBEL_CAMP_TYPE = 'rebelcamp';
+    /**
+     * Build a terrain weight table for rebel camp restoration that omits rebel camps.
+     * @returns {Array<{type: string, weight: number}>} filtered restoration weights.
+     */
+    function getRestorationWeights() {
+        const hasRebelCampWeight = OVERWORLD_TERRAIN_WEIGHTS.some((entry) => entry.type === REBEL_CAMP_TYPE);
+        return hasRebelCampWeight
+            ? OVERWORLD_TERRAIN_WEIGHTS.filter((entry) => entry.type !== REBEL_CAMP_TYPE)
+            : OVERWORLD_TERRAIN_WEIGHTS;
+    }
+
     /**
      * Determine whether a tile has been marked as a rebel camp.
      * @param {object} tile tile payload from the overworld map.
@@ -24,12 +36,12 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     }
 
     /**
-     * Roll a terrain type using the same weighted distribution as frontier claims.
+     * Roll a non-rebel terrain type using the same weighted distribution as frontier claims.
      * @param {function} rng random number generator returning [0,1).
      * @returns {string} selected terrain type.
      */
     function rollReplacementTerrain(rng = Math.random) {
-        return rollWeightedTerrainType(OVERWORLD_TERRAIN_WEIGHTS, rng);
+        return rollWeightedTerrainType(getRestorationWeights(), rng);
     }
 
     function getHexImpl(gameState) {
