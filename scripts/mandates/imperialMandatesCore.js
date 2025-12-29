@@ -406,7 +406,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         };
 
         if (entry?.definition?.id === 'push_the_frontier') {
-            if (!frontierSweepCompleted) return Number.POSITIVE_INFINITY;
+            if (!frontierSweepResolved) return Number.POSITIVE_INFINITY;
             return gateAfterFrontierSweep(baseEarliestTick);
         }
 

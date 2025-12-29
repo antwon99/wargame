@@ -200,6 +200,34 @@ async function testMandatesCycleAfterRebelFailure() {
     assert.strictEqual(levyState.status, ImperialMandates.MandateStatus.ACTIVE, 'levy mandates should still issue after a failed frontier sweep');
 }
 
+async function testExpansionMandateAfterRebelFailure() {
+    ImperialMandates.resetForNewCampaign();
+    ImperialMandateManager.reset();
+    const gameState = buildGameState();
+    const { uiBindings } = buildNotificationBindings();
+    const expansionDelay = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 4 }, gameState);
+
+    ImperialMandates.issuePendingMandates(gameState, uiBindings);
+    await advanceImperialTicks(22, gameState, uiBindings);
+
+    const failedState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
+    assert.strictEqual(failedState.status, ImperialMandates.MandateStatus.FAILED, 'frontier sweep should fail when deadline expires');
+
+    const completionTick = ImperialMandates.getKingState().currentTick;
+    const spacing = ImperialMandateCalendar.getMinimumMandateSpacing(gameState);
+    const earliestPush = completionTick + expansionDelay;
+    const spacingGate = ImperialMandates.getKingState().lastIssuedTick + spacing;
+    const ticksUntilPush = Math.max(0, Math.max(earliestPush, spacingGate) - ImperialMandates.getKingState().currentTick - 1);
+    if (ticksUntilPush > 0) await advanceImperialTicks(ticksUntilPush, gameState, uiBindings);
+
+    let state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.PENDING, 'expansion mandate should wait for the post-sweep delay after failure');
+
+    await advanceImperialTicks(1, gameState, uiBindings);
+    state = ImperialMandates.getKingState().mandates;
+    assert.strictEqual(state.push_the_frontier.status, ImperialMandates.MandateStatus.ACTIVE, 'expansion mandate should issue after the rebel sweep completion delay');
+}
+
 async function testFirstDecreeAnchoredThenNotifications() {
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();
@@ -618,6 +646,7 @@ async function run() {
     await testMandateIssuanceAndDeadlines();
     await testRebelMandateResolutionAndExpiry();
     await testMandatesCycleAfterRebelFailure();
+    await testExpansionMandateAfterRebelFailure();
     testEmptyBodyDecreeDefaultsAndSilencesAudio();
     await testFirstDecreeAnchoredThenNotifications();
     await testTaxLevyDeadlinePaths();
