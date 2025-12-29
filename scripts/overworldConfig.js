@@ -17,6 +17,14 @@ export const OVERWORLD_TERRAIN_WEIGHTS = [
 ];
 
 /**
+ * Weighted terrain table for rebel camp restoration that never rolls rebel camps.
+ * Mirrors the overworld spawn distribution while filtering rebel camp entries.
+ */
+export const OVERWORLD_RESTORE_WEIGHTS = OVERWORLD_TERRAIN_WEIGHTS.filter(
+    (entry) => entry.type !== 'rebelcamp'
+);
+
+/**
  * Roll a terrain type from a weighted table used by overworld expansion.
  * @param {Array<{type: string, weight: number}>} weights weighted terrain entries.
  * @param {function} [rng=Math.random] random number generator returning [0, 1).

@@ -1,5 +1,9 @@
 const assert = require('assert');
-const { OVERWORLD_TERRAIN_WEIGHTS, rollWeightedTerrainType } = require('../scripts/overworldConfig.js');
+const {
+    OVERWORLD_RESTORE_WEIGHTS,
+    OVERWORLD_TERRAIN_WEIGHTS,
+    rollWeightedTerrainType
+} = require('../scripts/overworldConfig.js');
 
 function testFieldWeightTuned() {
     const fieldEntry = OVERWORLD_TERRAIN_WEIGHTS.find((entry) => entry.type === 'field');
@@ -24,9 +28,15 @@ function testRollWeightedTerrainTypeUsesTable() {
     );
 }
 
+function testRestoreWeightsExcludeRebelCamps() {
+    const hasRebelCamp = OVERWORLD_RESTORE_WEIGHTS.some((entry) => entry.type === 'rebelcamp');
+    assert.strictEqual(hasRebelCamp, false, 'restore weights should omit rebel camps');
+}
+
 function run() {
     testFieldWeightTuned();
     testRollWeightedTerrainTypeUsesTable();
+    testRestoreWeightsExcludeRebelCamps();
     console.log('Overworld config tests passed.');
 }
 

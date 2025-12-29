@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { endWar } = require('../scripts/combatEngine.js');
 const RebelSystem = require('../scripts/rebelSystem.js');
-const { OVERWORLD_TERRAIN_WEIGHTS } = require('../scripts/overworldConfig.js');
+const { OVERWORLD_RESTORE_WEIGHTS, OVERWORLD_TERRAIN_WEIGHTS } = require('../scripts/overworldConfig.js');
 const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
 const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
     ? ImperialMandatesBootstrap.initImperialMandates(global)
@@ -288,11 +288,14 @@ function testRebelCampRestoreRollsFromWeights() {
 }
 
 function testRebelCampRestoreFiltersRebelCampWeight() {
-    const originalWeights = OVERWORLD_TERRAIN_WEIGHTS.slice();
+    const originalRestoreWeights = OVERWORLD_RESTORE_WEIGHTS.slice();
+    const originalSpawnWeights = OVERWORLD_TERRAIN_WEIGHTS.slice();
+    OVERWORLD_RESTORE_WEIGHTS.length = 0;
+    OVERWORLD_RESTORE_WEIGHTS.push({ type: 'field', weight: 1 });
     OVERWORLD_TERRAIN_WEIGHTS.length = 0;
     OVERWORLD_TERRAIN_WEIGHTS.push(
         { type: 'rebelcamp', weight: 100 },
-        { type: 'field', weight: 1 }
+        { type: 'water', weight: 1 }
     );
 
     try {
@@ -305,8 +308,10 @@ function testRebelCampRestoreFiltersRebelCampWeight() {
 
         assert.strictEqual(updated.type, 'field', 'restored rebel tiles should never return rebel camps');
     } finally {
+        OVERWORLD_RESTORE_WEIGHTS.length = 0;
+        OVERWORLD_RESTORE_WEIGHTS.push(...originalRestoreWeights);
         OVERWORLD_TERRAIN_WEIGHTS.length = 0;
-        OVERWORLD_TERRAIN_WEIGHTS.push(...originalWeights);
+        OVERWORLD_TERRAIN_WEIGHTS.push(...originalSpawnWeights);
     }
 }
 
