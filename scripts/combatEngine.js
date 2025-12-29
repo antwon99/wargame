@@ -3,7 +3,7 @@
  * Functions accept the live game object so they can operate without owning
  * global state directly.
  */
-const ImperialMandates = (typeof window !== 'undefined' && window.ImperialMandates)
+const ImperialMandatesModule = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./mandates/imperialMandates.js') : {});
 const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
@@ -13,6 +13,20 @@ const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
     || null;
+
+/**
+ * Resolve the imperial mandates API at call time so both browser globals and
+ * test harnesses can inject the live instance.
+ * @returns {object} mandates API or module export.
+ */
+function resolveImperialMandates() {
+    if (typeof window !== 'undefined' && window.ImperialMandates) return window.ImperialMandates;
+    if (typeof globalThis !== 'undefined' && globalThis.ImperialMandates) return globalThis.ImperialMandates;
+    if (ImperialMandatesModule?.initImperialMandates) {
+        return ImperialMandatesModule.initImperialMandates(globalThis);
+    }
+    return ImperialMandatesModule;
+}
 
 /** Percentage of wartime gold the crown siphons as a royal levy. */
 const WAR_TAX_RATE = 0.15;
@@ -783,6 +797,7 @@ function flashOverworldLosses(game, lossReport = { conversions: [] }) {
  */
 export function endWar(game, outcome, clickEvt, hexImpl) {
     const Hex = resolveHex(game, hexImpl);
+    const mandatesApi = resolveImperialMandates();
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
@@ -792,7 +807,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const targetTile = game.pendingClearTile;
     const targetKey = game.pendingClearTileKey || targetTile?.hex?.toString?.() || targetTile?.toString?.();
     const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
-    const mandateProtected = ImperialMandates?.getProtectedOverworldKeys?.() || new Set();
+    const mandateProtected = mandatesApi?.getProtectedOverworldKeys?.() || new Set();
     mandateProtected.forEach((k) => protectedTargets.add(k));
     const overworldHexes = game?.overworld?.hexes;
     const overworldTile = targetKey ? overworldHexes?.get?.(targetKey) : null;
@@ -808,8 +823,8 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         result = 'REVIVE';
     }
 
-    if (ImperialMandates?.handleBattleOutcome) {
-        ImperialMandates.handleBattleOutcome(result, resolvedTargetTile, game);
+    if (mandatesApi?.handleBattleOutcome) {
+        mandatesApi.handleBattleOutcome(result, resolvedTargetTile, game);
     }
 
     if(result === 'VICTORY') {
@@ -846,6 +861,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
             if (typeof game.refreshClusterBonuses === 'function') {
                 game.refreshClusterBonuses();
+            }
+            if (mandatesApi?.handleTileCleared) {
+                mandatesApi.handleTileCleared(restoredTile || resolvedTile, game);
             }
         }
     }

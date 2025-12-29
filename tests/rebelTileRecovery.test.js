@@ -80,13 +80,17 @@ function withUiShell(fn) {
     try { fn(); } finally { global.window = originalWindow; global.document = originalDocument; }
 }
 
-function withMandateStubs(fn) {
+function withMandateStubs(stubs, fn) {
+    const overrides = stubs || {};
     const originalHandleOutcome = ImperialMandates.handleBattleOutcome;
+    const originalHandleTileCleared = ImperialMandates.handleTileCleared;
     const originalProtectedKeys = ImperialMandates.getProtectedOverworldKeys;
-    ImperialMandates.handleBattleOutcome = () => null;
+    ImperialMandates.handleBattleOutcome = overrides.handleBattleOutcome || (() => null);
+    ImperialMandates.handleTileCleared = overrides.handleTileCleared || (() => null);
     ImperialMandates.getProtectedOverworldKeys = () => new Set();
     try { fn(); } finally {
         ImperialMandates.handleBattleOutcome = originalHandleOutcome;
+        ImperialMandates.handleTileCleared = originalHandleTileCleared;
         ImperialMandates.getProtectedOverworldKeys = originalProtectedKeys;
     }
 }
@@ -105,7 +109,7 @@ function testRebelCampVictoryRestoresTerrain() {
     };
 
     withUiShell(() => {
-        withMandateStubs(() => {
+        withMandateStubs(null, () => {
             withPatchedRandom([0.0], () => {
                 endWar(game, 'VICTORY');
             });
@@ -133,9 +137,37 @@ function testRebelCampRestoreRollsFromWeights() {
     assert.strictEqual(updated.isWater, true, 'water rolls should mark tiles as water for rendering');
 }
 
+function testRebelCampVictoryNotifiesMandates() {
+    const game = buildGame();
+    const hex = new Hex(2, 2);
+    const tile = { hex, type: 'rebelcamp', owner: 'rebel', isRebelCamp: true };
+    game.overworld.hexes.set(hex.toString(), tile);
+    game.pendingClearTile = tile;
+    game.pendingClearTileKey = hex.toString();
+    game.state = 'COMBAT';
+    const clearedCalls = [];
+
+    withUiShell(() => {
+        withMandateStubs({
+            handleTileCleared: (clearedTile, gameState) => {
+                clearedCalls.push({ clearedTile, gameState });
+            }
+        }, () => {
+            withPatchedRandom([0.0], () => {
+                endWar(game, 'VICTORY');
+            });
+        });
+    });
+
+    assert.strictEqual(clearedCalls.length, 1, 'victory should notify mandates when a rebel camp is restored');
+    assert.strictEqual(clearedCalls[0].clearedTile?.hex?.toString(), hex.toString(), 'tile cleared event should include a stable key');
+    assert.strictEqual(clearedCalls[0].gameState, game, 'tile cleared event should forward the live game state');
+}
+
 function run() {
     testRebelCampVictoryRestoresTerrain();
     testRebelCampRestoreRollsFromWeights();
+    testRebelCampVictoryNotifiesMandates();
     console.log('Rebel tile recovery tests passed.');
 }
 
