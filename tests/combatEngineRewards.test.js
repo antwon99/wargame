@@ -171,6 +171,34 @@ function testVictoryRaisesDifficultyByOne() {
     global.document = originalDocument;
 }
 
+function testVictoryRestoresRebelCampWithStalePendingTile() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+
+    const { game } = buildEndWarGame(120);
+    const rebelHex = new Hex(2, -1);
+    const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
+    game.overworld.hexes.set(rebelHex.toString(), rebelTile);
+    game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
+    const startingWins = game.stats.warsWon;
+
+    endWar(game, 'VICTORY');
+
+    const updated = game.overworld.hexes.get(rebelHex.toString());
+    assert.strictEqual(game.stats.warsWon, startingWins + 1, 'rebel victories should increment wars won');
+    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should mirror wars won after rebel victory');
+    assert.ok(updated, 'overworld tile should exist after rebel restoration');
+    assert.strictEqual(updated.owner, 'player', 'restored rebel tiles should return to player control');
+    assert.notStrictEqual(updated.type, 'rebelcamp', 'restored rebel tiles should no longer be rebel camps');
+    assert.ok(!updated.isRebelCamp, 'restored rebel tiles should clear rebel markers');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function testVictoryAppliesWarTax() {
     const originalWindow = global.window;
     const originalDocument = global.document;
@@ -205,6 +233,7 @@ function run() {
     testDefeatAppliesGoldPenalty();
     testDefeatPenaltyCannotGoNegative();
     testVictoryRaisesDifficultyByOne();
+    testVictoryRestoresRebelCampWithStalePendingTile();
     testVictoryAppliesWarTax();
     global.window = originalWindow;
     console.log('All combatEngine reward tests passed.');
