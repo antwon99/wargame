@@ -473,20 +473,13 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         return overworldTile || payloadTile;
     }
 
-    function resetTrackedRebel(tile, gameState) {
-        if (!tile) return;
-        if (RebelSystem?.restoreRebelTile) {
-            RebelSystem.restoreRebelTile(tile, gameState);
-            return;
-        }
+    function resetTrackedRebel(tile) {
+        const entry = state.mandates.get('destroy_first_rebel_camp');
+        if (!entry?.runtime?.metadata) return;
 
-        tile.isRebelCamp = false;
-        tile.owner = 'player';
-        if (tile.type === 'rebelcamp') tile.type = tile.prevType || 'field';
-        if (tile.prevType) delete tile.prevType;
-        const tileKey = getTileKey(tile);
-        if (tileKey && gameState?.overworld?.hexes) {
-            gameState.overworld.hexes.set(tileKey, tile);
+        const clearedKey = getTileKey(tile);
+        if (!clearedKey || entry.runtime.metadata.targetTileKey === clearedKey) {
+            entry.runtime.metadata.targetTileKey = null;
         }
     }
 

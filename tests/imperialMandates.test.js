@@ -153,7 +153,8 @@ async function testRebelMandateResolutionAndExpiry() {
 
     const finalState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
     assert.strictEqual(finalState.status, ImperialMandates.MandateStatus.SUCCEEDED, 'victory should complete the mandate');
-    assert.ok(!RebelSystem.isRebelCampTile(rebelTile), 'rebel flag should be cleared after success');
+    assert.ok(RebelSystem.isRebelCampTile(rebelTile), 'mandate resolution should not mutate rebel tiles directly');
+    assert.strictEqual(finalState.metadata.targetTileKey, null, 'mandate should clear the tracked rebel tile after success');
     assert.ok(notificationBindings.notifications.some((m) => m.title === 'Imperial Reprimand'), 'reprimand should render on defeat once');
     const rebelSweepSuccess = ImperialMandates.getKingState().rebelSweep;
     assert.strictEqual(rebelSweepSuccess.outcome, ImperialMandates.MandateStatus.SUCCEEDED, 'rebel sweep outcome should be recorded on success');

@@ -844,10 +844,6 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         }
         if (shouldRestoreRebel) {
             const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
-            const restoredKey = restoredTile?.hex?.toString?.() || targetKey;
-            if (restoredTile && restoredKey && overworldHexes?.set) {
-                overworldHexes.set(restoredKey, restoredTile);
-            }
             if (typeof game.refreshClusterBonuses === 'function') {
                 game.refreshClusterBonuses();
             }
