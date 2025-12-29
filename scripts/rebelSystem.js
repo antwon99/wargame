@@ -3,7 +3,7 @@
  * Designed to be DOM-free so both the browser runtime and Node-based tests can exercise
  * the logic without heavy environment dependencies.
  */
-import { OVERWORLD_TERRAIN_WEIGHTS, rollWeightedTerrainType } from './overworldConfig.js';
+import { OVERWORLD_RESTORE_WEIGHTS, rollWeightedTerrainType } from './overworldConfig.js';
 /**
  * Build the rebel system API for spawning and tracking rebel camps.
  * @param {Window|Object} [global] host scope for optional Hex access.
@@ -11,16 +11,6 @@ import { OVERWORLD_TERRAIN_WEIGHTS, rollWeightedTerrainType } from './overworldC
  */
 function createRebelSystem(global = typeof window !== 'undefined' ? window : globalThis) {
     const REBEL_CAMP_TYPE = 'rebelcamp';
-    /**
-     * Build a terrain weight table for rebel camp restoration that omits rebel camps.
-     * @returns {Array<{type: string, weight: number}>} filtered restoration weights.
-     */
-    function getRestorationWeights() {
-        const hasRebelCampWeight = OVERWORLD_TERRAIN_WEIGHTS.some((entry) => entry.type === REBEL_CAMP_TYPE);
-        return hasRebelCampWeight
-            ? OVERWORLD_TERRAIN_WEIGHTS.filter((entry) => entry.type !== REBEL_CAMP_TYPE)
-            : OVERWORLD_TERRAIN_WEIGHTS;
-    }
 
     /**
      * Determine whether a tile has been marked as a rebel camp.
@@ -41,7 +31,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
      * @returns {string} selected terrain type.
      */
     function rollReplacementTerrain(rng = Math.random) {
-        return rollWeightedTerrainType(getRestorationWeights(), rng);
+        return rollWeightedTerrainType(OVERWORLD_RESTORE_WEIGHTS, rng);
     }
 
     function getHexImpl(gameState) {
