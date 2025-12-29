@@ -97,6 +97,7 @@ function testRebelCampVictoryRestoresTerrain() {
     const tile = { hex, type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, prevType: 'field' };
     game.overworld.hexes.set(hex.toString(), tile);
     game.pendingClearTile = tile;
+    game.pendingClearTileKey = hex.toString();
     game.state = 'COMBAT';
     let refreshCalls = 0;
     game.refreshClusterBonuses = () => {

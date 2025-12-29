@@ -353,6 +353,7 @@ const Game = {
     shakeTimer: null,
     ambientLoopStarted: false,
     pendingClearTile: null,
+    pendingClearTileKey: null,
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
     pendingReclamations: [],
@@ -1478,7 +1479,13 @@ const Game = {
      * @param {Event} [clickEvt] originating click event for FX anchoring.
      */
     beginBattleFromTile(targetTile, clickEvt) {
-        if (targetTile) this.pendingClearTile = targetTile;
+        if (targetTile) {
+            this.pendingClearTile = targetTile;
+            this.pendingClearTileKey = targetTile?.hex?.toString?.() || targetTile?.toString?.() || null;
+        } else {
+            this.pendingClearTile = null;
+            this.pendingClearTileKey = null;
+        }
         this.startWar(clickEvt);
     },
 
@@ -1568,6 +1575,7 @@ const Game = {
         startWar(this, clickEvt, this.Hex);
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
+            this.pendingClearTileKey = null;
         }
         if (this.state === 'COMBAT' && this.updateTileInspector) this.updateTileInspector(null);
     },
@@ -1591,6 +1599,7 @@ const Game = {
     endWar(outcome, clickEvt) {
         endWar(this, outcome, clickEvt, this.Hex);
         this.pendingClearTile = null;
+        this.pendingClearTileKey = null;
         this.setSelectedOverworldTile(null);
         return undefined;
     },
