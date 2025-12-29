@@ -858,6 +858,15 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         }
         if (shouldRestoreRebel) {
             const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
+            const restoredKey = restoredTile?.hex?.toString?.() || restoredTile?.toString?.();
+            const selectedKey = game.selectedOverworldTile?.hex?.toString?.() || game.selectedOverworldTile?.toString?.();
+            if (restoredTile && restoredKey && selectedKey && restoredKey === selectedKey) {
+                if (typeof game.setSelectedOverworldTile === 'function') {
+                    game.setSelectedOverworldTile(restoredTile);
+                } else {
+                    game.selectedOverworldTile = restoredTile;
+                }
+            }
             if (typeof game.refreshClusterBonuses === 'function') {
                 game.refreshClusterBonuses();
             }
