@@ -874,14 +874,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     }
 
     /**
-     * Legacy entry point preserved for existing bootstrap code.
-     * Delegates to issuePendingMandates for compatibility.
-     */
-    function issueInitialMandate(gameState, uiBindings = {}) {
-        return issuePendingMandates(gameState, uiBindings);
-    }
-
-    /**
      * Introspection helper primarily for tests and debugging overlays.
      * @returns {{ mandates: object, currentTick: number }} snapshot of mandate runtime data.
      */
@@ -1360,7 +1352,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         showRebelDecreeCallout,
         handleBattleOutcome,
         handleTileCleared,
-        issueInitialMandate,
         serializeState,
         hydrateState
     };
