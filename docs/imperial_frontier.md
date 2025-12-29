@@ -9,7 +9,7 @@ This document summarizes the introductory rebel flow and its two supporting syst
 - `isRebelCampTile(tile)` returns whether a tile is a rebel camp.
 - `getAllRebelCamps(gameState)` gathers the current rebel camp tiles across the overworld.
 
-- Standard frontier claims (`Game.claimHexLogic`) now surface a **~10–15%** rebel camp risk when the tile isn't free. That rate
+- Standard frontier claims (`Game.claimHexLogic`) now surface a **~8–12%** rebel camp risk when the tile isn't free. That rate
   keeps rebel discoveries below the town weight (~18%) while still outpacing rare mines, shrines, and ruins.
 
 The helper reuses the existing overworld tile map and Hex helpers; if no safe frontier tile is available it returns `null` without crashing the caller.
@@ -25,7 +25,7 @@ The helper reuses the existing overworld tile map and Hex helpers; if no safe fr
 
 1. **Issue:** `issueInitialMandate` spawns a rebel camp via `spawnRebelCampNearFrontier`, marks the camp as the target, and shows an anchored decree: “Patrol the frontier. Rebels have been sighted nearby. Expand the Empire’s reach — and survive the rebels beyond the fog.”
 2. **Reprimand:** Losing against that tile triggers a one-time reprimand decree (“Imperial Reprimand: The frontier has been pushed back. Regroup and destroy the encampment.”) while keeping the mandate ACTIVE and the rebel tile protected from overworld loss.
-3. **Completion:** Victory against the tracked tile promotes the status to COMPLETED, clears the rebel flags on that tile, and announces “The Emperor is pleased. Expand the territory while the frontier is quiet.”
+3. **Completion:** Victory against the tracked tile promotes the status to COMPLETED, restores the tile to normal terrain using the shared weighted roll, and announces “The Emperor is pleased. Expand the territory while the frontier is quiet.”
 
 ### Notes
 
