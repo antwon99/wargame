@@ -790,10 +790,13 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     let result = outcome;
     const startingDifficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
     const targetTile = game.pendingClearTile;
-    const targetKey = targetTile?.hex?.toString?.() || targetTile?.toString?.();
+    const targetKey = game.pendingClearTileKey || targetTile?.hex?.toString?.() || targetTile?.toString?.();
     const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
     const mandateProtected = ImperialMandates?.getProtectedOverworldKeys?.() || new Set();
     mandateProtected.forEach((k) => protectedTargets.add(k));
+    const overworldHexes = game?.overworld?.hexes;
+    const overworldTile = targetKey ? overworldHexes?.get?.(targetKey) : null;
+    const resolvedTargetTile = overworldTile || targetTile;
 
     window.exitCombat?.(normalizedOutcome);
 
@@ -803,7 +806,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     }
 
     if (ImperialMandates?.handleBattleOutcome) {
-        ImperialMandates.handleBattleOutcome(result, targetTile, game);
+        ImperialMandates.handleBattleOutcome(result, resolvedTargetTile, game);
     }
 
     if(result === 'VICTORY') {
@@ -824,9 +827,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         game.showFloatingText(anchorX, anchorY, 'Victory!', 'gold-text');
 
         // Clearing rebel pressure should convert the tile back into normal terrain.
-        const overworldHexes = game?.overworld?.hexes;
-        const overworldTile = targetKey ? overworldHexes?.get?.(targetKey) : null;
-        const resolvedTile = overworldTile || targetTile;
+        const resolvedTile = resolvedTargetTile;
         const shouldRestoreRebel = resolvedTile
             && RebelSystem?.isRebelCampTile?.(resolvedTile);
         if (shouldRestoreRebel) {

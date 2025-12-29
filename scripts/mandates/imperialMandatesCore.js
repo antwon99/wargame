@@ -461,6 +461,18 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         return null;
     }
 
+    function resolvePayloadTileKey(payload) {
+        if (!payload) return null;
+        return payload.targetTileKey || getTileKey(payload.targetTile || payload.tile);
+    }
+
+    function resolvePayloadTile(payload, gameState) {
+        const payloadTile = payload?.targetTile || payload?.tile || null;
+        const payloadKey = resolvePayloadTileKey(payload);
+        const overworldTile = payloadKey ? gameState?.overworld?.hexes?.get?.(payloadKey) : null;
+        return overworldTile || payloadTile;
+    }
+
     function resetTrackedRebel(tile, gameState) {
         if (!tile) return;
         if (RebelSystem?.restoreRebelTile) {
@@ -852,7 +864,8 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @param {object} [uiBindings] optional UI hooks for decree rendering.
      */
     function handleBattleOutcome(result, targetTile, gameState, uiBindings = {}) {
-        recordEvent('battle_outcome', { result, targetTile }, gameState, uiBindings);
+        const targetTileKey = getTileKey(targetTile);
+        recordEvent('battle_outcome', { result, targetTile, targetTileKey }, gameState, uiBindings);
     }
 
     /**
@@ -862,7 +875,8 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @param {object} [uiBindings] optional UI hooks for decree rendering.
      */
     function handleTileCleared(tile, gameState, uiBindings = {}) {
-        recordEvent('tile_cleared', { tile }, gameState, uiBindings);
+        const targetTileKey = getTileKey(tile);
+        recordEvent('tile_cleared', { tile, targetTileKey }, gameState, uiBindings);
     }
 
     /**
@@ -923,7 +937,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             },
             onEvent: (eventType, payload, ctx) => {
                 const targetKey = ctx.mandate.runtime.metadata.targetTileKey;
-                const trackedKey = getTileKey(payload?.targetTile || payload?.tile);
+                const trackedKey = resolvePayloadTileKey(payload);
                 if (eventType === 'battle_outcome' && trackedKey && trackedKey === targetKey) {
                     const result = (payload?.result || '').toUpperCase();
                     if ((result === 'DEFEAT' || result === 'REVIVE') && !ctx.mandate.runtime.reprimandShown) {
@@ -937,7 +951,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             },
             successPredicate: (eventType, payload, ctx) => {
                 const targetKey = ctx.mandate.runtime.metadata.targetTileKey;
-                const trackedKey = getTileKey(payload?.targetTile || payload?.tile);
+                const trackedKey = resolvePayloadTileKey(payload);
                 if (!trackedKey || trackedKey !== targetKey) return false;
 
                 if (eventType === 'battle_outcome') {
@@ -948,7 +962,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return false;
             },
             onSuccess: ({ payload, gameState, uiBindings }) => {
-                const tile = payload?.targetTile || payload?.tile;
+                const tile = resolvePayloadTile(payload, gameState);
                 resetTrackedRebel(tile, gameState);
                 showMandateBanner([
                     'Expand the territory while the frontier is quiet.'

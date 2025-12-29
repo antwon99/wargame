@@ -161,6 +161,7 @@ function testVictoryRaisesDifficultyByOne() {
     const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
     game.overworld.hexes.set(rebelHex.toString(), rebelTile);
     game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
+    game.pendingClearTileKey = rebelHex.toString();
     const startingWins = game.stats.warsWon;
     endWar(game, 'VICTORY');
 

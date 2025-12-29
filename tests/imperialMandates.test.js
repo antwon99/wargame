@@ -147,8 +147,9 @@ async function testRebelMandateResolutionAndExpiry() {
     assert.ok(trackedKey, 'rebel target should be stored after issuance');
     const rebelTile = gameState.overworld.hexes.get(trackedKey);
 
-    ImperialMandates.recordEvent('battle_outcome', { result: 'DEFEAT', targetTile: rebelTile }, gameState, uiBindings);
-    ImperialMandates.recordEvent('battle_outcome', { result: 'VICTORY', targetTile: rebelTile }, gameState, uiBindings);
+    const staleTile = { hex: new Hex(9, 9), type: 'field' };
+    ImperialMandates.recordEvent('battle_outcome', { result: 'DEFEAT', targetTile: staleTile, targetTileKey: trackedKey }, gameState, uiBindings);
+    ImperialMandates.recordEvent('battle_outcome', { result: 'VICTORY', targetTile: staleTile, targetTileKey: trackedKey }, gameState, uiBindings);
 
     const finalState = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp;
     assert.strictEqual(finalState.status, ImperialMandates.MandateStatus.SUCCEEDED, 'victory should complete the mandate');
@@ -221,8 +222,8 @@ async function testFirstDecreeAnchoredThenNotifications() {
 
     const targetKey = ImperialMandates.getKingState().mandates.destroy_first_rebel_camp.metadata.targetTileKey;
     const rebelTile = gameState.overworld.hexes.get(targetKey);
-    ImperialMandates.recordEvent('battle_outcome', { result: 'DEFEAT', targetTile: rebelTile }, gameState, bindings);
-    ImperialMandates.recordEvent('battle_outcome', { result: 'VICTORY', targetTile: rebelTile }, gameState, bindings);
+    ImperialMandates.recordEvent('battle_outcome', { result: 'DEFEAT', targetTile: rebelTile, targetTileKey: targetKey }, gameState, bindings);
+    ImperialMandates.recordEvent('battle_outcome', { result: 'VICTORY', targetTile: rebelTile, targetTileKey: targetKey }, gameState, bindings);
 
     assert.ok(notifications.length >= 2, 'reprimands and completion should enqueue follow-up notifications');
     const titles = notifications.map((msg) => msg.title);

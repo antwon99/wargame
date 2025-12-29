@@ -90,6 +90,7 @@ function testEndWarHighlightsLostTiles() {
     addTile(0, 1);
 
     game.pendingClearTile = protectedTile;
+    game.pendingClearTileKey = protectedTile.hex.toString();
     game.state = 'COMBAT';
     game.research.lives = 0;
 
