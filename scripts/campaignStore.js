@@ -15,6 +15,7 @@
      */
     function createCampaignStore({ persistence = Persistence } = {}) {
         const statHelpers = persistence?.StatHelpers;
+        const reconcileDifficultyAndWarsWon = statHelpers?.reconcileDifficultyAndWarsWon;
 
         /**
          * Load a campaign payload from persistence and normalize leaderboard stats.
@@ -47,11 +48,14 @@
             const normalizedStats = statHelpers?.normalizeStats
                 ? statHelpers.normalizeStats(payload?.stats || normalizedState?.stats)
                 : payload?.stats;
+            const reconciled = reconcileDifficultyAndWarsWon
+                ? reconcileDifficultyAndWarsWon(normalizedState, normalizedStats)
+                : { state: normalizedState, stats: normalizedStats };
             return {
                 ...payload,
                 pendingNotifications: payload?.pendingNotifications,
-                state: normalizedState,
-                stats: normalizedStats
+                state: reconciled.state,
+                stats: reconciled.stats
             };
         }
 
@@ -69,7 +73,16 @@
                 const fallbackStats = statHelpers?.normalizeStats ? statHelpers.normalizeStats() : {};
                 return { state: null, stats: fallbackStats, slot: '1' };
             }
-            return persistence.loadSnapshot(slotOrOptions, options);
+            const payload = persistence.loadSnapshot(slotOrOptions, options);
+            if (!reconcileDifficultyAndWarsWon) {
+                return payload;
+            }
+            const reconciled = reconcileDifficultyAndWarsWon(payload?.state, payload?.stats);
+            return {
+                ...payload,
+                state: reconciled.state,
+                stats: reconciled.stats
+            };
         }
 
         return {

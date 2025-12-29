@@ -193,6 +193,38 @@ function createPersistence(global) {
     }
 
     /**
+     * Keep difficulty and wars-won counters aligned when loading snapshots.
+     * Uses the highest known value to avoid losing progress and clamps
+     * to a non-negative integer. If both values are missing, the fallback
+     * difficulty is applied.
+     *
+     * @param {object|null} state hydrated or raw state payload.
+     * @param {object|null} stats hydrated or raw stats payload.
+     * @param {object} [options]
+     * @param {number} [options.fallbackDifficulty=0] fallback difficulty when neither value is set.
+     * @returns {{state: object|null, stats: object|null, difficulty: number, warsWon: number}} aligned payloads.
+     */
+    function reconcileDifficultyAndWarsWon(state, stats, { fallbackDifficulty = 0 } = {}) {
+        const fallback = Number.isFinite(fallbackDifficulty) ? fallbackDifficulty : 0;
+        const difficultyValue = Number.isFinite(state?.difficulty)
+            ? Math.max(0, Math.floor(state.difficulty))
+            : null;
+        const warsWonValue = Number.isFinite(stats?.warsWon)
+            ? Math.max(0, Math.floor(stats.warsWon))
+            : null;
+        const resolved = Number.isFinite(difficultyValue) && Number.isFinite(warsWonValue)
+            ? Math.max(difficultyValue, warsWonValue)
+            : (Number.isFinite(difficultyValue) ? difficultyValue : (Number.isFinite(warsWonValue) ? warsWonValue : fallback));
+
+        return {
+            state: state ? { ...state, difficulty: resolved } : state,
+            stats: stats ? { ...stats, warsWon: resolved } : stats,
+            difficulty: resolved,
+            warsWon: resolved
+        };
+    }
+
+    /**
      * Merge queue + in-flight notification payloads into a minimal rehydration list.
      * @param {object} game live game object that may expose a notification stack getter.
      * @returns {Array<object>} normalized notification payloads safe for persistence.
@@ -494,7 +526,8 @@ function createPersistence(global) {
     const StatHelpers = {
         normalizeStats,
         clampImperialFavor,
-        normalizeTimekeeperSnapshot
+        normalizeTimekeeperSnapshot,
+        reconcileDifficultyAndWarsWon
     };
 
     const api = {

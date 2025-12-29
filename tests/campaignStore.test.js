@@ -101,9 +101,27 @@ function testReturnsPendingNotificationsUnmodified() {
     assert.strictEqual(loaded.pendingNotifications, pendingNotifications, 'load should pass through pendingNotifications without mutation');
 }
 
+function testReconcilesDifficultyAndWarsWon() {
+    const slot = '7';
+    const persistenceStub = {
+        loadSnapshot: () => ({
+            slot,
+            state: { difficulty: 1 },
+            stats: { warsWon: 4 }
+        }),
+        StatHelpers: Persistence.StatHelpers
+    };
+    const store = createCampaignStore({ persistence: persistenceStub });
+
+    const loaded = store.load(slot);
+
+    assert.strictEqual(loaded.state.difficulty, 4, 'difficulty should reconcile to the highest warsWon value');
+    assert.strictEqual(loaded.stats.warsWon, 4, 'warsWon should remain aligned with difficulty');
+}
+
 function testLoadCampaignDelegatesSynchronously() {
     const slot = '6';
-    const expected = { state: { foo: 'bar' }, stats: { totalKills: 42 }, slot };
+    const expected = { state: { difficulty: 2, foo: 'bar' }, stats: { totalKills: 42, warsWon: 1 }, slot };
     let loadCalled = false;
     const persistenceStub = {
         loadSnapshot: (slotArg, optionsArg) => {
@@ -119,12 +137,15 @@ function testLoadCampaignDelegatesSynchronously() {
     const loaded = store.loadCampaign(slot, { hexFactory: 'noop' });
 
     assert.ok(loadCalled, 'loadCampaign should synchronously call persistence.loadSnapshot');
-    assert.strictEqual(loaded, expected, 'loadCampaign should return the persistence payload unmodified');
+    assert.strictEqual(loaded.state.foo, 'bar', 'loadCampaign should preserve the payload state');
+    assert.strictEqual(loaded.state.difficulty, 2, 'loadCampaign should reconcile difficulty on the returned payload');
+    assert.strictEqual(loaded.stats.warsWon, 2, 'loadCampaign should reconcile warsWon when mismatched');
 }
 
 testNormalizesLegacyStats();
 testHydratesSnapshotsWithDeserializer();
 testFallsBackToGlobalDeserializerWhenMissing();
 testReturnsPendingNotificationsUnmodified();
+testReconcilesDifficultyAndWarsWon();
 testLoadCampaignDelegatesSynchronously();
 console.log('Campaign store tests passed.');
