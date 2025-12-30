@@ -88,9 +88,12 @@ export function advanceOverworldTimer(game, dt, options = {}) {
     game.overworld.timer = (game.overworld?.timer || 0) + dt;
     if (game.overworld.timer < tickRate) return false;
 
-    game.overworld.timer = 0;
-    applyOverworldIncome(game, options);
-    return true;
+    const ticksToApply = Math.floor(game.overworld.timer / tickRate);
+    game.overworld.timer -= ticksToApply * tickRate;
+    for (let i = 0; i < ticksToApply; i += 1) {
+        applyOverworldIncome(game, options);
+    }
+    return ticksToApply > 0;
 }
 
 export default applyOverworldIncome;
