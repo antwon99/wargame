@@ -4,6 +4,7 @@
  * the logic without heavy environment dependencies.
  */
 import { OVERWORLD_RESTORE_WEIGHTS, rollWeightedTerrainType } from './overworldConfig.js';
+import { getTileKey } from './utils/tileKey.js';
 /**
  * Build the rebel system API for spawning and tracking rebel camps.
  * @param {Window|Object} [global] host scope for optional Hex access.
@@ -36,13 +37,6 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
 
     function getHexImpl(gameState) {
         return (gameState && gameState.Hex) || global.Hex;
-    }
-
-    function ensureKey(tile) {
-        if (!tile) return null;
-        if (tile.hex && typeof tile.hex.toString === 'function') return tile.hex.toString();
-        if (typeof tile.toString === 'function') return tile.toString();
-        return null;
     }
 
     /**
@@ -82,7 +76,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         chosen.type = 'rebelcamp';
         chosen.isRebelCamp = true;
         chosen.owner = 'rebel';
-        const key = ensureKey(chosen);
+        const key = getTileKey(chosen);
         if (key && typeof hexes.set === 'function') {
             hexes.set(key, chosen);
         }
@@ -120,7 +114,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         else if (updated.isWater) delete updated.isWater;
         if (updated.prevType) delete updated.prevType;
 
-        const key = ensureKey(updated);
+        const key = getTileKey(updated);
         if (key && gameState?.overworld?.hexes) {
             gameState.overworld.hexes.set(key, updated);
         }

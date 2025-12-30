@@ -1,5 +1,6 @@
 import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
+import { getTileKey } from './utils/tileKey.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -916,7 +917,7 @@ export function updateHUD(game) {
  */
 function resolveOverworldTile(game, tile) {
     if (!tile || !game?.overworld?.hexes) return tile;
-    const key = tile.hex?.toString?.() || tile.toString?.();
+    const key = getTileKey(tile);
     if (!key) return tile;
     return game.overworld.hexes.get(key) || tile;
 }
