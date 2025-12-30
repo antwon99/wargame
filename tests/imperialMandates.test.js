@@ -1,6 +1,7 @@
 const assert = require('assert');
 const RebelSystem = require('../scripts/rebelSystem.js');
 const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
+const { clampImperialFavor } = require('../scripts/imperialFavor.js');
 const ImperialMandateManager = require('../scripts/mandates/imperialMandateManager.js');
 const ImperialMandateCalendar = require('../scripts/mandates/imperialMandateCalendar.js');
 
@@ -592,10 +593,10 @@ async function testDiplomaticEnvoysMandate() {
     await advanceImperialTicks(10, gameState, uiBindings);
     await advanceImperialTicks(10, gameState, uiBindings);
     let envoys = ImperialMandates.getKingState().mandates.diplomatic_envoys;
-    assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.ACTIVE, 'diplomatic envoys mandate should activate when favor is high enough');
-    const { targetFavor, giftCost } = envoys.metadata;
+    assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.ACTIVE, 'diplomatic envoys mandate should activate after the timing window');
+    const { favorCost, giftCost } = envoys.metadata;
     const favorBeforeEnvoys = gameState.imperialFavor || 0;
-    gameState.imperialFavor = targetFavor;
+    gameState.imperialFavor = favorCost;
     gameState.gold = giftCost;
     const confirmResult = ImperialMandates.confirmMandateResources('diplomatic_envoys', gameState, uiBindings);
     assert.ok(confirmResult.ok, 'envoy confirmation should succeed once favor and gifts are ready');
@@ -603,7 +604,12 @@ async function testDiplomaticEnvoysMandate() {
     assert.strictEqual(envoys.status, ImperialMandates.MandateStatus.SUCCEEDED, 'envoy mandate should succeed when favor and gifts align');
     assert.strictEqual(gameState.gold, 0, 'envoy gifts should deduct the treasury');
     assert.ok(gameState.wood >= 25, 'envoy success should return tribute timber');
-    assert.ok(gameState.imperialFavor >= favorBeforeEnvoys + 2, 'envoy success should add favor to the meter');
+    const expectedFavor = clampImperialFavor(favorBeforeEnvoys + 2 - (favorCost || 0));
+    assert.strictEqual(
+        gameState.imperialFavor,
+        expectedFavor,
+        'envoy success should spend favor before applying the success boost'
+    );
 
     ImperialMandates.resetForNewCampaign();
     ImperialMandateManager.reset();

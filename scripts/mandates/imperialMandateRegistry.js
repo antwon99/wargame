@@ -67,7 +67,7 @@
             earliestIssue: { weeks: 2, days: 2 },
             resolutionType: 'timed',
             rewardDescriptor: 'Favor boost for funding envoys and securing alliances',
-            triggerConditions: 'Imperial favor and gold reserves above diplomatic threshold',
+            triggerConditions: 'Gold reserves above diplomatic threshold',
             successFavorDelta: 2,
             failureFavorDelta: -3
         }

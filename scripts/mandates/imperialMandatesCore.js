@@ -130,6 +130,24 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     }
 
     /**
+     * Calculate the favor cost for the diplomatic envoy mandate.
+     * Rates improve as favor rises, while keeping the spend between 1-3 points.
+     * @param {number} currentFavor current imperial favor value.
+     * @returns {number} favor points to spend.
+     */
+    function calculateDiplomaticFavorCost(currentFavor) {
+        const favor = clampImperialFavor(currentFavor);
+        let rate = 0.35;
+        if (favor >= 8) {
+            rate = 0.25;
+        } else if (favor >= 5) {
+            rate = 0.3;
+        }
+        const baseCost = Math.ceil(favor * rate);
+        return Math.max(1, Math.min(3, baseCost));
+    }
+
+    /**
      * Build a per-mandate resource checklist for UI overlays or confirmations.
      * @param {{ definition: object, runtime: object }} entry mandate entry to inspect.
      * @param {object|null} gameState latest known game state reference.
@@ -183,7 +201,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             }
             case 'diplomatic_envoys': {
                 const giftCost = Number(entry.runtime.metadata.giftCost) || 0;
-                const targetFavor = Number(entry.runtime.metadata.targetFavor) || 0;
+                const favorCost = Number(entry.runtime.metadata.favorCost) || 0;
                 const requirements = [];
                 if (giftCost > 0) requirements.push({
                     key: 'gold',
@@ -192,11 +210,11 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     target: giftCost,
                     unit: 'coins'
                 });
-                if (targetFavor > 0) requirements.push({
+                if (favorCost > 0) requirements.push({
                     key: 'favor',
                     label: 'Imperial Favor',
                     current: favor,
-                    target: targetFavor,
+                    target: favorCost,
                     unit: 'favor'
                 });
                 return requirements;
@@ -1274,22 +1292,21 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             title: blueprint.title || 'Dispatch Diplomatic Envoys',
             description: blueprint.description || 'Maintain favor and pay coin to keep frontier courts aligned with the Empire.',
             duration: blueprint.duration || { weeks: 1 },
-            createInitialState: () => ({ targetFavor: 0, giftCost: 0, deadlineWarned: false, confirmed: false }),
+            createInitialState: () => ({ favorCost: 0, giftCost: 0, deadlineWarned: false, confirmed: false }),
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 2 },
             triggerPredicate: ({ gameState }) => {
-                const favor = clampImperialFavor(gameState?.imperialFavor);
-                return favor >= 6 && (gameState?.gold || 0) >= 60;
+                return (gameState?.gold || 0) >= 60;
             },
             onIssue: ({ gameState, uiBindings, mandate }) => {
                 const currentFavor = clampImperialFavor(gameState?.imperialFavor);
-                const targetFavor = Math.min(10, currentFavor + 2);
+                const favorCost = calculateDiplomaticFavorCost(currentFavor);
                 const giftCost = Math.max(45, Math.floor((gameState?.gold || 0) * 0.25));
-                mandate.runtime.metadata.targetFavor = targetFavor;
+                mandate.runtime.metadata.favorCost = favorCost;
                 mandate.runtime.metadata.giftCost = giftCost;
                 const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
                 showMandateBanner([
                     `Prepare envoys with ${giftCost} gold in gifts.`,
-                    `Secure favor ${targetFavor}+ by ${deadlineLabel}.`
+                    `Spend ${favorCost} favor by ${deadlineLabel}.`
                 ], uiBindings, 'Diplomatic Envoys');
             },
             successPredicate: (eventType, payload, ctx) => (
@@ -1298,9 +1315,12 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 && ctx.mandate.runtime.metadata.confirmed
             ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
-                const { giftCost } = mandate.runtime.metadata;
+                const { favorCost, giftCost } = mandate.runtime.metadata;
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - giftCost);
+                }
+                if (typeof favorCost === 'number') {
+                    applyImperialFavorDelta(gameState, uiBindings, -favorCost);
                 }
                 if (typeof gameState?.wood === 'number') gameState.wood += 25;
                 showMandateBanner([
