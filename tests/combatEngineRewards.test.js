@@ -249,9 +249,61 @@ function testVictoryUsesRebelStartFlagAfterRestoration() {
     global.document = originalDocument;
 }
 
+function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = {
+        innerWidth: 800,
+        innerHeight: 600,
+        ImperialMandates: {
+            handleBattleOutcome: () => {},
+            getProtectedOverworldKeys: () => new Set()
+        }
+    };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    const modulePath = require.resolve('../scripts/combatEngine.js');
+    delete require.cache[modulePath];
+    const combatEngine = require('../scripts/combatEngine.js');
+
+    const rebelApi = rebelSystem.RebelSystem || rebelSystem;
+    const originalRestore = rebelApi.restoreRebelTile;
+    let restoreCalled = false;
+    const restoreSpy = (tile, game) => {
+        restoreCalled = true;
+        const updated = { ...tile, type: 'plain', owner: 'player', isRebelCamp: false };
+        game.overworld.hexes.set(updated.hex.toString(), updated);
+        return updated;
+    };
+    rebelApi.restoreRebelTile = restoreSpy;
+
+    rebelSystem.initRebelSystem(global.window);
+
+    const { game } = buildEndWarGame(120);
+    const rebelHex = new Hex(1, -1);
+    const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
+    game.overworld.hexes.set(rebelHex.toString(), rebelTile);
+    game.pendingClearTile = rebelTile;
+    game.pendingClearTileKey = rebelHex.toString();
+    game.pendingClearTileWasRebel = true;
+
+    combatEngine.endWar(game, 'VICTORY');
+
+    const updated = game.overworld.hexes.get(rebelHex.toString());
+    assert.ok(restoreCalled, 'victory should restore the rebel camp even when RebelSystem initializes late');
+    assert.ok(updated, 'overworld tile should exist after restoration');
+    assert.strictEqual(updated.owner, 'player', 'restored rebel tiles should return to player control');
+    assert.ok(!rebelApi.isRebelCampTile(updated), 'restored rebel tiles should no longer count as rebel camps');
+
+    rebelApi.restoreRebelTile = originalRestore;
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function run() {
     const originalWindow = global.window;
     const rebelSystem = require('../scripts/rebelSystem.js');
+    testVictoryRestoresRebelCampAfterLateInit(rebelSystem);
     global.window = {
         ImperialMandates: {
             handleBattleOutcome: () => {},
