@@ -120,6 +120,15 @@ function withRebelRestoreStub(stub, fn) {
     try { fn(); } finally { RebelSystem.restoreRebelTile = originalRestore; }
 }
 
+function withGlobalRebelSystem(stub, fn) {
+    const originalRebelSystem = global.RebelSystem;
+    global.RebelSystem = stub;
+    try { fn(); } finally {
+        if (typeof originalRebelSystem === 'undefined') delete global.RebelSystem;
+        else global.RebelSystem = originalRebelSystem;
+    }
+}
+
 function testRebelCampVictoryRestoresTerrain() {
     const game = buildGame();
     const hex = new Hex(0, 0);
@@ -373,6 +382,55 @@ function testRebelCampVictoryNotifiesMandates() {
     assert.strictEqual(clearedCalls[0].explicitTileKey, hex.toString(), 'tile cleared event should pass the pending tile key');
 }
 
+function testEndWarUsesGlobalRebelSystemAfterInit() {
+    const game = buildGame();
+    const hex = new Hex(5, 0);
+    const tile = { hex, type: 'field', owner: 'player' };
+    game.overworld.hexes.set(hex.toString(), tile);
+    game.pendingClearTile = tile;
+    game.pendingClearTileKey = hex.toString();
+    game.state = 'COMBAT';
+
+    const originalIsRebel = RebelSystem.isRebelCampTile;
+    const originalRestore = RebelSystem.restoreRebelTile;
+    RebelSystem.isRebelCampTile = () => false;
+    RebelSystem.restoreRebelTile = () => {
+        throw new Error('Module rebel system should not be used when global is initialized');
+    };
+
+    let isRebelCalls = 0;
+    let restoreCalls = 0;
+
+    withUiShell(() => {
+        withMandateStubs(null, () => {
+            withGlobalRebelSystem({
+                isRebelCampTile: (tileArg) => {
+                    isRebelCalls += 1;
+                    return tileArg === tile;
+                },
+                restoreRebelTile: (tileArg, gameState) => {
+                    restoreCalls += 1;
+                    const updated = { ...tileArg, restoredFromGlobal: true };
+                    gameState.overworld.hexes.set(tileArg.hex.toString(), updated);
+                    return updated;
+                }
+            }, () => {
+                withPatchedRandom([0.0], () => {
+                    endWar(game, 'VICTORY');
+                });
+            });
+        });
+    });
+
+    RebelSystem.isRebelCampTile = originalIsRebel;
+    RebelSystem.restoreRebelTile = originalRestore;
+
+    assert.strictEqual(isRebelCalls, 1, 'endWar should resolve rebel camps from the global system');
+    assert.strictEqual(restoreCalls, 1, 'endWar should restore rebel tiles using the global system');
+    const updated = game.overworld.hexes.get(hex.toString());
+    assert.ok(updated.restoredFromGlobal, 'restored tile should come from the global rebel system');
+}
+
 function run() {
     testRebelCampVictoryRestoresTerrain();
     testMandatedRebelCampVictoryUpdatesStatsAndMandate();
@@ -382,6 +440,7 @@ function run() {
     testRebelCampRestoreFiltersRebelCampWeight();
     testRebelCampRestoreRefreshesSelection();
     testRebelCampVictoryNotifiesMandates();
+    testEndWarUsesGlobalRebelSystemAfterInit();
     console.log('Rebel tile recovery tests passed.');
 }
 
