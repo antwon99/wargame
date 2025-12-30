@@ -10,7 +10,7 @@ The fog-of-war visuals have been retired in favor of a seasonal snow treatment. 
 ## Rendering details
 - `renderSnowOverlay()` in `scripts/game/core.js` clears the canvas to the void color, then washes the viewport with a solid white overlay sized by the resolved `coverage` value from `resolveSnowVisualConfig()`.
 - Coverage is clamped between `minCoverage` and `maxCoverage` so the overlay never overwhelms the scene, and opacity rises/falls smoothly throughout the winter months.
-- Tile visibility shading now runs through `drawTileVisibilityMask()`; it remains separate from snow so exploration clarity is preserved.
+- Tile visibility shading now runs through `drawTileVisibilityMask()`; it remains separate from snow so exploration clarity is preserved. See [Visibility mask system](visibility-mask.md) for API context.
 
 ## Settings and debug controls
 - Sidebar settings expose **Snow Overlay** and **Seasonal Snowfall** toggles, mapped to `featureToggles.snow`.
