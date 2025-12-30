@@ -1,6 +1,7 @@
 const assert = require('assert');
 let damageBuilding;
 let endWar;
+let computeWarRewardMultiplier;
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -249,6 +250,43 @@ function testVictoryUsesRebelStartFlagAfterRestoration() {
     global.document = originalDocument;
 }
 
+function testRewardMultiplierDecaysOverTime() {
+    const startMultiplier = computeWarRewardMultiplier(0);
+    const midMultiplier = computeWarRewardMultiplier(120000);
+    const capMultiplier = computeWarRewardMultiplier(240000);
+
+    assert.strictEqual(startMultiplier, 1, 'reward multiplier should start at 1.0');
+    assert.ok(midMultiplier < startMultiplier, 'reward multiplier should decay as time elapses');
+    assert.ok(midMultiplier > capMultiplier, 'reward multiplier should continue decaying toward the cap');
+    assert.strictEqual(capMultiplier, 0, 'reward multiplier should hit 0 at the decay cap');
+}
+
+function testVictoryRewardsDecayWithElapsedWarTime() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+
+    const { game: fastGame } = buildEndWarGame(100);
+    fastGame.combat.warElapsedMs = 0;
+    endWar(fastGame, 'VICTORY');
+
+    const { game: lateGame } = buildEndWarGame(100);
+    lateGame.combat.warElapsedMs = 240000;
+    endWar(lateGame, 'VICTORY');
+
+    assert.ok(
+        lateGame.gold < fastGame.gold,
+        'victory rewards should decrease as war time increases'
+    );
+    assert.strictEqual(lateGame.gold, 100, 'victory rewards should reach zero at the cap');
+    assert.strictEqual(lateGame.wood, 0, 'wood rewards should reach zero at the cap');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
     const originalWindow = global.window;
     const originalDocument = global.document;
@@ -313,7 +351,7 @@ function run() {
     };
     const modulePath = require.resolve('../scripts/combatEngine.js');
     delete require.cache[modulePath];
-    ({ damageBuilding, endWar } = require('../scripts/combatEngine.js'));
+    ({ damageBuilding, endWar, computeWarRewardMultiplier } = require('../scripts/combatEngine.js'));
 
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
@@ -323,6 +361,8 @@ function run() {
     testVictoryRestoresRebelCampWithStalePendingTile();
     testVictoryAppliesWarTax();
     testVictoryUsesRebelStartFlagAfterRestoration();
+    testRewardMultiplierDecaysOverTime();
+    testVictoryRewardsDecayWithElapsedWarTime();
     global.window = originalWindow;
     console.log('All combatEngine reward tests passed.');
 }
