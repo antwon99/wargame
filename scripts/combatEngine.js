@@ -29,6 +29,23 @@ function resolveImperialMandates() {
 
 /** Percentage of wartime gold the crown siphons as a royal levy. */
 const WAR_TAX_RATE = 0.15;
+/** Seconds until combat rewards fully decay to zero. */
+const WAR_REWARD_DECAY_SECONDS = 240;
+
+/**
+ * Compute a reward multiplier based on elapsed war time.
+ * Rewards linearly decay from 1.0 at war start to 0.0 at the cap.
+ * @param {number} elapsedMs total elapsed war time in milliseconds.
+ * @param {number} [capSeconds] seconds until rewards reach zero.
+ * @returns {number} reward multiplier in the [0, 1] range.
+ */
+export function computeWarRewardMultiplier(elapsedMs, capSeconds = WAR_REWARD_DECAY_SECONDS) {
+    const safeElapsedMs = Math.max(0, Number(elapsedMs) || 0);
+    const safeCapSeconds = Math.max(1, Number(capSeconds) || 1);
+    const capMs = safeCapSeconds * 1000;
+    const ratio = Math.min(1, safeElapsedMs / capMs);
+    return Math.max(0, 1 - ratio);
+}
 
 /**
  * Resolve the Hex dependency so callers can inject test doubles instead of relying
@@ -162,6 +179,10 @@ export function getSpawnRate(game, baseRate) {
  * @param {object} [hexImpl] optional Hex implementation for spatial math.
  */
 export function updateCombat(game, dt, hexImpl) {
+    const safeDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
+    if (!game.combat.warStartMs) game.combat.warStartMs = Date.now();
+    game.combat.warElapsedMs = Math.max(0, (game.combat.warElapsedMs || 0) + (safeDt * 1000));
+    const rewardMultiplier = computeWarRewardMultiplier(game.combat.warElapsedMs);
     const Hex = resolveHex(game, hexImpl);
     for(let [k, b] of game.combat.buildings) {
         if(b.type === 'rocks') continue;
@@ -181,13 +202,15 @@ export function updateCombat(game, dt, hexImpl) {
 
             // Income Logic (Mine OR Castle)
             if(def.income) {
+                const scaledIncome = Math.max(0, Math.floor(def.income * rewardMultiplier));
+                if (scaledIncome <= 0) continue;
                 if(b.owner === 'player') {
-                    game.gold += def.income;
-                    game.spawnTxt(hex, `+${def.income}g`, '#ffd166');
+                    game.gold += scaledIncome;
+                    game.spawnTxt(hex, `+${scaledIncome}g`, '#ffd166');
                 } else {
-                    game.combat.ai.gold += def.income;
+                    game.combat.ai.gold += scaledIncome;
                     // Visual cue for AI mining
-                    if(b.type === 'mine' && Math.random() > 0.8) game.spawnTxt(hex, `+${def.income}g`, '#ef476f');
+                    if(b.type === 'mine' && Math.random() > 0.8) game.spawnTxt(hex, `+${scaledIncome}g`, '#ef476f');
                 }
             }
 
@@ -327,11 +350,14 @@ export function damageUnit(game, u, dmg, attackerOwner) {
         registerKill(game, attackerOwner);
         if (Math.random() > 0.5) { // 50% Chance
             const bounty = Math.floor(Math.random() * 2) + 1; // 1-2g
+            const rewardMultiplier = computeWarRewardMultiplier(game.combat?.warElapsedMs || 0);
+            const scaledBounty = Math.max(0, Math.floor(bounty * rewardMultiplier));
+            if (scaledBounty <= 0) return;
             if (attackerOwner === 'player') {
-                game.gold += bounty;
-                game.spawnTxt(u.pos, `+${bounty}g`, '#00ff00'); // Green text
+                game.gold += scaledBounty;
+                game.spawnTxt(u.pos, `+${scaledBounty}g`, '#00ff00'); // Green text
             } else {
-                game.combat.ai.gold += bounty;
+                game.combat.ai.gold += scaledBounty;
             }
         }
     }
@@ -594,6 +620,8 @@ export function startWar(game, clickEvt, hexImpl) {
     game.combat.ai.timer = 0;
     game.combat.ai.nextMove = aiPrep.nextMove;
     game.combat.ai.gold = aiPrep.gold;
+    game.combat.warStartMs = Date.now();
+    game.combat.warElapsedMs = 0;
 
     const W = 4; const H = 9;
     for(let r = -H; r <= H; r++) {
@@ -838,8 +866,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     if(result === 'VICTORY') {
         const cal = game.timekeeper?.getCalendar?.();
         const eraBonus = Math.floor(((cal?.month || 1) - 1) / 3);
-        const goldReward = 40 + (game.difficulty * 10) + (eraBonus * 5);
-        const woodReward = 50 + (game.difficulty * 8) + (eraBonus * 5);
+        const rewardMultiplier = computeWarRewardMultiplier(game.combat?.warElapsedMs || 0);
+        const goldReward = Math.floor((40 + (game.difficulty * 10) + (eraBonus * 5)) * rewardMultiplier);
+        const woodReward = Math.floor((50 + (game.difficulty * 8) + (eraBonus * 5)) * rewardMultiplier);
         const { net: taxedGoldReward, tax: victoryTax } = applyRoyalWarTax(goldReward);
 
         if (victoryTax > 0) {
@@ -928,6 +957,7 @@ if (typeof module !== 'undefined') {
         COMBAT_BUILDINGS,
         UNITS,
         computeWarEntryFee,
+        computeWarRewardMultiplier,
         deriveAIPrep,
         getUnitStats,
         getBuildingStats,
