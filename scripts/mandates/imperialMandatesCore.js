@@ -1,3 +1,5 @@
+import { getTileKey } from '../utils/tileKey.js';
+
 function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
     const fallback = {
         withImperialAudioGuard: (fn) => (typeof fn === 'function' ? fn() : null),
@@ -452,13 +454,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         if (state.lastIssuedTick === null) return true;
         const minGap = getMinimumMandateSpacing(gameState);
         return (state.currentTick - state.lastIssuedTick) >= minGap;
-    }
-
-    function getTileKey(tile) {
-        if (!tile) return null;
-        if (tile.hex && typeof tile.hex.toString === 'function') return tile.hex.toString();
-        if (typeof tile.toString === 'function') return tile.toString();
-        return null;
     }
 
     function resolvePayloadTileKey(payload) {
