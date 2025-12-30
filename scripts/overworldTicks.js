@@ -28,9 +28,7 @@ export function applyOverworldIncome(game, options = {}) {
     let favorInc = 0;
     for (const [, d] of game.overworld.hexes) {
         const owner = (d.owner || '').toLowerCase();
-        const isRebelCamp = RebelSystem?.isRebelCampTile?.(d)
-            || d?.type === 'rebelcamp'
-            || d?.isRebelCamp;
+        const isRebelCamp = Boolean(RebelSystem?.isRebelCampTile?.(d));
         if (owner === 'scorched' || isRebelCamp) continue;
 
         const def = OVERWORLD_TILES[d.type?.toUpperCase()];

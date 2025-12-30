@@ -86,9 +86,7 @@ export function computeReverseAdjacencyMultiplier(
 function isClusterEligible(tile) {
     if (!tile) return false;
     const owner = (tile.owner || 'player').toLowerCase();
-    const isRebelCamp = RebelSystem?.isRebelCampTile?.(tile)
-        || tile?.type === 'rebelcamp'
-        || tile?.isRebelCamp;
+    const isRebelCamp = Boolean(RebelSystem?.isRebelCampTile?.(tile));
     if (owner === 'scorched' || isRebelCamp) return false;
     return Boolean(tile.type && tile.hex);
 }
