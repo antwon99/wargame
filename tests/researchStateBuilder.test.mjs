@@ -35,6 +35,14 @@ function runTests() {
     assert.strictEqual(hydrated.lives, 2, 'lives should clamp to purchased count');
     assert.strictEqual(hydrated.bonuses.clusterBaseRate, 0.1, 'hydrated bonuses should honor supplied default rate');
 
+    const negativeSaved = { technologies: [{ id: 'lives', timesPurchased: 2 }], lives: -4 };
+    const negativeHydrated = buildResearchStateSafe({
+        researchSystem: ResearchSystem,
+        saved: negativeSaved,
+        defaultClusterRate: 0.1
+    });
+    assert.strictEqual(negativeHydrated.lives, 0, 'lives should never go below zero');
+
     const overCapSaved = { technologies: [{ id: 'lives', timesPurchased: 5 }], lives: 5 };
     const overCapHydrated = buildResearchStateSafe({
         researchSystem: ResearchSystem,

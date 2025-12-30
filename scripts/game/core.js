@@ -186,7 +186,7 @@ const fallbackBuildResearchStateSafe = ({
         const technologies = researchSystem.instantiateTechnologies(saved.technologies || []);
         const livesTech = technologies.find((tech) => tech.id === 'lives');
         const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
-        const remainingLives = Math.min(saved.lives ?? purchasedLives, purchasedLives);
+        const remainingLives = Math.max(0, Math.min(saved.lives ?? purchasedLives, purchasedLives));
         const bonuses = baseState().bonuses;
         return { technologies, bonuses, lives: remainingLives };
     } catch (error) {
