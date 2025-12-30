@@ -117,10 +117,50 @@ async function testPausePreservesTimerProgress() {
     assert.strictEqual(mandateTicks, 1, 'mandate manager should receive deferred ticks after resuming');
 }
 
+async function testLargeDeltaAppliesMultipleTicks() {
+    const { advanceOverworldTimer } = await import('../scripts/overworldTicks.js');
+    const { Timekeeper } = await import('../scripts/timekeeper.js');
+
+    const game = {
+        paused: false,
+        overworld: {
+            timer: 0,
+            tickRate: 1,
+            hexes: new Map([
+                ['castle', { type: 'castle', owner: 'player' }],
+                ['town', { type: 'town', owner: 'player' }],
+                ['forest', { type: 'forest', owner: 'player' }]
+            ])
+        },
+        research: { bonuses: { townGoldBonus: 0, forestWoodBonus: 1 } },
+        upgrades: { mines: 1 },
+        gold: 0,
+        wood: 0,
+        timekeeper: new Timekeeper({ startTick: 0 }),
+        getIncomeMulti() { return 1; },
+        updateHUDCalls: 0,
+        updateUpgradeMenuCalls: 0,
+        updateHUD() { this.updateHUDCalls += 1; },
+        updateUpgradeMenu() { this.updateUpgradeMenuCalls += 1; }
+    };
+
+    let mandateTicks = 0;
+    advanceOverworldTimer(game, 2.5, { mandateManager: { advanceTick: () => { mandateTicks += 1; } } });
+
+    assert.strictEqual(game.gold, 12, 'large delta should apply multiple income ticks');
+    assert.strictEqual(game.wood, 8, 'large delta should apply multiple wood ticks');
+    assert.strictEqual(game.timekeeper.ticks, 2, 'calendar should advance once per applied tick');
+    assert.strictEqual(game.overworld.timer, 0.5, 'timer should retain leftover delta');
+    assert.strictEqual(mandateTicks, 2, 'mandate manager should receive one call per tick');
+    assert.strictEqual(game.updateHUDCalls, 2, 'HUD should refresh once per tick');
+    assert.strictEqual(game.updateUpgradeMenuCalls, 2, 'upgrade UI should refresh once per tick');
+}
+
 async function run() {
     await testPausedStopsOverworldTick();
     await testUnpausedAppliesIncomeAndMandates();
     await testPausePreservesTimerProgress();
+    await testLargeDeltaAppliesMultipleTicks();
     console.log('Pause control tests passed.');
 }
 
