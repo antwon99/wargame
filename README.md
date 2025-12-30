@@ -33,6 +33,9 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 - Lives provide up to three revive charges on defeat, Architecture and Lumberjacks boost town/forest income, and Land Reclamation converts fields into new towns or forests.
 - See `docs/research.md` for the full rules and costs.
 
+## Documentation
+
+- Start with [`docs/README.md`](docs/README.md) for a guided index of the major gameplay systems and supporting references.
 
 ## Development Notes
 
