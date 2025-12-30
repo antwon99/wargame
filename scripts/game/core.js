@@ -89,7 +89,7 @@ const fallbackResolveSnowVisualConfig = (snowConfig = {}) => {
 let cachedSnowVisualConfig = fallbackSnowVisualConfig;
 let cachedSnowConfigResolver = fallbackResolveSnowVisualConfig;
 let snowConfigPromise = null;
-const resolveSnowVisualConfigModule = () => {
+const ensureSnowVisualConfigModule = () => {
     if (!snowConfigPromise) {
         snowConfigPromise = import('../snowVisualConfig.mjs')
             .then((module) => {
@@ -102,10 +102,17 @@ const resolveSnowVisualConfigModule = () => {
             });
     }
 
-    return {
-        SNOW_VISUAL_CONFIG: cachedSnowVisualConfig,
-        resolveSnowVisualConfig: cachedSnowConfigResolver
-    };
+    return snowConfigPromise;
+};
+
+const getSnowVisualConfig = () => {
+    ensureSnowVisualConfigModule();
+    return cachedSnowVisualConfig;
+};
+
+const getSnowVisualConfigResolver = () => {
+    ensureSnowVisualConfigModule();
+    return cachedSnowConfigResolver;
 };
 const fallbackValidateBootstrapDependencies = ({
     researchSystem = null,
@@ -143,7 +150,7 @@ let bootstrapValidatorPromise = null;
  * Resolve the bootstrap validator without requiring the ES module.
  * @returns {function} bootstrap validator implementation.
  */
-const resolveBootstrapValidator = () => {
+const getBootstrapValidator = () => {
     if (!bootstrapValidatorPromise) {
         bootstrapValidatorPromise = import('../bootstrapValidator.mjs')
             .then((module) => {
@@ -201,7 +208,7 @@ let researchStateBuilderPromise = null;
  * Resolve the research state builder without requiring the ES module.
  * @returns {function} research state builder implementation.
  */
-const resolveResearchStateBuilder = () => {
+const getResearchStateBuilder = () => {
     if (!cachedResearchStateBuilder) {
         cachedResearchStateBuilder = fallbackBuildResearchStateSafe;
     }
@@ -233,11 +240,18 @@ export function createGameCore(overrides = {}) {
     const dependencyOverrides = overrides.dependencies || {};
     const clusterBuilder = overrides.buildClusterBonusMap || buildClusterBonusMap;
     const visibilityBuilder = overrides.buildTileVisibilityMap || buildTileVisibilityMap;
-    const snowModule = resolveSnowVisualConfigModule();
-    const snowDefaults = overrides.SNOW_VISUAL_CONFIG || snowModule.SNOW_VISUAL_CONFIG;
-    const snowConfigResolver = overrides.resolveSnowVisualConfig || snowModule.resolveSnowVisualConfig;
-    const bootstrapValidator = overrides.validateBootstrapDependencies || resolveBootstrapValidator();
-    const researchStateBuilder = overrides.buildResearchStateSafe || resolveResearchStateBuilder();
+    const resolveSnowDefaults = overrides.SNOW_VISUAL_CONFIG
+        ? () => overrides.SNOW_VISUAL_CONFIG
+        : getSnowVisualConfig;
+    const resolveSnowConfigResolver = overrides.resolveSnowVisualConfig
+        ? () => overrides.resolveSnowVisualConfig
+        : getSnowVisualConfigResolver;
+    const resolveBootstrapValidator = overrides.validateBootstrapDependencies
+        ? () => overrides.validateBootstrapDependencies
+        : getBootstrapValidator;
+    const resolveResearchStateBuilder = overrides.buildResearchStateSafe
+        ? () => overrides.buildResearchStateSafe
+        : getResearchStateBuilder;
     const researchSystem = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'researchSystem')
         ? dependencyOverrides.researchSystem
         : (typeof require === 'function' ? require('../researchSystem.js') : null);
@@ -295,7 +309,7 @@ export function createGameCore(overrides = {}) {
     const layoutOverride = overrides.Layout || inputHelpers?.Layout;
     const Layout = layoutOverride || createHexLayout(sqrt3);
     const featureToggles = featureToggleBuilder({
-        snowDefaults: snowDefaults,
+        snowDefaults: resolveSnowDefaults(),
         cameraDefaults: CAMERA_MOTION_CONFIG
     });
     const baseResources = resourceBuilder({
@@ -390,7 +404,7 @@ const Game = {
         try {
             if (introOverlay?.init) introOverlay.init(document);
             this.introOverlay = introOverlay;
-            this.dependencyHealth = bootstrapValidator({
+            this.dependencyHealth = resolveBootstrapValidator()({
                 researchSystem,
                 persistence: persistenceModule,
                 inputHelpers,
@@ -615,7 +629,7 @@ const Game = {
     applyVisualSettings(visualSettings = this.defaultPlayerSettings().visuals) {
         const defaults = this.defaultPlayerSettings().visuals;
         const safe = { ...defaults, ...(visualSettings || {}) };
-        const snowToggles = this.featureToggles?.snow || { ...snowDefaults };
+        const snowToggles = this.featureToggles?.snow || { ...resolveSnowDefaults() };
         const nextSnow = {
             ...snowToggles,
             enabled: safe.snowEnabled !== false,
@@ -646,7 +660,7 @@ const Game = {
         const snowOverrides = overrides.snow || {};
         const cameraOverrides = overrides.camera || {};
         const overworldOverrides = overrides.overworld || {};
-        const resolvedSnow = snowConfigResolver({ ...snowDefaults, ...snowOverrides });
+        const resolvedSnow = resolveSnowConfigResolver()({ ...resolveSnowDefaults(), ...snowOverrides });
         this.featureToggles = {
             snow: resolvedSnow,
             camera: { ...CAMERA_MOTION_CONFIG, ...cameraOverrides },
@@ -1017,7 +1031,7 @@ const Game = {
      * @returns {{technologies: Array, bonuses: object, lives: number}}
      */
     buildResearchState(saved = {}) {
-        return researchStateBuilder({
+        return resolveResearchStateBuilder()({
             researchSystem,
             saved,
             defaultClusterRate: DEFAULT_CLUSTER_RATE,
@@ -1839,7 +1853,7 @@ const Game = {
      * @returns {Object} normalized snow configuration derived from feature toggles.
      */
     resolveSnowConfig(currentDate = this.resolveSnowDate()) {
-        const config = snowConfigResolver({ ...this.featureToggles?.snow, currentDate });
+        const config = resolveSnowConfigResolver()({ ...this.featureToggles?.snow, currentDate });
         this.snow.visualConfig = config;
         return config;
     },
