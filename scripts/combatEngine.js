@@ -6,9 +6,7 @@
 const ImperialMandatesModule = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./mandates/imperialMandates.js') : {});
-const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
-    ? window.RebelSystem
-    : (typeof require === 'function' ? require('./rebelSystem.js') : null);
+const RebelSystemModule = (typeof require === 'function' ? require('./rebelSystem.js') : null);
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -26,6 +24,16 @@ function resolveImperialMandates() {
         return ImperialMandatesModule.initImperialMandates(globalThis);
     }
     return ImperialMandatesModule;
+}
+
+/**
+ * Resolve the rebel system dependency at call time so late-loaded globals are honored.
+ * @returns {object|null} rebel system API or module export.
+ */
+function getRebelSystem() {
+    if (typeof window !== 'undefined' && window.RebelSystem) return window.RebelSystem;
+    if (typeof globalThis !== 'undefined' && globalThis.RebelSystem) return globalThis.RebelSystem;
+    return RebelSystemModule;
 }
 
 /** Percentage of wartime gold the crown siphons as a royal levy. */
@@ -798,6 +806,7 @@ function flashOverworldLosses(game, lossReport = { conversions: [] }) {
 export function endWar(game, outcome, clickEvt, hexImpl) {
     const Hex = resolveHex(game, hexImpl);
     const mandatesApi = resolveImperialMandates();
+    const rebelSystem = getRebelSystem();
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
@@ -814,7 +823,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const resolvedTargetTile = overworldTile || targetTile;
     const warStartedAgainstRebel = typeof game.pendingClearTileWasRebel === 'boolean'
         ? game.pendingClearTileWasRebel
-        : Boolean(RebelSystem?.isRebelCampTile?.(resolvedTargetTile));
+        : Boolean(rebelSystem?.isRebelCampTile?.(resolvedTargetTile));
 
     window.exitCombat?.(normalizedOutcome);
 
@@ -857,7 +866,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             game.difficulty = game.stats.warsWon;
         }
         if (shouldRestoreRebel) {
-            const restoredTile = RebelSystem?.restoreRebelTile?.(resolvedTile, game);
+            const restoredTile = rebelSystem?.restoreRebelTile?.(resolvedTile, game);
             const restoredKey = restoredTile?.hex?.toString?.() || restoredTile?.toString?.();
             const selectedKey = game.selectedOverworldTile?.hex?.toString?.() || game.selectedOverworldTile?.toString?.();
             if (restoredTile && restoredKey && selectedKey && restoredKey === selectedKey) {
