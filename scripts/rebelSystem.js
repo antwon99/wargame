@@ -153,7 +153,10 @@ function initRebelSystem(target = typeof window !== 'undefined' ? window : globa
 
 export { createRebelSystem, RebelSystem, initRebelSystem };
 
-if (typeof module !== 'undefined') module.exports = Object.assign(RebelSystem, {
-    initRebelSystem,
-    createRebelSystem
-});
+if (typeof module !== 'undefined') {
+    module.exports = Object.assign(RebelSystem, {
+        RebelSystem,
+        initRebelSystem,
+        createRebelSystem
+    });
+}
