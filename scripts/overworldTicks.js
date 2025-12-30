@@ -1,9 +1,6 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
-
-const RebelSystem = (typeof window !== 'undefined' && window.RebelSystem)
-    ? window.RebelSystem
-    : (typeof globalThis !== 'undefined' ? globalThis.RebelSystem : null);
+import { RebelSystem } from './rebelSystem.js';
 
 /**
  * Calculate and apply overworld income for a single tick.
