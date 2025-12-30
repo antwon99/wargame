@@ -26,7 +26,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     }
 
     /**
-     * Roll a non-rebel terrain type using the same weighted distribution as frontier claims.
+     * Roll a non-rebel terrain type using the restore-only weights.
      * @param {function} rng random number generator returning [0,1).
      * @returns {string} selected terrain type.
      */

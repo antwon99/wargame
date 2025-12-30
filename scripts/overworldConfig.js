@@ -18,11 +18,17 @@ export const OVERWORLD_TERRAIN_WEIGHTS = [
 
 /**
  * Weighted terrain table for rebel camp restoration that never rolls rebel camps.
- * Mirrors the overworld spawn distribution while filtering rebel camp entries.
+ * Kept separate from claim weights so restore-only tuning stays explicit.
  */
-export const OVERWORLD_RESTORE_WEIGHTS = OVERWORLD_TERRAIN_WEIGHTS.filter(
-    (entry) => entry.type !== 'rebelcamp'
-);
+export const OVERWORLD_RESTORE_WEIGHTS = [
+    { type: 'field', weight: 45 },
+    { type: 'forest', weight: 28 },
+    { type: 'town', weight: 16 },
+    { type: 'mine', weight: 5 },
+    { type: 'shrine', weight: 2 },
+    { type: 'ruin', weight: 1 },
+    { type: 'water', weight: 8 }
+];
 
 /**
  * Roll a terrain type from a weighted table used by overworld expansion.
