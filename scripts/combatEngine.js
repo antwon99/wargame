@@ -683,7 +683,15 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
     const convertTileToPenalty = (key, fateOverride) => {
         const tile = game.overworld.hexes.get(key) || { hex: parseKey(key) };
         const fate = fateOverride || (Math.random() < 0.65 ? 'rebelcamp' : 'scorched');
-        tile.type = fate;
+        const previousType = tile.type;
+        if (fate === 'rebelcamp') {
+            tile.type = 'rebelcamp';
+            if (!tile.prevType && previousType && previousType !== 'rebelcamp') {
+                tile.prevType = previousType;
+            }
+        } else {
+            tile.type = 'scorched';
+        }
         tile.owner = fate === 'rebelcamp' ? 'rebel' : fate;
         tile.hex = tile.hex || parseKey(key);
         tile.isRebelCamp = fate === 'rebelcamp';
