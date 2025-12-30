@@ -3,10 +3,11 @@
  * Functions accept the live game object so they can operate without owning
  * global state directly.
  */
+import { RebelSystem } from './rebelSystem.js';
+
 const ImperialMandatesModule = (typeof window !== 'undefined' && window.ImperialMandates)
     ? window.ImperialMandates
     : (typeof require === 'function' ? require('./mandates/imperialMandates.js') : {});
-const RebelSystemModule = (typeof require === 'function' ? require('./rebelSystem.js') : null);
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -24,16 +25,6 @@ function resolveImperialMandates() {
         return ImperialMandatesModule.initImperialMandates(globalThis);
     }
     return ImperialMandatesModule;
-}
-
-/**
- * Resolve the rebel system dependency at call time so late-loaded globals are honored.
- * @returns {object|null} rebel system API or module export.
- */
-function getRebelSystem() {
-    if (typeof window !== 'undefined' && window.RebelSystem) return window.RebelSystem;
-    if (typeof globalThis !== 'undefined' && globalThis.RebelSystem) return globalThis.RebelSystem;
-    return RebelSystemModule;
 }
 
 /** Percentage of wartime gold the crown siphons as a royal levy. */
@@ -806,7 +797,7 @@ function flashOverworldLosses(game, lossReport = { conversions: [] }) {
 export function endWar(game, outcome, clickEvt, hexImpl) {
     const Hex = resolveHex(game, hexImpl);
     const mandatesApi = resolveImperialMandates();
-    const rebelSystem = getRebelSystem();
+    const rebelSystem = RebelSystem;
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
