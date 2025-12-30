@@ -1306,7 +1306,8 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 const deadlineLabel = formatCalendarLabel((mandate.runtime.deadlineTick || state.currentTick) - 1, gameState);
                 showMandateBanner([
                     `Prepare envoys with ${giftCost} gold in gifts.`,
-                    `Spend ${favorCost} favor by ${deadlineLabel}.`
+                    `Spend ${favorCost} favor by ${deadlineLabel}.`,
+                    'Envoys may return with little to show despite the expense.'
                 ], uiBindings, 'Diplomatic Envoys');
             },
             successPredicate: (eventType, payload, ctx) => (
@@ -1322,11 +1323,27 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 if (typeof favorCost === 'number') {
                     applyImperialFavorDelta(gameState, uiBindings, -favorCost);
                 }
+                // Envoys sometimes return empty-handed; only some missions yield extra favor.
+                const costOnlyChance = 0.6;
+                const outcomeRoll = Math.random();
+                const costOnly = outcomeRoll < costOnlyChance;
+                const bonusFavor = costOnly ? 0 : 1 + Math.floor(Math.random() * 2);
+                if (bonusFavor > 0) {
+                    applyImperialFavorDelta(gameState, uiBindings, bonusFavor);
+                }
                 if (typeof gameState?.wood === 'number') gameState.wood += 25;
-                showMandateBanner([
-                    'Envoys return with new pacts and trade scripts.',
-                    'Tributaries send timber in gratitude: +25 wood.'
-                ], uiBindings, 'Diplomatic Success', { tone: 'success' });
+                if (costOnly) {
+                    showMandateBanner([
+                        'Envoys return with little to show beyond polite delays.',
+                        'Tributaries still send timber in gratitude: +25 wood.'
+                    ], uiBindings, 'Diplomatic Success', { tone: 'success' });
+                } else {
+                    showMandateBanner([
+                        'Envoys return with new pacts and trade scripts.',
+                        `Imperial favor rises by ${bonusFavor}.`,
+                        'Tributaries send timber in gratitude: +25 wood.'
+                    ], uiBindings, 'Diplomatic Success', { tone: 'success' });
+                }
             },
             failurePredicate: (eventType, payload, ctx) => {
                 if (eventType !== 'tick') return false;
@@ -1341,7 +1358,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     'Imperial patience thins; reparations paid from your treasury.'
                 ], uiBindings, 'Diplomatic Failure', { tone: 'warning' });
             },
-            successFavorDelta: blueprint.successFavorDelta ?? 2,
+            successFavorDelta: blueprint.successFavorDelta ?? 0,
             failureFavorDelta: blueprint.failureFavorDelta ?? -3
         };
     }
