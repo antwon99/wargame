@@ -5,9 +5,13 @@
  * without crashing the UI.
  *
  * @param {Window|Object} [scope] optional scope exposing a localStorage-like property.
+ * @param {{ logger?: (message: string, error?: Error) => void, silent?: boolean }} [options]
+ * optional logging configuration used to silence warnings or route them elsewhere.
  * @returns {boolean} true when storage can be touched, false otherwise.
  */
-export function canUseLocalStorage(scope = typeof window !== 'undefined' ? window : globalThis) {
+export function canUseLocalStorage(scope = typeof window !== 'undefined' ? window : globalThis, options = {}) {
+    const { logger, silent } = options || {};
+    const warn = !silent && (logger || (typeof console !== 'undefined' ? console.warn : null));
     try {
         const storage = scope && scope.localStorage;
         if (!storage || typeof storage.setItem !== 'function' || typeof storage.removeItem !== 'function') {
@@ -19,7 +23,9 @@ export function canUseLocalStorage(scope = typeof window !== 'undefined' ? windo
         storage.removeItem(probeKey);
         return true;
     } catch (error) {
-        console.warn('Local storage unavailable', error);
+        if (warn) {
+            warn('Local storage unavailable', error);
+        }
         return false;
     }
 }

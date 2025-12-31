@@ -54,9 +54,17 @@ async function runTests() {
         return { gold, wood };
     };
 
-    assert.strictEqual(canUseLocalStorage({ localStorage: global.localStorage }), true, 'probe should allow usable storage');
+    assert.strictEqual(
+        canUseLocalStorage({ localStorage: global.localStorage }, { silent: true }),
+        true,
+        'probe should allow usable storage'
+    );
     const throwingStorage = { get localStorage() { throw new Error('denied'); } };
-    assert.strictEqual(canUseLocalStorage(throwingStorage), false, 'probe should fail when accessors throw');
+    assert.strictEqual(
+        canUseLocalStorage(throwingStorage, { silent: true }),
+        false,
+        'probe should fail when accessors throw'
+    );
     let safePersistence = null;
     assert.doesNotThrow(() => {
         safePersistence = Persistence.createPersistence(throwingStorage);
