@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 function makeRng(sequence) {
     let idx = 0;

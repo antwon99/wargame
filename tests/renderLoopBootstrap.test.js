@@ -1,5 +1,7 @@
-const assert = require('assert');
-const Persistence = require('../scripts/persistence.js');
+import assert from 'assert';
+import { bootstrapGame } from '../scripts/script.js';
+import Persistence from '../scripts/persistence.js';
+
 Persistence.initPersistence?.(globalThis);
 
 const rafCalls = [];
@@ -50,8 +52,6 @@ global.InputHelpers = { SQRT3: Math.sqrt(3), Layout: {} };
 global.Persistence = Persistence;
 global.performance = { now: () => 42 };
 global.requestAnimationFrame = (cb) => { rafCalls.push(cb); return 1; };
-
-const { bootstrapGame } = require('../scripts/script.js');
 bootstrapGame({
     inputHelpers: global.InputHelpers,
     persistence: Persistence

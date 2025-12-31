@@ -1,4 +1,5 @@
-const assert = require('assert');
+import assert from 'assert';
+import { createTutorialCallouts } from '../scripts/tutorialCallouts.js';
 
 function createStubElement(rect = { left: 0, top: 0, width: 200, height: 90 }) {
     const classSet = new Set();
@@ -116,9 +117,7 @@ function withStubbedDom(cb) {
     global.setTimeout = env.window.setTimeout;
     global.clearTimeout = env.window.clearTimeout;
     delete global.TutorialCallouts;
-    delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
-    const TutorialCallouts = require('../scripts/tutorialCallouts.js');
-    TutorialCallouts.initTutorialCallouts?.(env.window);
+    const TutorialCallouts = createTutorialCallouts(env.window);
     try {
         cb(TutorialCallouts, env);
     } finally {
@@ -129,7 +128,6 @@ function withStubbedDom(cb) {
         global.setTimeout = originalSetTimeout;
         global.clearTimeout = originalClearTimeout;
         delete global.TutorialCallouts;
-        delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
     }
 }
 
@@ -164,9 +162,7 @@ function testOnConfirmRunsWithoutDom() {
     delete global.window;
     delete global.document;
     delete global.TutorialCallouts;
-    delete require.cache[require.resolve('../scripts/tutorialCallouts.js')];
-    const TutorialCallouts = require('../scripts/tutorialCallouts.js');
-    TutorialCallouts.initTutorialCallouts?.(globalThis);
+    const TutorialCallouts = createTutorialCallouts(globalThis);
     let confirmed = false;
     TutorialCallouts.showTileCallout({}, {}, { onConfirm: () => { confirmed = true; } });
     assert.ok(confirmed, 'onConfirm should execute when document is unavailable');

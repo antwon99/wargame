@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { resolveSettingsStorage } = require('../scripts/game/bootstrap.js');
+import assert from 'assert';
+import { resolveSettingsStorage } from '../scripts/game/bootstrap.js';
 
 function createScopeWithStorage(storageImpl) {
     return { localStorage: storageImpl };

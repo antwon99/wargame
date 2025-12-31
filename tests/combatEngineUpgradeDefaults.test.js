@@ -1,11 +1,5 @@
-const assert = require('assert');
-const {
-    COMBAT_BUILDINGS,
-    UNITS,
-    getBuildingStats,
-    getSpawnRate,
-    getUnitStats
-} = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { COMBAT_BUILDINGS, UNITS, getBuildingStats, getUnitStats } from '../scripts/combatEngine.js';
 
 function testUnitStatsFallbackToBaseWhenUpgradeMissing() {
     const game = { upgrades: {} };

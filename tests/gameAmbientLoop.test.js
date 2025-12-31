@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { armAmbientLoop, haltAmbientLoop } = require('../scripts/gameAudioHooks.js');
+import assert from 'assert';
+import { armAmbientLoop, haltAmbientLoop } from '../scripts/gameAudioHooks.js';
 
 function testArmAmbientLoopPrimesTerritoryPlaylist() {
     const calls = [];

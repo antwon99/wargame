@@ -5,14 +5,14 @@
  * core state machine can run in headless environments without pulling in
  * browser-only dependencies.
  */
+import { TutorialCallouts as TutorialCalloutsModule } from '../tutorialCallouts.js';
 /**
  * Build the imperial mandate UI adapter API.
  * @param {Window|Object} [global] host scope for DOM + audio access.
  * @returns {Object} UI adapter helpers for imperial mandates.
  */
 function createImperialMandateUIAdapter(global = typeof window !== 'undefined' ? window : globalThis) {
-    const TutorialCallouts = (global.TutorialCallouts)
-        || (typeof require === 'function' ? require('../tutorialCallouts.js') : null);
+    const TutorialCallouts = global.TutorialCallouts || TutorialCalloutsModule;
 
     const UI_ONLY_AUDIO_GUARD = new Set(['wardrum']);
 

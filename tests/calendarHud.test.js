@@ -1,5 +1,5 @@
-const assert = require('assert');
-const fs = require('fs');
+import assert from 'assert';
+import fs from 'fs';
 
 function createStubElement(id) {
     const classes = new Set();

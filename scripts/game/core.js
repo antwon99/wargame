@@ -31,6 +31,9 @@ import { buildTileVisibilityMap, TILE_VISIBILITY } from '../visibilityMask.js';
 import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
 import { RebelSystem } from '../rebelSystem.js';
+import { ResearchSystem } from '../researchSystem.js';
+import Persistence from '../persistence.js';
+import ImperialMandateManager from '../mandates/imperialMandateManager.js';
 import {
     CAMERA_MOTION_CONFIG,
     buildCameraState,
@@ -254,12 +257,12 @@ export function createGameCore(overrides = {}) {
         : getResearchStateBuilder;
     const researchSystem = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'researchSystem')
         ? dependencyOverrides.researchSystem
-        : (typeof require === 'function' ? require('../researchSystem.js') : null);
+        : ResearchSystem;
     const persistenceModule = Object.prototype.hasOwnProperty.call(overrides, 'persistence')
         ? overrides.persistence
         : (Object.prototype.hasOwnProperty.call(dependencyOverrides, 'persistence')
             ? dependencyOverrides.persistence
-            : (typeof require === 'function' ? require('../persistence.js') : null));
+            : Persistence);
     const inputHelpers = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'inputHelpers')
         ? dependencyOverrides.inputHelpers
         : null;
@@ -268,7 +271,7 @@ export function createGameCore(overrides = {}) {
         : null;
     const imperialMandateManager = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'imperialMandateManager')
         ? dependencyOverrides.imperialMandateManager
-        : (typeof require === 'function' ? require('../mandates/imperialMandateManager.js') : null);
+        : ImperialMandateManager;
     const platformAdapter = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'platformAdapter')
         ? dependencyOverrides.platformAdapter
         : null;

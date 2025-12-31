@@ -2,10 +2,8 @@ import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
-import { createRequire } from 'module';
+import { ResearchSystem } from '../scripts/researchSystem.js';
 
-const require = createRequire(import.meta.url);
-const ResearchSystem = require('../scripts/researchSystem.js');
 ResearchSystem.initResearchSystem?.(globalThis);
 
 const scriptPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'scripts', 'script.js');

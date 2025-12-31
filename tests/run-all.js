@@ -1,9 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const Module = require('module');
-const { transformFileSync, transformSync } = require('@babel/core');
-const vm = require('vm');
-const { pathToFileURL } = require('url');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const stubElement = () => ({
     classList: { add: () => {}, remove: () => {}, contains: () => false },
@@ -36,50 +33,14 @@ if (!global.window) {
     global.window = { addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => {}, document: global.document };
 }
 
-require('@babel/register')({
-    extensions: ['.js'],
-    presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
-    babelrc: false,
-    configFile: false,
-    ignore: [/node_modules/],
-    sourceType: 'unambiguous'
-});
+const testsDir = path.dirname(fileURLToPath(import.meta.url));
 
-const testsDir = __dirname;
-
-function runMjs(file) {
-    const abs = path.join(testsDir, file);
-    const fileUrl = pathToFileURL(abs).href;
-    const raw = fs.readFileSync(abs, 'utf8').replace(/import\.meta\.url/g, `'${fileUrl}'`);
-    const { code } = transformSync(raw, {
-        presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
-        sourceType: 'module',
-        filename: abs
-    });
-    const mod = new Module(abs, module.parent);
-    mod.filename = abs;
-    mod.paths = Module._nodeModulePaths(path.dirname(abs));
-    const context = vm.createContext({
-        require: mod.require.bind(mod),
-        module: mod,
-        exports: mod.exports,
-        __filename: abs,
-        __dirname: path.dirname(abs),
-        console,
-        process,
-        global,
-        URL
-    });
-    const script = new vm.Script(code, { filename: abs });
-    script.runInContext(context);
-}
-
-function main() {
+async function main() {
     const files = fs.readdirSync(testsDir)
         .filter((file) => file.endsWith('.test.js') || file.endsWith('.test.mjs'))
         .sort();
 
-    files.forEach((file) => {
+    for (const file of files) {
         if (!global.document || typeof global.document !== 'object') {
             global.document = {};
         }
@@ -94,12 +55,10 @@ function main() {
         if (!global.window.addEventListener) global.window.addEventListener = () => {};
         if (!global.window.removeEventListener) global.window.removeEventListener = () => {};
         if (!global.window.document) global.window.document = global.document;
-        if (file.endsWith('.test.mjs')) {
-            runMjs(file);
-        } else {
-            require(path.join(testsDir, file));
-        }
-    });
+
+        const abs = path.join(testsDir, file);
+        await import(pathToFileURL(abs).href);
+    }
 }
 
-main();
+await main();

@@ -1,11 +1,10 @@
-const assert = require('assert');
-const { endWar } = require('../scripts/combatEngine.js');
-const RebelSystem = require('../scripts/rebelSystem.js');
-const { OVERWORLD_RESTORE_WEIGHTS, OVERWORLD_TERRAIN_WEIGHTS } = require('../scripts/overworldConfig.js');
-const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
-const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
-    ? ImperialMandatesBootstrap.initImperialMandates(global)
-    : ImperialMandatesBootstrap;
+import assert from 'assert';
+import { endWar } from '../scripts/combatEngine.js';
+import { OVERWORLD_RESTORE_WEIGHTS, OVERWORLD_TERRAIN_WEIGHTS } from '../scripts/overworldConfig.js';
+import { RebelSystem } from '../scripts/rebelSystem.js';
+import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
+
+const ImperialMandates = initImperialMandates(globalThis);
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

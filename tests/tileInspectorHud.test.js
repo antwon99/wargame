@@ -1,4 +1,5 @@
-const assert = require('assert');
+import assert from 'assert';
+import { RebelSystem } from '../scripts/rebelSystem.js';
 
 function createStubElement(id) {
     return {
@@ -277,8 +278,7 @@ async function testRebelCampTilesMarkHostile() {
         'tile-inspector-adjacency-detail'
     ]);
     global.document = doc;
-    const RebelSystem = require('../scripts/rebelSystem.js');
-    RebelSystem.initRebelSystem?.(global);
+    RebelSystem.initRebelSystem?.(globalThis);
     global.RebelSystem = RebelSystem;
     const { updateTileInspector } = await import('../scripts/uiBindings.js');
 

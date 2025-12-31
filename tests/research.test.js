@@ -1,5 +1,6 @@
-const assert = require('assert');
-const ResearchSystem = require('../scripts/researchSystem.js');
+import assert from 'assert';
+import { ResearchSystem } from '../scripts/researchSystem.js';
+
 ResearchSystem.initResearchSystem?.(globalThis);
 
 function testInstantiatesWithSavedPurchases() {

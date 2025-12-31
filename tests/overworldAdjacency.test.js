@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function testMixedNeighborsStillCluster() {
     const { buildClusterBonusMap, DEFAULT_CLUSTER_RATE, computeReverseAdjacencyMultiplier } = await import('../scripts/overworldAdjacency.js');

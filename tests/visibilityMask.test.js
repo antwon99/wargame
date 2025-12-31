@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { resolveVisibilityMask, buildTileVisibilityMap, TILE_VISIBILITY } = await import('../scripts/visibilityMask.js');

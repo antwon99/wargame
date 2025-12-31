@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { createGameCore } = await import('../scripts/game/core.js');

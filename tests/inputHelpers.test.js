@@ -1,5 +1,6 @@
-const assert = require('assert');
-const InputHelpers = require('../scripts/inputHelpers.js');
+import assert from 'assert';
+import * as InputHelpers from '../scripts/inputHelpers.js';
+
 const { Layout, isPointerOnDrawnHex, cubeToPixel } = InputHelpers;
 
 InputHelpers.initInputHelpers?.();

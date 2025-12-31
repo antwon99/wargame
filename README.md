@@ -40,6 +40,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 ## Development Notes
 
 - Core gameplay logic now lives in the `scripts/` directory, with `scripts/script.js` importing ES modules such as `combatEngine.js`, `uiBindings.js`, `gameAudioHooks.js`, `persistence.js`, and `researchSystem.js`.
+- **Module format:** this repo is now full ESM (`"type": "module"` in `package.json`). Use `import`/`export` everywhere in `.js` files and avoid adding `require()` so we do not regress into mixed-module loading.
 - If you split the project into additional files later, document the new structure here and update the `.gitignore` accordingly.
 - Use conventional commits for version history and add tests alongside new features where possible.
 

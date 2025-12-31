@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { startWar, isFrontier, updateCombat } = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { isFrontier, startWar, updateCombat } from '../scripts/combatEngine.js';
 
 class StubHex {
     constructor(q, r, s = -q - r) {

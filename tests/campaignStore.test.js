@@ -1,7 +1,8 @@
-const assert = require('assert');
-const Persistence = require('../scripts/persistence.js');
+import assert from 'assert';
+import Persistence from '../scripts/persistence.js';
+import { createCampaignStore } from '../scripts/campaignStore.js';
+
 Persistence.initPersistence?.(globalThis);
-const { createCampaignStore } = require('../scripts/campaignStore.js');
 
 function testNormalizesLegacyStats() {
     const slot = '2';

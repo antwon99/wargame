@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { validateBootstrapDependencies } = await import('../scripts/bootstrapValidator.js');

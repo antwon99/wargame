@@ -1,7 +1,9 @@
-const assert = require('assert');
-const VoidEasterEgg = require('../scripts/voidEasterEgg.js');
-VoidEasterEgg.initVoidEasterEgg?.(globalThis);
-const Persistence = require('../scripts/persistence.js');
+import assert from 'assert';
+import { bootstrapGame } from '../scripts/script.js';
+import Persistence from '../scripts/persistence.js';
+import { VoidEasterEgg, initVoidEasterEgg } from '../scripts/voidEasterEgg.js';
+
+initVoidEasterEgg?.(globalThis);
 Persistence.initPersistence?.(globalThis);
 
 // Set up a barebones DOM + window environment so script.js can register the Game singleton.
@@ -53,8 +55,6 @@ global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () =
 global.Persistence = Persistence;
 global.VoidEasterEgg = VoidEasterEgg;
 global.InputHelpers = { SQRT3: Math.sqrt(3), Layout: {} };
-
-const { bootstrapGame } = require('../scripts/script.js');
 bootstrapGame({
     inputHelpers: global.InputHelpers,
     persistence: Persistence

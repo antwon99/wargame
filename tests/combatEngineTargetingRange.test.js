@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { UNITS, updateCombat } = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { UNITS, updateCombat } from '../scripts/combatEngine.js';
 
 class TestHex {
     constructor(q, r, s = -q - r) {

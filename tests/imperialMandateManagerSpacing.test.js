@@ -1,4 +1,5 @@
-const assert = require('assert');
+import assert from 'assert';
+import { createImperialMandateManager } from '../scripts/mandates/imperialMandateManager.js';
 
 function createStubImperialApi() {
     const calls = [];
@@ -13,11 +14,8 @@ function createStubImperialApi() {
 }
 
 function loadManagerWithStub(stub) {
-    delete require.cache[require.resolve('../scripts/mandates/imperialMandateManager.js')];
     global.ImperialMandates = stub.api;
-    const manager = require('../scripts/mandates/imperialMandateManager.js');
-    manager.initImperialMandateManager?.(global);
-    return manager;
+    return createImperialMandateManager(globalThis);
 }
 
 async function testTickSpacingAndBindingCache() {
@@ -49,7 +47,6 @@ async function testTickSpacingAndBindingCache() {
 async function run() {
     await testTickSpacingAndBindingCache();
     delete global.ImperialMandates;
-    delete require.cache[require.resolve('../scripts/mandates/imperialMandateManager.js')];
     console.log('Imperial mandate manager spacing tests passed.');
 }
 

@@ -1,5 +1,5 @@
-const assert = require('assert');
-const IntroOverlay = require('../scripts/introOverlay.js');
+import assert from 'assert';
+import { IntroOverlay } from '../scripts/introOverlay.js';
 
 function createStubElement() {
     const listeners = {};
