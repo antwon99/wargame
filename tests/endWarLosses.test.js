@@ -1,9 +1,8 @@
-const assert = require('assert');
-const { endWar } = require('../scripts/combatEngine.js');
-const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
-const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
-    ? ImperialMandatesBootstrap.initImperialMandates(global)
-    : ImperialMandatesBootstrap;
+import assert from 'assert';
+import { endWar } from '../scripts/combatEngine.js';
+import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
+
+const ImperialMandates = initImperialMandates(globalThis);
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

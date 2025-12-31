@@ -3,6 +3,7 @@
  * The functions here are written to be browser-friendly while also
  * supporting simple Node-based tests via CommonJS exports.
  */
+import { DEFAULT_IMPERIAL_FAVOR as DEFAULT_FAVOR, clampImperialFavor as clampImperialFavorBase } from './imperialFavor.js';
 /**
  * Build the persistence API against a provided global-like scope.
  * @param {Window|Object} global host scope for storage and constants.
@@ -19,13 +20,11 @@ function createPersistence(global) {
         }
     }
 
-    const imperialFavorHelpers = (typeof require === 'function')
-        ? require('./imperialFavor.js')
-        : global.ImperialFavor;
-    const { DEFAULT_IMPERIAL_FAVOR = 5, clampImperialFavor = (value) => {
-        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-        return Math.min(10, Math.max(1, numeric));
-    } } = imperialFavorHelpers || {};
+    const imperialFavorHelpers = global.ImperialFavor || {
+        DEFAULT_IMPERIAL_FAVOR: DEFAULT_FAVOR,
+        clampImperialFavor: clampImperialFavorBase
+    };
+    const { DEFAULT_IMPERIAL_FAVOR = DEFAULT_FAVOR, clampImperialFavor = clampImperialFavorBase } = imperialFavorHelpers || {};
     const STORAGE_PREFIX = 'hexWar_slot';
     const STATS_PREFIX = 'hexWar_stats_slot';
     const STORAGE_KEY = `${STORAGE_PREFIX}1`;
@@ -581,6 +580,9 @@ function initPersistence(target = typeof window !== 'undefined' ? window : globa
 
 Persistence.initPersistence = initPersistence;
 Persistence.createPersistence = createPersistence;
+
+export { createPersistence, Persistence, initPersistence };
+export default Persistence;
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Persistence;

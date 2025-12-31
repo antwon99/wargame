@@ -1,6 +1,6 @@
-const assert = require('assert');
-const fs = require('fs');
-const { clampImperialFavor } = require('../scripts/imperialFavor.js');
+import assert from 'assert';
+import fs from 'fs';
+import { clampImperialFavor } from '../scripts/imperialFavor.js';
 
 function createStubElement(id) {
     return {

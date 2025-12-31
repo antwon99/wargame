@@ -1,8 +1,9 @@
-const assert = require('assert');
-const { clampImperialFavor } = require('../scripts/imperialFavor.js');
-const StorageProbe = require('../scripts/storageProbe.js');
-StorageProbe.initStorageProbe?.(globalThis);
-const { canUseLocalStorage } = StorageProbe;
+import assert from 'assert';
+import { clampImperialFavor } from '../scripts/imperialFavor.js';
+import { canUseLocalStorage, initStorageProbe } from '../scripts/storageProbe.js';
+import Persistence from '../scripts/persistence.js';
+
+initStorageProbe?.(globalThis);
 
 global.localStorage = (() => {
     const store = new Map();
@@ -22,7 +23,6 @@ global.Hex = class Hex {
     toString() { return `${this.q},${this.r}`; }
 };
 
-const Persistence = require('../scripts/persistence.js');
 assert.strictEqual(
     typeof Persistence.serializeGameState,
     'function',

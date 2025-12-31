@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { SNOW_MONTHS, SNOW_VISUAL_CONFIG, resolveSnowSeason, resolveSnowVisualConfig } = await import('../scripts/snowVisualConfig.js');

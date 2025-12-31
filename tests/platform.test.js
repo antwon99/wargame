@@ -1,5 +1,6 @@
-const assert = require('assert');
-const PlatformAdapter = require('../scripts/platform.js');
+import assert from 'assert';
+import { PlatformAdapter } from '../scripts/platform.js';
+
 PlatformAdapter.initPlatformAdapter?.(globalThis);
 const { detectPlatformProfile, sizeCanvasForDisplay } = PlatformAdapter;
 

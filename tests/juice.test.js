@@ -1,7 +1,7 @@
-const assert = require('assert');
-const Juice = require('../scripts/juice.js');
+import assert from 'assert';
+import { Juice, initJuice } from '../scripts/juice.js';
 
-Juice.initJuice?.();
+initJuice?.();
 
 function testBurstRange() {
     const vectors = Juice.createBurstVectors(8, 15, 35);

@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { checkConnection, isFrontier } = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { checkConnection, isFrontier } from '../scripts/combatEngine.js';
 
 class CountingHex {
     constructor(q, r, s = -q - r) {

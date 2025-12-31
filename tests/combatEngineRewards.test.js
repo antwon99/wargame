@@ -1,7 +1,6 @@
-const assert = require('assert');
-let damageBuilding;
-let endWar;
-let computeWarRewardMultiplier;
+import assert from 'assert';
+import { damageBuilding, endWar, computeWarRewardMultiplier } from '../scripts/combatEngine.js';
+import { RebelSystem } from '../scripts/rebelSystem.js';
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -300,10 +299,6 @@ function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
     };
     const domStub = createDomStub();
     global.document = { getElementById: () => domStub, createElement: domStub.createElement };
-    const modulePath = require.resolve('../scripts/combatEngine.js');
-    delete require.cache[modulePath];
-    const combatEngine = require('../scripts/combatEngine.js');
-
     const rebelApi = rebelSystem.RebelSystem || rebelSystem;
     const originalRestore = rebelApi.restoreRebelTile;
     let restoreCalled = false;
@@ -325,7 +320,7 @@ function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
     game.pendingClearTileKey = rebelHex.toString();
     game.pendingClearTileWasRebel = true;
 
-    combatEngine.endWar(game, 'VICTORY');
+    endWar(game, 'VICTORY');
 
     const updated = game.overworld.hexes.get(rebelHex.toString());
     assert.ok(restoreCalled, 'victory should restore the rebel camp even when RebelSystem initializes late');
@@ -340,8 +335,7 @@ function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
 
 function run() {
     const originalWindow = global.window;
-    const rebelSystem = require('../scripts/rebelSystem.js');
-    testVictoryRestoresRebelCampAfterLateInit(rebelSystem);
+    testVictoryRestoresRebelCampAfterLateInit(RebelSystem);
     global.window = {
         ImperialMandates: {
             handleBattleOutcome: () => {},
@@ -349,10 +343,6 @@ function run() {
         },
         RebelSystem: rebelSystem
     };
-    const modulePath = require.resolve('../scripts/combatEngine.js');
-    delete require.cache[modulePath];
-    ({ damageBuilding, endWar, computeWarRewardMultiplier } = require('../scripts/combatEngine.js'));
-
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
     testDefeatAppliesGoldPenalty();

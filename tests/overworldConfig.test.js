@@ -1,9 +1,9 @@
-const assert = require('assert');
-const {
+import assert from 'assert';
+import {
     OVERWORLD_RESTORE_WEIGHTS,
     OVERWORLD_TERRAIN_WEIGHTS,
     rollWeightedTerrainType
-} = require('../scripts/overworldConfig.js');
+} from '../scripts/overworldConfig.js';
 
 function testFieldWeightTuned() {
     const fieldEntry = OVERWORLD_TERRAIN_WEIGHTS.find((entry) => entry.type === 'field');

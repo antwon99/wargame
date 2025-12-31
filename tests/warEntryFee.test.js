@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { computeWarEntryFee } = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { computeWarEntryFee } from '../scripts/combatEngine.js';
 
 function withMonth(month) {
     return {

@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { loseOverworldHexes, damageBuilding } = require('../scripts/combatEngine.js');
+import assert from 'assert';
+import { damageBuilding, loseOverworldHexes } from '../scripts/combatEngine.js';
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

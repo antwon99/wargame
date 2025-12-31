@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { buildBootstrapDependencies, ensureGlobalShims, publishBootstrapHandles } = require('../scripts/globalShim.js');
+import assert from 'assert';
+import { buildBootstrapDependencies, ensureGlobalShims, publishBootstrapHandles } from '../scripts/globalShim.js';
 
 function run() {
     const scope = {};

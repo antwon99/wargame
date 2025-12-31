@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function testPausedStopsOverworldTick() {
     const { advanceOverworldTimer } = await import('../scripts/overworldTicks.js');

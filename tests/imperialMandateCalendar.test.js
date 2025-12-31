@@ -1,5 +1,6 @@
-const assert = require('assert');
-const Calendar = require('../scripts/mandates/imperialMandateCalendar.js');
+import assert from 'assert';
+import Calendar from '../scripts/mandates/imperialMandateCalendar.js';
+
 Calendar.initImperialMandateCalendar?.(globalThis);
 
 function buildGameState(overrides = {}) {
@@ -40,8 +41,4 @@ async function run() {
     console.log('imperialMandateCalendar.test.js passed');
 }
 
-if (require.main === module) {
-    run();
-}
-
-module.exports = { run };
+await run();

@@ -1,5 +1,5 @@
-const assert = require('assert');
-const { applyOverworldIncome } = require('../scripts/overworldTicks.js');
+import assert from 'assert';
+import { applyOverworldIncome } from '../scripts/overworldTicks.js';
 
 class Hex {
     constructor(q, r, s = -q - r) {

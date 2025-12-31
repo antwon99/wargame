@@ -4,10 +4,7 @@
  * global state directly.
  */
 import { RebelSystem } from './rebelSystem.js';
-
-const ImperialMandatesModule = (typeof window !== 'undefined' && window.ImperialMandates)
-    ? window.ImperialMandates
-    : (typeof require === 'function' ? require('./mandates/imperialMandates.js') : {});
+import { initImperialMandates } from './mandates/imperialMandates.js';
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -21,10 +18,10 @@ const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
 function resolveImperialMandates() {
     if (typeof window !== 'undefined' && window.ImperialMandates) return window.ImperialMandates;
     if (typeof globalThis !== 'undefined' && globalThis.ImperialMandates) return globalThis.ImperialMandates;
-    if (ImperialMandatesModule?.initImperialMandates) {
-        return ImperialMandatesModule.initImperialMandates(globalThis);
+    if (typeof initImperialMandates === 'function') {
+        return initImperialMandates(globalThis);
     }
-    return ImperialMandatesModule;
+    return {};
 }
 
 /** Percentage of wartime gold the crown siphons as a royal levy. */

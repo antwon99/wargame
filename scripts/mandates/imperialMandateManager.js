@@ -5,6 +5,7 @@
  * asynchronously, preventing UI overlays from freezing player input while still
  * driving deadlines from the authoritative tick counter.
  */
+import { initImperialMandates } from './imperialMandates.js';
 /**
  * Build the imperial mandate manager API for deferred tick handling.
  * @param {Window|Object} [global] host scope for mandate lookups.
@@ -13,15 +14,8 @@
 function createImperialMandateManager(global = typeof window !== 'undefined' ? window : globalThis) {
     function resolveImperialMandates() {
         if (global.ImperialMandates) return global.ImperialMandates;
-        if (typeof require === 'function') {
-            try {
-                const module = require('./imperialMandates.js');
-                return module?.initImperialMandates
-                    ? module.initImperialMandates(global)
-                    : module;
-            } catch (error) {
-                return null;
-            }
+        if (typeof initImperialMandates === 'function') {
+            return initImperialMandates(global);
         }
         return null;
     }

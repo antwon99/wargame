@@ -1,7 +1,7 @@
-const assert = require('assert');
+import assert from 'assert';
+import { createGameCore } from '../scripts/game/core.js';
 
 function run() {
-    const { createGameCore } = require('../scripts/game/core.js');
     const { Game } = createGameCore();
 
     return import('../scripts/snowVisualConfig.js')

@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { AmbienceRenderer } = await import('../scripts/ambienceRenderer.js');

@@ -1,4 +1,5 @@
-const assert = require('assert');
+import assert from 'assert';
+import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
 
 let AudioManager;
 let SFX_GROUPS;
@@ -640,10 +641,8 @@ function testExitCombatRehomesAmbientAndPlaysOutcome() {
 }
 
 function testImperialQueuesAvoidWardrums() {
-    const modulePath = require.resolve('../scripts/mandates/imperialMandates.js');
     const previousRebelSystem = global.RebelSystem;
     const previousTutorial = global.TutorialCallouts;
-    delete require.cache[modulePath];
 
     class Hex {
         constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -659,10 +658,7 @@ function testImperialQueuesAvoidWardrums() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
-    const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
-        ? ImperialMandatesBootstrap.initImperialMandates(global)
-        : ImperialMandatesBootstrap;
+    const ImperialMandates = initImperialMandates(globalThis);
     ImperialMandates.resetForNewCampaign();
 
     const playLog = [];
@@ -682,17 +678,14 @@ function testImperialQueuesAvoidWardrums() {
     assert.strictEqual(playLog.includes('wardrum'), false, 'imperial mandate issuance should not trigger combat stingers');
     assert.strictEqual(playLog.length, 0, 'imperial notifications should remain silent or use non-combat cues');
 
-    delete require.cache[modulePath];
     if (typeof previousRebelSystem === 'undefined') delete global.RebelSystem; else global.RebelSystem = previousRebelSystem;
     if (typeof previousTutorial === 'undefined') delete global.TutorialCallouts; else global.TutorialCallouts = previousTutorial;
 }
 
 function testImperialMessagingGuardsWardrumPlayback() {
-    const modulePath = require.resolve('../scripts/mandates/imperialMandates.js');
     const previousRebelSystem = global.RebelSystem;
     const previousTutorial = global.TutorialCallouts;
     const previousGameAudio = global.GameAudio;
-    delete require.cache[modulePath];
 
     const playLog = [];
     const manager = attachCombatStingerGuards(new AudioManager({
@@ -714,10 +707,7 @@ function testImperialMessagingGuardsWardrumPlayback() {
     };
     global.TutorialCallouts = previousTutorial || {};
 
-    const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
-    const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
-        ? ImperialMandatesBootstrap.initImperialMandates(global)
-        : ImperialMandatesBootstrap;
+    const ImperialMandates = initImperialMandates(globalThis);
     ImperialMandates.resetForNewCampaign();
 
     const origin = new Hex(0, 0);
@@ -755,7 +745,6 @@ function testImperialMessagingGuardsWardrumPlayback() {
     assert.ok(wardrumNode, 'combat entry should still fire wardrum immediately');
     assert.strictEqual(wardrumNode.playCount, 1, 'wardrum should only play once during combat entry');
 
-    delete require.cache[modulePath];
     if (typeof previousRebelSystem === 'undefined') delete global.RebelSystem; else global.RebelSystem = previousRebelSystem;
     if (typeof previousTutorial === 'undefined') delete global.TutorialCallouts; else global.TutorialCallouts = previousTutorial;
     if (typeof previousGameAudio === 'undefined') delete global.GameAudio; else global.GameAudio = previousGameAudio;

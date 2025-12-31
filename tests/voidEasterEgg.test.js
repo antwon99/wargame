@@ -1,6 +1,7 @@
-const assert = require('assert');
-const VoidEasterEgg = require('../scripts/voidEasterEgg.js');
-VoidEasterEgg.initVoidEasterEgg?.(globalThis);
+import assert from 'assert';
+import { VoidEasterEgg, initVoidEasterEgg } from '../scripts/voidEasterEgg.js';
+
+initVoidEasterEgg?.(globalThis);
 
 function testBaseMessages() {
     for (let i = 1; i <= 5; i++) {

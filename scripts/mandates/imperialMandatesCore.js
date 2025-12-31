@@ -1,4 +1,9 @@
 import { getTileKey } from '../utils/tileKey.js';
+import { RebelSystem as RebelSystemModule } from '../rebelSystem.js';
+import { TutorialCallouts as TutorialCalloutsModule } from '../tutorialCallouts.js';
+import ImperialMandateCalendar from './imperialMandateCalendar.js';
+import imperialMandateRegistry from './imperialMandateRegistry.js';
+import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 
 function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
     const fallback = {
@@ -47,21 +52,12 @@ function buildUiAdapter(adapter = {}, getLastBindings = () => ({})) {
  */
 function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !== 'undefined' ? window : globalThis)) {
     const global = runtimeGlobal;
-    const RebelSystem = (global.RebelSystem)
-        || (typeof require === 'function' ? require('../rebelSystem.js') : {});
-    const TutorialCallouts = (global.TutorialCallouts)
-        || (typeof require === 'function' ? require('../tutorialCallouts.js') : null);
-    const MandateCalendar = (global.ImperialMandateCalendar)
-        || (typeof require === 'function' ? require('./imperialMandateCalendar.js') : null);
-    const ImperialMandateRegistry = (global.ImperialMandateRegistry)
-        || (typeof require === 'function' ? require('./imperialMandateRegistry.js') : null);
-    const imperialFavorHelpers = (typeof require === 'function')
-        ? require('../imperialFavor.js')
-        : global.ImperialFavor;
-    const { DEFAULT_IMPERIAL_FAVOR = 5, clampImperialFavor = (value) => {
-        const numeric = Number.isFinite(value) ? Math.round(value) : DEFAULT_IMPERIAL_FAVOR;
-        return Math.min(10, Math.max(1, numeric));
-    } } = imperialFavorHelpers || {};
+    const RebelSystem = global.RebelSystem || RebelSystemModule || {};
+    const TutorialCallouts = global.TutorialCallouts || TutorialCalloutsModule || null;
+    const MandateCalendar = global.ImperialMandateCalendar || ImperialMandateCalendar;
+    const ImperialMandateRegistry = global.ImperialMandateRegistry || imperialMandateRegistry;
+    const imperialFavorHelpers = global.ImperialFavor || { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor };
+    const { DEFAULT_IMPERIAL_FAVOR: defaultFavor = DEFAULT_IMPERIAL_FAVOR, clampImperialFavor: clampFavor = clampImperialFavor } = imperialFavorHelpers || {};
 
     const MandateStatus = {
         PENDING: 'PENDING',
@@ -117,9 +113,9 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @returns {{ demandFactor: number, timeFactor: number }} multipliers for resource asks and deadlines.
      */
     function getFavorPacingAdjustments(gameState) {
-        const favor = clampImperialFavor(gameState?.imperialFavor);
-        const deltaFromMidpoint = favor - DEFAULT_IMPERIAL_FAVOR;
-        const demandFactor = 1 + (DEFAULT_IMPERIAL_FAVOR - favor) * 0.04;
+        const favor = clampFavor(gameState?.imperialFavor);
+        const deltaFromMidpoint = favor - defaultFavor;
+        const demandFactor = 1 + (defaultFavor - favor) * 0.04;
         const timeFactor = 1 + (deltaFromMidpoint * 0.04);
         return { demandFactor, timeFactor };
     }
@@ -136,7 +132,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @returns {number} favor points to spend.
      */
     function calculateDiplomaticFavorCost(currentFavor) {
-        const favor = clampImperialFavor(currentFavor);
+        const favor = clampFavor(currentFavor);
         let rate = 0.35;
         if (favor >= 8) {
             rate = 0.25;
@@ -156,7 +152,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     function buildMandateResourceChecklist(entry, gameState) {
         if (!entry) return [];
         const safeGameState = gameState || state.lastGameState || {};
-        const favor = clampImperialFavor(safeGameState.imperialFavor);
+        const favor = clampFavor(safeGameState.imperialFavor);
         const gold = Math.max(0, safeGameState.gold || 0);
         const wood = Math.max(0, safeGameState.wood || 0);
 
@@ -261,7 +257,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         const current = Number.isFinite(targetGameState.imperialFavor)
             ? targetGameState.imperialFavor
             : DEFAULT_IMPERIAL_FAVOR;
-        const next = clampImperialFavor(current + safeDelta);
+        const next = clampFavor(current + safeDelta);
         targetGameState.imperialFavor = next;
         if (typeof uiBindings?.updateHUD === 'function') uiBindings.updateHUD(targetGameState);
         return next;
@@ -1298,7 +1294,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return (gameState?.gold || 0) >= 60;
             },
             onIssue: ({ gameState, uiBindings, mandate }) => {
-                const currentFavor = clampImperialFavor(gameState?.imperialFavor);
+                const currentFavor = clampFavor(gameState?.imperialFavor);
                 const favorCost = calculateDiplomaticFavorCost(currentFavor);
                 const giftCost = Math.max(45, Math.floor((gameState?.gold || 0) * 0.25));
                 mandate.runtime.metadata.favorCost = favorCost;

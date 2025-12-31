@@ -1,16 +1,14 @@
-const assert = require('assert');
-const RebelSystem = require('../scripts/rebelSystem.js');
-const ImperialMandatesBootstrap = require('../scripts/mandates/imperialMandates.js');
-const { clampImperialFavor } = require('../scripts/imperialFavor.js');
-const ImperialMandateManager = require('../scripts/mandates/imperialMandateManager.js');
-const ImperialMandateCalendar = require('../scripts/mandates/imperialMandateCalendar.js');
+import assert from 'assert';
+import { clampImperialFavor } from '../scripts/imperialFavor.js';
+import { RebelSystem } from '../scripts/rebelSystem.js';
+import ImperialMandateCalendar from '../scripts/mandates/imperialMandateCalendar.js';
+import ImperialMandateManager from '../scripts/mandates/imperialMandateManager.js';
+import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
 
-RebelSystem.initRebelSystem?.(global);
-ImperialMandateCalendar.initImperialMandateCalendar?.(global);
-ImperialMandateManager.initImperialMandateManager?.(global);
-const ImperialMandates = ImperialMandatesBootstrap.initImperialMandates
-    ? ImperialMandatesBootstrap.initImperialMandates(global)
-    : ImperialMandatesBootstrap;
+RebelSystem.initRebelSystem?.(globalThis);
+ImperialMandateCalendar.initImperialMandateCalendar?.(globalThis);
+ImperialMandateManager.initImperialMandateManager?.(globalThis);
+const ImperialMandates = initImperialMandates(globalThis);
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }

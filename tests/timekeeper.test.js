@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 async function run() {
     const { MONTH_NAMES, START_MONTH_INDEX, START_TICK, Timekeeper } = await import('../scripts/timekeeper.js');
