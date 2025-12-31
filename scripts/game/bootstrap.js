@@ -12,15 +12,20 @@ import { canUseLocalStorage } from '../storageProbe.js';
  * @returns {{ storage: Storage|null, warning: string|null, error: Error|null }}
  */
 export function resolveSettingsStorage(scope = typeof window !== 'undefined' ? window : null) {
-    if (!scope || !scope.localStorage) {
-        return { storage: null, warning: 'Local storage unavailable: saves disabled.', error: null };
-    }
-
     try {
+        if (!scope) {
+            return { storage: null, warning: 'Local storage unavailable: saves disabled.', error: null };
+        }
+
+        const storage = scope.localStorage;
+        if (!storage) {
+            return { storage: null, warning: 'Local storage unavailable: saves disabled.', error: null };
+        }
+
         if (!canUseLocalStorage(scope)) {
             return { storage: null, warning: 'Local storage blocked: saves disabled.', error: null };
         }
-        return { storage: scope.localStorage, warning: null, error: null };
+        return { storage, warning: null, error: null };
     } catch (error) {
         return { storage: null, warning: 'Local storage error: saves disabled.', error };
     }
