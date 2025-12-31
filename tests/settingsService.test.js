@@ -45,3 +45,30 @@ const defaults = buildDefaultSettings();
     assert.strictEqual(visualEvent.snowfallEnabled, false, 'emits visual event payload');
     assert.strictEqual(JSON.parse(storage.getItem('settings:visual')).visuals.snowEnabled, false, 'persists visual toggles');
 }
+
+{
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, 'window', {
+        value: {
+            get localStorage() {
+                throw new Error('denied');
+            }
+        },
+        configurable: true
+    });
+    try {
+        let service = null;
+        assert.doesNotThrow(() => { service = createSettingsService({ defaults }); });
+        const loaded = service.load();
+        assert.deepStrictEqual(loaded, defaults, 'falls back to defaults when storage is inaccessible');
+    } finally {
+        if (typeof originalWindow === 'undefined') {
+            delete globalThis.window;
+        } else {
+            Object.defineProperty(globalThis, 'window', {
+                value: originalWindow,
+                configurable: true
+            });
+        }
+    }
+}

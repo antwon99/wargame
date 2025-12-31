@@ -9,6 +9,16 @@
  * @returns {Object} persistence API with save/load helpers.
  */
 function createPersistence(global) {
+    /** Safely resolve localStorage from a provided global-like scope. */
+    function getSafeLocalStorage(scope) {
+        if (!scope) return null;
+        try {
+            return typeof scope.localStorage !== 'undefined' ? scope.localStorage : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
     const imperialFavorHelpers = (typeof require === 'function')
         ? require('./imperialFavor.js')
         : global.ImperialFavor;
@@ -98,7 +108,7 @@ function createPersistence(global) {
         };
     }
 
-    const defaultStorageAdapter = createStorageAdapter(typeof global.localStorage !== 'undefined' ? global.localStorage : null);
+    const defaultStorageAdapter = createStorageAdapter(getSafeLocalStorage(global));
     let storageAdapter = defaultStorageAdapter;
 
     /**
