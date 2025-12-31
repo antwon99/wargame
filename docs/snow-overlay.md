@@ -3,7 +3,7 @@
 The fog-of-war visuals have been retired in favor of a seasonal snow treatment. A uniform white wash is painted beneath the map during winter months to communicate harsh weather without hiding terrain.
 
 ## Calendar rules
-- Snow appears October through March (`SNOW_MONTHS` in `scripts/snowVisualConfig.mjs`) using the in-game calendar (campaigns start in April).
+- Snow appears October through March (`SNOW_MONTHS` in `scripts/snowVisualConfig.js`) using the in-game calendar (campaigns start in April).
 - Coverage ramps up toward the winter midpoint and eases back down as spring arrives.
 - Opting out of snow (`snowEnabled` or `snowfallEnabled` set to false) forces zero coverage even in winter.
 
@@ -17,5 +17,5 @@ The fog-of-war visuals have been retired in favor of a seasonal snow treatment. 
 - The audio/debug overlay (F3) mirrors the same toggles for quick QA flips.
 
 ## Extending
-- Adjust seasonal coverage or opacity weighting in `scripts/snowVisualConfig.mjs`; values fade in at October and taper back down by March.
+- Adjust seasonal coverage or opacity weighting in `scripts/snowVisualConfig.js`; values fade in at October and taper back down by March.
 - Hook custom tile overlays via `drawTileOverlay` in `scripts/overworldRenderer.js` if additional per-tile effects are needed.

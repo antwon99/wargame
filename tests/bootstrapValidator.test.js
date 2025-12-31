@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 async function run() {
-    const { validateBootstrapDependencies } = await import('../scripts/bootstrapValidator.mjs');
+    const { validateBootstrapDependencies } = await import('../scripts/bootstrapValidator.js');
 
     const debugEl = { classList: { add: () => {} }, textContent: '' };
     const result = validateBootstrapDependencies({

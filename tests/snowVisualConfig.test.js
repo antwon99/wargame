@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 async function run() {
-    const { SNOW_MONTHS, SNOW_VISUAL_CONFIG, resolveSnowSeason, resolveSnowVisualConfig } = await import('../scripts/snowVisualConfig.mjs');
+    const { SNOW_MONTHS, SNOW_VISUAL_CONFIG, resolveSnowSeason, resolveSnowVisualConfig } = await import('../scripts/snowVisualConfig.js');
 
     const offSeason = resolveSnowSeason(new Date('2024-06-15T00:00:00Z'));
     assert.strictEqual(offSeason.inSeason, false, 'summer months should not trigger snow');

@@ -54,7 +54,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 ### Snow visuals
 
-- `scripts/snowVisualConfig.mjs` drives the seasonal snow overlay and coverage. The config determines which months render snow (October–March), the maximum gradient height, and overlay opacity. Temporary snow toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
+- `scripts/snowVisualConfig.js` drives the seasonal snow overlay and coverage. The config determines which months render snow (October–March), the maximum gradient height, and overlay opacity. Temporary snow toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
 - Per-hex visibility overlays can be supplied via the `drawTileOverlay` extension point passed into `drawOverworldTiles()`; the default implementation shades unseen/seen tiles while keeping snow separate from tile shrouds.
 
 

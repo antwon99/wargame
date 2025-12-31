@@ -4,7 +4,7 @@ function run() {
     const { createGameCore } = require('../scripts/game/core.js');
     const { Game } = createGameCore();
 
-    return import('../scripts/snowVisualConfig.mjs')
+    return import('../scripts/snowVisualConfig.js')
         .then((snowModule) => {
             const originalOpacity = snowModule.SNOW_VISUAL_CONFIG.maxOpacity;
             snowModule.SNOW_VISUAL_CONFIG.maxOpacity = 0.15;
