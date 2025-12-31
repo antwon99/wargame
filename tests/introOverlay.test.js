@@ -89,11 +89,36 @@ function testInitAppliesSeasonalCopy() {
     assert.ok(doc.bodyEl.textContent.includes('April'), 'init copy should reference the April start');
 }
 
+function testStorageAccessorFailureIsSafe() {
+    const originalWindow = globalThis.window;
+    Object.defineProperty(globalThis, 'window', {
+        value: {
+            get localStorage() {
+                throw new Error('denied');
+            }
+        },
+        configurable: true
+    });
+    try {
+        assert.strictEqual(IntroOverlay.hasSeenIntro(), false, 'hasSeenIntro should return false when storage is unavailable');
+    } finally {
+        if (typeof originalWindow === 'undefined') {
+            delete globalThis.window;
+        } else {
+            Object.defineProperty(globalThis, 'window', {
+                value: originalWindow,
+                configurable: true
+            });
+        }
+    }
+}
+
 function run() {
     testDismissAddsHiddenClass();
     testTransitionClearsPointerFlow();
     testSeasonalCopyMentionsAprilAndFrontier();
     testInitAppliesSeasonalCopy();
+    testStorageAccessorFailureIsSafe();
     console.log('All intro overlay tests passed.');
 }
 

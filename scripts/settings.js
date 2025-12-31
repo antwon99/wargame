@@ -6,6 +6,16 @@ function clamp01(value, fallback = 1) {
     return Math.max(0, Math.min(1, numeric));
 }
 
+/** Safely resolve localStorage without crashing when accessors throw. */
+function getSafeLocalStorage() {
+    if (typeof window === 'undefined') return null;
+    try {
+        return window.localStorage || null;
+    } catch (error) {
+        return null;
+    }
+}
+
 /** Build the baseline settings that mirror default audio/visual presentation. */
 export function buildDefaultSettings() {
     return {
@@ -55,7 +65,7 @@ function createEmitter() {
 export function createSettingsService(options = {}) {
     const {
         storageKey = 'wargame:player-settings',
-        storage = typeof window !== 'undefined' ? window.localStorage : null,
+        storage = getSafeLocalStorage(),
         defaults = buildDefaultSettings(),
         audioAdapter = () => {},
         visualAdapter = () => {},

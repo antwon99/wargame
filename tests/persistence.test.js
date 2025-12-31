@@ -57,6 +57,13 @@ async function runTests() {
     assert.strictEqual(canUseLocalStorage({ localStorage: global.localStorage }), true, 'probe should allow usable storage');
     const throwingStorage = { get localStorage() { throw new Error('denied'); } };
     assert.strictEqual(canUseLocalStorage(throwingStorage), false, 'probe should fail when accessors throw');
+    let safePersistence = null;
+    assert.doesNotThrow(() => {
+        safePersistence = Persistence.createPersistence(throwingStorage);
+    }, 'createPersistence should tolerate throwing localStorage accessors');
+    const safeAdapter = safePersistence.getStorageAdapter();
+    assert.strictEqual(safeAdapter.getItem('missing'), null, 'safe adapter should treat inaccessible storage as empty');
+    assert.deepStrictEqual(safeAdapter.keys(), [], 'safe adapter should report no keys when storage is inaccessible');
 
     // Serialize
     const mandateSnapshot = {

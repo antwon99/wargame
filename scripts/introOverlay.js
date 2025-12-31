@@ -157,8 +157,12 @@ const IntroOverlay = {
 
     /** Resolve the storage API defensively for browser + test environments. */
     getStorage() {
-        if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return null;
-        return window.localStorage;
+        if (typeof window === 'undefined') return null;
+        try {
+            return typeof window.localStorage !== 'undefined' ? window.localStorage : null;
+        } catch (error) {
+            return null;
+        }
     },
 
     /** Dispatch the intro begin lifecycle event when the overlay is cleared. */
