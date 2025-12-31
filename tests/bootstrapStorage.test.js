@@ -34,15 +34,25 @@ function run() {
     assert.strictEqual(missingResult.storage, null);
     assert.ok(warningWithSuffix(missingResult.warning), 'missing scope should yield a warning');
 
-    const failingScope = createScopeWithStorage(explosiveStorage);
-    const failingResult = resolveSettingsStorage(failingScope);
-    assert.strictEqual(failingResult.storage, null, 'unsafe storage should be ignored');
-    assert.ok(warningWithSuffix(failingResult.warning));
+    let warnCount = 0;
+    const originalWarn = console.warn;
+    console.warn = () => {
+        warnCount += 1;
+    };
+    try {
+        const failingScope = createScopeWithStorage(explosiveStorage);
+        const failingResult = resolveSettingsStorage(failingScope);
+        assert.strictEqual(failingResult.storage, null, 'unsafe storage should be ignored');
+        assert.ok(warningWithSuffix(failingResult.warning));
 
-    const blockedScope = createScopeWithStorage(guardedStorage);
-    const blockedResult = resolveSettingsStorage(blockedScope);
-    assert.strictEqual(blockedResult.storage, null);
-    assert.ok(warningWithSuffix(blockedResult.warning));
+        const blockedScope = createScopeWithStorage(guardedStorage);
+        const blockedResult = resolveSettingsStorage(blockedScope);
+        assert.strictEqual(blockedResult.storage, null);
+        assert.ok(warningWithSuffix(blockedResult.warning));
+    } finally {
+        console.warn = originalWarn;
+    }
+    assert.strictEqual(warnCount, 0, 'storage probe should silence console warnings');
 
     console.log('Bootstrap storage guard tests passed.');
 }
