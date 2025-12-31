@@ -1,4 +1,4 @@
-import { SNOW_VISUAL_CONFIG } from './snowVisualConfig.mjs';
+import { SNOW_VISUAL_CONFIG } from './snowVisualConfig.js';
 
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {

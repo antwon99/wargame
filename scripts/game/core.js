@@ -91,7 +91,7 @@ let cachedSnowConfigResolver = fallbackResolveSnowVisualConfig;
 let snowConfigPromise = null;
 const ensureSnowVisualConfigModule = () => {
     if (!snowConfigPromise) {
-        snowConfigPromise = import('../snowVisualConfig.mjs')
+        snowConfigPromise = import('../snowVisualConfig.js')
             .then((module) => {
                 cachedSnowVisualConfig = module.SNOW_VISUAL_CONFIG || fallbackSnowVisualConfig;
                 cachedSnowConfigResolver = module.resolveSnowVisualConfig || fallbackResolveSnowVisualConfig;
@@ -152,7 +152,7 @@ let bootstrapValidatorPromise = null;
  */
 const getBootstrapValidator = () => {
     if (!bootstrapValidatorPromise) {
-        bootstrapValidatorPromise = import('../bootstrapValidator.mjs')
+        bootstrapValidatorPromise = import('../bootstrapValidator.js')
             .then((module) => {
                 cachedBootstrapValidator = module.validateBootstrapDependencies || fallbackValidateBootstrapDependencies;
             })
@@ -214,7 +214,7 @@ const getResearchStateBuilder = () => {
     }
 
     if (!researchStateBuilderPromise) {
-        researchStateBuilderPromise = import('../researchStateBuilder.mjs')
+        researchStateBuilderPromise = import('../researchStateBuilder.js')
             .then((module) => {
                 cachedResearchStateBuilder = module.buildResearchStateSafe || fallbackBuildResearchStateSafe;
             })

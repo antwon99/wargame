@@ -55,7 +55,7 @@ async function run() {
 
     const { createGameCore } = await import('../scripts/game/core.js');
     const { START_TICK } = await import('../scripts/timekeeper.js');
-    const { SNOW_VISUAL_CONFIG } = await import('../scripts/snowVisualConfig.mjs');
+    const { SNOW_VISUAL_CONFIG } = await import('../scripts/snowVisualConfig.js');
 
     const { Game, Layout } = createGameCore();
     Game.ctx = ctx;

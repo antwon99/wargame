@@ -1,7 +1,7 @@
 import { DEFAULT_IMPERIAL_FAVOR } from '../imperialFavor.js';
 import { DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { START_TICK } from '../timekeeper.js';
-import { SNOW_VISUAL_CONFIG } from '../snowVisualConfig.mjs';
+import { SNOW_VISUAL_CONFIG } from '../snowVisualConfig.js';
 
 export const CAMERA_MOTION_CONFIG = {
     enabled: true,

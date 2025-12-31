@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { createRequire } from 'module';
-import { buildResearchStateSafe } from '../scripts/researchStateBuilder.mjs';
+import { buildResearchStateSafe } from '../scripts/researchStateBuilder.js';
 
 const require = createRequire(import.meta.url);
 const ResearchSystem = require('../scripts/researchSystem.js');
