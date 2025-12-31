@@ -22,7 +22,8 @@ export function resolveSettingsStorage(scope = typeof window !== 'undefined' ? w
             return { storage: null, warning: 'Local storage unavailable: saves disabled.', error: null };
         }
 
-        if (!canUseLocalStorage(scope, { silent: true })) {
+        const storageProbeOptions = { silent: true };
+        if (!canUseLocalStorage(scope, storageProbeOptions)) {
             return { storage: null, warning: 'Local storage blocked: saves disabled.', error: null };
         }
         return { storage, warning: null, error: null };
