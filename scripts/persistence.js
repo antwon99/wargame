@@ -579,10 +579,9 @@ function initPersistence(target = typeof window !== 'undefined' ? window : globa
     return Persistence;
 }
 
-export { createPersistence, Persistence, initPersistence };
+Persistence.initPersistence = initPersistence;
+Persistence.createPersistence = createPersistence;
 
 if (typeof module !== 'undefined' && module.exports) {
-    Persistence.initPersistence = initPersistence;
-    Persistence.createPersistence = createPersistence;
     module.exports = Persistence;
 }

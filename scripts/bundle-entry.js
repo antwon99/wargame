@@ -2,7 +2,7 @@ import { Layout, SQRT3, cubeToPixel, initInputHelpers, isPointerOnDrawnHex, pixe
 import { IntroOverlay, initIntroOverlay } from './introOverlay.js';
 import { GameAudio, initAudio } from './audio.js';
 import { initJuice } from './juice.js';
-import { Persistence, initPersistence } from './persistence.js';
+import Persistence from './persistence.js';
 import { ResearchSystem, initResearchSystem } from './researchSystem.js';
 import { initVoidEasterEgg } from './voidEasterEgg.js';
 import { PlatformAdapter, initPlatformAdapter } from './platform.js';
@@ -30,7 +30,7 @@ const inputHelpers = initInputHelpers?.(bootstrapScope) || {
 initIntroOverlay?.(bootstrapScope);
 initAudio?.(bootstrapScope);
 initJuice?.(bootstrapScope);
-initPersistence?.(bootstrapScope);
+Persistence?.initPersistence?.(bootstrapScope);
 initResearchSystem?.(bootstrapScope);
 initVoidEasterEgg?.(bootstrapScope);
 initPlatformAdapter?.(bootstrapScope);

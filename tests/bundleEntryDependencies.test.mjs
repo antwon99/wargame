@@ -79,7 +79,8 @@ function loadEntryModule() {
                 case './juice.js':
                     return { initJuice: () => {} };
                 case './persistence.js':
-                    return { Persistence: stubs.persistence, initPersistence: () => stubs.persistence };
+                    stubs.persistence.initPersistence = () => stubs.persistence;
+                    return stubs.persistence;
                 case './researchSystem.js':
                     return { ResearchSystem: stubs.researchSystem, initResearchSystem: () => stubs.researchSystem };
                 case './voidEasterEgg.js':
