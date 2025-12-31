@@ -23,6 +23,11 @@ global.Hex = class Hex {
 };
 
 const Persistence = require('../scripts/persistence.js');
+assert.strictEqual(
+    typeof Persistence.serializeGameState,
+    'function',
+    'Persistence should expose serializeGameState for persistence snapshots'
+);
 Persistence.initPersistence?.(globalThis);
 
 async function runTests() {
