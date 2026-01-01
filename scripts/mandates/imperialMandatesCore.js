@@ -263,6 +263,22 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         return next;
     }
 
+    /**
+     * Emit a narrative event tied to a mandate lifecycle transition.
+     * Wrapped in a guard so failures never block mandate logic.
+     * @param {object} gameState live game state reference.
+     * @param {string} eventType narrative event type to emit.
+     * @param {object} payload event payload to forward to the narrative system.
+     */
+    function emitMandateNarrative(gameState, eventType, payload) {
+        if (!gameState) return;
+        try {
+            gameState?.narrative?.emit?.(eventType, payload);
+        } catch (error) {
+            // Narrative dispatch should never block mandate handling.
+        }
+    }
+
     const {
         convertToTicks = () => 0,
         formatCalendarLabel = () => 'M: Jan Y1 | W: 1/4 | D: 1/28',
@@ -909,6 +925,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             createInitialState: () => ({ targetTileKey: null, preferAnchoredDecree: true, deadlineWarned: false }),
             triggerPredicate: ({ gameState }) => Boolean(gameState?.overworld?.hexes?.size),
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
                 if (!rebelTile) {
                     console.warn('Imperial mandate could not place a rebel camp.');
@@ -957,6 +977,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return false;
             },
             onSuccess: ({ payload, gameState, uiBindings }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: 'destroy_first_rebel_camp',
+                    title: 'Frontier Sweep'
+                });
                 const tile = resolvePayloadTile(payload, gameState);
                 resetTrackedRebel(tile, gameState);
                 showMandateBanner([
@@ -968,6 +992,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ uiBindings }) => {
+                emitMandateNarrative(state.lastGameState, 'mandate_reprimand', {
+                    mandateId: 'destroy_first_rebel_camp',
+                    title: 'Frontier Sweep'
+                });
                 showMandateBanner([
                     'The encampment festers beyond the frontier.',
                     'Expect harsher levies until it is destroyed.'
@@ -995,6 +1023,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return (gameState?.gold || 0) >= requiredGold;
             },
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { requiredGold } = computeTaxLevyRequirement(gameState);
                 mandate.runtime.metadata.requiredGold = requiredGold;
                 showMandateBanner([
@@ -1008,6 +1040,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 && ctx.mandate.runtime.metadata.confirmed
             ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const required = mandate.runtime.metadata.requiredGold;
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold -= required;
@@ -1024,6 +1060,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_reprimand', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - Math.floor(mandate.runtime.metadata.requiredGold * 0.35));
                 }
@@ -1048,6 +1088,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             triggerPredicate: ({ gameState }) => Boolean(state.rebelSweep?.outcome)
                 && (gameState?.overworld?.hexes?.size || 0) >= 4,
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const currentTerritory = gameState?.overworld?.hexes?.size || 0;
                 mandate.runtime.metadata.startingTerritory = currentTerritory;
                 mandate.runtime.metadata.targetTerritory = currentTerritory + 3;
@@ -1063,6 +1107,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return owned >= ctx.mandate.runtime.metadata.targetTerritory;
             },
             onSuccess: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 if (typeof gameState?.gold === 'number') gameState.gold += 75;
                 if (typeof gameState?.wood === 'number') gameState.wood += 40;
                 showMandateBanner([
@@ -1075,6 +1123,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ uiBindings }) => {
+                emitMandateNarrative(state.lastGameState, 'mandate_reprimand', {
+                    mandateId: 'push_the_frontier',
+                    title: 'Push the Frontier'
+                });
                 showMandateBanner([
                     'Frontier mandate stalled. Scouts report hesitation at the border.',
                     'Expect stronger rebel pressure until expansion resumes.'
@@ -1141,6 +1193,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
             earliestIssue: blueprint.earliestIssue || { weeks: 2, days: 3 },
             triggerPredicate: ({ gameState }) => (gameState?.wood || 0) >= 80 && (gameState?.gold || 0) >= 70,
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { demandFactor } = getFavorPacingAdjustments(gameState);
                 const baselineWood = Math.max(0, gameState?.wood || 0);
                 const baselineGold = Math.max(0, gameState?.gold || 0);
@@ -1171,6 +1227,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 && ctx.mandate.runtime.metadata.confirmed
             ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { targetGold = 0, targetWood = 0 } = mandate.runtime.metadata;
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - targetGold);
@@ -1190,6 +1250,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_reprimand', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 if (typeof gameState?.wood === 'number') {
                     gameState.wood = Math.max(0, gameState.wood - 35);
                 }
@@ -1228,6 +1292,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return holdings >= 6 && strongestReserve >= 120;
             },
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const resourceType = state.currentTick % 2 === 0 ? 'gold' : 'wood';
                 const reserve = Math.max(0, gameState?.[resourceType] || 0);
                 const { demandFactor } = getFavorPacingAdjustments(gameState);
@@ -1246,6 +1314,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 && ctx.mandate.runtime.metadata.confirmed
             ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { resourceType, requiredAmount } = mandate.runtime.metadata;
                 if (typeof gameState?.[resourceType] === 'number') {
                     gameState[resourceType] = Math.max(0, gameState[resourceType] - requiredAmount);
@@ -1261,6 +1333,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_reprimand', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { resourceType, requiredAmount } = mandate.runtime.metadata;
                 if (typeof gameState?.[resourceType] === 'number') {
                     const penalty = Math.max(30, Math.floor(requiredAmount * 0.25));
@@ -1294,6 +1370,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return (gameState?.gold || 0) >= 60;
             },
             onIssue: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_issued', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const currentFavor = clampFavor(gameState?.imperialFavor);
                 const favorCost = calculateDiplomaticFavorCost(currentFavor);
                 const giftCost = Math.max(45, Math.floor((gameState?.gold || 0) * 0.25));
@@ -1312,6 +1392,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 && ctx.mandate.runtime.metadata.confirmed
             ),
             onSuccess: ({ gameState, uiBindings, mandate }) => {
+                emitMandateNarrative(gameState, 'mandate_completed', {
+                    mandateId: mandate.definition.id,
+                    title: mandate.definition.title
+                });
                 const { favorCost, giftCost } = mandate.runtime.metadata;
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - giftCost);
@@ -1346,6 +1430,10 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 return ctx.mandate.runtime.deadlineTick && state.currentTick >= ctx.mandate.runtime.deadlineTick;
             },
             onFailure: ({ gameState, uiBindings }) => {
+                emitMandateNarrative(gameState, 'mandate_reprimand', {
+                    mandateId: 'diplomatic_envoys',
+                    title: 'Dispatch Diplomatic Envoys'
+                });
                 if (typeof gameState?.gold === 'number') {
                     gameState.gold = Math.max(0, gameState.gold - 30);
                 }

@@ -50,6 +50,7 @@ import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, s
 import AudioBridge from '../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
+import createNarrativeSystem from '../narrative/narrativeSystem.js';
 const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
 const fallbackSnowVisualConfig = {
     enabled: true,
@@ -378,6 +379,8 @@ const Game = {
     pendingReclamations: [],
     awaitingReclamationTarget: false,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
+    narrative: null,
+    narrativeMonthKey: null,
 
     imperialMandates,
     introOverlay: introOverlayDefault,
@@ -392,6 +395,43 @@ const Game = {
     ...cameraState,
     persistenceAvailable: true,
     combat: combatState,
+
+    /**
+     * Initialize the narrative system so story beats can be emitted safely.
+     * Uses the notification stack when available so narrative cards share UI styling.
+     */
+    initNarrativeSystem() {
+        const notificationManager = this.enqueueNotification
+            ? { enqueue: (payload) => this.enqueueNotification(payload) }
+            : null;
+        this.narrative = createNarrativeSystem({
+            timekeeper: this.timekeeper,
+            notificationManager
+        });
+    },
+
+    /**
+     * Track month rollovers and emit a narrative audit only when the calendar advances.
+     */
+    bindNarrativeMonthAudit() {
+        const currentCalendar = this.timekeeper?.getCalendar?.();
+        const initialMonthKey = currentCalendar
+            ? `${currentCalendar.year}-${currentCalendar.month}`
+            : null;
+        if (!this.narrativeMonthKey) this.narrativeMonthKey = initialMonthKey;
+        this.timekeeper.onChange((payload) => {
+            const calendar = payload?.calendar || this.timekeeper?.getCalendar?.();
+            if (!calendar) return;
+            const monthKey = `${calendar.year}-${calendar.month}`;
+            if (monthKey === this.narrativeMonthKey) return;
+            this.narrativeMonthKey = monthKey;
+            try {
+                this.narrative?.emit?.('month_audit', { month: calendar.month, year: calendar.year });
+            } catch (error) {
+                // Narrative dispatch should never block gameplay updates.
+            }
+        });
+    },
 
     init({ introOverlay = introOverlayDefault, loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
         const docAvailable = typeof document !== 'undefined';
@@ -436,10 +476,14 @@ const Game = {
             if (this.settingsService?.applyVisual && this.playerSettings?.visuals) {
                 this.settingsService.applyVisual(this.playerSettings.visuals);
             }
+            if (!this.narrative) {
+                this.initNarrativeSystem();
+            }
             const refreshHUD = typeof onHUDUpdate === 'function'
                 ? () => onHUDUpdate(this)
                 : () => this.updateHUD();
             this.timekeeper.onChange(refreshHUD);
+            this.bindNarrativeMonthAudit();
             this.resize();
             initAudioDebugPanel({
                 resolveSnowSnapshot: () => this.resolveSnowDebugSnapshot(),
@@ -1121,6 +1165,8 @@ const Game = {
         const tech = this.getTech(techId);
         if (!tech || !researchSystem.hasRemainingPurchases(tech)) return;
 
+        const goldBefore = this.gold;
+        const woodBefore = this.wood;
         const cost = this.getTechCost(tech, optionId);
         if (!cost) return;
         const hasFields = tech.id === 'land-reclamation' ? this.hasFieldToConvert() : true;
@@ -1131,6 +1177,17 @@ const Game = {
         if (tech.id === 'land-reclamation') {
             this.applyTechEffect(tech, optionId, payment);
             this.updateResearchUI();
+            try {
+                this.narrative?.emit?.('tech_purchased', {
+                    techId,
+                    optionId,
+                    cost,
+                    goldDelta: this.gold - goldBefore,
+                    woodDelta: this.wood - woodBefore
+                });
+            } catch (error) {
+                // Narrative dispatch should never block tech purchases.
+            }
             return;
         }
 
@@ -1142,6 +1199,17 @@ const Game = {
         this.refreshClusterBonuses();
         this.updateHUD();
         this.updateResearchUI();
+        try {
+            this.narrative?.emit?.('tech_purchased', {
+                techId,
+                optionId,
+                cost,
+                goldDelta: this.gold - goldBefore,
+                woodDelta: this.wood - woodBefore
+            });
+        } catch (error) {
+            // Narrative dispatch should never block tech purchases.
+        }
     },
 
     /**
@@ -1637,6 +1705,15 @@ const Game = {
             this.spawnTxt(hex, '🏴 REBEL CAMP!', '#f55');
             if (typeof this.playSound === 'function') this.playSound('alert');
             this.refreshClusterBonuses();
+            try {
+                this.narrative?.emit?.('rebel_camp_spawned', {
+                    hex,
+                    hexKey: hex?.toString?.(),
+                    tick: this.timekeeper?.ticks ?? 0
+                });
+            } catch (error) {
+                // Narrative dispatch should never block claim logic.
+            }
             return rebelTile;
         }
 
@@ -1666,6 +1743,13 @@ const Game = {
 
         if (def?.onClaim && !free) def.onClaim(this, hex);
         if (!free) this.refreshClusterBonuses();
+        if (['mine', 'shrine', 'ruin', 'town', 'forest'].includes(type)) {
+            try {
+                this.narrative?.emit?.('tile_claimed', { tileType: type, hex, free: Boolean(free) });
+            } catch (error) {
+                // Narrative dispatch should never block claim logic.
+            }
+        }
         return def;
     },
     /**
