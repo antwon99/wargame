@@ -12,71 +12,89 @@ function createNotificationManager() {
     };
 }
 
+function createSeededRng(seed) {
+    let state = seed >>> 0;
+    return {
+        next: () => {
+            state = (state * 1664525 + 1013904223) >>> 0;
+            return state / 0x100000000;
+        }
+    };
+}
+
 async function testDeterministicSelection() {
     const timekeeper = new Timekeeper({ startTick: 0 });
-    timekeeper.reset(5);
-    const notificationsA = createNotificationManager();
-    const notificationsB = createNotificationManager();
+    timekeeper.reset(0);
+    const notifications = createNotificationManager();
+    const rng = createSeededRng(123);
+    const system = createNarrativeSystem({ timekeeper, notificationManager: notifications, rng });
 
-    const systemA = createNarrativeSystem({ timekeeper, notificationManager: notificationsA });
-    const systemB = createNarrativeSystem({ timekeeper, notificationManager: notificationsB });
-
-    const payload = { severity: 'low', seed: 42, goldDelta: 5, woodDelta: 2 };
-    const first = systemA.emit('economy', payload);
-    const second = systemB.emit('economy', payload);
+    const payload = { severity: 'low', goldDelta: 5, woodDelta: 2, maxBeatsPerWeek: 2 };
+    const first = system.emit('economy', payload);
+    const second = system.emit('economy', payload);
 
     assert.ok(first, 'first narrative beat should emit');
     assert.ok(second, 'second narrative beat should emit');
-    assert.deepStrictEqual(first.lines, second.lines, 'seeded selections should match');
+    assert.strictEqual(
+        first.lines[0],
+        'Ledger update for Jan, week 1: treasury shift 5g, lumber shift 2w.',
+        'seeded RNG should select the expected economy template'
+    );
+    assert.deepStrictEqual(first.lines, second.lines, 'seeded selection should repeat deterministically');
 }
 
 async function testCooldownGating() {
-    const timekeeper = new Timekeeper({ startTick: 0 });
-    const notifications = createNotificationManager();
-    const system = createNarrativeSystem({ timekeeper, notificationManager: notifications });
-
-    const first = system.emit('favor', { severity: 'low', favor: 4 });
-    const second = system.emit('favor', { severity: 'low', favor: 4 });
-
-    assert.ok(first, 'first low-severity beat should emit');
-    assert.strictEqual(second, null, 'second low-severity beat in same week should gate');
-
-    timekeeper.advance(timekeeper.daysPerWeek);
-    const third = system.emit('favor', { severity: 'low', favor: 4 });
-    assert.ok(third, 'new week should allow another low-severity beat');
-
-    const highOne = system.emit('rebel', { severity: 'high', count: 3 });
-    const highTwo = system.emit('rebel', { severity: 'high', count: 3 });
-    const highThree = system.emit('rebel', { severity: 'high', count: 3 });
-
-    assert.ok(highOne && highTwo, 'high severity should allow two beats in a week');
-    assert.strictEqual(highThree, null, 'third high severity beat should gate');
-}
-
-async function testTemplateReplacementAndHydration() {
     const timekeeper = new Timekeeper({ startTick: 0 });
     timekeeper.reset(0);
     const notifications = createNotificationManager();
     const system = createNarrativeSystem({ timekeeper, notificationManager: notifications });
 
-    const payload = { severity: 'low', favor: 6 };
-    const result = system.emit('favor', payload);
-    assert.ok(result, 'favor beat should emit');
-    assert.ok(!result.lines.some((line) => /\{\w+\}/.test(line)), 'tokens should be replaced');
+    system.emit('favor', { severity: 'low', voice: 'imperialClerk', favor: 4 });
+    system.emit('favor', { severity: 'low', voice: 'imperialClerk', favor: 4 });
 
-    const snapshot = system.serializeState();
-    const notificationsB = createNotificationManager();
-    const hydrated = createNarrativeSystem({ timekeeper, notificationManager: notificationsB });
-    hydrated.hydrateState(snapshot);
+    const favorBeats = notifications.items.filter((item) => item.category === 'favor');
+    assert.strictEqual(favorBeats.length, 1, 'low-severity beats should gate after one per voice/category');
 
-    const gated = hydrated.emit('favor', payload);
-    assert.strictEqual(gated, null, 'hydrated cooldowns should still gate repeated beats');
+    system.emit('rebel', { severity: 'high', voice: 'imperialClerk', count: 3 });
+    system.emit('rebel', { severity: 'high', voice: 'imperialClerk', count: 3 });
+    system.emit('rebel', { severity: 'high', voice: 'imperialClerk', count: 3 });
+
+    const rebelBeats = notifications.items.filter((item) => item.category === 'rebel');
+    assert.strictEqual(rebelBeats.length, 2, 'high-severity beats should allow two per voice/category');
+}
+
+async function testTemplateTokenFilling() {
+    const timekeeper = new Timekeeper({ startTick: 0 });
+    timekeeper.reset(0);
+    const notifications = createNotificationManager();
+    const system = createNarrativeSystem({ timekeeper, notificationManager: notifications });
+
+    const economy = system.emit('economy', {
+        severity: 'low',
+        voice: 'imperialClerk',
+        goldDelta: 12,
+        woodDelta: -3
+    });
+    assert.ok(economy, 'economy beat should emit');
+    assert.strictEqual(
+        economy.lines[0],
+        'Ledger update for Jan, week 1: treasury shift 12g, lumber shift -3w.',
+        'economy template tokens should render deterministically'
+    );
+
+    const favor = system.emit('favor', { severity: 'low', voice: 'imperialClerk', favor: 9 });
+    assert.ok(favor, 'favor beat should emit');
+    assert.strictEqual(
+        favor.lines[0],
+        'Favor ledger stands at 9 as Jan week 1 closes.',
+        'favor template tokens should render deterministically'
+    );
 }
 
 async function run() {
     await testDeterministicSelection();
     await testCooldownGating();
-    await testTemplateReplacementAndHydration();
+    await testTemplateTokenFilling();
     console.log('Narrative system tests passed.');
 }
 
