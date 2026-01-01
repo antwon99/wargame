@@ -125,18 +125,24 @@ function buildTokenContext(payload, calendar) {
  * Create a narrative system that chooses templated story beats and enqueues notifications.
  * @param {object} options initialization options.
  * @param {object} [options.rng] optional RNG with next() or random() for selection.
+ * @param {string|number} [options.rngSeed] optional seed for deterministic narrative selection.
  * @param {object} options.timekeeper timekeeper instance with calendar/tick data.
  * @param {object} options.notificationManager notification manager with enqueue().
  * @param {object} [options.taskPanel] optional task panel hook for extra logging.
  * @returns {{ emit: Function, serializeState: Function, hydrateState: Function }} narrative system API.
  */
-export function createNarrativeSystem({ rng, timekeeper, notificationManager, taskPanel } = {}) {
+export function createNarrativeSystem({ rng, rngSeed = null, timekeeper, notificationManager, taskPanel } = {}) {
     const state = {
         weeklyCounts: {},
-        lastBeatTicks: {}
+        lastBeatTicks: {},
+        rngSeed
     };
 
-    const baseRng = normalizeRng(rng);
+    const providedRng = normalizeRng(rng);
+    let baseRng = providedRng;
+    if (!baseRng && rngSeed !== null && rngSeed !== undefined) {
+        baseRng = createSeededRng(rngSeed);
+    }
 
     /**
      * Emit a narrative beat for the given event type and payload.
@@ -180,7 +186,7 @@ export function createNarrativeSystem({ rng, timekeeper, notificationManager, ta
             : (MAX_BEATS_PER_WEEK[severity] ?? 1);
         if (weeklyCount >= maxBeats) return null;
 
-        if (state.lastBeatTicks[categoryKey] === currentTick) return null;
+        if (maxBeats <= 1 && state.lastBeatTicks[categoryKey] === currentTick) return null;
 
         const voiceTemplates = templates.filter((entry) => entry.voice === selectedVoice);
         const selectedTemplate = pickRandom(voiceTemplates.length ? voiceTemplates : templates, rngForSelection);
@@ -215,13 +221,17 @@ export function createNarrativeSystem({ rng, timekeeper, notificationManager, ta
 
     /**
      * Serialize cooldowns and last-beat state for persistence.
-     * @returns {{ weeklyCounts: object, lastBeatTicks: object }} snapshot data.
+     * @returns {{ weeklyCounts: object, lastBeatTicks: object, rngSeed?: string|number }} snapshot data.
      */
     function serializeState() {
-        return {
+        const snapshot = {
             weeklyCounts: JSON.parse(JSON.stringify(state.weeklyCounts || {})),
             lastBeatTicks: { ...state.lastBeatTicks }
         };
+        if (state.rngSeed !== null && state.rngSeed !== undefined) {
+            snapshot.rngSeed = state.rngSeed;
+        }
+        return snapshot;
     }
 
     /**
@@ -236,6 +246,15 @@ export function createNarrativeSystem({ rng, timekeeper, notificationManager, ta
         state.lastBeatTicks = snapshot.lastBeatTicks && typeof snapshot.lastBeatTicks === 'object'
             ? { ...snapshot.lastBeatTicks }
             : {};
+        if (snapshot.rngSeed !== undefined && snapshot.rngSeed !== null) {
+            state.rngSeed = snapshot.rngSeed;
+            if (!providedRng) {
+                baseRng = createSeededRng(snapshot.rngSeed);
+            }
+        } else if (!providedRng) {
+            state.rngSeed = null;
+            baseRng = null;
+        }
     }
 
     return {

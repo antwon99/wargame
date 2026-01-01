@@ -860,6 +860,9 @@ const Game = {
         if (imperialMandates?.hydrateState) {
             imperialMandates.hydrateState(snapshot.mandates, this);
         }
+        if (this.narrative?.hydrateState) {
+            this.narrative.hydrateState(snapshot.narrative);
+        }
         this.pendingNotifications = Array.isArray(snapshot.notifications) ? snapshot.notifications : [];
         this.syncReclamationAwaitState();
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
