@@ -29,6 +29,7 @@ assert.strictEqual(
     'Persistence should expose serializeGameState for persistence snapshots'
 );
 Persistence.initPersistence?.(globalThis);
+Persistence.setStorageAdapter(Persistence.createStorageAdapter(global.localStorage));
 
 async function runTests() {
     const { Timekeeper, START_TICK } = await import('../scripts/timekeeper.js');
@@ -98,6 +99,11 @@ async function runTests() {
             ['v1', { item: { id: 'live', title: 'Live', lines: ['Active'], duration: 1500, tone: 'warning' } }]
         ])
     };
+    const narrativeSnapshot = {
+        weeklyCounts: { '4': { 'archivist:economy': 1 } },
+        lastBeatTicks: { 'archivist:economy': 12 },
+        rngSeed: 314159
+    };
 
     const game = {
         gold: 100,
@@ -114,7 +120,8 @@ async function runTests() {
         },
         stats: { totalKills: 5 },
         getNotificationStack: () => notificationStack,
-        imperialMandates: { serializeState: () => mandateSnapshot }
+        imperialMandates: { serializeState: () => mandateSnapshot },
+        narrative: { serializeState: () => narrativeSnapshot }
     };
     const snap = Persistence.serializeGameState(game);
     assert.strictEqual(snap.overworld.hexes.length, 2);
@@ -129,6 +136,7 @@ async function runTests() {
     assert.strictEqual(snap.timekeeper.daysPerWeek, 5);
     assert.strictEqual(snap.notifications.length, 2, 'pending notifications should persist');
     assert.strictEqual(snap.mandates.currentTick, mandateSnapshot.currentTick, 'mandate state should persist');
+    assert.deepStrictEqual(snap.narrative, narrativeSnapshot, 'narrative state should persist');
 
     const difficultyAlignment = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
         { difficulty: 2 },
@@ -154,7 +162,8 @@ async function runTests() {
         stats: { totalKills: 3, bestDifficulty: 4, warsPlayed: 6 },
         timekeeper: { ticks: 4, daysPerWeek: 6, weeksPerMonth: 2 },
         notifications: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
-        mandates: mandateSnapshot
+        mandates: mandateSnapshot,
+        narrative: narrativeSnapshot
     };
     const result = Persistence.deserializeGameState(snapshot, {
         hexFactory: (q, r, s) => new Hex(q, r, s)
@@ -171,6 +180,7 @@ async function runTests() {
     assert.strictEqual(result.timekeeper.daysPerWeek, 6);
     assert.strictEqual(result.notifications.length, 1);
     assert.strictEqual(result.mandates.currentTick, mandateSnapshot.currentTick);
+    assert.deepStrictEqual(result.narrative, narrativeSnapshot);
 
     // Guard against malformed overworld tiles sneaking into state
     const malformedSnapshot = {
@@ -219,6 +229,7 @@ async function runTests() {
     assert.strictEqual(legacyRestore.timekeeper.ticks, START_TICK, 'missing timekeeper ticks should align to the default start tick');
     assert.strictEqual(legacyRestore.timekeeper.daysPerWeek, 7, 'legacy saves should default to seven-day weeks');
     assert.strictEqual(legacyRestore.timekeeper.weeksPerMonth, 4, 'legacy saves should default to four-week months');
+    assert.strictEqual(legacyRestore.narrative, null, 'legacy saves should default to empty narrative state');
 
     const restoredCalendar = new Timekeeper({
         startTick: legacyRestore.timekeeper.ticks,

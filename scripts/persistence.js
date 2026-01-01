@@ -295,6 +295,9 @@ function createPersistence(global) {
         const mandates = typeof mandateSerializer === 'function'
             ? mandateSerializer.call(game.imperialMandates || global.ImperialMandates)
             : undefined;
+        const narrative = typeof game?.narrative?.serializeState === 'function'
+            ? game.narrative.serializeState()
+            : null;
         return {
             gold: game.gold,
             wood: game.wood,
@@ -321,7 +324,8 @@ function createPersistence(global) {
             },
             stats: overwriteStats,
             notifications: snapshotNotifications(game),
-            mandates
+            mandates,
+            narrative
         };
     }
 
@@ -411,6 +415,10 @@ function createPersistence(global) {
             overworldHexes.set(hex.toString(), payload);
         });
 
+        const narrative = snapshot.narrative && typeof snapshot.narrative === 'object'
+            ? snapshot.narrative
+            : null;
+
         return {
             gold: snapshot.gold ?? 0,
             wood: snapshot.wood ?? 0,
@@ -422,7 +430,8 @@ function createPersistence(global) {
             overworld: { hexes: overworldHexes },
             stats: normalizeStats(snapshot.stats),
             notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
-            mandates: snapshot.mandates || null
+            mandates: snapshot.mandates || null,
+            narrative
         };
     }
 
