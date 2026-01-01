@@ -65,6 +65,12 @@ function buildEndWarGame(startingGold = 100) {
         calcOverworldGhosts: () => {},
         refreshClusterBonuses: () => {}
     };
+    game.narrativeEvents = [];
+    game.narrative = {
+        emit: (eventType, payload) => {
+            game.narrativeEvents.push({ eventType, payload });
+        }
+    };
 
     return { game, hex };
 }
@@ -220,6 +226,39 @@ function testVictoryAppliesWarTax() {
     global.document = originalDocument;
 }
 
+function testNarrativeEventsAfterVictory() {
+    const originalWindow = global.window;
+    const originalDocument = global.document;
+    global.window = { innerWidth: 800, innerHeight: 600 };
+    const domStub = createDomStub();
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+
+    const { game } = buildEndWarGame(100);
+    const rebelHex = new Hex(0, 0);
+    const rebelTile = { type: 'rebelcamp', owner: 'rebel', isRebelCamp: true, hex: rebelHex };
+    game.overworld.hexes.set(rebelHex.toString(), rebelTile);
+    game.pendingClearTile = { type: 'plain', owner: 'player', hex: rebelHex };
+    game.pendingClearTileKey = rebelHex.toString();
+    game.pendingClearTileWasRebel = true;
+    game.combat.warElapsedMs = 9000;
+
+    endWar(game, 'VICTORY');
+
+    const outcome = game.narrativeEvents.find((event) => event.eventType === 'war_outcome');
+    const tax = game.narrativeEvents.find((event) => event.eventType === 'war_tax_applied');
+    const cleared = game.narrativeEvents.find((event) => event.eventType === 'rebel_camp_cleared');
+
+    assert.ok(outcome, 'war outcome should emit a narrative event');
+    assert.strictEqual(outcome.payload?.outcome, 'VICTORY', 'war outcome payload should include the result');
+    assert.strictEqual(outcome.payload?.warElapsedMs, 9000, 'war outcome payload should include elapsed time');
+    assert.ok(tax, 'war tax deductions should emit narrative events');
+    assert.ok(cleared, 'cleared rebel camps should emit narrative events');
+    assert.strictEqual(cleared.payload?.hexKey, rebelHex.toString(), 'rebel camp payload should include location');
+
+    global.window = originalWindow;
+    global.document = originalDocument;
+}
+
 function testVictoryUsesRebelStartFlagAfterRestoration() {
     const originalWindow = global.window;
     const originalDocument = global.document;
@@ -350,6 +389,7 @@ function run() {
     testVictoryRaisesDifficultyByOne();
     testVictoryRestoresRebelCampWithStalePendingTile();
     testVictoryAppliesWarTax();
+    testNarrativeEventsAfterVictory();
     testVictoryUsesRebelStartFlagAfterRestoration();
     testRewardMultiplierDecaysOverTime();
     testVictoryRewardsDecayWithElapsedWarTime();

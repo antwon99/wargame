@@ -831,6 +831,15 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const Hex = resolveHex(game, hexImpl);
     const mandatesApi = resolveImperialMandates();
     const rebelSystem = RebelSystem;
+    const emitNarrative = (eventType, payload) => {
+        try {
+            game?.narrative?.emit?.(eventType, payload);
+        } catch (error) {
+            // Narrative dispatch should never block war resolution.
+        }
+    };
+    const goldBefore = Math.max(0, Math.floor(game?.gold || 0));
+    const woodBefore = Math.max(0, Math.floor(game?.wood || 0));
     game.state = 'OVERWORLD';
     const anchorX = clickEvt ? clickEvt.clientX : window.innerWidth * 0.5;
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
@@ -871,6 +880,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         if (victoryTax > 0) {
             game.spawnTxt(new Hex(0,0), `-${victoryTax}g royal levy`, '#fbbf24');
             game.showFloatingText(anchorX, anchorY, `Royal levy ${victoryTax}g`, 'alert-text');
+            emitNarrative('war_tax_applied', { tax: victoryTax, net: taxedGoldReward });
         }
 
         game.gold += taxedGoldReward;
@@ -907,6 +917,13 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             if (mandatesApi?.handleTileCleared) {
                 mandatesApi.handleTileCleared(restoredTile || resolvedTile, game, undefined, targetKey);
             }
+            if (restoredTile) {
+                emitNarrative('rebel_camp_cleared', {
+                    hex: restoredTile?.hex,
+                    hexKey: restoredKey,
+                    tileType: restoredTile?.type
+                });
+            }
         }
     }
     else if(result === 'DEFEAT') {
@@ -922,6 +939,7 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             game.gold = goldAfterTax;
             game.spawnTxt(new Hex(0,0), `-${defeatTax}g royal levy`, '#fbbf24');
             game.showFloatingText(anchorX, anchorY, `Royal levy ${defeatTax}g`, 'alert-text');
+            emitNarrative('war_tax_applied', { tax: defeatTax, net: goldAfterTax });
         }
 
         const losses = loseOverworldHexes(game, Math.floor(Math.random()*6)+5, protectedTargets); // 5-10
@@ -939,6 +957,12 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     }
 
     recordWarEnd(game, result);
+    emitNarrative('war_outcome', {
+        outcome: result,
+        goldDelta: Math.floor((game?.gold || 0) - goldBefore),
+        woodDelta: Math.floor((game?.wood || 0) - woodBefore),
+        warElapsedMs: Math.max(0, Math.floor(game?.combat?.warElapsedMs || 0))
+    });
 
     document.getElementById('ui-overworld').classList.add('visible');
     document.getElementById('ui-combat').classList.remove('visible');

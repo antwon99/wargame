@@ -95,6 +95,12 @@ async function buildGame() {
     Game.spawnTxt = () => {};
     Game.playSound = () => {};
     Game.refreshClusterBonuses = () => { Game.clusterRefreshes = (Game.clusterRefreshes || 0) + 1; };
+    Game.narrativeEvents = [];
+    Game.narrative = {
+        emit: (eventType, payload) => {
+            Game.narrativeEvents.push({ eventType, payload });
+        }
+    };
 
     const castle = new Hex(0, 0);
     Game.overworld.hexes = new Map([[castle.toString(), { hex: castle, type: 'castle', owner: 'player' }]]);
@@ -104,6 +110,7 @@ async function buildGame() {
 async function testRebelCampDiscoveryHasChance() {
     const { Game, Hex } = await buildGame();
     const target = new Hex(1, 0, -1);
+    Game.timekeeper.ticks = 123;
 
     // Floor the chance (~10%) and confirm a low roll still spawns rebels.
     withMockedRandom([0, 0.05], () => {
@@ -116,6 +123,11 @@ async function testRebelCampDiscoveryHasChance() {
         assert.strictEqual(stored.prevType, 'field', 'rebel camps should remember the hidden terrain underneath');
         assert.ok(Game.clusterRefreshes >= 1, 'cluster bonuses should refresh after a rebel discovery');
     });
+
+    const narrativeEvent = Game.narrativeEvents.find((event) => event.eventType === 'rebel_camp_spawned');
+    assert.ok(narrativeEvent, 'rebel camp discovery should emit a narrative event');
+    assert.strictEqual(narrativeEvent.payload?.hex?.toString?.(), target.toString(), 'narrative payload should include the rebel location');
+    assert.strictEqual(narrativeEvent.payload?.tick, 123, 'narrative payload should include the current tick');
 }
 
 async function testFrontierClaimsDefaultToPlayerTiles() {
@@ -144,10 +156,27 @@ async function testFreeClaimsAvoidRebels() {
     assert.strictEqual(stored.type !== 'rebelcamp', true, 'free claims should not create rebel camps');
 }
 
+async function testSpecialTileClaimEmitsNarrative() {
+    const { Game, Hex } = await buildGame();
+    const target = new Hex(2, -1, -1);
+
+    Game.narrativeEvents = [];
+    withMockedRandom([0.2, 0.99, 0.7], () => {
+        Game.claimHexLogic(target, false);
+    });
+
+    const narrativeEvent = Game.narrativeEvents.find((event) => event.eventType === 'tile_claimed');
+    assert.ok(narrativeEvent, 'special tile claims should emit narrative events');
+    assert.strictEqual(narrativeEvent.payload?.tileType, 'town', 'payload should include the claimed tile type');
+    assert.strictEqual(narrativeEvent.payload?.free, false, 'payload should include the free flag');
+    assert.strictEqual(narrativeEvent.payload?.hex?.toString?.(), target.toString(), 'payload should include the claimed hex');
+}
+
 async function run() {
     await testRebelCampDiscoveryHasChance();
     await testFrontierClaimsDefaultToPlayerTiles();
     await testFreeClaimsAvoidRebels();
+    await testSpecialTileClaimEmitsNarrative();
     console.log('Rebel discovery tests passed.');
 }
 
