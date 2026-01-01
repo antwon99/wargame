@@ -47,6 +47,7 @@ Use this index to find the major systems and their supporting documentation. Eac
 - **Timekeeper:** [`docs/timekeeper.md`](timekeeper.md).
 - **Platform scaling:** [`docs/platform-scaling.md`](platform-scaling.md).
 - **Juice + feedback:** [`docs/juice.md`](juice.md).
+- **Narrative dispatches:** [`docs/narrative-system.md`](narrative-system.md).
 
 ## Combat + War Flow
 
