@@ -40,6 +40,22 @@ function createPersistence(global) {
         daysPerWeek: DEFAULT_DAYS_PER_WEEK,
         weeksPerMonth: DEFAULT_WEEKS_PER_MONTH
     };
+    const buildDefaultFactionState = () => ({
+        standings: {
+            crown: 50,
+            reformers: 50,
+            guilds: 50,
+            masses: 50,
+            frontier: 50
+        },
+        recentContributors: {
+            crown: [],
+            reformers: [],
+            guilds: [],
+            masses: [],
+            frontier: []
+        }
+    });
     const DEFAULT_STATS = {
         totalKills: 0,
         bestKills: 0,
@@ -279,6 +295,34 @@ function createPersistence(global) {
     }
 
     /**
+     * Normalize faction state so persistence always stores a full schema.
+     * @param {object|null} factionState live faction state payload.
+     * @returns {{standings: object, recentContributors: object}} sanitized snapshot.
+     */
+    function normalizeFactionStateSnapshot(factionState) {
+        const base = buildDefaultFactionState();
+        if (!factionState || typeof factionState !== 'object') return base;
+        const standings = factionState.standings || {};
+        const contributors = factionState.recentContributors || {};
+        return {
+            standings: {
+                crown: Number.isFinite(standings.crown) ? standings.crown : base.standings.crown,
+                reformers: Number.isFinite(standings.reformers) ? standings.reformers : base.standings.reformers,
+                guilds: Number.isFinite(standings.guilds) ? standings.guilds : base.standings.guilds,
+                masses: Number.isFinite(standings.masses) ? standings.masses : base.standings.masses,
+                frontier: Number.isFinite(standings.frontier) ? standings.frontier : base.standings.frontier
+            },
+            recentContributors: {
+                crown: Array.isArray(contributors.crown) ? [...contributors.crown] : base.recentContributors.crown,
+                reformers: Array.isArray(contributors.reformers) ? [...contributors.reformers] : base.recentContributors.reformers,
+                guilds: Array.isArray(contributors.guilds) ? [...contributors.guilds] : base.recentContributors.guilds,
+                masses: Array.isArray(contributors.masses) ? [...contributors.masses] : base.recentContributors.masses,
+                frontier: Array.isArray(contributors.frontier) ? [...contributors.frontier] : base.recentContributors.frontier
+            }
+        };
+    }
+
+    /**
      * Serialize the current game state into a JSON-friendly snapshot.
      * Only serializes deterministic, overworld-friendly data (combat is excluded).
      * @param {object} game reference to the main Game singleton.
@@ -324,6 +368,7 @@ function createPersistence(global) {
             },
             stats: overwriteStats,
             notifications: snapshotNotifications(game),
+            factionState: normalizeFactionStateSnapshot(game.factionState),
             mandates,
             narrative
         };
@@ -430,6 +475,7 @@ function createPersistence(global) {
             overworld: { hexes: overworldHexes },
             stats: normalizeStats(snapshot.stats),
             notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
+            factionState: normalizeFactionStateSnapshot(snapshot.factionState),
             mandates: snapshot.mandates || null,
             narrative
         };

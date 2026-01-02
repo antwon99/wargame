@@ -40,6 +40,7 @@ import {
     buildCombatState,
     buildCoreResourceState,
     buildFeatureToggles,
+    buildFactionState,
     buildOverworldState,
     buildSnowState,
     buildTimekeeperConfig,
@@ -88,6 +89,33 @@ const fallbackResolveSnowVisualConfig = (snowConfig = {}) => {
         enabled: enabled && index !== -1,
         coverage,
         seasonProgress
+    };
+};
+/**
+ * Normalize a hydrated faction state payload so missing entries revert to defaults.
+ * @param {object|null} snapshot saved faction state from persistence.
+ * @returns {{standings: object, recentContributors: object}} sanitized faction state.
+ */
+const normalizeFactionStateSnapshot = (snapshot = null) => {
+    const base = buildFactionState();
+    if (!snapshot || typeof snapshot !== 'object') return base;
+    const standings = snapshot.standings || {};
+    const contributors = snapshot.recentContributors || {};
+    return {
+        standings: {
+            crown: Number.isFinite(standings.crown) ? standings.crown : base.standings.crown,
+            reformers: Number.isFinite(standings.reformers) ? standings.reformers : base.standings.reformers,
+            guilds: Number.isFinite(standings.guilds) ? standings.guilds : base.standings.guilds,
+            masses: Number.isFinite(standings.masses) ? standings.masses : base.standings.masses,
+            frontier: Number.isFinite(standings.frontier) ? standings.frontier : base.standings.frontier
+        },
+        recentContributors: {
+            crown: Array.isArray(contributors.crown) ? [...contributors.crown] : base.recentContributors.crown,
+            reformers: Array.isArray(contributors.reformers) ? [...contributors.reformers] : base.recentContributors.reformers,
+            guilds: Array.isArray(contributors.guilds) ? [...contributors.guilds] : base.recentContributors.guilds,
+            masses: Array.isArray(contributors.masses) ? [...contributors.masses] : base.recentContributors.masses,
+            frontier: Array.isArray(contributors.frontier) ? [...contributors.frontier] : base.recentContributors.frontier
+        }
     };
 };
 let cachedSnowVisualConfig = fallbackSnowVisualConfig;
@@ -810,6 +838,7 @@ const Game = {
         this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
         this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
+        this.factionState = buildFactionState();
         this.overworld.hexes = new Map();
         this.overworld.claimable = new Map();
         this.addOverworldHex(new Hex(0,0), 'castle');
@@ -845,6 +874,7 @@ const Game = {
         this.wood = snapshot.wood;
         this.difficulty = snapshot.difficulty;
         this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
+        this.factionState = normalizeFactionStateSnapshot(snapshot.factionState);
         this.research = this.buildResearchState(snapshot.research);
         this.updateResearchBonuses();
         this.pendingReclamations = [];

@@ -28,6 +28,7 @@ Use this index to find the major systems and their supporting documentation. Eac
 ## UI
 
 - **HUD + panels:** [`docs/hud.md`](hud.md), [`docs/hud-drawer.md`](hud-drawer.md), [`docs/tasks-panel.md`](tasks-panel.md).
+- **Reputation panel:** [`docs/reputation-panel.md`](reputation-panel.md).
 - **Notifications + tutorials:** [`docs/notification-stack.md`](notification-stack.md), [`docs/tutorial-callouts.md`](tutorial-callouts.md).
 - **Settings + pause:** [`docs/settings-service.md`](settings-service.md), [`docs/pause-control.md`](pause-control.md).
 
