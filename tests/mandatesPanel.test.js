@@ -189,6 +189,48 @@ async function testMandatesPanelToggleStates() {
     }
 }
 
+async function testMandatesPanelClosesReputationPanel() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    try {
+        const doc = createStubDocument();
+        doc.body = createStubElement('body');
+        const mandatesPanel = doc.register('mandates-panel');
+        doc.register('mandates-panel-body');
+        const reputationPanel = doc.register('reputation-panel');
+        doc.register('reputation-panel-body');
+        const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
+        const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
+
+        global.document = doc;
+        global.ImperialMandates = {
+            describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
+            getActiveMandates: () => []
+        };
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        const game = {
+            factionState: { standings: {} },
+            imperialFavor: 5,
+            difficulty: 1,
+            stats: { warsWon: 0, warsFought: 0 },
+            overworld: { hexes: new Map() },
+            timekeeper: { ticks: 1 }
+        };
+        setupUIBindings(game);
+
+        reputationBtn.onclick();
+        assert.ok(reputationPanel.classList.contains('open'), 'reputation panel should open on click');
+
+        mandatesBtn.onclick();
+        assert.ok(mandatesPanel.classList.contains('open'), 'mandates panel should open when clicked');
+        assert.ok(!reputationPanel.classList.contains('open'), 'reputation panel should close when mandates open');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+    }
+}
+
 function testMandatesPanelTransformsAndPointerGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
     assert.ok(css.includes('.mandates-panel {') && css.includes('transform: translateX(120%)'), 'closed mandates panel should be translated off-screen by default');
@@ -230,6 +272,7 @@ async function run() {
     await testMandatesPanelRendersList();
     await testMandatesPanelEmptyStateAndWarnings();
     await testMandatesPanelToggleStates();
+    await testMandatesPanelClosesReputationPanel();
     testMandatesPanelTransformsAndPointerGuards();
     await testRenderSurvivesDomRelocation();
     console.log('Mandates panel UI tests passed.');
