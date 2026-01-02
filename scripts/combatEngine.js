@@ -185,7 +185,7 @@ export function updateCombat(game, dt, hexImpl) {
         if(b.type === 'rocks') continue;
 
         // PRODUCTION
-        b.prodTimer += dt;
+        b.prodTimer += safeDt;
         const def = COMBAT_BUILDINGS[b.type.toUpperCase()];
         if(!def) continue;
 
@@ -221,7 +221,7 @@ export function updateCombat(game, dt, hexImpl) {
         // ATTACK
         const stats = getBuildingStats(game, b.type, b.owner);
         if(stats.dmg) {
-            b.attackTimer += dt;
+            b.attackTimer += safeDt;
             if(b.attackTimer >= (stats.rate || 1.0)) {
                 const hex = game.parseKey(k);
                 let target = null;
@@ -269,7 +269,7 @@ export function updateCombat(game, dt, hexImpl) {
                 }
             }
         }
-        u.cooldown -= dt;
+        u.cooldown -= safeDt;
         if(target && minDist <= u.range) {
             if(u.cooldown <= 0) {
                 u.cooldown = 1.0;
@@ -289,7 +289,7 @@ export function updateCombat(game, dt, hexImpl) {
             const dr = dest.r - u.pos.r;
             const dist = Math.hypot(dq, dr);
             if(dist > 0.1) {
-                const speed = u.speed * dt * 0.5;
+                const speed = u.speed * safeDt * 0.5;
                 u.pos.q += (dq / dist) * speed;
                 u.pos.r += (dr / dist) * speed;
                 u.pos.s = -u.pos.q - u.pos.r;
@@ -299,7 +299,7 @@ export function updateCombat(game, dt, hexImpl) {
     game.combat.units = game.combat.units.filter(u => u.hp > 0);
     game.updateHUD();
 
-    game.combat.ai.timer += dt;
+    game.combat.ai.timer += safeDt;
     if(game.combat.ai.timer > game.combat.ai.nextMove) {
         game.combat.ai.timer = 0;
         game.combat.ai.nextMove = 2.0 + Math.random();
