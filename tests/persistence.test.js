@@ -104,6 +104,10 @@ async function runTests() {
         lastBeatTicks: { 'archivist:economy': 12 },
         rngSeed: 314159
     };
+    const factionState = {
+        standings: { crown: 62, reformers: 48, guilds: 70, masses: 55, frontier: 41 },
+        recentContributors: { crown: ['taxes'], reformers: [], guilds: [], masses: [], frontier: ['rebels'] }
+    };
 
     const game = {
         gold: 100,
@@ -119,6 +123,7 @@ async function runTests() {
             ])
         },
         stats: { totalKills: 5 },
+        factionState,
         getNotificationStack: () => notificationStack,
         imperialMandates: { serializeState: () => mandateSnapshot },
         narrative: { serializeState: () => narrativeSnapshot }
@@ -137,6 +142,7 @@ async function runTests() {
     assert.strictEqual(snap.notifications.length, 2, 'pending notifications should persist');
     assert.strictEqual(snap.mandates.currentTick, mandateSnapshot.currentTick, 'mandate state should persist');
     assert.deepStrictEqual(snap.narrative, narrativeSnapshot, 'narrative state should persist');
+    assert.deepStrictEqual(snap.factionState, factionState, 'faction state should persist');
 
     const difficultyAlignment = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
         { difficulty: 2 },
@@ -163,7 +169,8 @@ async function runTests() {
         timekeeper: { ticks: 4, daysPerWeek: 6, weeksPerMonth: 2 },
         notifications: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
         mandates: mandateSnapshot,
-        narrative: narrativeSnapshot
+        narrative: narrativeSnapshot,
+        factionState: { standings: { crown: 22 }, recentContributors: { crown: ['mandates'] } }
     };
     const result = Persistence.deserializeGameState(snapshot, {
         hexFactory: (q, r, s) => new Hex(q, r, s)
@@ -181,6 +188,9 @@ async function runTests() {
     assert.strictEqual(result.notifications.length, 1);
     assert.strictEqual(result.mandates.currentTick, mandateSnapshot.currentTick);
     assert.deepStrictEqual(result.narrative, narrativeSnapshot);
+    assert.strictEqual(result.factionState.standings.crown, 22);
+    assert.deepStrictEqual(result.factionState.recentContributors.crown, ['mandates']);
+    assert.strictEqual(result.factionState.standings.reformers, 50, 'missing faction standings should default');
 
     // Guard against malformed overworld tiles sneaking into state
     const malformedSnapshot = {

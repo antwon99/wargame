@@ -39,6 +39,7 @@ export function applyUIBindings(game, deps = {}) {
     game.setupInput = () => setupInput(game);
     game.toggleSidebar = (forceState) => toggleSidebar(forceState);
     game.toggleMandatesPanel = (forceState) => toggleMandatesPanel(forceState);
+    game.toggleReputationPanel = (forceState) => toggleReputationPanel(game, forceState);
     game.updateSaveStatus = (msg) => updateSaveStatus(msg);
     game.updateSaveSlotsUI = () => updateSaveSlotsUI(game);
     game.toggleResearch = (forceOpen) => toggleResearch(game, forceOpen);
@@ -60,6 +61,7 @@ export function applyUIBindings(game, deps = {}) {
     game.showTileCallout = (tile, opts) => showTileCallout(game, tile, opts);
     game.hideTileCallout = () => hideTileCallout();
     game.renderMandatesPanel = () => renderMandatesPanel();
+    game.renderReputationPanel = () => renderReputationPanel(game);
     /**
      * Surface the shared notification stack so gameplay systems can enqueue toasts without
      * importing DOM code. Cards auto-fade and stack in the HUD corner.
@@ -266,6 +268,12 @@ export function setupUIBindings(game) {
     const mandatesClose = document.getElementById('btn-mandates-close');
     if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
+    const reputationBtn = document.getElementById('btn-reputation');
+    if (reputationBtn) reputationBtn.onclick = () => toggleReputationPanel(game);
+
+    const reputationClose = document.getElementById('btn-reputation-close');
+    if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false);
+
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
 
@@ -370,6 +378,171 @@ function toggleMandatesPanel(forceState) {
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-mandates');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+const FACTION_DEFINITIONS = [
+    { key: 'crown', name: 'Royalists', subtitle: 'Crown' },
+    { key: 'reformers', name: 'Reformers', subtitle: 'Council' },
+    { key: 'guilds', name: 'Business', subtitle: 'Guilds' },
+    { key: 'masses', name: 'The Masses', subtitle: 'Settlers' },
+    { key: 'frontier', name: 'Unaligned', subtitle: 'Frontier' }
+];
+const DEFAULT_FACTION_STANDINGS = {
+    crown: 50,
+    reformers: 50,
+    guilds: 50,
+    masses: 50,
+    frontier: 50
+};
+
+/**
+ * Toggle the faction reputation panel without blocking map pointer events.
+ * @param {object} game live game singleton.
+ * @param {boolean} [forceState] optional explicit open/close state.
+ */
+function toggleReputationPanel(game, forceState) {
+    const panel = document.getElementById('reputation-panel');
+    if (!panel) return;
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
+    if (shouldOpen) renderReputationPanel(game);
+    panel.classList.toggle('open', shouldOpen);
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    const trigger = document.getElementById('btn-reputation');
+    if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+/**
+ * Hash a string into a stable 32-bit seed for deterministic tooltips.
+ * @param {string} value seed input.
+ * @returns {number} unsigned 32-bit hash.
+ */
+function hashStringToSeed(value) {
+    let hash = 2166136261;
+    for (let idx = 0; idx < value.length; idx += 1) {
+        hash ^= value.charCodeAt(idx);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+/**
+ * Create a simple seeded RNG to keep placeholder tooltip text stable.
+ * @param {string|number} seed stable seed input.
+ * @returns {{ next: () => number }} RNG that returns floats in [0, 1).
+ */
+function createSeededRng(seed) {
+    let state = typeof seed === 'number' ? seed : hashStringToSeed(String(seed));
+    state = state >>> 0;
+    return {
+        next: () => {
+            state = (state * 1664525 + 1013904223) >>> 0;
+            return state / 0x100000000;
+        }
+    };
+}
+
+function pickFromList(list, rng) {
+    if (!Array.isArray(list) || list.length === 0) return '';
+    const index = Math.floor(rng.next() * list.length);
+    return list[Math.min(Math.max(index, 0), list.length - 1)];
+}
+
+function getNarrativeFactionLines(game) {
+    if (!game?.narrative || typeof game.narrative.getRecentBeats !== 'function') return [];
+    const beats = game.narrative.getRecentBeats('faction');
+    if (!Array.isArray(beats)) return [];
+    const lines = [];
+    beats.forEach((beat) => {
+        if (!beat) return;
+        if (Array.isArray(beat.lines)) {
+            beat.lines.forEach((line) => {
+                if (line) lines.push(String(line));
+            });
+        } else if (typeof beat === 'string') {
+            lines.push(beat);
+        } else if (typeof beat.line === 'string') {
+            lines.push(beat.line);
+        }
+    });
+    return lines;
+}
+
+function countRebelCamps(game) {
+    let count = 0;
+    const hexes = game?.overworld?.hexes;
+    if (hexes && typeof hexes.forEach === 'function') {
+        hexes.forEach((tile) => {
+            const type = typeof tile?.type === 'string' ? tile.type.toLowerCase() : '';
+            if (type === 'rebelcamp' || tile?.isRebelCamp) count += 1;
+        });
+    }
+    return count;
+}
+
+function describeStanding(value) {
+    if (value <= 20) return 'Hostile';
+    if (value <= 40) return 'Wary';
+    if (value <= 60) return 'Neutral';
+    if (value <= 80) return 'Supportive';
+    return 'Loyal';
+}
+
+function buildMandateContributor(game, rng) {
+    const favor = clampImperialFavor(
+        Number.isFinite(game?.imperialFavor) ? game.imperialFavor : DEFAULT_IMPERIAL_FAVOR
+    );
+    if (favor >= 8) {
+        return pickFromList(['ahead of schedule', 'praised for swift compliance', 'earning steady commendations'], rng);
+    }
+    if (favor <= 3) {
+        return pickFromList(['behind on quotas', 'flagged for missed deadlines', 'lagging on imperial demands'], rng);
+    }
+    return pickFromList(['tracking with modest compliance', 'steady but cautious', 'meeting the baseline mandate'], rng);
+}
+
+function buildTaxContributor(game, rng) {
+    const difficulty = Number.isFinite(game?.difficulty) ? game.difficulty : 0;
+    if (difficulty >= 4) {
+        return pickFromList(['levies escalating', 'stewards report heavy collections', 'tax collectors remain insistent'], rng);
+    }
+    if (difficulty <= 1) {
+        return pickFromList(['levies light', 'collections remain tempered', 'tax pressure easing'], rng);
+    }
+    return pickFromList(['steady tithes', 'collections holding at expected rates', 'tax caravans running on schedule'], rng);
+}
+
+function buildWarContributor(game, rng) {
+    const warsWon = Number.isFinite(game?.stats?.warsWon) ? game.stats.warsWon : 0;
+    const warsFought = Number.isFinite(game?.stats?.warsFought) ? game.stats.warsFought : 0;
+    if (!warsFought) {
+        return pickFromList(['no campaigns yet', 'wartime ledgers remain empty', 'garrisons await first clash'], rng);
+    }
+    return `${warsWon}/${warsFought} victories recorded`;
+}
+
+function buildRebelContributor(game, rng) {
+    const rebelCamps = countRebelCamps(game);
+    if (!rebelCamps) {
+        return pickFromList(['no camps reported', 'patrols report a quiet frontier', 'insurgents scattered'], rng);
+    }
+    return `${rebelCamps} active camp${rebelCamps === 1 ? '' : 's'} tracked`;
+}
+
+function buildFactionTooltip({ faction, standingValue, game }) {
+    const seed = `${faction.key}|${game?.timekeeper?.ticks ?? 0}|${game?.imperialFavor ?? 0}|${game?.stats?.warsWon ?? 0}|${game?.stats?.warsFought ?? 0}`;
+    const rng = createSeededRng(seed);
+    const standingLabel = describeStanding(standingValue);
+    const narrativeLines = getNarrativeFactionLines(game);
+    const recentBrief = narrativeLines.length ? pickFromList(narrativeLines, rng) : null;
+    const lines = [
+        `${faction.name} standing: ${standingLabel} (${standingValue}/100)`,
+        `Mandate compliance: ${buildMandateContributor(game, rng)}`,
+        `Tax pressure: ${buildTaxContributor(game, rng)}`,
+        `War outcomes: ${buildWarContributor(game, rng)}`,
+        `Rebel suppression: ${buildRebelContributor(game, rng)}`
+    ];
+    if (recentBrief) lines.push(`Recent brief: ${recentBrief}`);
+    return lines.join('\n');
 }
 
 function getImperialMandatesApi() {
@@ -523,6 +696,76 @@ export function renderMandatesPanel() {
 
     body.appendChild(list);
     return activeMandates;
+}
+
+/**
+ * Render the faction reputation panel with current standings and tooltip context.
+ * Falls back to deterministic placeholders when narrative output is unavailable.
+ * @param {object} game live game singleton for state and narrative context.
+ * @returns {Array<object>} faction entries rendered for tests and debugging.
+ */
+export function renderReputationPanel(game) {
+    if (typeof document === 'undefined') return [];
+    const body = document.getElementById('reputation-panel-body');
+    if (!body) return [];
+
+    const standings = game?.factionState?.standings || {};
+    const resolvedStandings = {
+        crown: Number.isFinite(standings.crown) ? standings.crown : DEFAULT_FACTION_STANDINGS.crown,
+        reformers: Number.isFinite(standings.reformers) ? standings.reformers : DEFAULT_FACTION_STANDINGS.reformers,
+        guilds: Number.isFinite(standings.guilds) ? standings.guilds : DEFAULT_FACTION_STANDINGS.guilds,
+        masses: Number.isFinite(standings.masses) ? standings.masses : DEFAULT_FACTION_STANDINGS.masses,
+        frontier: Number.isFinite(standings.frontier) ? standings.frontier : DEFAULT_FACTION_STANDINGS.frontier
+    };
+
+    body.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'reputation-panel__list';
+
+    const rendered = [];
+    FACTION_DEFINITIONS.forEach((faction) => {
+        const value = Math.max(0, Math.min(100, Math.round(resolvedStandings[faction.key] ?? 50)));
+
+        const row = document.createElement('div');
+        row.className = 'reputation-row';
+        row.setAttribute('title', buildFactionTooltip({ faction, standingValue: value, game }));
+
+        const label = document.createElement('div');
+        label.className = 'reputation-row__label';
+
+        const name = document.createElement('span');
+        name.className = 'reputation-row__name';
+        name.innerText = faction.name;
+
+        const subtitle = document.createElement('span');
+        subtitle.className = 'reputation-row__subtitle';
+        subtitle.innerText = faction.subtitle;
+
+        label.appendChild(name);
+        label.appendChild(subtitle);
+
+        const bar = document.createElement('div');
+        bar.className = 'reputation-row__bar';
+
+        const fill = document.createElement('div');
+        fill.className = 'reputation-row__bar-fill';
+        fill.style.width = `${value}%`;
+        bar.appendChild(fill);
+
+        const valueLabel = document.createElement('span');
+        valueLabel.className = 'reputation-row__value';
+        valueLabel.innerText = `${value}`;
+
+        row.appendChild(label);
+        row.appendChild(bar);
+        row.appendChild(valueLabel);
+
+        list.appendChild(row);
+        rendered.push({ faction: faction.key, value });
+    });
+
+    body.appendChild(list);
+    return rendered;
 }
 
 function updateSaveStatus(msg) {

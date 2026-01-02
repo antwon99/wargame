@@ -110,6 +110,7 @@ export function buildCoreResourceState({
         imperialFavor,
         difficulty: 0,
         upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
+        factionState: buildFactionState(),
         research: {
             technologies: [],
             bonuses: { townGoldBonus: 0, forestWoodBonus: 0, clusterBaseRate, landReclamationClusterBonus: 0 },
@@ -190,4 +191,28 @@ export function buildFeatureToggles({
 export function buildTimekeeperConfig(startTick = START_TICK) {
     const safeStartTick = Number.isFinite(startTick) ? startTick : START_TICK;
     return { startTick: safeStartTick };
+}
+
+/**
+ * Build the baseline faction standing snapshot for save files and HUD displays.
+ * Standings are expressed on a 0-100 scale and start at a neutral midpoint.
+ * @returns {{standings: object, recentContributors: object}} faction-state container.
+ */
+export function buildFactionState() {
+    return {
+        standings: {
+            crown: 50,
+            reformers: 50,
+            guilds: 50,
+            masses: 50,
+            frontier: 50
+        },
+        recentContributors: {
+            crown: [],
+            reformers: [],
+            guilds: [],
+            masses: [],
+            frontier: []
+        }
+    };
 }

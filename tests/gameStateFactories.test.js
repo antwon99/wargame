@@ -20,6 +20,9 @@ async function run() {
     resources.stats.bestLevel = 99;
     const pristineResources = buildCoreResourceState({ fallbackStats });
     assert.strictEqual(pristineResources.stats.bestLevel, fallbackStats.bestLevel, 'Factory should clone fallback stats.');
+    resources.factionState.standings.crown = 10;
+    const pristineFactionState = buildCoreResourceState({ fallbackStats }).factionState;
+    assert.strictEqual(pristineFactionState.standings.crown, 50, 'Factory should seed neutral faction standings.');
 
     const snowDefaults = { enabled: true, maxOpacity: 0.5 };
     const toggles = buildFeatureToggles({ snowDefaults });
