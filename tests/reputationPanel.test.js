@@ -113,6 +113,47 @@ async function testReputationPanelToggleStates() {
     }
 }
 
+async function testReputationPanelClosesMandatesPanel() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    try {
+        const doc = createStubDocument();
+        doc.body = createStubElement('body');
+        const mandatesPanel = doc.register('mandates-panel');
+        doc.register('mandates-panel-body');
+        const reputationPanel = doc.register('reputation-panel');
+        doc.register('reputation-panel-body');
+        const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
+        const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
+        global.document = doc;
+        global.ImperialMandates = {
+            describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
+            getActiveMandates: () => []
+        };
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        const game = {
+            factionState: { standings: {} },
+            imperialFavor: 5,
+            difficulty: 1,
+            stats: { warsWon: 0, warsFought: 0 },
+            overworld: { hexes: new Map() },
+            timekeeper: { ticks: 1 }
+        };
+        setupUIBindings(game);
+
+        mandatesBtn.onclick();
+        assert.ok(mandatesPanel.classList.contains('open'), 'mandates panel should open on click');
+
+        reputationBtn.onclick();
+        assert.ok(reputationPanel.classList.contains('open'), 'reputation panel should open when clicked');
+        assert.ok(!mandatesPanel.classList.contains('open'), 'mandates panel should close when reputation opens');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+    }
+}
+
 function testReputationPanelCssGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
     assert.ok(css.includes('.reputation-panel {') && css.includes('transform: translateX(120%)'), 'closed panel should be translated off-screen by default');
@@ -124,6 +165,7 @@ function testReputationPanelCssGuards() {
 async function run() {
     await testReputationPanelRender();
     await testReputationPanelToggleStates();
+    await testReputationPanelClosesMandatesPanel();
     testReputationPanelCssGuards();
     console.log('Reputation panel UI tests passed.');
 }

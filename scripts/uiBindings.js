@@ -263,13 +263,23 @@ export function setupUIBindings(game) {
     if (sidebarClose) sidebarClose.onclick = () => game.toggleSidebar(false);
 
     const mandatesBtn = document.getElementById('btn-mandates');
-    if (mandatesBtn) mandatesBtn.onclick = () => toggleMandatesPanel();
+    if (mandatesBtn) {
+        mandatesBtn.onclick = () => {
+            const opened = toggleMandatesPanel();
+            if (opened) toggleReputationPanel(game, false);
+        };
+    }
 
     const mandatesClose = document.getElementById('btn-mandates-close');
     if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
     const reputationBtn = document.getElementById('btn-reputation');
-    if (reputationBtn) reputationBtn.onclick = () => toggleReputationPanel(game);
+    if (reputationBtn) {
+        reputationBtn.onclick = () => {
+            const opened = toggleReputationPanel(game);
+            if (opened) toggleMandatesPanel(false);
+        };
+    }
 
     const reputationClose = document.getElementById('btn-reputation-close');
     if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false);
@@ -371,13 +381,14 @@ function toggleSidebar(forceState) {
  */
 function toggleMandatesPanel(forceState) {
     const panel = document.getElementById('mandates-panel');
-    if (!panel) return;
+    if (!panel) return false;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
     if (shouldOpen) renderMandatesPanel();
     panel.classList.toggle('open', shouldOpen);
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-mandates');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    return shouldOpen;
 }
 
 const FACTION_DEFINITIONS = [
@@ -402,13 +413,14 @@ const DEFAULT_FACTION_STANDINGS = {
  */
 function toggleReputationPanel(game, forceState) {
     const panel = document.getElementById('reputation-panel');
-    if (!panel) return;
+    if (!panel) return false;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
     if (shouldOpen) renderReputationPanel(game);
     panel.classList.toggle('open', shouldOpen);
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-reputation');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    return shouldOpen;
 }
 
 /**
@@ -649,6 +661,22 @@ export function renderMandatesPanel() {
         desc.className = 'mandate-card__description';
         desc.innerText = mandate.description;
 
+        const footer = document.createElement('div');
+        footer.className = 'mandate-card__deadline';
+
+        const deadlineLabel = document.createElement('span');
+        deadlineLabel.className = 'mandate-card__deadline-label';
+        deadlineLabel.innerText = deadlineMeta.label;
+
+        const remaining = document.createElement('span');
+        remaining.className = 'mandate-card__remaining';
+        remaining.innerText = formatRemainingDays(deadlineMeta.remainingDays);
+
+        footer.appendChild(deadlineLabel);
+        footer.appendChild(remaining);
+
+        card.appendChild(header);
+        card.appendChild(desc);
         if (hasResources) {
             const resources = document.createElement('div');
             resources.className = 'mandate-card__resources';
@@ -684,23 +712,6 @@ export function renderMandatesPanel() {
 
             card.appendChild(resources);
         }
-
-        const footer = document.createElement('div');
-        footer.className = 'mandate-card__deadline';
-
-        const deadlineLabel = document.createElement('span');
-        deadlineLabel.className = 'mandate-card__deadline-label';
-        deadlineLabel.innerText = deadlineMeta.label;
-
-        const remaining = document.createElement('span');
-        remaining.className = 'mandate-card__remaining';
-        remaining.innerText = formatRemainingDays(deadlineMeta.remainingDays);
-
-        footer.appendChild(deadlineLabel);
-        footer.appendChild(remaining);
-
-        card.appendChild(header);
-        card.appendChild(desc);
         card.appendChild(footer);
         list.appendChild(card);
     });
