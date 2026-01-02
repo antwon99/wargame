@@ -1,55 +1,6 @@
 import assert from 'assert';
 import fs from 'fs';
-
-function createStubElement(tag = 'div') {
-    const attributes = new Map();
-    const element = {
-        tag,
-        children: [],
-        className: '',
-        style: {},
-        _innerHTML: '',
-        innerText: '',
-        addEventListener() {},
-        appendChild(child) { this.children.push(child); },
-        setAttribute(name, value) { attributes.set(name, value); },
-        getAttribute(name) { return attributes.get(name); }
-    };
-
-    element.classList = {
-        _list: new Set(),
-        add(...tokens) { tokens.forEach((token) => element.classList._list.add(token)); element.className = Array.from(element.classList._list).join(' '); },
-        remove(...tokens) { tokens.forEach((token) => element.classList._list.delete(token)); element.className = Array.from(element.classList._list).join(' '); },
-        toggle(token, force) {
-            const shouldAdd = typeof force === 'boolean' ? force : !element.classList._list.has(token);
-            if (shouldAdd) element.classList._list.add(token);
-            else element.classList._list.delete(token);
-            element.className = Array.from(element.classList._list).join(' ');
-            return element.classList._list.has(token);
-        },
-        contains(token) { return element.classList._list.has(token); }
-    };
-
-    Object.defineProperty(element, 'innerHTML', {
-        get() { return this._innerHTML; },
-        set(value) {
-            this._innerHTML = value;
-            if (value === '') this.children = [];
-        }
-    });
-
-    return element;
-}
-
-function createStubDocument() {
-    const elements = new Map();
-    return {
-        createElement: (tag) => createStubElement(tag),
-        getElementById: (id) => elements.get(id) || null,
-        querySelectorAll: () => [],
-        register: (id, el = createStubElement()) => { elements.set(id, el); return el; }
-    };
-}
+import { createStubDocument, createStubElement } from './helpers/domStubs.js';
 
 async function testMandatesPanelRendersList() {
     const originalDocument = global.document;
