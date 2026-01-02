@@ -317,13 +317,35 @@ export function registerKill(game, owner) {
 }
 
 /**
+ * Resolve the current campaign level from wars-won progress.
+ * @param {object} game current game object.
+ * @returns {number} non-negative level derived from wars won.
+ */
+function resolveWarLevel(game) {
+    return Math.max(0, Number.isFinite(game?.stats?.warsWon) ? game.stats.warsWon : 0);
+}
+
+/**
+ * Keep difficulty synced to wars-won progress and return the resolved level.
+ * @param {object} game current game object.
+ * @returns {number} resolved campaign level.
+ */
+function syncWarLevel(game) {
+    const warsWon = resolveWarLevel(game);
+    game.stats.warsWon = warsWon;
+    game.difficulty = warsWon;
+    return warsWon;
+}
+
+/**
  * Persist leaderboard milestones and autosave at the end of any war outcome.
  * @param {object} game current game object.
  * @param {string} outcome final result label.
  */
 export function recordWarEnd(game, outcome) {
     const normalized = outcome || 'RETREAT';
-    game.stats.bestLevel = Math.max(game.stats.bestLevel, game.difficulty);
+    const resolvedLevel = syncWarLevel(game);
+    game.stats.bestLevel = Math.max(game.stats.bestLevel, resolvedLevel);
     game.stats.bestKills = Math.max(game.stats.bestKills, game.session.warKills);
     game.stats.lastOutcome = normalized;
     game.updateLeaderboardUI();
@@ -892,13 +914,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         const resolvedTile = resolvedTargetTile;
         const shouldRestoreRebel = warStartedAgainstRebel && resolvedTile;
         if (warStartedAgainstRebel) {
-            const currentWins = Math.max(
-                Number.isFinite(game.stats?.warsWon) ? game.stats.warsWon : 0,
-                Math.max(0, Number.isFinite(game.difficulty) ? game.difficulty : 0)
-            );
+            const currentWins = resolveWarLevel(game);
             // Enemy level now scales strictly with rebel camp victories (wars won).
             game.stats.warsWon = currentWins + 1;
-            game.difficulty = game.stats.warsWon;
         }
         if (shouldRestoreRebel) {
             const restoredTile = rebelSystem?.restoreRebelTile?.(resolvedTile, game);

@@ -487,6 +487,17 @@ function describeStanding(value) {
     return 'Loyal';
 }
 
+/**
+ * Resolve the current campaign level from wars won, falling back to difficulty.
+ * @param {object} game live game singleton.
+ * @returns {number} normalized campaign level.
+ */
+function resolveCampaignLevel(game) {
+    const warsWon = Number.isFinite(game?.stats?.warsWon) ? game.stats.warsWon : null;
+    const difficulty = Number.isFinite(game?.difficulty) ? game.difficulty : 0;
+    return Math.max(0, Number.isFinite(warsWon) ? warsWon : difficulty);
+}
+
 function buildMandateContributor(game, rng) {
     const favor = clampImperialFavor(
         Number.isFinite(game?.imperialFavor) ? game.imperialFavor : DEFAULT_IMPERIAL_FAVOR
@@ -501,11 +512,11 @@ function buildMandateContributor(game, rng) {
 }
 
 function buildTaxContributor(game, rng) {
-    const difficulty = Number.isFinite(game?.difficulty) ? game.difficulty : 0;
-    if (difficulty >= 4) {
+    const level = resolveCampaignLevel(game);
+    if (level >= 4) {
         return pickFromList(['levies escalating', 'stewards report heavy collections', 'tax collectors remain insistent'], rng);
     }
-    if (difficulty <= 1) {
+    if (level <= 1) {
         return pickFromList(['levies light', 'collections remain tempered', 'tax pressure easing'], rng);
     }
     return pickFromList(['steady tithes', 'collections holding at expected rates', 'tax caravans running on schedule'], rng);
@@ -1148,7 +1159,7 @@ export function updateHUD(game) {
         pauseIndicator.innerText = game.paused ? 'Paused' : 'Live';
         pauseIndicator.classList.toggle('paused', !!game.paused);
     }
-    document.getElementById('lvl-txt').innerText = `Lv.${game.difficulty}`;
+    document.getElementById('lvl-txt').innerText = `Lv.${resolveCampaignLevel(game)}`;
 }
 
 /**
