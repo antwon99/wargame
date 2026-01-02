@@ -133,7 +133,7 @@ async function runTests() {
     assert.strictEqual(snap.stats.totalKills, 5);
     assert.strictEqual(snap.stats.bestKills, 0);
     assert.strictEqual(snap.stats.bestLevel, 0);
-    assert.strictEqual(snap.stats.warsWon, 0);
+    assert.strictEqual(snap.stats.warsWon, 2);
     assert.strictEqual(snap.stats.warsFought, 0);
     assert.strictEqual(snap.stats.lastOutcome, 'N/A');
     assert.strictEqual(snap.gold, 100);

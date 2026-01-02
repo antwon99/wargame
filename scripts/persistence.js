@@ -219,9 +219,9 @@ function createPersistence(global) {
 
     /**
      * Keep difficulty and wars-won counters aligned when loading snapshots.
-     * Uses the highest known value to avoid losing progress and clamps
-     * to a non-negative integer. If both values are missing, the fallback
-     * difficulty is applied.
+     * Wars won is treated as the source of truth, with difficulty derived
+     * from the same value. When values conflict, the highest known value
+     * is preserved to avoid losing legacy progress.
      *
      * @param {object|null} state hydrated or raw state payload.
      * @param {object|null} stats hydrated or raw stats payload.
@@ -237,15 +237,15 @@ function createPersistence(global) {
         const warsWonValue = Number.isFinite(stats?.warsWon)
             ? Math.max(0, Math.floor(stats.warsWon))
             : null;
-        const resolved = Number.isFinite(difficultyValue) && Number.isFinite(warsWonValue)
+        const resolvedWarsWon = Number.isFinite(difficultyValue) && Number.isFinite(warsWonValue)
             ? Math.max(difficultyValue, warsWonValue)
-            : (Number.isFinite(difficultyValue) ? difficultyValue : (Number.isFinite(warsWonValue) ? warsWonValue : fallback));
+            : (Number.isFinite(warsWonValue) ? warsWonValue : (Number.isFinite(difficultyValue) ? difficultyValue : fallback));
 
         return {
-            state: state ? { ...state, difficulty: resolved } : state,
-            stats: stats ? { ...stats, warsWon: resolved } : stats,
-            difficulty: resolved,
-            warsWon: resolved
+            state: state ? { ...state, difficulty: resolvedWarsWon } : state,
+            stats: stats ? { ...stats, warsWon: resolvedWarsWon } : stats,
+            difficulty: resolvedWarsWon,
+            warsWon: resolvedWarsWon
         };
     }
 
@@ -331,7 +331,12 @@ function createPersistence(global) {
      * @returns {object} snapshot that can be persisted.
      */
     function serializeGameState(game, options = {}) {
-        const overwriteStats = normalizeStats(game.stats || {});
+        const rawStats = normalizeStats(game.stats || {});
+        const progressAlignment = reconcileDifficultyAndWarsWon({ difficulty: game.difficulty }, rawStats);
+        const overwriteStats = progressAlignment.stats || rawStats;
+        const alignedDifficulty = Number.isFinite(progressAlignment.difficulty)
+            ? progressAlignment.difficulty
+            : Math.max(0, Number.isFinite(game.difficulty) ? game.difficulty : 0);
         const timekeeper = normalizeTimekeeperSnapshot(game.timekeeper);
         const mandateSerializer = options.mandateSerializer
             || game.imperialMandates?.serializeState
@@ -345,7 +350,7 @@ function createPersistence(global) {
         return {
             gold: game.gold,
             wood: game.wood,
-            difficulty: game.difficulty,
+            difficulty: alignedDifficulty,
             upgrades: { ...game.upgrades },
             research: {
                 technologies: Array.from(game.research?.technologies || []).map(t => ({
@@ -534,9 +539,11 @@ function createPersistence(global) {
         const rawState = readFromStorage(storageKeyForSlot(slot));
         const rawStats = readFromStorage(statsKeyForSlot(slot));
         const stats = normalizeStats(rawStats || rawState?.stats);
+        const state = deserializeGameState(rawState, normalizedOptions);
+        const reconciled = reconcileDifficultyAndWarsWon(state, stats);
         return {
-            state: deserializeGameState(rawState, normalizedOptions),
-            stats,
+            state: reconciled.state,
+            stats: reconciled.stats,
             slot
         };
     }
