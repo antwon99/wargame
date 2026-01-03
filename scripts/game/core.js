@@ -48,49 +48,13 @@ import {
     createHexLayout
 } from './state.js';
 import { composeGameSettings, resolveSnowDebugSnapshot as resolveSnowSnapshot, setSnowToggle as setSnowToggleHelper } from './settings.js';
+import { getBootstrapValidator } from './bootstrapResolver.js';
+import { getResearchStateBuilder } from './researchStateBuilderResolver.js';
+import { getSnowVisualConfig, getSnowVisualConfigResolver } from './snowConfigLoader.js';
 import AudioBridge from '../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 import createNarrativeSystem from '../narrative/narrativeSystem.js';
-const SNOW_MONTHS = [9, 10, 11, 0, 1, 2];
-const fallbackSnowVisualConfig = {
-    enabled: true,
-    snowfallEnabled: true,
-    minCoverage: 0,
-    maxCoverage: 1,
-    maxOpacity: 0.82
-};
-const fallbackResolveSnowVisualConfig = (snowConfig = {}) => {
-    const normalized = { ...fallbackSnowVisualConfig, ...(snowConfig || {}) };
-    const date = snowConfig.currentDate instanceof Date ? snowConfig.currentDate : new Date();
-    const month = date.getMonth();
-    const index = SNOW_MONTHS.indexOf(month);
-    if (index === -1) {
-        return {
-            ...normalized,
-            enabled: false,
-            coverage: 0,
-            seasonProgress: 0
-        };
-    }
-
-    const daysInMonth = new Date(date.getFullYear(), month + 1, 0).getDate();
-    const dayProgress = Math.max(0, Math.min(1, (date.getDate() - 1) / daysInMonth));
-    const normalizedProgress = (index + dayProgress) / (SNOW_MONTHS.length - 1);
-    const mirrored = normalizedProgress <= 0.5 ? normalizedProgress * 2 : (1 - normalizedProgress) * 2;
-    const seasonProgress = Math.max(0, Math.min(1, mirrored));
-    const enabled = normalized.enabled !== false && normalized.snowfallEnabled !== false;
-    const coverage = enabled
-        ? normalized.minCoverage + (normalized.maxCoverage - normalized.minCoverage) * seasonProgress
-        : 0;
-
-    return {
-        ...normalized,
-        enabled: enabled && index !== -1,
-        coverage,
-        seasonProgress
-    };
-};
 /**
  * Normalize a hydrated faction state payload so missing entries revert to defaults.
  * @param {object|null} snapshot saved faction state from persistence.
@@ -117,145 +81,6 @@ const normalizeFactionStateSnapshot = (snapshot = null) => {
             frontier: Array.isArray(contributors.frontier) ? [...contributors.frontier] : base.recentContributors.frontier
         }
     };
-};
-let cachedSnowVisualConfig = fallbackSnowVisualConfig;
-let cachedSnowConfigResolver = fallbackResolveSnowVisualConfig;
-let snowConfigPromise = null;
-const ensureSnowVisualConfigModule = () => {
-    if (!snowConfigPromise) {
-        snowConfigPromise = import('../snowVisualConfig.js')
-            .then((module) => {
-                cachedSnowVisualConfig = module.SNOW_VISUAL_CONFIG || fallbackSnowVisualConfig;
-                cachedSnowConfigResolver = module.resolveSnowVisualConfig || fallbackResolveSnowVisualConfig;
-            })
-            .catch(() => {
-                cachedSnowVisualConfig = cachedSnowVisualConfig || fallbackSnowVisualConfig;
-                cachedSnowConfigResolver = cachedSnowConfigResolver || fallbackResolveSnowVisualConfig;
-            });
-    }
-
-    return snowConfigPromise;
-};
-
-const getSnowVisualConfig = () => {
-    ensureSnowVisualConfigModule();
-    return cachedSnowVisualConfig;
-};
-
-const getSnowVisualConfigResolver = () => {
-    ensureSnowVisualConfigModule();
-    return cachedSnowConfigResolver;
-};
-const fallbackValidateBootstrapDependencies = ({
-    researchSystem = null,
-    persistence = null,
-    inputHelpers = null,
-    debugEl = (typeof document !== 'undefined' ? document.getElementById('debug-log') : null),
-    canvas = (typeof document !== 'undefined' ? document.getElementById('canvas') : null),
-    ctx = null,
-    logToDebug = true
-} = {}) => {
-    const status = {
-        researchSystemAvailable: Boolean(researchSystem),
-        persistenceAvailable: Boolean(persistence),
-        inputHelpersAvailable: Boolean(inputHelpers),
-        canvasAvailable: Boolean(canvas && (ctx || canvas.getContext?.('2d')))
-    };
-
-    const missingHelpers = [];
-    if (!status.researchSystemAvailable) missingHelpers.push('ResearchSystem (tech tree)');
-    if (!status.persistenceAvailable) missingHelpers.push('Persistence (save system)');
-    if (!status.inputHelpersAvailable) missingHelpers.push('InputHelpers (hex math)');
-    if (!status.canvasAvailable) missingHelpers.push('Canvas rendering context');
-
-    if (missingHelpers.length && logToDebug && debugEl) {
-        debugEl.classList?.add?.('visible');
-        debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
-    }
-
-    return { ...status, missingHelpers };
-};
-let cachedBootstrapValidator = fallbackValidateBootstrapDependencies;
-let bootstrapValidatorPromise = null;
-
-/**
- * Resolve the bootstrap validator without requiring the ES module.
- * @returns {function} bootstrap validator implementation.
- */
-const getBootstrapValidator = () => {
-    if (!bootstrapValidatorPromise) {
-        bootstrapValidatorPromise = import('../bootstrapValidator.js')
-            .then((module) => {
-                cachedBootstrapValidator = module.validateBootstrapDependencies || fallbackValidateBootstrapDependencies;
-            })
-            .catch(() => {
-                cachedBootstrapValidator = cachedBootstrapValidator || fallbackValidateBootstrapDependencies;
-            });
-    }
-
-    return cachedBootstrapValidator;
-};
-const fallbackBuildResearchStateSafe = ({
-    researchSystem,
-    saved = {},
-    defaultClusterRate = 0,
-    logDebug
-} = {}) => {
-    const baseState = () => ({
-        technologies: [],
-        bonuses: {
-            townGoldBonus: 0,
-            forestWoodBonus: 0,
-            clusterBaseRate: defaultClusterRate,
-            landReclamationClusterBonus: 0
-        },
-        lives: 0
-    });
-
-    const emitLog = (message, error) => {
-        if (typeof logDebug === 'function') logDebug(message, error);
-    };
-
-    if (!researchSystem || typeof researchSystem.instantiateTechnologies !== 'function') {
-        emitLog('ResearchSystem unavailable; using default research state.');
-        return baseState();
-    }
-
-    try {
-        const technologies = researchSystem.instantiateTechnologies(saved.technologies || []);
-        const livesTech = technologies.find((tech) => tech.id === 'lives');
-        const purchasedLives = Math.min(livesTech?.timesPurchased || 0, livesTech?.maxPurchases || 0);
-        const remainingLives = Math.max(0, Math.min(saved.lives ?? purchasedLives, purchasedLives));
-        const bonuses = baseState().bonuses;
-        return { technologies, bonuses, lives: remainingLives };
-    } catch (error) {
-        emitLog('Research snapshot hydration failed; using safe defaults.', error);
-        return baseState();
-    }
-};
-let cachedResearchStateBuilder = null;
-let researchStateBuilderPromise = null;
-
-/**
- * Resolve the research state builder without requiring the ES module.
- * @returns {function} research state builder implementation.
- */
-const getResearchStateBuilder = () => {
-    if (!cachedResearchStateBuilder) {
-        cachedResearchStateBuilder = fallbackBuildResearchStateSafe;
-    }
-
-    if (!researchStateBuilderPromise) {
-        researchStateBuilderPromise = import('../researchStateBuilder.js')
-            .then((module) => {
-                cachedResearchStateBuilder = module.buildResearchStateSafe || fallbackBuildResearchStateSafe;
-            })
-            .catch(() => {
-                cachedResearchStateBuilder = cachedResearchStateBuilder || fallbackBuildResearchStateSafe;
-            });
-    }
-
-    return cachedResearchStateBuilder;
 };
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {
