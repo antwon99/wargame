@@ -484,7 +484,7 @@
         .mandates-panel {
             position: absolute;
             top: calc(100% + 8px);
-            right: 0;
+            left: 0;
             width: min(300px, 92vw);
             pointer-events: none;
             opacity: 0;
@@ -836,7 +836,7 @@
         }
         .sidebar.open { transform: translateX(0); }
         .sidebar-inner {
-            padding: 16px 16px max(36px, env(safe-area-inset-bottom));
+            padding: 16px 16px max(64px, calc(env(safe-area-inset-bottom) + 24px));
             display: flex;
             flex-direction: column;
             gap: 14px;
