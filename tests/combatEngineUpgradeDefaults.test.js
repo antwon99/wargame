@@ -1,5 +1,11 @@
 import assert from 'assert';
-import { COMBAT_BUILDINGS, UNITS, getBuildingStats, getUnitStats } from '../scripts/combatEngine.js';
+import {
+    COMBAT_BUILDINGS,
+    UNITS,
+    getBuildingStats,
+    getSpawnRate,
+    getUnitStats
+} from '../scripts/combatEngine.js';
 
 function testUnitStatsFallbackToBaseWhenUpgradeMissing() {
     const game = { upgrades: {} };
@@ -29,10 +35,29 @@ function testSpawnRateFallbackWhenProductionMissing() {
     assert.strictEqual(adjustedRate, baseRate, 'Production upgrade should default to level 1 when missing');
 }
 
+function testBuildingStatsThrowsWhenUnknownType() {
+    const game = { upgrades: {} };
+
+    assert.throws(
+        () => getBuildingStats(game, 'not-a-building', 'player'),
+        (err) => {
+            assert.ok(err instanceof Error, 'Expected an error instance for unknown building types');
+            assert.strictEqual(
+                err.code,
+                'COMBAT_BUILDING_UNKNOWN',
+                'Unknown building types should surface a descriptive error code'
+            );
+            return true;
+        },
+        'Unknown building types should throw a descriptive error'
+    );
+}
+
 function run() {
     testUnitStatsFallbackToBaseWhenUpgradeMissing();
     testBuildingStatsFallbackWhenDefenseMissing();
     testSpawnRateFallbackWhenProductionMissing();
+    testBuildingStatsThrowsWhenUnknownType();
     console.log('Combat engine upgrade default tests passed.');
 }
 

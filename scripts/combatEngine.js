@@ -145,9 +145,16 @@ export function getUnitStats(game, type) {
  * @param {string} type building id.
  * @param {string} owner owner key (player|enemy).
  * @returns {object} structure definition merged with modifiers.
+ * @throws {Error} when the building type is unknown.
  */
 export function getBuildingStats(game, type, owner) {
-    const def = COMBAT_BUILDINGS[type.toUpperCase()];
+    const safeType = typeof type === 'string' ? type : '';
+    const def = COMBAT_BUILDINGS[safeType.toUpperCase()];
+    if (!def) {
+        const error = new Error(`Unknown combat building type "${type}"`);
+        error.code = 'COMBAT_BUILDING_UNKNOWN';
+        throw error;
+    }
     if(owner !== 'player') return def;
     if(type === 'tower' || type === 'castle') {
         const level = Number(game.upgrades?.defense ?? 1);
