@@ -187,7 +187,7 @@ function testMandatesPanelTransformsAndPointerGuards() {
     assert.ok(css.includes('.mandates-panel {') && css.includes('transform: translateX(120%)'), 'closed mandates panel should be translated off-screen by default');
     assert.ok(css.includes('.mandates-panel.open') && css.includes('transform: translateX(0);'), 'open class should reset transform to keep panel visible');
     assert.ok(css.includes('pointer-events: none;') && css.includes('.mandates-panel__inner') && css.includes('pointer-events: auto;'), 'panel container should allow clicks to pass through to the map while inner content stays interactive');
-    assert.ok(css.includes('width: min(300px, 92vw);'), 'panel should clamp width for smaller viewports');
+    assert.ok(css.includes('width: min(360px, 92vw);'), 'panel should clamp width for smaller viewports');
 }
 
 async function testRenderSurvivesDomRelocation() {
