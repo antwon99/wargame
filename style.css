@@ -101,6 +101,7 @@
             transform: scale(var(--ui-scale));
             transform-origin: top left;
             z-index: 10;
+            pointer-events: none;
         }
         canvas { display: block; width: 100%; height: 100%; }
         .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
@@ -381,7 +382,7 @@
         .controls {
             padding: 20px; padding-bottom: 40px;
             background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
-            text-align: center; pointer-events: none;
+            text-align: center; pointer-events: auto;
             display: flex; flex-direction: column; align-items: center; gap: 15px;
         }
 
@@ -980,7 +981,7 @@
             max-width: min(820px, 90vw);
             min-width: 320px;
             z-index: 22;
-            pointer-events: none;
+            pointer-events: auto;
         }
 
         .hud-drawer.open { display: block; }
