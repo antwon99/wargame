@@ -492,7 +492,7 @@
         }
         .tile-inspector.hostile { border-color: #f08b8b; box-shadow: 0 10px 20px rgba(255,0,0,0.25); }
 
-        .mandates-panel {
+        .hud-flyout-panel {
             position: absolute;
             top: calc(100% + 8px);
             right: 0;
@@ -643,18 +643,6 @@
             color: #aeb6d4;
         }
 
-        .reputation-panel {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            width: min(360px, 92vw);
-            pointer-events: none;
-            opacity: 0;
-            transform: translateX(120%);
-            transition: opacity 0.25s ease, transform 0.25s ease;
-            transform-origin: top right;
-            z-index: 20;
-        }
         .reputation-panel.open {
             opacity: 1;
             transform: translateX(0);

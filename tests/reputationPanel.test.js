@@ -107,9 +107,9 @@ async function testReputationPanelClosesMandatesPanel() {
 
 function testReputationPanelCssGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
-    assert.ok(css.includes('.reputation-panel {') && css.includes('transform: translateX(120%)'), 'closed panel should be translated off-screen by default');
+    assert.ok(css.includes('.hud-flyout-panel {') && css.includes('transform: translateX(120%)'), 'closed panel should be translated off-screen by default');
     assert.ok(css.includes('.reputation-panel.open') && css.includes('transform: translateX(0);'), 'open class should reset transform to keep panel visible');
-    assert.ok(css.includes('.reputation-panel {') && css.includes('pointer-events: none;'), 'panel container should allow clicks to pass through to the map');
+    assert.ok(css.includes('.hud-flyout-panel {') && css.includes('pointer-events: none;'), 'panel container should allow clicks to pass through to the map');
     assert.ok(css.includes('.reputation-panel__inner') && css.includes('pointer-events: auto;'), 'panel inner content should remain interactive');
 }
 
