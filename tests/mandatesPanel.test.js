@@ -188,6 +188,8 @@ function testMandatesPanelTransformsAndPointerGuards() {
     assert.ok(css.includes('.mandates-panel.open') && css.includes('transform: translateX(0);'), 'open class should reset transform to keep panel visible');
     assert.ok(css.includes('pointer-events: none;') && css.includes('.mandates-panel__inner') && css.includes('pointer-events: auto;'), 'panel container should allow clicks to pass through to the map while inner content stays interactive');
     assert.ok(css.includes('width: min(360px, 92vw);'), 'panel should clamp width for smaller viewports');
+    assert.ok(css.includes('.mandates-zone {') && css.includes('position: relative;') && css.includes('align-items: flex-end;'), 'mandates zone should anchor panels consistently without asymmetric alignment');
+    assert.ok(css.includes('.hud-panel-anchor {') && css.includes('margin: 0;'), 'hud panel anchors should not introduce spacing offsets');
 }
 
 async function testRenderSurvivesDomRelocation() {
