@@ -12,6 +12,14 @@ import { getTileKey } from './utils/tileKey.js';
  */
 function createRebelSystem(global = typeof window !== 'undefined' ? window : globalThis) {
     const REBEL_CAMP_TYPE = 'rebelcamp';
+    const DEFAULT_REBEL_SPREAD = {
+        /** Base daily chance for each rebel camp to expand. */
+        baseChance: 0.02,
+        /** Additional chance gained per day elapsed. */
+        dailyGrowth: 0.002,
+        /** Hard ceiling to keep spread from becoming guaranteed. */
+        maxChance: 0.25
+    };
 
     /**
      * Determine whether a tile has been marked as a rebel camp.
@@ -37,6 +45,27 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
 
     function getHexImpl(gameState) {
         return (gameState && gameState.Hex) || global.Hex;
+    }
+
+    /**
+     * Compute the per-day rebel spread chance, scaling with elapsed days.
+     * @param {object} gameState live game state containing a timekeeper (optional).
+     * @param {object} [options] optional overrides for testing.
+     * @param {number} [options.ticks] absolute tick count override (days elapsed).
+     * @param {number} [options.baseChance] starting spread chance per day.
+     * @param {number} [options.dailyGrowth] additional chance gained per day.
+     * @param {number} [options.maxChance] upper bound for the spread chance.
+     * @returns {number} chance in the [0,1] range.
+     */
+    function getRebelSpreadChance(gameState, options = {}) {
+        const ticks = Number.isFinite(options.ticks)
+            ? options.ticks
+            : (Number.isFinite(gameState?.timekeeper?.ticks) ? gameState.timekeeper.ticks : 0);
+        const baseChance = Number.isFinite(options.baseChance) ? options.baseChance : DEFAULT_REBEL_SPREAD.baseChance;
+        const dailyGrowth = Number.isFinite(options.dailyGrowth) ? options.dailyGrowth : DEFAULT_REBEL_SPREAD.dailyGrowth;
+        const maxChance = Number.isFinite(options.maxChance) ? options.maxChance : DEFAULT_REBEL_SPREAD.maxChance;
+        const scaled = baseChance + Math.max(0, ticks) * dailyGrowth;
+        return Math.min(maxChance, Math.max(0, scaled));
     }
 
     /**
@@ -84,6 +113,57 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     }
 
     /**
+     * Attempt to spread rebel camps into adjacent player tiles.
+     * Each camp rolls a daily chance that scales up with the campaign duration.
+     * @param {object} gameState live game state containing overworld data.
+     * @param {object} [options] optional configuration for deterministic tests.
+     * @param {function} [options.rng] random number generator returning [0,1).
+     * @param {number} [options.chance] forced chance override to bypass scaling.
+     * @returns {Array} list of newly converted rebel tiles.
+     */
+    function spreadRebelCamps(gameState, options = {}) {
+        const hexes = gameState?.overworld?.hexes;
+        if (!hexes || typeof hexes.forEach !== 'function') return [];
+        const HexImpl = getHexImpl(gameState);
+        if (!HexImpl || typeof HexImpl.neighbor !== 'function') return [];
+
+        const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+        const chance = Number.isFinite(options.chance) ? options.chance : getRebelSpreadChance(gameState);
+        const rebels = getAllRebelCamps(gameState);
+        const conversions = [];
+
+        rebels.forEach((rebelTile) => {
+            if (rng() >= chance) return;
+            const candidates = [];
+            for (let dir = 0; dir < 6; dir += 1) {
+                const neighbor = HexImpl.neighbor(rebelTile.hex, dir);
+                const neighborKey = neighbor.toString();
+                const tile = hexes.get(neighborKey);
+                if (!tile || isRebelCampTile(tile) || tile.type === 'castle' || tile.type === 'water') continue;
+                if ((tile.owner || '').toLowerCase() !== 'player') continue;
+                candidates.push(tile);
+            }
+            if (!candidates.length) return;
+
+            const target = candidates[Math.floor(rng() * candidates.length)];
+            const updated = {
+                ...target,
+                prevType: target.prevType || target.type || 'field',
+                type: REBEL_CAMP_TYPE,
+                isRebelCamp: true,
+                owner: 'rebel'
+            };
+            const key = getTileKey(updated);
+            if (key && typeof hexes.set === 'function') {
+                hexes.set(key, updated);
+            }
+            conversions.push(updated);
+        });
+
+        return conversions;
+    }
+
+    /**
      * Returns an array of all rebel camp tiles currently on the map.
      * @param {object} gameState live game state containing overworld data.
      * @returns {Array} list of rebel camp tile payloads.
@@ -125,7 +205,9 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         spawnRebelCampNearFrontier,
         isRebelCampTile,
         getAllRebelCamps,
-        restoreRebelTile
+        restoreRebelTile,
+        getRebelSpreadChance,
+        spreadRebelCamps
     };
 
     return api;
