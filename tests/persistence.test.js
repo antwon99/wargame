@@ -122,6 +122,15 @@ async function runTests() {
                 ['1,0', { hex: new Hex(1, 0, -1), type: 'field' }]
             ])
         },
+        tutorial: {
+            frontierSweep: {
+                targetTileKey: '0,0',
+                spreadImmune: true,
+                source: 'mandate',
+                enemyLevel: 1,
+                issuedTick: 3
+            }
+        },
         stats: { totalKills: 5 },
         factionState,
         getNotificationStack: () => notificationStack,
@@ -143,6 +152,7 @@ async function runTests() {
     assert.strictEqual(snap.mandates.currentTick, mandateSnapshot.currentTick, 'mandate state should persist');
     assert.deepStrictEqual(snap.narrative, narrativeSnapshot, 'narrative state should persist');
     assert.deepStrictEqual(snap.factionState, factionState, 'faction state should persist');
+    assert.strictEqual(snap.tutorial.frontierSweep.targetTileKey, '0,0', 'tutorial state should persist');
 
     const difficultyAlignment = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
         { difficulty: 2 },
@@ -170,7 +180,16 @@ async function runTests() {
         notifications: [{ id: 'queued', title: 'Queued', lines: ['Awaiting'], duration: 1234 }],
         mandates: mandateSnapshot,
         narrative: narrativeSnapshot,
-        factionState: { standings: { crown: 22 }, recentContributors: { crown: ['mandates'] } }
+        factionState: { standings: { crown: 22 }, recentContributors: { crown: ['mandates'] } },
+        tutorial: {
+            frontierSweep: {
+                targetTileKey: '2,0',
+                spreadImmune: false,
+                enemyLevel: 2,
+                issuedTick: 9,
+                completionTick: 12
+            }
+        }
     };
     const result = Persistence.deserializeGameState(snapshot, {
         hexFactory: (q, r, s) => new Hex(q, r, s)
@@ -191,6 +210,8 @@ async function runTests() {
     assert.strictEqual(result.factionState.standings.crown, 22);
     assert.deepStrictEqual(result.factionState.recentContributors.crown, ['mandates']);
     assert.strictEqual(result.factionState.standings.reformers, 50, 'missing faction standings should default');
+    assert.strictEqual(result.tutorial.frontierSweep.targetTileKey, '2,0', 'tutorial state should hydrate');
+    assert.strictEqual(result.tutorial.frontierSweep.spreadImmune, false, 'tutorial spread immunity should hydrate');
 
     // Guard against malformed overworld tiles sneaking into state
     const malformedSnapshot = {
@@ -280,7 +301,7 @@ async function runTests() {
     assert.strictEqual(loaded.stats.totalKills, 11);
     assert.strictEqual(loaded.stats.bestKills, 13);
     assert.strictEqual(loaded.stats.bestLevel, 2);
-    assert.strictEqual(loaded.stats.warsWon, 3);
+    assert.strictEqual(loaded.stats.warsWon, 4);
     assert.strictEqual(loaded.stats.warsFought, 8);
     assert.strictEqual(loaded.stats.lastOutcome, 'VICTORY');
     assert.ok(loaded.stats.lastSaveISO, 'last save timestamp should be preserved');

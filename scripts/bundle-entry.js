@@ -8,6 +8,7 @@ import { initVoidEasterEgg } from './voidEasterEgg.js';
 import { PlatformAdapter, initPlatformAdapter } from './platform.js';
 import { initDebugToggle } from './debugToggle.js';
 import { RebelSystem, initRebelSystem } from './rebelSystem.js';
+import { TutorialHandler, initTutorialHandler } from './tutorialHandler.js';
 import { TutorialCallouts, initTutorialCallouts } from './tutorialCallouts.js';
 import ImperialMandateCalendar from './mandates/imperialMandateCalendar.js';
 import createImperialMandates from './mandates/imperialMandatesCore.js';
@@ -36,6 +37,7 @@ initVoidEasterEgg?.(bootstrapScope);
 initPlatformAdapter?.(bootstrapScope);
 initDebugToggle?.(bootstrapScope, { document: bootstrapScope?.document || null });
 initRebelSystem?.(bootstrapScope);
+initTutorialHandler?.(bootstrapScope);
 initTutorialCallouts?.(bootstrapScope);
 ImperialMandateCalendar?.initImperialMandateCalendar?.(bootstrapScope);
 createImperialMandates?.initImperialMandatesCore?.(bootstrapScope);
@@ -49,6 +51,7 @@ const dependencies = {
     inputHelpers,
     researchSystem: ResearchSystem,
     rebelSystem: RebelSystem,
+    tutorialHandler: TutorialHandler,
     imperialMandates,
     imperialMandateManager,
     platformAdapter: PlatformAdapter,

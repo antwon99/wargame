@@ -45,6 +45,7 @@ Use this index to find the major systems and their supporting documentation. Eac
 
 - **Bootstrap + runtime:** [`docs/game-core-bootstrap.md`](game-core-bootstrap.md), [`docs/bootstrap-order.md`](bootstrap-order.md).
 - **Game state factories:** [`docs/game-state-factories.md`](game-state-factories.md).
+- **Tutorial handler:** [`docs/tutorial-handler.md`](tutorial-handler.md).
 - **Timekeeper:** [`docs/timekeeper.md`](timekeeper.md).
 - **Platform scaling:** [`docs/platform-scaling.md`](platform-scaling.md).
 - **Juice + feedback:** [`docs/juice.md`](juice.md).
