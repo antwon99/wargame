@@ -60,6 +60,9 @@ export function applyOverworldIncome(game, options = {}) {
         if (favorInc) lines.push(`+${favorInc} Favor`);
         game.spawnTxt(origin, lines.join('  '), '#fff');
     }
+    if (typeof RebelSystem?.spreadRebelCamps === 'function') {
+        RebelSystem.spreadRebelCamps(game);
+    }
     if (game.timekeeper?.advance) game.timekeeper.advance(1);
     if (typeof game.updateHUD === 'function') game.updateHUD();
     if (typeof game.updateUpgradeMenu === 'function') game.updateUpgradeMenu();
