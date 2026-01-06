@@ -91,6 +91,32 @@ function testSpreadConvertsAdjacentPlayerTile() {
     assert.strictEqual(updated.prevType, 'forest', 'spread should remember the replaced terrain');
 }
 
+function testSpreadSkipsProtectedCamp() {
+    const gameState = buildGameState();
+    const rebelHex = new Hex(0, 0);
+    const targetHex = new Hex(1, 0);
+    gameState.overworld.hexes.set(rebelHex.toString(), {
+        hex: rebelHex,
+        type: 'rebelcamp',
+        owner: 'rebel',
+        isRebelCamp: true
+    });
+    gameState.overworld.hexes.set(targetHex.toString(), {
+        hex: targetHex,
+        type: 'field',
+        owner: 'player'
+    });
+
+    const conversions = RebelSystem.spreadRebelCamps(gameState, {
+        chance: 1,
+        rng: () => 0,
+        protectedKeys: new Set([rebelHex.toString()])
+    });
+    assert.strictEqual(conversions.length, 0, 'protected rebel camps should skip spread rolls');
+    const updated = gameState.overworld.hexes.get(targetHex.toString());
+    assert.strictEqual(updated.owner, 'player', 'protected camps should not convert adjacent tiles');
+}
+
 function testOverworldTickTriggersRebelSpread() {
     const gameState = buildGameState();
     const rebelHex = new Hex(0, 0);
@@ -117,6 +143,38 @@ function testOverworldTickTriggersRebelSpread() {
     assert.strictEqual(updated.owner, 'rebel', 'spread should take over the player tile');
 }
 
+function testTutorialCampIgnoresDailySpread() {
+    const gameState = buildGameState();
+    const rebelHex = new Hex(0, 0);
+    const targetHex = new Hex(1, 0);
+    gameState.overworld.hexes.set(rebelHex.toString(), {
+        hex: rebelHex,
+        type: 'rebelcamp',
+        owner: 'rebel',
+        isRebelCamp: true
+    });
+    gameState.overworld.hexes.set(targetHex.toString(), {
+        hex: targetHex,
+        type: 'field',
+        owner: 'player'
+    });
+    gameState.tutorial = {
+        frontierSweep: {
+            targetTileKey: rebelHex.toString(),
+            spreadImmune: true
+        }
+    };
+
+    withPatchedRandom([0, 0], () => {
+        applyOverworldIncome(gameState);
+    });
+
+    const updated = gameState.overworld.hexes.get(targetHex.toString());
+    assert.strictEqual(updated.owner, 'player', 'tutorial rebel camp should ignore daily spread rolls');
+}
+
 testSpreadChanceScalesWithTime();
 testSpreadConvertsAdjacentPlayerTile();
+testSpreadSkipsProtectedCamp();
 testOverworldTickTriggersRebelSpread();
+testTutorialCampIgnoresDailySpread();

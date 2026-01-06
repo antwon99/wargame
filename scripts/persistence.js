@@ -323,6 +323,30 @@ function createPersistence(global) {
     }
 
     /**
+     * Normalize tutorial state so onboarding flags persist with safe defaults.
+     * @param {object|null} tutorial live tutorial state payload.
+     * @returns {object|null} sanitized tutorial snapshot or null when unavailable.
+     */
+    function normalizeTutorialSnapshot(tutorial) {
+        if (!tutorial || typeof tutorial !== 'object') return null;
+        const frontierSweep = tutorial.frontierSweep || {};
+        const targetTileKey = typeof frontierSweep.targetTileKey === 'string'
+            ? frontierSweep.targetTileKey
+            : null;
+        return {
+            ...tutorial,
+            frontierSweep: {
+                targetTileKey,
+                spreadImmune: frontierSweep.spreadImmune !== false,
+                source: typeof frontierSweep.source === 'string' ? frontierSweep.source : null,
+                enemyLevel: Number.isFinite(frontierSweep.enemyLevel) ? frontierSweep.enemyLevel : null,
+                issuedTick: Number.isFinite(frontierSweep.issuedTick) ? frontierSweep.issuedTick : null,
+                completionTick: Number.isFinite(frontierSweep.completionTick) ? frontierSweep.completionTick : null
+            }
+        };
+    }
+
+    /**
      * Serialize the current game state into a JSON-friendly snapshot.
      * Only serializes deterministic, overworld-friendly data (combat is excluded).
      * @param {object} game reference to the main Game singleton.
@@ -374,6 +398,7 @@ function createPersistence(global) {
             stats: overwriteStats,
             notifications: snapshotNotifications(game),
             factionState: normalizeFactionStateSnapshot(game.factionState),
+            tutorial: normalizeTutorialSnapshot(game.tutorial),
             mandates,
             narrative
         };
@@ -481,6 +506,7 @@ function createPersistence(global) {
             stats: normalizeStats(snapshot.stats),
             notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
             factionState: normalizeFactionStateSnapshot(snapshot.factionState),
+            tutorial: normalizeTutorialSnapshot(snapshot.tutorial),
             mandates: snapshot.mandates || null,
             narrative
         };

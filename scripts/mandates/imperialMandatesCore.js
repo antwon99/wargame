@@ -1,6 +1,7 @@
 import { getTileKey } from '../utils/tileKey.js';
 import { RebelSystem as RebelSystemModule } from '../rebelSystem.js';
 import { TutorialCallouts as TutorialCalloutsModule } from '../tutorialCallouts.js';
+import { TutorialHandler as TutorialHandlerModule } from '../tutorialHandler.js';
 import ImperialMandateCalendar from './imperialMandateCalendar.js';
 import imperialMandateRegistry from './imperialMandateRegistry.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
@@ -54,6 +55,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
     const global = runtimeGlobal;
     const RebelSystem = global.RebelSystem || RebelSystemModule || {};
     const TutorialCallouts = global.TutorialCallouts || TutorialCalloutsModule || null;
+    const TutorialHandler = global.TutorialHandler || TutorialHandlerModule || null;
     const MandateCalendar = global.ImperialMandateCalendar || ImperialMandateCalendar;
     const ImperialMandateRegistry = global.ImperialMandateRegistry || imperialMandateRegistry;
     const imperialFavorHelpers = global.ImperialFavor || { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor };
@@ -929,13 +931,20 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                     mandateId: mandate.definition.id,
                     title: mandate.definition.title
                 });
-                const rebelTile = RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
+                const rebelTile = TutorialHandler?.spawnFrontierSweepCamp
+                    ? TutorialHandler.spawnFrontierSweepCamp(gameState, {
+                        enemyLevel: 1,
+                        spreadImmune: true,
+                        source: 'imperial_mandate'
+                    })
+                    : RebelSystem.spawnRebelCampNearFrontier?.(gameState, { enemyLevel: 1 });
                 if (!rebelTile) {
                     console.warn('Imperial mandate could not place a rebel camp.');
                     return;
                 }
 
-                mandate.runtime.metadata.targetTileKey = getTileKey(rebelTile);
+                const tutorialTargetKey = TutorialHandler?.getFrontierSweepState?.(gameState)?.targetTileKey;
+                mandate.runtime.metadata.targetTileKey = tutorialTargetKey || getTileKey(rebelTile);
                 const body = DEFAULT_REBEL_DECREE_LINES.join('\n');
                 const shouldAnchorToTile = mandate.runtime.metadata.preferAnchoredDecree
                     && typeof (uiBindings.showTileCallout || TutorialCallouts?.showTileCallout) === 'function';
@@ -983,6 +992,9 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
                 });
                 const tile = resolvePayloadTile(payload, gameState);
                 resetTrackedRebel(tile, gameState);
+                if (TutorialHandler?.clearFrontierSweepCamp) {
+                    TutorialHandler.clearFrontierSweepCamp(gameState, tile);
+                }
                 showMandateBanner([
                     'Expand the territory while the frontier is quiet.'
                 ], uiBindings, 'The Emperor is pleased.', { tone: 'success', duration: 5200 });

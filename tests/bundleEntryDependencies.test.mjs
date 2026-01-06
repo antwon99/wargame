@@ -23,6 +23,7 @@ function createStubs() {
     const introOverlay = { init: () => 'intro' };
     const researchSystem = { name: 'research' };
     const rebelSystem = { name: 'rebel' };
+    const tutorialHandler = { name: 'tutorial' };
     const imperialMandates = { recordEvent: () => {} };
     const imperialMandateManager = { advanceTick: () => {} };
     const platformAdapter = { detectPlatformProfile: () => ({}) };
@@ -37,6 +38,7 @@ function createStubs() {
         introOverlay,
         researchSystem,
         rebelSystem,
+        tutorialHandler,
         imperialMandates,
         imperialMandateManager,
         platformAdapter,
@@ -96,6 +98,8 @@ function loadEntryModule() {
                     };
                 case './rebelSystem.js':
                     return { RebelSystem: stubs.rebelSystem, initRebelSystem: () => stubs.rebelSystem };
+                case './tutorialHandler.js':
+                    return { TutorialHandler: stubs.tutorialHandler, initTutorialHandler: () => stubs.tutorialHandler };
                 case './tutorialCallouts.js':
                     return { TutorialCallouts: stubs.tutorialCallouts, initTutorialCallouts: () => stubs.tutorialCallouts };
                 case './mandates/imperialMandateCalendar.js':
@@ -156,6 +160,7 @@ async function testBundleEntryDependencies() {
     assert.strictEqual(bootstrapArgs.introOverlay, stubs.introOverlay);
     assert.strictEqual(bootstrapArgs.researchSystem, stubs.researchSystem);
     assert.strictEqual(bootstrapArgs.rebelSystem, stubs.rebelSystem);
+    assert.strictEqual(bootstrapArgs.tutorialHandler, stubs.tutorialHandler);
     assert.strictEqual(bootstrapArgs.imperialMandates, stubs.imperialMandates);
     assert.strictEqual(bootstrapArgs.imperialMandateManager, stubs.imperialMandateManager);
     assert.strictEqual(bootstrapArgs.platformAdapter, stubs.platformAdapter);

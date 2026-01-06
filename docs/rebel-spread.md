@@ -19,6 +19,8 @@ more hazardous if camps are ignored.
 
 When a camp succeeds its roll, it converts a single adjacent **player-owned** land tile
 into a rebel camp. The system ignores castles, water tiles, and existing rebel camps.
+Frontier Sweep's tutorial rebel camp is exempt from spreading while it is marked as
+spread-immune by the tutorial handler.
 
 ## Key implementation notes
 
