@@ -1042,7 +1042,7 @@
         }
 
         .upgrade-grid {
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 8px;
             align-items: stretch;
         }
@@ -1051,7 +1051,7 @@
             background: rgba(18, 22, 32, 0.95);
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 14px;
-            padding: 10px 12px;
+            padding: 6px 8px;
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -1062,7 +1062,7 @@
 
         .upgrade-strip {
             gap: 6px;
-            min-height: 78px;
+            min-height: 48px;
             justify-content: center;
         }
 
@@ -1211,14 +1211,14 @@
         .tech-grid,
         #tech-grid.card-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 12px;
             overflow-y: auto;
             padding-right: 6px;
         }
 
         .tech-card {
-            min-height: 170px;
+            min-height: 120px;
         }
 
         .tech-card .tech-title { font-weight: 800; }
