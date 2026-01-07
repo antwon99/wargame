@@ -55,7 +55,7 @@ import AudioBridge from '../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 import createNarrativeSystem from '../narrative/narrativeSystem.js';
-import { BOOT_PHASES, registerBootDependencies, setBootPhase } from '../bootManager.js';
+import { BOOT_PHASES, markBootReady, registerBootDependencies, setBootPhase } from '../bootManager.js';
 /**
  * Normalize a hydrated faction state payload so missing entries revert to defaults.
  * @param {object|null} snapshot saved faction state from persistence.
@@ -428,13 +428,7 @@ const Game = {
             }
             if (this.updateTileInspector) this.updateTileInspector(null);
             if (typeof onPostInit === 'function') onPostInit(this);
-            if (this.bootOverlay?.markReady) {
-                this.bootOverlay.markReady();
-            }
-            setBootPhase(BOOT_PHASES.INTRO);
-            if (this.introOverlay && this.introOverlay.active === false) {
-                setBootPhase(BOOT_PHASES.READY);
-            }
+            markBootReady();
             this.flushPendingNotifications();
 
             this.armAmbientLoop();

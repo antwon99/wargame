@@ -27,15 +27,21 @@ function createStubElement() {
 function buildStubDocument() {
     const overlayEl = createStubElement();
     const errorEl = createStubElement();
+    const statusEl = createStubElement();
+    const readyTextEl = createStubElement();
     const readyButtonEl = createStubElement();
     return {
         getElementById: id => {
             if (id === 'boot-overlay') return overlayEl;
             if (id === 'boot-overlay-error') return errorEl;
+            if (id === 'boot-overlay-status') return statusEl;
+            if (id === 'boot-overlay-ready-text') return readyTextEl;
             if (id === 'boot-overlay-ready') return readyButtonEl;
             return null;
         },
         overlayEl,
+        statusEl,
+        readyTextEl,
         readyButtonEl
     };
 }
@@ -43,11 +49,14 @@ function buildStubDocument() {
 function resetBootOverlayState() {
     BootOverlay.overlayEl = null;
     BootOverlay.errorEl = null;
+    BootOverlay.statusEl = null;
+    BootOverlay.readyTextEl = null;
     BootOverlay.readyButtonEl = null;
     BootOverlay.initialized = false;
     BootOverlay.hidden = false;
     BootOverlay.requiresAcknowledgement = false;
     BootOverlay.readyAcknowledged = false;
+    BootOverlay.onAcknowledged = null;
 }
 
 function testInitBindsOverlay() {
@@ -62,6 +71,8 @@ function testInitBindsOverlay() {
     assert.ok(!doc.overlayEl.classList.contains('boot-hidden'), 'init should keep the overlay visible');
     assert.ok(doc.readyButtonEl.disabled, 'init should keep the ready button disabled');
     assert.ok(!doc.readyButtonEl.classList.contains('is-visible'), 'init should keep the ready button hidden');
+    assert.ok(!doc.readyTextEl.classList.contains('is-visible'), 'init should keep the ready text hidden');
+    assert.ok(!doc.statusEl.classList.contains('is-hidden'), 'init should keep the loading status visible');
 }
 
 function testHideRequiresAcknowledgement() {
@@ -77,6 +88,8 @@ function testHideRequiresAcknowledgement() {
     BootOverlay.markReady();
     assert.ok(!doc.readyButtonEl.disabled, 'markReady should enable the ready button');
     assert.ok(doc.readyButtonEl.classList.contains('is-visible'), 'markReady should show the ready button');
+    assert.ok(doc.readyTextEl.classList.contains('is-visible'), 'markReady should show the ready text');
+    assert.ok(doc.statusEl.classList.contains('is-hidden'), 'markReady should hide the loading status');
 
     doc.readyButtonEl.trigger('click');
     assert.ok(doc.overlayEl.classList.contains('boot-hidden'), 'clicking the ready button should hide the overlay');
@@ -100,6 +113,8 @@ function testShowRestoresOverlay() {
     assert.strictEqual(doc.overlayEl.style.display, 'flex', 'show should restore flex display');
     assert.ok(doc.readyButtonEl.disabled, 'show should reset the ready button to disabled');
     assert.ok(!doc.readyButtonEl.classList.contains('is-visible'), 'show should hide the ready button until marked ready');
+    assert.ok(!doc.readyTextEl.classList.contains('is-visible'), 'show should reset the ready text visibility');
+    assert.ok(!doc.statusEl.classList.contains('is-hidden'), 'show should restore the loading status');
 }
 
 function testSetErrorDisplaysMessage() {

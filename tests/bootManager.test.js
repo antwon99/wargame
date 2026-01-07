@@ -2,6 +2,7 @@ import assert from 'assert';
 import {
     BOOT_PHASES,
     getBootPhase,
+    markBootReady,
     onBootPhaseChange,
     registerBootDependencies,
     setBootPhase
@@ -16,6 +17,19 @@ function createStubOverlay() {
         notifyUIReady() { this.notified = true; },
         notified: false,
         active: true
+    };
+}
+
+function createStubBootOverlay() {
+    return {
+        showed: 0,
+        hidden: 0,
+        readyCalls: 0,
+        show() { this.showed += 1; },
+        hide() { this.hidden += 1; },
+        markReady() { this.readyCalls += 1; },
+        setOnAcknowledged(handler) { this.onAcknowledged = handler; },
+        onAcknowledged: null
     };
 }
 
@@ -71,6 +85,23 @@ function testBootPhaseTransitions() {
     assert.strictEqual(audioManager.guardStates.at(-1), false, 'audio guard should release when ready');
 }
 
+function testBootReadyAcknowledgement() {
+    const bootOverlay = createStubBootOverlay();
+    const introOverlay = createStubOverlay();
+
+    registerBootDependencies({ bootOverlay, introOverlay });
+
+    setBootPhase(BOOT_PHASES.LOADING);
+    markBootReady();
+
+    assert.strictEqual(bootOverlay.readyCalls, 1, 'markBootReady should reveal the ready prompt');
+    assert.strictEqual(getBootPhase(), BOOT_PHASES.LOADING, 'boot phase should stay LOADING while awaiting acknowledgment');
+
+    bootOverlay.onAcknowledged?.();
+    assert.strictEqual(getBootPhase(), BOOT_PHASES.INTRO, 'boot phase should advance to INTRO after acknowledgment');
+    assert.ok(introOverlay.notified, 'intro overlay should be notified after acknowledgment');
+}
+
 function testBootPhaseListeners() {
     const seen = [];
     const unsubscribe = onBootPhaseChange((phase) => seen.push(phase));
@@ -85,6 +116,7 @@ function testBootPhaseListeners() {
 
 function run() {
     testBootPhaseTransitions();
+    testBootReadyAcknowledgement();
     testBootPhaseListeners();
     setBootPhase(BOOT_PHASES.READY);
     console.log('Boot manager tests passed.');

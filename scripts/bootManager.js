@@ -16,6 +16,7 @@ const bootState = {
     audioManager: null,
     debugEl: null,
     debugToggles: null,
+    awaitingAcknowledgement: false,
     listeners: new Set()
 };
 
@@ -44,6 +45,19 @@ function registerBootDependencies(dependencies = {}) {
     }
     if (Object.prototype.hasOwnProperty.call(dependencies, 'debugToggles')) {
         bootState.debugToggles = dependencies.debugToggles;
+    }
+
+    const bootOverlay = resolveBootOverlay();
+    if (bootOverlay?.setOnAcknowledged) {
+        bootOverlay.setOnAcknowledged(() => {
+            bootState.awaitingAcknowledgement = false;
+            const introOverlay = resolveIntroOverlay();
+            if (introOverlay?.active) {
+                setBootPhase(BOOT_PHASES.INTRO);
+                return;
+            }
+            setBootPhase(BOOT_PHASES.READY);
+        });
     }
 }
 
@@ -167,11 +181,41 @@ function setBootPhase(phase) {
     return nextPhase;
 }
 
-export { BOOT_PHASES, getBootPhase, onBootPhaseChange, registerBootDependencies, reportBootIssue, setBootPhase, shouldShowDebugLog };
+/**
+ * Mark the boot sequence as ready for player acknowledgement. This reveals the
+ * ready prompt on the boot overlay and defers intro/ready transitions until
+ * the player clicks the ready button.
+ */
+function markBootReady() {
+    const bootOverlay = resolveBootOverlay();
+    bootState.awaitingAcknowledgement = Boolean(bootOverlay?.markReady);
+    bootOverlay?.markReady?.();
+
+    if (!bootState.awaitingAcknowledgement) {
+        const introOverlay = resolveIntroOverlay();
+        if (introOverlay?.active) {
+            setBootPhase(BOOT_PHASES.INTRO);
+        } else {
+            setBootPhase(BOOT_PHASES.READY);
+        }
+    }
+}
+
+export {
+    BOOT_PHASES,
+    getBootPhase,
+    markBootReady,
+    onBootPhaseChange,
+    registerBootDependencies,
+    reportBootIssue,
+    setBootPhase,
+    shouldShowDebugLog
+};
 
 export default {
     BOOT_PHASES,
     getBootPhase,
+    markBootReady,
     onBootPhaseChange,
     registerBootDependencies,
     reportBootIssue,
