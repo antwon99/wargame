@@ -26,6 +26,7 @@ class AudioManager {
             music: clampVolume(options.musicVolume ?? 1),
             sfx: clampVolume(options.sfxVolume ?? 1)
         };
+        this.groupWindows = new Map();
         this.liveNodes = new Map();
         AudioDebugBus.masterVolume = this.masterVolume;
     }
@@ -148,6 +149,28 @@ class AudioManager {
         return this.liveNodes.get(node)?.category || 'sfx';
     }
 
+    /**
+     * Gate bursts of SFX requests into a single playback per time window to
+     * avoid stutter during large battles.
+     * @param {string} groupKey shared key for the burst group.
+     * @param {number} windowMs time window for grouping requests.
+     * @param {number} maxPlays max allowed plays in the window.
+     * @param {number} now epoch timestamp used for grouping.
+     * @returns {boolean} true when playback should be blocked.
+     */
+    shouldBlockGroupedPlayback(groupKey, windowMs, maxPlays, now) {
+        if (!groupKey || !windowMs || !maxPlays) return false;
+        const existing = this.groupWindows.get(groupKey) || { windowStart: now, count: 0 };
+        if (now - existing.windowStart >= windowMs) {
+            existing.windowStart = now;
+            existing.count = 0;
+        }
+        if (existing.count >= maxPlays) return true;
+        existing.count += 1;
+        this.groupWindows.set(groupKey, existing);
+        return false;
+    }
+
     /** Re-apply the current mixer values to every tracked node. */
     applyVolumeMix() {
         this.liveNodes.forEach((meta, node) => {
@@ -208,6 +231,13 @@ class AudioManager {
         const cooldownMs = options.cooldownMs ?? variantDef.cooldownMs;
         const last = this.lastPlayed.get(key) || 0;
         if (cooldownMs && now - last < cooldownMs) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
+
+        const groupKey = options.groupKey ?? variantDef.groupKey;
+        const groupWindowMs = options.groupWindowMs ?? variantDef.groupWindowMs;
+        const maxGroupPlays = options.maxGroupPlays ?? variantDef.maxGroupPlays;
+        if (this.shouldBlockGroupedPlayback(groupKey, groupWindowMs, maxGroupPlays, now)) {
+            return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
+        }
 
         const overlap = options.allowOverlap ?? variantDef.allowOverlap;
         const loop = options.loop ?? variantDef.loop;

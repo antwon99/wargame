@@ -6,7 +6,7 @@ Use this index to find the major systems and their supporting documentation. Eac
 
 - **System overview:** [`docs/audio.md`](audio.md) — main event map, how audio hooks connect to gameplay.
 - **Diagnostics:** [`docs/audio-debug-console.md`](audio-debug-console.md) — debug overlay controls and telemetry.
-- **Supporting modules:** [`docs/audio-system.md`](audio-system.md), [`docs/ambient-scheduler.md`](ambient-scheduler.md), [`docs/ambience-renderer.md`](ambience-renderer.md), [`docs/audio-randomizer.md`](audio-randomizer.md), [`docs/ambient_audio.md`](ambient_audio.md).
+- **Supporting modules:** [`docs/audio-system.md`](audio-system.md), [`docs/ambient-scheduler.md`](ambient-scheduler.md), [`docs/ambience-renderer.md`](ambience-renderer.md), [`docs/audio-randomizer.md`](audio-randomizer.md), [`docs/audio-sfx-grouping.md`](audio-sfx-grouping.md), [`docs/ambient_audio.md`](ambient_audio.md).
 
 ## Persistence
 

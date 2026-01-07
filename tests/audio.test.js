@@ -149,6 +149,8 @@ function testCooldownPreventsSpam() {
 function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.victory, 'victory sound should be mapped');
     assert.ok(SFX_MANIFEST.rare?.variations?.length >= 3, 'rare sound should include weighted variations');
+    assert.ok(SFX_MANIFEST.death?.variations?.length >= 5, 'death sounds should include weighted variations');
+    assert.ok(SFX_MANIFEST.raredeath?.variations?.length >= 5, 'rare death sounds should include weighted variations');
     assert.ok(SFX_MANIFEST.tower?.variations?.length >= 3, 'tower/castle sound should include variations');
     assert.ok(SFX_MANIFEST.ambiance_dark, 'war ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
@@ -158,9 +160,44 @@ function testManifestIncludesNewEffects() {
         SFX_MANIFEST.rare?.variations?.every((v) => v.src.includes('sfx/combat/rare/')),
         'rare sounds should live under combat audio'
     );
+    assert.ok(
+        SFX_MANIFEST.death?.variations?.every((v) => v.src.includes('sfx/combat/deaths/death/')),
+        'death sounds should live under combat audio'
+    );
+    assert.ok(
+        SFX_MANIFEST.raredeath?.variations?.every((v) => v.src.includes('sfx/combat/deaths/raredeath/')),
+        'rare death sounds should live under combat audio'
+    );
     assert.ok(!SFX_MANIFEST.ambient_bed_wind, 'wind bed intentionally disabled to avoid doubling ambience');
 }
 
+function testGroupedPlaybackCoalescesBursts() {
+    const log = [];
+    const manager = new AudioManager({
+        death: {
+            src: 'death',
+            cooldownMs: 0,
+            allowOverlap: true,
+            groupKey: 'combat-death',
+            groupWindowMs: 200,
+            maxGroupPlays: 1
+        }
+    }, { createAudio: createStubFactory(log) });
+
+    const originalNow = Date.now;
+    let now = 1000;
+    Date.now = () => now;
+    try {
+        assert.ok(manager.play('death'), 'first death should play');
+        assert.strictEqual(manager.play('death'), false, 'grouping should block bursty repeats');
+        now += 250;
+        assert.ok(manager.play('death'), 'grouping should reset after the window expires');
+    } finally {
+        Date.now = originalNow;
+    }
+
+    assert.strictEqual(log.length, 2, 'grouping should only create two playback nodes');
+}
 function testTerritoryStartAvoidsLayeringAmbientTwice() {
     const log = [];
     const scheduler = createManualScheduler();
@@ -766,6 +803,7 @@ function run() {
     testAmbientBedsCanBeDisabled();
     testManifestIncludesNewEffects();
     testTerritoryStartAvoidsLayeringAmbientTwice();
+    testGroupedPlaybackCoalescesBursts();
     testEnterCombatKeepsAmbientAndFiresWardrumImmediately();
     testWardrumStingerDoesNotLoopAfterCombatStart();
     testExitCombatRehomesAmbientAndPlaysOutcome();

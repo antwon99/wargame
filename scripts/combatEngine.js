@@ -372,6 +372,12 @@ export function damageUnit(game, u, dmg, attackerOwner) {
 
     // BOUNTY LOGIC
     if (u.hp <= 0) {
+        const deathKey = u.type === 'dragon'
+            ? 'raredeath'
+            : (u.type === 'archer' || u.type === 'soldier' ? 'death' : null);
+        if (deathKey) {
+            game.playSound(deathKey, { allowOverlap: true });
+        }
         game.spawnBurstAtHex(u.pos, 7);
         registerKill(game, attackerOwner);
         if (Math.random() > 0.5) { // 50% Chance

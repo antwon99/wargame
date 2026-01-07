@@ -40,6 +40,20 @@ export const SFX_GROUPS = {
         { src: 'sfx/combat/rare/rare2.mp3', weight: 1 },
         { src: 'sfx/combat/rare/rare3.mp3', weight: 1 }
     ],
+    deaths: [
+        { src: 'sfx/combat/deaths/death/death1.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/death/death2.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/death/death3.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/death/death4.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/death/death5.mp3', weight: 1 }
+    ],
+    rareDeaths: [
+        { src: 'sfx/combat/deaths/raredeath/raredeath1.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/raredeath/raredeath2.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/raredeath/raredeath3.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/raredeath/raredeath4.mp3', weight: 1 },
+        { src: 'sfx/combat/deaths/raredeath/raredeath5.mp3', weight: 1 }
+    ],
     victory: ['sfx/system/victory.mp3'],
     defeat: ['sfx/system/defeat.mp3'],
     territoryMusic: [
@@ -86,6 +100,22 @@ export const SFX_MANIFEST = {
         cooldownMs: 140,
         variations: SFX_GROUPS.rares
     },
+    death: {
+        allowOverlap: true,
+        cooldownMs: 80,
+        groupKey: 'combat-death',
+        groupWindowMs: 140,
+        maxGroupPlays: 1,
+        variations: SFX_GROUPS.deaths
+    },
+    raredeath: {
+        allowOverlap: true,
+        cooldownMs: 80,
+        groupKey: 'combat-death',
+        groupWindowMs: 140,
+        maxGroupPlays: 1,
+        variations: SFX_GROUPS.rareDeaths
+    },
     defeat: { src: SFX_GROUPS.defeat[0], cooldownMs: 400 },
     victory: { src: SFX_GROUPS.victory[0], cooldownMs: 400 },
     city: { src: SFX_GROUPS.city[0], cooldownMs: 100 },
@@ -98,4 +128,3 @@ export const SFX_MANIFEST = {
     ambiance_dark: { src: SFX_GROUPS.warMusic[1], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' },
     ambiance_anger: { src: SFX_GROUPS.warMusic[2], volume: 0.6, cooldownMs: 0, allowOverlap: true, category: 'music' }
 };
-
