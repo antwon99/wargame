@@ -12,7 +12,10 @@ function testResetProgressWithoutWindow() {
 
     const { Game } = createGameCore({ dependencies: { persistence } });
     Game.persistenceAvailable = true;
-    Game.bootstrapNewWorld = () => {};
+    let bootstrapArgs = null;
+    Game.bootstrapNewWorld = (options) => {
+        bootstrapArgs = options;
+    };
     Game.updateLeaderboardUI = () => {};
     Game.updateHUD = () => {};
     Game.updateUpgradeMenu = () => {};
@@ -34,6 +37,11 @@ function testResetProgressWithoutWindow() {
 
     assert.strictEqual(persistence.cleared, true, 'persistence module should be cleared');
     assert.strictEqual(Game.activeSaveSlot, '1', 'reset should restore the active save slot to default');
+    assert.deepStrictEqual(
+        bootstrapArgs,
+        { preserveIntro: false },
+        'resetProgress should explicitly reset the intro overlay'
+    );
 }
 
 function run() {
