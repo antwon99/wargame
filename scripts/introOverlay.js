@@ -50,6 +50,7 @@ const IntroOverlay = {
         }
 
         this.active = true;
+        this.overlayEl.classList.remove('intro-hidden');
         this.overlayEl.style.display = 'flex';
         return true;
     },

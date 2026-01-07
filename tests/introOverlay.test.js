@@ -103,6 +103,19 @@ function testInitAppliesSeasonalCopy() {
     assert.ok(doc.bodyEl.textContent.includes('April'), 'init copy should reference the April start');
 }
 
+function testInitShowsOverlayAfterWiring() {
+    const doc = buildStubDocument();
+    doc.overlayEl.classList.add('intro-hidden');
+    doc.overlayEl.style.display = 'none';
+    resetIntroOverlayState();
+    IntroOverlay.initIntroOverlay
+        ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
+        : IntroOverlay.init(doc);
+
+    assert.ok(!doc.overlayEl.classList.contains('intro-hidden'), 'init should reveal the overlay once wired');
+    assert.strictEqual(doc.overlayEl.style.display, 'flex', 'init should restore flex display for the overlay');
+}
+
 function testInitSkipsCopyWhenAlreadyMatches() {
     const expectedCopy = IntroOverlay.buildIntroCopy();
     const doc = buildStubDocument({ bodyText: expectedCopy });
@@ -144,6 +157,7 @@ function run() {
     testTransitionClearsPointerFlow();
     testSeasonalCopyMentionsAprilAndFrontier();
     testInitAppliesSeasonalCopy();
+    testInitShowsOverlayAfterWiring();
     testInitSkipsCopyWhenAlreadyMatches();
     testStorageAccessorFailureIsSafe();
     console.log('All intro overlay tests passed.');
