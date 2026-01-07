@@ -1,6 +1,7 @@
 import { createNotificationStack, getSharedStack, setSharedStack } from './notificationStack.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 import { getTileKey } from './utils/tileKey.js';
+import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -500,14 +501,12 @@ function describeStanding(value) {
 }
 
 /**
- * Resolve the current campaign level from wars won, falling back to difficulty.
+ * Resolve the current campaign level using the shared enemy-level helper.
  * @param {object} game live game singleton.
  * @returns {number} normalized campaign level.
  */
 function resolveCampaignLevel(game) {
-    const warsWon = Number.isFinite(game?.stats?.warsWon) ? game.stats.warsWon : null;
-    const difficulty = Number.isFinite(game?.difficulty) ? game.difficulty : 0;
-    return Math.max(0, Number.isFinite(warsWon) ? warsWon : difficulty);
+    return resolveEnemyLevel(game);
 }
 
 function buildMandateContributor(game, rng) {

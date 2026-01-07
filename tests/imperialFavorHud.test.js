@@ -34,7 +34,7 @@ async function testUpdateHUDWritesFavor() {
         wood: 3.1,
         research: { lives: 2 },
         imperialFavor: 11,
-        difficulty: 4
+        stats: { warsWon: 3 }
     };
 
     updateHUD(game);

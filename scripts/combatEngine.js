@@ -5,6 +5,7 @@
  */
 import { RebelSystem } from './rebelSystem.js';
 import { initImperialMandates } from './mandates/imperialMandates.js';
+import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -98,23 +99,23 @@ export const UNITS = {
 
 /**
  * Compute the entry fee for launching a war.
- * Scaling accounts for both difficulty and the current calendar month so long-run
+ * Scaling accounts for enemy level and the current calendar month so long-run
  * campaigns still feel the mounting logistical strain of mobilizing armies.
- * @param {object} game current game object (difficulty may influence future fees).
+ * @param {object} game current game object (enemy level may influence future fees).
  * @returns {number} gold required to initiate battle.
  */
 export function computeWarEntryFee(game) { // eslint-disable-line no-unused-vars
-    const difficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
+    const enemyLevel = resolveEnemyLevel(game);
     const month = Math.max(1, game?.timekeeper?.getCalendar?.().month || 1);
     const halfMonthPressure = Math.floor((month - 1) / 2); // +1 fee every two weeks of campaign time
     const yearPressure = Math.floor((month - 1) / 12) * 5; // bump when looping the calendar
     const base = 10;
-    const fee = base + (difficulty * 12) + halfMonthPressure * 3 + yearPressure;
+    const fee = base + (enemyLevel * 12) + halfMonthPressure * 3 + yearPressure;
     return Math.max(0, Math.floor(fee));
 }
 
 /**
- * Calculate AI combat prep knobs that scale with campaign duration and difficulty.
+ * Calculate AI combat prep knobs that scale with campaign duration and enemy level.
  * Exposed for tests to verify long-run pacing without wiring full DOM state.
  * @param {object} game current game object.
  * @returns {{ gold: number, nextMove: number }} derived starting gold pool and initial decision cadence.
@@ -122,8 +123,9 @@ export function computeWarEntryFee(game) { // eslint-disable-line no-unused-vars
 export function deriveAIPrep(game) {
     const cal = game?.timekeeper?.getCalendar?.();
     const monthPressure = Math.floor(((cal?.month || 1) - 1) / 2);
-    const gold = 320 + (Math.max(0, game?.difficulty || 0) * 140) + (monthPressure * 25);
-    const nextMove = Math.max(1.6, 2.6 - Math.min(1.0, (game?.difficulty || 0) * 0.08));
+    const enemyLevel = resolveEnemyLevel(game);
+    const gold = 320 + (Math.max(1, enemyLevel) * 140) + (monthPressure * 25);
+    const nextMove = Math.max(1.6, 2.6 - Math.min(1.0, enemyLevel * 0.08));
     return { gold, nextMove };
 }
 
@@ -338,15 +340,15 @@ function resolveWarLevel(game) {
 }
 
 /**
- * Keep difficulty synced to wars-won progress and return the resolved level.
+ * Keep difficulty synced to wars-won progress and return the resolved enemy level.
  * @param {object} game current game object.
- * @returns {number} resolved campaign level.
+ * @returns {number} resolved enemy level.
  */
 function syncWarLevel(game) {
     const warsWon = resolveWarLevel(game);
     game.stats.warsWon = warsWon;
     game.difficulty = warsWon;
-    return warsWon;
+    return resolveEnemyLevel(game);
 }
 
 /**
@@ -888,7 +890,6 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
     const anchorY = clickEvt ? clickEvt.clientY : window.innerHeight * 0.18;
     const normalizedOutcome = (outcome || '').toLowerCase();
     let result = outcome;
-    const startingDifficulty = Math.max(0, Number.isFinite(game?.difficulty) ? game.difficulty : 0);
     const targetTile = game.pendingClearTile;
     const targetKey = game.pendingClearTileKey || targetTile?.hex?.toString?.() || targetTile?.toString?.();
     const protectedTargets = targetKey ? new Set([targetKey]) : new Set();
@@ -916,8 +917,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
         const cal = game.timekeeper?.getCalendar?.();
         const eraBonus = Math.floor(((cal?.month || 1) - 1) / 3);
         const rewardMultiplier = computeWarRewardMultiplier(game.combat?.warElapsedMs || 0);
-        const goldReward = Math.floor((40 + (game.difficulty * 10) + (eraBonus * 5)) * rewardMultiplier);
-        const woodReward = Math.floor((50 + (game.difficulty * 8) + (eraBonus * 5)) * rewardMultiplier);
+        const enemyLevel = resolveEnemyLevel(game);
+        const goldReward = Math.floor((40 + (enemyLevel * 10) + (eraBonus * 5)) * rewardMultiplier);
+        const woodReward = Math.floor((50 + (enemyLevel * 8) + (eraBonus * 5)) * rewardMultiplier);
         const { net: taxedGoldReward, tax: victoryTax } = applyRoyalWarTax(goldReward);
 
         if (victoryTax > 0) {

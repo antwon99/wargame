@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { endWar } from '../scripts/combatEngine.js';
+import { resolveEnemyLevel } from '../scripts/utils/resolveEnemyLevel.js';
 import { OVERWORLD_RESTORE_WEIGHTS, OVERWORLD_TERRAIN_WEIGHTS } from '../scripts/overworldConfig.js';
 import { RebelSystem } from '../scripts/rebelSystem.js';
 import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
@@ -189,7 +190,7 @@ function testMandatedRebelCampVictoryUpdatesStatsAndMandate() {
     });
 
     assert.strictEqual(game.stats.warsWon, 1, 'victory should increment wars won');
-    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should match wars won count');
+    assert.strictEqual(resolveEnemyLevel(game), game.stats.warsWon + 1, 'enemy level should stay one ahead of wars won');
 
     const restoredTile = game.overworld.hexes.get(targetKey);
     assert.ok(!RebelSystem.isRebelCampTile(restoredTile), 'victory should restore the rebel camp tile');

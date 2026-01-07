@@ -8,19 +8,19 @@ function withMonth(month) {
 }
 
 function testWarEntryScalesWithDifficulty() {
-    const dummyGame = { difficulty: 0, timekeeper: withMonth(1) };
-    assert.strictEqual(computeWarEntryFee(dummyGame), 10, 'Wars should cost a nominal 10g at campaign start');
+    const dummyGame = { stats: { warsWon: 0 }, timekeeper: withMonth(1) };
+    assert.strictEqual(computeWarEntryFee(dummyGame), 22, 'Wars should cost 22g at the baseline enemy level');
 
-    dummyGame.difficulty = 3;
-    assert.strictEqual(computeWarEntryFee(dummyGame), 46, 'Difficulty should add significant gold pressure');
+    dummyGame.stats.warsWon = 3;
+    assert.strictEqual(computeWarEntryFee(dummyGame), 58, 'Enemy level should add significant gold pressure');
 }
 
 function testWarEntryRespectsCalendarGrowth() {
-    const midCampaign = { difficulty: 2, timekeeper: withMonth(6) };
-    assert.strictEqual(computeWarEntryFee(midCampaign), 40, 'Mid-campaign wars should be pricier than early ones');
+    const midCampaign = { stats: { warsWon: 2 }, timekeeper: withMonth(6) };
+    assert.strictEqual(computeWarEntryFee(midCampaign), 52, 'Mid-campaign wars should be pricier than early ones');
 
-    const yearTwo = { difficulty: 1, timekeeper: withMonth(13) };
-    assert.strictEqual(computeWarEntryFee(yearTwo), 45, 'Looping the calendar should push fees higher still');
+    const yearTwo = { stats: { warsWon: 1 }, timekeeper: withMonth(13) };
+    assert.strictEqual(computeWarEntryFee(yearTwo), 57, 'Looping the calendar should push fees higher still');
 }
 
 function run() {
