@@ -25,7 +25,10 @@ const IntroOverlay = {
         if (!this.overlayEl || !this.beginBtn) return false;
 
         if (this.bodyEl) {
-            this.bodyEl.textContent = this.buildIntroCopy();
+            const introCopy = this.buildIntroCopy();
+            if (this.bodyEl.textContent !== introCopy) {
+                this.bodyEl.textContent = introCopy;
+            }
         }
 
         this.beginBtn.addEventListener('click', () => this.dismiss());

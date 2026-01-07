@@ -1,12 +1,13 @@
 import assert from 'assert';
 import { IntroOverlay } from '../scripts/introOverlay.js';
 
-function createStubElement() {
+function createStubElement(initialText = '') {
     const listeners = {};
     const classSet = new Set();
-    return {
+    let textValue = initialText;
+    let setCount = 0;
+    const element = {
         style: {},
-        textContent: '',
         addEventListener: (event, cb) => {
             listeners[event] = listeners[event] || [];
             listeners[event].push(cb);
@@ -18,14 +19,23 @@ function createStubElement() {
             add: (...names) => names.forEach(n => classSet.add(n)),
             remove: (...names) => names.forEach(n => classSet.delete(n)),
             contains: name => classSet.has(name)
-        }
+        },
+        getTextSetCount: () => setCount
     };
+    Object.defineProperty(element, 'textContent', {
+        get: () => textValue,
+        set: value => {
+            textValue = value;
+            setCount += 1;
+        }
+    });
+    return element;
 }
 
-function buildStubDocument() {
+function buildStubDocument({ bodyText = '' } = {}) {
     const overlayEl = createStubElement();
     const btnEl = createStubElement();
-    const bodyEl = createStubElement();
+    const bodyEl = createStubElement(bodyText);
     return {
         getElementById: id => {
             if (id === 'intro-overlay') return overlayEl;
@@ -93,6 +103,18 @@ function testInitAppliesSeasonalCopy() {
     assert.ok(doc.bodyEl.textContent.includes('April'), 'init copy should reference the April start');
 }
 
+function testInitSkipsCopyWhenAlreadyMatches() {
+    const expectedCopy = IntroOverlay.buildIntroCopy();
+    const doc = buildStubDocument({ bodyText: expectedCopy });
+    resetIntroOverlayState();
+    IntroOverlay.initIntroOverlay
+        ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
+        : IntroOverlay.init(doc);
+
+    assert.strictEqual(doc.bodyEl.getTextSetCount(), 0, 'init should skip resetting intro copy when already present');
+    assert.strictEqual(doc.bodyEl.textContent, expectedCopy, 'intro copy should remain unchanged when already set');
+}
+
 function testStorageAccessorFailureIsSafe() {
     const originalWindow = globalThis.window;
     Object.defineProperty(globalThis, 'window', {
@@ -122,6 +144,7 @@ function run() {
     testTransitionClearsPointerFlow();
     testSeasonalCopyMentionsAprilAndFrontier();
     testInitAppliesSeasonalCopy();
+    testInitSkipsCopyWhenAlreadyMatches();
     testStorageAccessorFailureIsSafe();
     console.log('All intro overlay tests passed.');
 }
