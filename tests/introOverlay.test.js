@@ -1,6 +1,8 @@
 import assert from 'assert';
 import { IntroOverlay } from '../scripts/introOverlay.js';
 
+const EXPECTED_INTRO_COPY = 'While April’s thaw marks your arrival, the frontier offers only a brief reprieve. The first deployments are still breaking ground, but the sun is already setting sooner. Use this spring to build; in this land, the shadow of winter is never far behind.';
+
 function createStubElement(initialText = '') {
     const listeners = {};
     const classSet = new Set();
@@ -85,13 +87,8 @@ function testTransitionClearsPointerFlow() {
 }
 
 function testSeasonalCopyMentionsAprilAndFrontier() {
-    const aprilCopy = IntroOverlay.buildIntroCopy(new Date('2024-04-10'));
-    assert.ok(aprilCopy.includes('April'), 'April copy should mention the month');
-    assert.ok(aprilCopy.toLowerCase().includes('frontier'), 'April copy should mention frontier deployments');
-
-    const autumnCopy = IntroOverlay.buildIntroCopy(new Date('2024-10-02'));
-    assert.ok(autumnCopy.includes('April'), 'Non-spring copy should still anchor to the April kickoff');
-    assert.ok(autumnCopy.toLowerCase().includes('frontier'), 'Non-spring copy should keep frontier deployments visible');
+    const copy = IntroOverlay.buildIntroCopy();
+    assert.strictEqual(copy, EXPECTED_INTRO_COPY, 'intro copy should match the approved narrative');
 }
 
 function testInitAppliesSeasonalCopy() {
@@ -101,8 +98,7 @@ function testInitAppliesSeasonalCopy() {
         ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
         : IntroOverlay.init(doc);
 
-    assert.ok(doc.bodyEl.textContent.length > 0, 'init should populate intro copy text');
-    assert.ok(doc.bodyEl.textContent.includes('April'), 'init copy should reference the April start');
+    assert.strictEqual(doc.bodyEl.textContent, EXPECTED_INTRO_COPY, 'init should populate the approved intro copy');
 }
 
 function testInitShowsOverlayAfterWiring() {
@@ -123,7 +119,7 @@ function testInitShowsOverlayAfterWiring() {
 }
 
 function testInitSkipsCopyWhenAlreadyMatches() {
-    const expectedCopy = IntroOverlay.buildIntroCopy();
+    const expectedCopy = EXPECTED_INTRO_COPY;
     const doc = buildStubDocument({ bodyText: expectedCopy });
     resetIntroOverlayState();
     IntroOverlay.initIntroOverlay
