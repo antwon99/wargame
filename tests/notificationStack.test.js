@@ -4,6 +4,10 @@ async function loadStackModule() {
     return import('../scripts/notificationStack.js');
 }
 
+async function loadBootManager() {
+    return import('../scripts/bootManager.js');
+}
+
 function createStubElement(id = null) {
     const element = {
         id,
@@ -67,10 +71,10 @@ async function testQueueingAndAutoDismiss() {
     assert.strictEqual(stack.queue.length, 0, 'queue should empty after dismissals');
 }
 
-async function testIntroOverlayGuard() {
+async function testBootPhaseGuard() {
     const { NotificationStack } = await loadStackModule();
+    const { BOOT_PHASES, setBootPhase } = await loadBootManager();
     const doc = createStubDocument();
-    const overlay = doc.registerElement('intro-overlay', createStubElement('intro-overlay'));
     const stack = new NotificationStack({
         maxVisible: 1,
         autoDismissMs: 10,
@@ -78,11 +82,12 @@ async function testIntroOverlayGuard() {
         document: doc
     });
 
-    assert.ok(stack.container.classList.contains('notification-stack--blocked'), 'stack should block pointer events while overlay is active');
+    setBootPhase(BOOT_PHASES.INTRO);
+    assert.ok(stack.container.classList.contains('notification-stack--blocked'), 'stack should block pointer events while boot phase is not ready');
 
-    overlay.classList.add('intro-hidden');
-    stack.syncIntroOverlayGuards();
-    assert.ok(!stack.container.classList.contains('notification-stack--blocked'), 'stack should reactivate once overlay hides');
+    setBootPhase(BOOT_PHASES.READY);
+    stack.syncBootPhaseGuards();
+    assert.ok(!stack.container.classList.contains('notification-stack--blocked'), 'stack should reactivate once boot phase is ready');
 }
 
 async function testAutoPromotionAfterScheduledDismiss() {
@@ -105,7 +110,7 @@ async function testAutoPromotionAfterScheduledDismiss() {
 
 async function run() {
     await testQueueingAndAutoDismiss();
-    await testIntroOverlayGuard();
+    await testBootPhaseGuard();
     await testAutoPromotionAfterScheduledDismiss();
     console.log('Notification stack tests passed.');
 }

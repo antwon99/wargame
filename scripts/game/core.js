@@ -55,6 +55,7 @@ import AudioBridge from '../audio/bridge.js';
 import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '../audio/debugPanel.js';
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 import createNarrativeSystem from '../narrative/narrativeSystem.js';
+import { BOOT_PHASES, registerBootDependencies, setBootPhase } from '../bootManager.js';
 /**
  * Normalize a hydrated faction state payload so missing entries revert to defaults.
  * @param {object|null} snapshot saved faction state from persistence.
@@ -314,6 +315,12 @@ const Game = {
             this.bootOverlay = bootOverlay;
             if (introOverlay?.init && !introOverlay?.initialized) introOverlay.init(doc);
             this.introOverlay = introOverlay;
+            registerBootDependencies({
+                bootOverlay: this.bootOverlay,
+                introOverlay: this.introOverlay,
+                audioManager: gameAudio,
+                debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
+            });
             this.dependencyHealth = resolveBootstrapValidator()({
                 researchSystem,
                 persistence: persistenceModule,
@@ -362,9 +369,11 @@ const Game = {
             this.resetSession();
 
             window.addEventListener('intro:begin', () => {
-                if (!this.shouldRunImperialIntro) return;
-                this.issueImperialIntroMandate();
-                this.shouldRunImperialIntro = false;
+                if (this.shouldRunImperialIntro) {
+                    this.issueImperialIntroMandate();
+                    this.shouldRunImperialIntro = false;
+                }
+                setBootPhase(BOOT_PHASES.READY);
             });
 
             if (!this.dependencyHealth.persistenceAvailable) {
@@ -379,6 +388,7 @@ const Game = {
                         { hexFactory: (q, r, s) => new Hex(q, r, s) }
                     )
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
+            setBootPhase(BOOT_PHASES.LOADING);
             let loaded = null;
             try {
                 loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
@@ -417,13 +427,10 @@ const Game = {
             }
             if (this.updateTileInspector) this.updateTileInspector(null);
             if (typeof onPostInit === 'function') onPostInit(this);
-            if (this.bootOverlay?.hide) {
-                this.bootOverlay.hide();
+            setBootPhase(BOOT_PHASES.INTRO);
+            if (this.introOverlay && this.introOverlay.active === false) {
+                setBootPhase(BOOT_PHASES.READY);
             }
-            if (this.introOverlay?.notifyUIReady) {
-                this.introOverlay.notifyUIReady();
-            }
-
             this.flushPendingNotifications();
 
             this.armAmbientLoop();

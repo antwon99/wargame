@@ -5,6 +5,8 @@
  * input. Notifications queue when the stack is saturated and fade out
  * automatically to keep the screen clear during active play sessions.
  */
+import { BOOT_PHASES, getBootPhase, onBootPhaseChange } from './bootManager.js';
+
 let sharedStack = null;
 
 /**
@@ -48,8 +50,8 @@ export class NotificationStack {
         if (this.enabled) {
             this.container = this.createContainer();
             if (this.mountPoint) this.mountPoint.appendChild(this.container);
-            this.syncIntroOverlayGuards();
-            this.bindIntroOverlayEvents();
+            this.syncBootPhaseGuards();
+            this.bindBootPhaseEvents();
         }
 
         if (this.registerGlobal) {
@@ -209,42 +211,30 @@ export class NotificationStack {
     }
 
     /**
-     * Keep the notification stack behind the intro overlay and non-interactive
-     * while the welcome gate is visible so it cannot block pointer events.
+     * Keep the notification stack behind boot/intro overlays and non-interactive
+     * until the boot flow reaches READY so it cannot block pointer events.
      */
-    syncIntroOverlayGuards() {
+    syncBootPhaseGuards() {
         if (!this.container) return;
-        const overlayActive = this.isIntroOverlayActive();
+        const overlayActive = this.isBootPhaseBlockingNotifications();
         this.container.classList.toggle('notification-stack--blocked', overlayActive);
     }
 
     /**
-     * Determine whether the intro overlay is currently covering the viewport.
-     * @returns {boolean} true if the intro overlay is active and should occlude notifications.
+     * Determine whether the boot phase should block notification interactions.
+     * @returns {boolean} true when boot phases should occlude notifications.
      */
-    isIntroOverlayActive() {
+    isBootPhaseBlockingNotifications() {
         if (!this.enabled) return false;
-        const overlayFromDom = this.document.getElementById
-            ? this.document.getElementById('intro-overlay')
-            : null;
-        if (overlayFromDom && !overlayFromDom.classList.contains('intro-hidden')) return true;
-
-        if (typeof globalThis.IntroOverlay !== 'undefined' && globalThis.IntroOverlay?.active) {
-            return true;
-        }
-
-        return false;
+        return getBootPhase() !== BOOT_PHASES.READY;
     }
 
     /**
-     * Listen for intro overlay lifecycle events so pointer guards stay in sync
-     * if the player restarts or dismisses the opening overlay.
+     * Listen for boot phase changes so pointer guards stay in sync with
+     * loading/intro/ready transitions.
      */
-    bindIntroOverlayEvents() {
-        if (typeof window === 'undefined') return;
-        this.overlayGuardHandler = () => this.syncIntroOverlayGuards();
-        window.addEventListener('intro:begin', this.overlayGuardHandler);
-        window.addEventListener('intro:reset', this.overlayGuardHandler);
+    bindBootPhaseEvents() {
+        this.overlayGuardHandler = onBootPhaseChange(() => this.syncBootPhaseGuards());
     }
 }
 
