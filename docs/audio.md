@@ -8,6 +8,8 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 - **arrow*.mp3** — four weighted bow shots for archer volleys.
 - **tower*.mp3** — three weighted blasts for towers/castles.
 - **rare*.mp3** — three weighted cues for legendary (dragon) strikes, housed under `/sfx/combat/rare/`.
+- **death*.mp3** — five weighted standard deaths for soldiers/archers, housed under `/sfx/combat/deaths/death/`.
+- **raredeath*.mp3** — five weighted rare deaths for dragons, housed under `/sfx/combat/deaths/raredeath/`.
 - **defeat.mp3** — used when the player retreats or loses a war.
 - **victory.mp3** — used when the player wins a war.
 - **city.mp3** — plays when claiming a town hex.
@@ -36,4 +38,5 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 - `enterCombat()` stops any active ambience immediately, plays `wardrum.mp3`, and moves the conductor into `WAR` mode.
 - `exitCombat(outcome)` plays the relevant stinger (`victory` or `defeat`) and returns the conductor to `TERRITORY` so the overworld ambience resumes after wins, losses, or retreats.
 - Per-sound cooldowns prevent excessive layering while keeping overlap enabled for rapid attacks.
+- Grouped SFX windows coalesce bursty events (like many deaths) into a single playback so battles do not overload slower hardware.
 - To add a new effect, extend `SFX_MANIFEST` in `scripts/audio.js` with either a `src` or a `variations` array and trigger it via `AudioBridge.play()`.
