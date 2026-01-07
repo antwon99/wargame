@@ -378,7 +378,11 @@ const Game = {
                     this.stats = loaded.stats;
                     this.activeSaveSlot = loaded.slot || '1';
                 } catch (error) {
-                    this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
+                    const diagnostics = this.buildSnapshotDiagnostics(loaded, this.activeSaveSlot);
+                    this.reportRecoverableError('snapshot apply', error);
+                    this.logSnapshotDiagnostics(diagnostics);
+                    console.debug('Snapshot bootstrap failed; starting fresh campaign.');
+                    this.notifySnapshotFallback();
                     this.bootstrapNewWorld({ preserveIntro: true });
                 }
             } else if (!loaded) {
@@ -857,6 +861,68 @@ const Game = {
             'Stack trace:',
             stack
         ].join('\n');
+    },
+
+    /**
+     * Summarize snapshot metadata so save load failures can be debugged quickly.
+     * @param {object|null} loadedSnapshot snapshot envelope returned by persistence.
+     * @param {string} fallbackSlot slot identifier if the snapshot is missing one.
+     * @returns {{slot: string, rawPresent: boolean, keysPresent: string[]}} diagnostic snapshot summary.
+     */
+    buildSnapshotDiagnostics(loadedSnapshot, fallbackSlot) {
+        const rawState = loadedSnapshot?.state;
+        const slot = String(loadedSnapshot?.slot || fallbackSlot || this.activeSaveSlot || '');
+        const keysPresent = rawState && typeof rawState === 'object' ? Object.keys(rawState) : [];
+        return {
+            slot,
+            rawPresent: Boolean(rawState),
+            keysPresent
+        };
+    },
+
+    /**
+     * Surface snapshot diagnostics in the console and debug overlay.
+     * @param {{slot: string, rawPresent: boolean, keysPresent: string[]}} diagnostics snapshot metadata.
+     */
+    logSnapshotDiagnostics(diagnostics) {
+        if (!diagnostics) return;
+        console.debug('Snapshot load failed diagnostics:', diagnostics);
+
+        if (typeof document === 'undefined') return;
+        const debugEl = document.getElementById('debug-log');
+        if (!debugEl) return;
+        debugEl.classList.add('visible');
+        const formatted = [
+            'Snapshot diagnostics:',
+            `Slot: ${diagnostics.slot}`,
+            `Raw present: ${diagnostics.rawPresent}`,
+            `Keys present: ${diagnostics.keysPresent.length ? diagnostics.keysPresent.join(', ') : '(none)'}`
+        ].join('\n');
+        debugEl.textContent = debugEl.textContent
+            ? `${debugEl.textContent}\n\n${formatted}`
+            : formatted;
+    },
+
+    /**
+     * Explain to players when a fresh campaign is started due to snapshot failures.
+     */
+    notifySnapshotFallback() {
+        const payload = {
+            id: 'snapshot-fallback',
+            title: 'Save Load Failed',
+            lines: [
+                'We could not restore your saved campaign.',
+                'A fresh campaign has been started instead.'
+            ],
+            tone: 'warning'
+        };
+        if (typeof this.enqueueNotification === 'function') {
+            this.enqueueNotification(payload);
+            return;
+        }
+        if (Array.isArray(this.pendingNotifications)) {
+            this.pendingNotifications.push(payload);
+        }
     },
 
     /**
