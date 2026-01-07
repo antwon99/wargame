@@ -174,6 +174,24 @@ async function runTests() {
     );
     assert.strictEqual(missingWarsWon.stats.warsWon, 3, 'missing warsWon should inherit the current difficulty');
 
+    const { normalizeStats } = Persistence.StatHelpers;
+    assert.doesNotThrow(() => {
+        normalizeStats(null);
+    }, 'normalizeStats should not throw for null');
+    assert.deepStrictEqual(
+        normalizeStats(null),
+        Persistence.DEFAULT_STATS,
+        'null stats should normalize to defaults'
+    );
+    assert.doesNotThrow(() => {
+        normalizeStats(undefined);
+    }, 'normalizeStats should not throw for undefined');
+    assert.deepStrictEqual(
+        normalizeStats(undefined),
+        Persistence.DEFAULT_STATS,
+        'undefined stats should normalize to defaults'
+    );
+
     // Deserialize
     const snapshot = {
         gold: 12,

@@ -71,15 +71,16 @@ function createPersistence(global) {
      * @param {object} stats raw stats payload from the game or storage.
      * @returns {object} stats hydrated with defaults and modern field names.
      */
-    function normalizeStats(stats = {}) {
-        const normalized = { ...DEFAULT_STATS, ...stats };
-        const hasBestLevel = Object.prototype.hasOwnProperty.call(stats, 'bestLevel');
-        const hasWarsFought = Object.prototype.hasOwnProperty.call(stats, 'warsFought');
-        if (!hasBestLevel && Number.isFinite(stats.bestDifficulty)) {
-            normalized.bestLevel = stats.bestDifficulty;
+    function normalizeStats(stats) {
+        const safeStats = stats ?? {};
+        const normalized = { ...DEFAULT_STATS, ...safeStats };
+        const hasBestLevel = Object.prototype.hasOwnProperty.call(safeStats, 'bestLevel');
+        const hasWarsFought = Object.prototype.hasOwnProperty.call(safeStats, 'warsFought');
+        if (!hasBestLevel && Number.isFinite(safeStats.bestDifficulty)) {
+            normalized.bestLevel = safeStats.bestDifficulty;
         }
-        if (!hasWarsFought && Number.isFinite(stats.warsPlayed)) {
-            normalized.warsFought = stats.warsPlayed;
+        if (!hasWarsFought && Number.isFinite(safeStats.warsPlayed)) {
+            normalized.warsFought = safeStats.warsPlayed;
         }
         return normalized;
     }
