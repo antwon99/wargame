@@ -75,6 +75,7 @@ export function buildBootstrapDependencies(
         platformAdapter: resolveValue('platformAdapter', 'PlatformAdapter'),
         tutorialCallouts: resolveValue('tutorialCallouts', 'TutorialCallouts'),
         introOverlay: resolveValue('introOverlay', 'IntroOverlay'),
+        bootOverlay: resolveValue('bootOverlay', 'BootOverlay'),
         persistence: resolveValue('persistence', 'Persistence'),
         storageProbe: resolveValue('storageProbe', 'StorageProbe'),
         gameAudio: resolveValue('gameAudio', 'GameAudio'),

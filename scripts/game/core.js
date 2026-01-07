@@ -129,6 +129,9 @@ export function createGameCore(overrides = {}) {
     const platformAdapter = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'platformAdapter')
         ? dependencyOverrides.platformAdapter
         : null;
+    const bootOverlayDefault = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'bootOverlay')
+        ? dependencyOverrides.bootOverlay
+        : null;
     const introOverlayDefault = Object.prototype.hasOwnProperty.call(dependencyOverrides, 'introOverlay')
         ? dependencyOverrides.introOverlay
         : null;
@@ -236,6 +239,7 @@ const Game = {
     narrativeMonthKey: null,
 
     imperialMandates,
+    bootOverlay: bootOverlayDefault,
     introOverlay: introOverlayDefault,
     timekeeper: new Timekeeper(timekeeperConfig),
 
@@ -286,7 +290,14 @@ const Game = {
         });
     },
 
-    init({ introOverlay = introOverlayDefault, loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
+    init({
+        introOverlay = introOverlayDefault,
+        bootOverlay = bootOverlayDefault,
+        loadSnapshot,
+        onHUDUpdate,
+        onSaveSlotsUpdate,
+        onPostInit
+    } = {}) {
         const docAvailable = typeof document !== 'undefined';
         const doc = docAvailable ? document : null;
         if (docAvailable) {
@@ -299,6 +310,8 @@ const Game = {
             };
         }
         try {
+            if (bootOverlay?.init && !bootOverlay?.initialized) bootOverlay.init(doc);
+            this.bootOverlay = bootOverlay;
             if (introOverlay?.init && !introOverlay?.initialized) introOverlay.init(doc);
             this.introOverlay = introOverlay;
             this.dependencyHealth = resolveBootstrapValidator()({
@@ -404,6 +417,9 @@ const Game = {
             }
             if (this.updateTileInspector) this.updateTileInspector(null);
             if (typeof onPostInit === 'function') onPostInit(this);
+            if (this.bootOverlay?.hide) {
+                this.bootOverlay.hide();
+            }
             if (this.introOverlay?.notifyUIReady) {
                 this.introOverlay.notifyUIReady();
             }
