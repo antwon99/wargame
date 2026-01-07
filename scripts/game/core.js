@@ -1595,8 +1595,9 @@ const Game = {
             this.spawnTxt(hex, label, '#fff');
             if (type === 'town') this.playSound('city');
             else if (type === 'forest') this.playSound('choptree');
-            else if (type === 'mine') this.playSound('gold');
-            else if (type === 'shrine') this.playSound('holy');
+            else if (type === 'mine') this.playSound('mine');
+            else if (type === 'shrine') this.playSound('shrine');
+            else if (type === 'ruin') this.playSound('ruin');
         }
 
         if (def?.onClaim && !free) def.onClaim(this, hex);

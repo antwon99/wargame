@@ -156,6 +156,9 @@ function testManifestIncludesNewEffects() {
     assert.ok(SFX_MANIFEST.ambiance_upbeat, 'territory ambience track should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_anger, 'war ambience additions should be mapped');
     assert.ok(SFX_MANIFEST.ambiance_uptake, 'territory ambience additions should be mapped');
+    assert.ok(SFX_MANIFEST.mine, 'mine territory sound should be mapped');
+    assert.ok(SFX_MANIFEST.shrine, 'shrine territory sound should be mapped');
+    assert.ok(SFX_MANIFEST.ruin, 'ruin territory sound should be mapped');
     assert.ok(
         SFX_MANIFEST.rare?.variations?.every((v) => v.src.includes('sfx/combat/rare/')),
         'rare sounds should live under combat audio'
