@@ -428,6 +428,9 @@ const Game = {
             }
             if (this.updateTileInspector) this.updateTileInspector(null);
             if (typeof onPostInit === 'function') onPostInit(this);
+            if (this.bootOverlay?.markReady) {
+                this.bootOverlay.markReady();
+            }
             setBootPhase(BOOT_PHASES.INTRO);
             if (this.introOverlay && this.introOverlay.active === false) {
                 setBootPhase(BOOT_PHASES.READY);
