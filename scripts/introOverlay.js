@@ -8,6 +8,7 @@ const IntroOverlay = {
     beginBtn: null,
     bodyEl: null,
     active: true,
+    initialized: false,
     storageKey: 'hexWar_intro_seen',
 
     /**
@@ -16,7 +17,8 @@ const IntroOverlay = {
      * @param {Document|Object} doc reference to a DOM-like API with query helpers
      */
     init(doc = typeof document !== 'undefined' ? document : null) {
-        if (!doc || this.overlayEl) return false;
+        if (!doc) return false;
+        if (this.initialized) return true;
         this.overlayEl = doc.getElementById('intro-overlay');
         this.beginBtn = doc.getElementById('btn-intro-begin');
         this.bodyEl = doc.getElementById('intro-body');
@@ -32,6 +34,7 @@ const IntroOverlay = {
                 this.overlayEl.style.display = 'none';
             }
         });
+        this.initialized = true;
 
         // Skip the fade when the intro was already acknowledged, but still
         // broadcast the intro begin event so dependent systems stay in sync.
