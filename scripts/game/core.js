@@ -298,7 +298,7 @@ const Game = {
             };
         }
         try {
-            if (introOverlay?.init) introOverlay.init(document);
+            if (introOverlay?.init && !introOverlay?.initialized) introOverlay.init(document);
             this.introOverlay = introOverlay;
             this.dependencyHealth = resolveBootstrapValidator()({
                 researchSystem,

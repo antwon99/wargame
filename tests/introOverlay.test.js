@@ -39,12 +39,22 @@ function buildStubDocument() {
     };
 }
 
+function resetIntroOverlayState() {
+    IntroOverlay.overlayEl = null;
+    IntroOverlay.beginBtn = null;
+    IntroOverlay.bodyEl = null;
+    IntroOverlay.active = true;
+    IntroOverlay.initialized = false;
+}
+
 function testDismissAddsHiddenClass() {
     const doc = buildStubDocument();
+    resetIntroOverlayState();
     const initialized = IntroOverlay.initIntroOverlay
         ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false }).initialized
         : IntroOverlay.init(doc);
     assert.ok(initialized, 'init should wire the overlay when elements exist');
+    assert.strictEqual(IntroOverlay.initialized, true, 'init should flip the initialized guard');
 
     doc.btnEl.trigger('click');
     assert.ok(doc.overlayEl.classList.contains('intro-hidden'), 'clicking begin should hide overlay');
@@ -52,10 +62,7 @@ function testDismissAddsHiddenClass() {
 
 function testTransitionClearsPointerFlow() {
     const doc = buildStubDocument();
-    IntroOverlay.overlayEl = null; // reset between runs
-    IntroOverlay.beginBtn = null;
-    IntroOverlay.bodyEl = null;
-    IntroOverlay.active = true;
+    resetIntroOverlayState();
     IntroOverlay.initIntroOverlay
         ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
         : IntroOverlay.init(doc);
@@ -77,10 +84,7 @@ function testSeasonalCopyMentionsAprilAndFrontier() {
 
 function testInitAppliesSeasonalCopy() {
     const doc = buildStubDocument();
-    IntroOverlay.overlayEl = null;
-    IntroOverlay.beginBtn = null;
-    IntroOverlay.bodyEl = null;
-    IntroOverlay.active = true;
+    resetIntroOverlayState();
     IntroOverlay.initIntroOverlay
         ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
         : IntroOverlay.init(doc);
