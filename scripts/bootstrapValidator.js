@@ -13,6 +13,8 @@
  * @param {boolean} [options.logToDebug=true] whether to write to the debug log.
  * @returns {{missingHelpers: string[], researchSystemAvailable: boolean, persistenceAvailable: boolean, inputHelpersAvailable: boolean, canvasAvailable: boolean}}
  */
+import { BOOT_PHASES, getBootPhase, reportBootIssue, shouldShowDebugLog } from './bootManager.js';
+
 export function validateBootstrapDependencies({
     researchSystem = (typeof window !== 'undefined' ? window.ResearchSystem : null),
     persistence = (typeof window !== 'undefined' ? window.Persistence : null),
@@ -35,9 +37,19 @@ export function validateBootstrapDependencies({
     if (!status.inputHelpersAvailable) missingHelpers.push('InputHelpers (hex math)');
     if (!status.canvasAvailable) missingHelpers.push('Canvas rendering context');
 
-    if (missingHelpers.length && logToDebug && debugEl) {
-        debugEl.classList?.add?.('visible');
-        debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
+    if (missingHelpers.length) {
+        const errorMessage = `Loading failed. Missing helpers: ${missingHelpers.join('; ')}`;
+        if (getBootPhase() !== BOOT_PHASES.READY) {
+            reportBootIssue(errorMessage);
+        }
+        if (logToDebug && debugEl) {
+            debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
+            if (shouldShowDebugLog(getBootPhase())) {
+                debugEl.classList?.add?.('visible');
+            } else {
+                debugEl.classList?.remove?.('visible');
+            }
+        }
     }
 
     return { ...status, missingHelpers };

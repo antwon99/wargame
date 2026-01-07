@@ -319,7 +319,8 @@ const Game = {
                 bootOverlay: this.bootOverlay,
                 introOverlay: this.introOverlay,
                 audioManager: gameAudio,
-                debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null
+                debugEl: typeof document !== 'undefined' ? document.getElementById('debug-log') : null,
+                debugToggles: typeof window !== 'undefined' ? window.DebugToggles : null
             });
             this.dependencyHealth = resolveBootstrapValidator()({
                 researchSystem,

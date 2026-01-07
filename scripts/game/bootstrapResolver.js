@@ -1,3 +1,5 @@
+import { BOOT_PHASES, getBootPhase, reportBootIssue, shouldShowDebugLog } from '../bootManager.js';
+
 const fallbackValidateBootstrapDependencies = ({
     researchSystem = null,
     persistence = null,
@@ -20,9 +22,19 @@ const fallbackValidateBootstrapDependencies = ({
     if (!status.inputHelpersAvailable) missingHelpers.push('InputHelpers (hex math)');
     if (!status.canvasAvailable) missingHelpers.push('Canvas rendering context');
 
-    if (missingHelpers.length && logToDebug && debugEl) {
-        debugEl.classList?.add?.('visible');
-        debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
+    if (missingHelpers.length) {
+        const errorMessage = `Loading failed. Missing helpers: ${missingHelpers.join('; ')}`;
+        if (getBootPhase() !== BOOT_PHASES.READY) {
+            reportBootIssue(errorMessage);
+        }
+        if (logToDebug && debugEl) {
+            debugEl.textContent = `⚠️ Missing helpers: ${missingHelpers.join('; ')}`;
+            if (shouldShowDebugLog(getBootPhase())) {
+                debugEl.classList?.add?.('visible');
+            } else {
+                debugEl.classList?.remove?.('visible');
+            }
+        }
     }
 
     return { ...status, missingHelpers };
