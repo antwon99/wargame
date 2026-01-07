@@ -55,6 +55,8 @@ function resetIntroOverlayState() {
     IntroOverlay.bodyEl = null;
     IntroOverlay.active = true;
     IntroOverlay.initialized = false;
+    IntroOverlay.uiReady = false;
+    IntroOverlay.pendingReveal = false;
 }
 
 function testDismissAddsHiddenClass() {
@@ -112,8 +114,12 @@ function testInitShowsOverlayAfterWiring() {
         ? IntroOverlay.initIntroOverlay(globalThis, { document: doc, defer: false })
         : IntroOverlay.init(doc);
 
-    assert.ok(!doc.overlayEl.classList.contains('intro-hidden'), 'init should reveal the overlay once wired');
-    assert.strictEqual(doc.overlayEl.style.display, 'flex', 'init should restore flex display for the overlay');
+    assert.ok(doc.overlayEl.classList.contains('intro-hidden'), 'init should keep the overlay hidden until the UI is ready');
+    assert.strictEqual(doc.overlayEl.style.display, 'none', 'init should keep the overlay out of layout before UI ready');
+
+    IntroOverlay.notifyUIReady();
+    assert.ok(!doc.overlayEl.classList.contains('intro-hidden'), 'notifyUIReady should reveal the overlay once UI is ready');
+    assert.strictEqual(doc.overlayEl.style.display, 'flex', 'notifyUIReady should restore flex display for the overlay');
 }
 
 function testInitSkipsCopyWhenAlreadyMatches() {
