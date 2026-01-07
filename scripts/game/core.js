@@ -671,9 +671,11 @@ const Game = {
 
     /**
      * Build the starting overworld state and clear any lingering combat/claimable data.
+     * Defaults to preserving the intro overlay state so reload fallback paths do not
+     * re-trigger the welcome screen unless a player explicitly resets progress.
      * @param {{preserveIntro?: boolean}} [options] controls whether intro overlay state is preserved.
      */
-    bootstrapNewWorld({ preserveIntro = false } = {}) {
+    bootstrapNewWorld({ preserveIntro = true } = {}) {
         this.state = 'OVERWORLD';
         this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
@@ -811,7 +813,7 @@ const Game = {
         this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
         this.activeSaveSlot = '1';
         if (imperialMandates?.resetForNewCampaign) imperialMandates.resetForNewCampaign();
-        this.bootstrapNewWorld();
+        this.bootstrapNewWorld({ preserveIntro: false });
         this.updateLeaderboardUI();
         this.updateHUD();
         this.updateUpgradeMenu();

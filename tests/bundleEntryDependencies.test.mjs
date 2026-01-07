@@ -70,8 +70,7 @@ function loadEntryModule() {
                     };
                 case './introOverlay.js':
                     return {
-                        IntroOverlay: stubs.introOverlay,
-                        initIntroOverlay: () => ({ IntroOverlay: stubs.introOverlay })
+                        IntroOverlay: stubs.introOverlay
                     };
                 case './audio.js':
                     return {

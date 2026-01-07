@@ -1,5 +1,5 @@
 import { Layout, SQRT3, cubeToPixel, initInputHelpers, isPointerOnDrawnHex, pixelToAxial } from './inputHelpers.js';
-import { IntroOverlay, initIntroOverlay } from './introOverlay.js';
+import { IntroOverlay } from './introOverlay.js';
 import { GameAudio, initAudio } from './audio.js';
 import { initJuice } from './juice.js';
 import Persistence from './persistence.js';
@@ -28,7 +28,6 @@ const inputHelpers = initInputHelpers?.(bootstrapScope) || {
     pixelToAxial,
     cubeToPixel
 };
-initIntroOverlay?.(bootstrapScope);
 initAudio?.(bootstrapScope);
 initJuice?.(bootstrapScope);
 Persistence?.initPersistence?.(bootstrapScope);

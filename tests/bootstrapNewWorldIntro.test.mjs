@@ -62,9 +62,35 @@ function testDefaultBootstrapResetsIntro() {
 
         Game.bootstrapNewWorld();
 
-        assert.strictEqual(calls.clear, 1, 'bootstrapNewWorld should clear intro seen flag by default');
-        assert.strictEqual(calls.reset, 1, 'bootstrapNewWorld should reset the intro overlay by default');
-        assert.strictEqual(Game.shouldRunImperialIntro, true, 'default bootstrap should arm the intro overlay');
+        assert.strictEqual(calls.clear, 0, 'bootstrapNewWorld should preserve intro seen flag by default');
+        assert.strictEqual(calls.reset, 0, 'bootstrapNewWorld should preserve the intro overlay by default');
+        assert.strictEqual(Game.shouldRunImperialIntro, false, 'default bootstrap should not arm the intro overlay');
+    } finally {
+        if (typeof originalDocument === 'undefined') {
+            delete globalThis.document;
+        } else {
+            globalThis.document = originalDocument;
+        }
+    }
+}
+
+function testExplicitBootstrapResetsIntro() {
+    const originalDocument = globalThis.document;
+    globalThis.document = {};
+    try {
+        const Game = buildGame();
+        const calls = { clear: 0, reset: 0 };
+        Game.introOverlay = {
+            clearIntroSeenFlag: () => { calls.clear += 1; },
+            reset: () => { calls.reset += 1; },
+            active: true
+        };
+
+        Game.bootstrapNewWorld({ preserveIntro: false });
+
+        assert.strictEqual(calls.clear, 1, 'explicit reset should clear intro seen flag');
+        assert.strictEqual(calls.reset, 1, 'explicit reset should reset the intro overlay');
+        assert.strictEqual(Game.shouldRunImperialIntro, true, 'explicit reset should arm the intro overlay');
     } finally {
         if (typeof originalDocument === 'undefined') {
             delete globalThis.document;
@@ -77,6 +103,7 @@ function testDefaultBootstrapResetsIntro() {
 function run() {
     testPreserveIntroSkipsReset();
     testDefaultBootstrapResetsIntro();
+    testExplicitBootstrapResetsIntro();
     console.log('bootstrapNewWorld intro preservation tests passed.');
 }
 
