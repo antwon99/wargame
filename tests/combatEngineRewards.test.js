@@ -1,6 +1,6 @@
 import assert from 'assert';
-import { damageBuilding, endWar, computeWarRewardMultiplier } from '../scripts/combatEngine.js';
-import { RebelSystem } from '../scripts/rebelSystem.js';
+import { damageBuilding, damageUnit, endWar, computeWarRewardMultiplier } from '../scripts/combatEngine.js';
+import { RebelSystem, initRebelSystem } from '../scripts/rebelSystem.js';
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -80,6 +80,7 @@ function createDomStub() {
         classList: { add: () => {}, remove: () => {} },
         innerText: '',
         appendChild: () => {},
+        body: { appendChild: () => {}, removeChild: () => {} },
         setAttribute: () => {},
         style: { setProperty: () => {} },
         remove: () => {},
@@ -98,6 +99,24 @@ function createDomStub() {
     return stub;
 }
 
+function withPatchedRandom(sequence, fn) {
+    const original = Math.random;
+    let index = 0;
+    Math.random = () => {
+        if (Array.isArray(sequence)) {
+            const value = sequence[Math.min(index, sequence.length - 1)];
+            index += 1;
+            return value;
+        }
+        return sequence;
+    };
+    try {
+        return fn();
+    } finally {
+        Math.random = original;
+    }
+}
+
 function testPlayerMustLandFinalBlowForWood() {
     const { game } = buildGame('player');
     damageBuilding(game, '0,0', 10, 'player');
@@ -112,12 +131,42 @@ function testNonPlayerAttacksGiveNoReward() {
     assert.ok(!game.messages.length, 'no reward messages should be emitted');
 }
 
+function testDeathSoundChanceGatesPlayback() {
+    const playLog = [];
+    const game = {
+        spawnTxt: () => {},
+        spawnBurstAtHex: () => {},
+        updateLeaderboardUI: () => {},
+        saveGame: () => {},
+        playSound: (key) => playLog.push(key),
+        stats: { totalKills: 0, bestKills: 0, bestLevel: 0, warsWon: 0, warsFought: 0 },
+        session: { warKills: 0 },
+        combat: { warElapsedMs: 0, ai: { gold: 0 } },
+        gold: 0
+    };
+
+    const soldier = { type: 'soldier', hp: 1, pos: { q: 0, r: 0, s: 0 } };
+
+    withPatchedRandom([0.99, 0.0], () => {
+        damageUnit(game, soldier, 5, 'player');
+    });
+
+    assert.strictEqual(playLog.length, 0, 'high roll should suppress death sound playback');
+
+    const soldierTwo = { type: 'soldier', hp: 1, pos: { q: 0, r: 0, s: 0 } };
+    withPatchedRandom([0.0, 0.0], () => {
+        damageUnit(game, soldierTwo, 5, 'player');
+    });
+
+    assert.ok(playLog.includes('death'), 'low roll should allow standard death sound playback');
+}
+
 function testDefeatAppliesGoldPenalty() {
     const originalWindow = global.window;
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(100);
     const originalTimeout = global.setTimeout;
@@ -140,7 +189,7 @@ function testDefeatPenaltyCannotGoNegative() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(6);
     const originalTimeout = global.setTimeout;
@@ -161,7 +210,7 @@ function testVictoryRaisesDifficultyByOne() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(120);
     const rebelHex = new Hex(0, 0);
@@ -185,7 +234,7 @@ function testVictoryRestoresRebelCampWithStalePendingTile() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(120);
     const rebelHex = new Hex(2, -1);
@@ -214,7 +263,7 @@ function testVictoryAppliesWarTax() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(100);
     endWar(game, 'VICTORY');
@@ -231,7 +280,7 @@ function testNarrativeEventsAfterVictory() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(100);
     const rebelHex = new Hex(0, 0);
@@ -264,7 +313,7 @@ function testVictoryUsesRebelStartFlagAfterRestoration() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game } = buildEndWarGame(120);
     const rebelHex = new Hex(3, -2);
@@ -304,7 +353,7 @@ function testVictoryRewardsDecayWithElapsedWarTime() {
     const originalDocument = global.document;
     global.window = { innerWidth: 800, innerHeight: 600 };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
 
     const { game: fastGame } = buildEndWarGame(100);
     fastGame.combat.warElapsedMs = 0;
@@ -337,7 +386,7 @@ function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
         }
     };
     const domStub = createDomStub();
-    global.document = { getElementById: () => domStub, createElement: domStub.createElement };
+    global.document = { getElementById: () => domStub, createElement: domStub.createElement, body: domStub.body };
     const rebelApi = rebelSystem.RebelSystem || rebelSystem;
     const originalRestore = rebelApi.restoreRebelTile;
     let restoreCalled = false;
@@ -374,16 +423,18 @@ function testVictoryRestoresRebelCampAfterLateInit(rebelSystem) {
 
 function run() {
     const originalWindow = global.window;
-    testVictoryRestoresRebelCampAfterLateInit(RebelSystem);
+    const rebelSystemModule = { RebelSystem, initRebelSystem };
+    testVictoryRestoresRebelCampAfterLateInit(rebelSystemModule);
     global.window = {
         ImperialMandates: {
             handleBattleOutcome: () => {},
             getProtectedOverworldKeys: () => new Set()
         },
-        RebelSystem: rebelSystem
+        RebelSystem
     };
     testPlayerMustLandFinalBlowForWood();
     testNonPlayerAttacksGiveNoReward();
+    testDeathSoundChanceGatesPlayback();
     testDefeatAppliesGoldPenalty();
     testDefeatPenaltyCannotGoNegative();
     testVictoryRaisesDifficultyByOne();
