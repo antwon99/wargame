@@ -1,6 +1,7 @@
 import { OVERWORLD_TILES } from './overworldConfig.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from './overworldAdjacency.js';
 import { RebelSystem } from './rebelSystem.js';
+import { TutorialHandler } from './tutorialHandler.js';
 
 /**
  * Calculate and apply overworld income for a single tick.
@@ -61,7 +62,10 @@ export function applyOverworldIncome(game, options = {}) {
         game.spawnTxt(origin, lines.join('  '), '#fff');
     }
     if (typeof RebelSystem?.spreadRebelCamps === 'function') {
-        RebelSystem.spreadRebelCamps(game);
+        const protectedKeys = typeof TutorialHandler?.getProtectedRebelSpreadKeys === 'function'
+            ? TutorialHandler.getProtectedRebelSpreadKeys(game)
+            : new Set();
+        RebelSystem.spreadRebelCamps(game, { protectedKeys });
     }
     if (game.timekeeper?.advance) game.timekeeper.advance(1);
     if (typeof game.updateHUD === 'function') game.updateHUD();

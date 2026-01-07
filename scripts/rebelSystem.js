@@ -119,6 +119,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
      * @param {object} [options] optional configuration for deterministic tests.
      * @param {function} [options.rng] random number generator returning [0,1).
      * @param {number} [options.chance] forced chance override to bypass scaling.
+     * @param {Set<string>|Array<string>|string} [options.protectedKeys] rebel camp keys to skip for spread.
      * @returns {Array} list of newly converted rebel tiles.
      */
     function spreadRebelCamps(gameState, options = {}) {
@@ -131,8 +132,15 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         const chance = Number.isFinite(options.chance) ? options.chance : getRebelSpreadChance(gameState);
         const rebels = getAllRebelCamps(gameState);
         const conversions = [];
+        const protectedKeys = options.protectedKeys instanceof Set
+            ? options.protectedKeys
+            : new Set(Array.isArray(options.protectedKeys)
+                ? options.protectedKeys
+                : (options.protectedKeys ? [options.protectedKeys] : []));
 
         rebels.forEach((rebelTile) => {
+            const rebelKey = getTileKey(rebelTile);
+            if (rebelKey && protectedKeys.has(rebelKey)) return;
             if (rng() >= chance) return;
             const candidates = [];
             for (let dir = 0; dir < 6; dir += 1) {

@@ -62,7 +62,7 @@ export const OVERWORLD_TILES = {
             if (!game) return;
             game.gold = (game.gold || 0) + 40;
             if (typeof game.spawnTxt === 'function') game.spawnTxt(hex, '+40g', '#ffd166');
-            if (typeof game.playSound === 'function') game.playSound('gold');
+            if (typeof game.playSound === 'function') game.playSound('mine');
         }
     },
     SHRINE: {
@@ -76,7 +76,7 @@ export const OVERWORLD_TILES = {
             const base = Number.isFinite(game.imperialFavor) ? game.imperialFavor : 5;
             game.imperialFavor = Math.min(10, Math.max(1, base + 2));
             if (typeof game.spawnTxt === 'function') game.spawnTxt(hex, '+2 Favor', '#ffe066');
-            if (typeof game.playSound === 'function') game.playSound('holy');
+            if (typeof game.playSound === 'function') game.playSound('shrine');
         }
     },
     RUIN: {

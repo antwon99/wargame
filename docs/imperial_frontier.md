@@ -14,6 +14,12 @@ This document summarizes the introductory rebel flow and its two supporting syst
 
 The helper reuses the existing overworld tile map and Hex helpers; if no safe frontier tile is available it returns `null` without crashing the caller.
 
+## Tutorial Handler (`scripts/tutorialHandler.js`)
+
+- Records the Frontier Sweep rebel camp in `game.tutorial.frontierSweep` for persistence.
+- Marks the tutorial camp as spread-immune so daily rebel spread rolls skip it.
+- Captures the spawn presets (enemy level, source, issued tick) for debugging or future tutorial gates.
+
 ## Imperial Mandates (`scripts/mandates/imperialMandates.js`)
 
 - Acts as the **King controller** that owns mandate lifecycles.
@@ -23,7 +29,7 @@ The helper reuses the existing overworld tile map and Hex helpers; if no safe fr
 
 ### First Mandate Flow
 
-1. **Issue:** `issueInitialMandate` spawns a rebel camp via `spawnRebelCampNearFrontier`, marks the camp as the target, and shows an anchored decree: “Patrol the frontier. Rebels have been sighted nearby. Expand the Empire’s reach — and survive the rebels beyond the fog.”
+1. **Issue:** `issueInitialMandate` spawns a rebel camp via the tutorial handler (which delegates to `spawnRebelCampNearFrontier`), marks the camp as the target, and shows an anchored decree: “Patrol the frontier. Rebels have been sighted nearby. Expand the Empire’s reach — and survive the rebels beyond the fog.”
 2. **Reprimand:** Losing against that tile triggers a one-time reprimand decree (“Imperial Reprimand: The frontier has been pushed back. Regroup and destroy the encampment.”) while keeping the mandate ACTIVE and the rebel tile protected from overworld loss.
 3. **Completion:** Victory against the tracked tile promotes the status to COMPLETED, restores the tile to normal terrain using the shared weighted roll, and announces “The Emperor is pleased. Expand the territory while the frontier is quiet.”
 
