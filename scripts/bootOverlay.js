@@ -6,8 +6,11 @@
 const BootOverlay = {
     overlayEl: null,
     errorEl: null,
+    readyButtonEl: null,
     initialized: false,
     hidden: false,
+    requiresAcknowledgement: false,
+    readyAcknowledged: false,
 
     /**
      * Capture the overlay element and wire the transition cleanup listener.
@@ -20,10 +23,21 @@ const BootOverlay = {
         if (this.initialized) return true;
         this.overlayEl = doc.getElementById('boot-overlay');
         this.errorEl = doc.getElementById('boot-overlay-error');
+        this.readyButtonEl = doc.getElementById('boot-overlay-ready');
         if (!this.overlayEl) return false;
 
         this.overlayEl.classList.remove('boot-hidden');
         this.overlayEl.style.display = 'flex';
+        this.requiresAcknowledgement = Boolean(this.readyButtonEl);
+        this.readyAcknowledged = false;
+        if (this.readyButtonEl) {
+            this.readyButtonEl.disabled = true;
+            this.readyButtonEl.classList.remove('is-visible');
+            this.readyButtonEl.addEventListener('click', () => {
+                this.readyAcknowledged = true;
+                this.hide();
+            });
+        }
         this.overlayEl.addEventListener('transitionend', () => {
             if (this.overlayEl.classList.contains('boot-hidden')) {
                 this.overlayEl.style.display = 'none';
@@ -35,10 +49,12 @@ const BootOverlay = {
     },
 
     /**
-     * Fade the boot overlay away once the UI is safe to reveal.
+     * Fade the boot overlay away once the UI is safe to reveal and the player
+     * acknowledges readiness when required.
      */
     hide() {
         if (!this.overlayEl || this.hidden) return;
+        if (this.requiresAcknowledgement && !this.readyAcknowledged) return;
         this.hidden = true;
         this.overlayEl.classList.add('boot-hidden');
     },
@@ -49,8 +65,22 @@ const BootOverlay = {
     show() {
         if (!this.overlayEl) return;
         this.hidden = false;
+        this.readyAcknowledged = false;
         this.overlayEl.classList.remove('boot-hidden');
         this.overlayEl.style.display = 'flex';
+        if (this.readyButtonEl) {
+            this.readyButtonEl.disabled = true;
+            this.readyButtonEl.classList.remove('is-visible');
+        }
+    },
+
+    /**
+     * Reveal and enable the ready button once the game finishes bootstrapping.
+     */
+    markReady() {
+        if (!this.readyButtonEl) return;
+        this.readyButtonEl.disabled = false;
+        this.readyButtonEl.classList.add('is-visible');
     },
 
     /**
