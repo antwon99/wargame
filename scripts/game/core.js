@@ -404,6 +404,9 @@ const Game = {
             }
             if (this.updateTileInspector) this.updateTileInspector(null);
             if (typeof onPostInit === 'function') onPostInit(this);
+            if (this.introOverlay?.notifyUIReady) {
+                this.introOverlay.notifyUIReady();
+            }
 
             this.flushPendingNotifications();
 

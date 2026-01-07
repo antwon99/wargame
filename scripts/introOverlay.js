@@ -9,6 +9,8 @@ const IntroOverlay = {
     bodyEl: null,
     active: true,
     initialized: false,
+    uiReady: false,
+    pendingReveal: false,
     storageKey: 'hexWar_intro_seen',
 
     /**
@@ -23,6 +25,9 @@ const IntroOverlay = {
         this.beginBtn = doc.getElementById('btn-intro-begin');
         this.bodyEl = doc.getElementById('intro-body');
         if (!this.overlayEl || !this.beginBtn) return false;
+
+        this.overlayEl.classList.add('intro-hidden');
+        this.overlayEl.style.display = 'none';
 
         if (this.bodyEl) {
             const introCopy = this.buildIntroCopy();
@@ -43,6 +48,7 @@ const IntroOverlay = {
         // broadcast the intro begin event so dependent systems stay in sync.
         if (this.hasSeenIntro()) {
             this.active = false;
+            this.pendingReveal = false;
             this.overlayEl.classList.add('intro-hidden');
             this.overlayEl.style.display = 'none';
             this.dispatchIntroBegin();
@@ -50,9 +56,32 @@ const IntroOverlay = {
         }
 
         this.active = true;
+        this.pendingReveal = true;
+        if (this.uiReady) {
+            this.reveal();
+        }
+        return true;
+    },
+
+    /**
+     * Reveal the intro overlay once the UI layer is ready to be masked.
+     * Intended to run after Game.init finishes wiring the HUD bindings.
+     */
+    reveal() {
+        if (!this.overlayEl || !this.active) return;
+        this.pendingReveal = false;
         this.overlayEl.classList.remove('intro-hidden');
         this.overlayEl.style.display = 'flex';
-        return true;
+    },
+
+    /**
+     * Mark the UI layer as ready so deferred overlays can appear safely.
+     */
+    notifyUIReady() {
+        this.uiReady = true;
+        if (this.pendingReveal) {
+            this.reveal();
+        }
     },
 
     /**
@@ -77,8 +106,13 @@ const IntroOverlay = {
     reset() {
         if (!this.overlayEl) return;
         this.active = true;
-        this.overlayEl.style.display = 'flex';
-        this.overlayEl.classList.remove('intro-hidden');
+        this.pendingReveal = true;
+        if (this.uiReady) {
+            this.reveal();
+        } else {
+            this.overlayEl.style.display = 'none';
+            this.overlayEl.classList.add('intro-hidden');
+        }
         this.dispatchIntroReset();
     },
 
