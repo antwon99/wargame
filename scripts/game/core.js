@@ -365,16 +365,24 @@ const Game = {
                         { hexFactory: (q, r, s) => new Hex(q, r, s) }
                     )
                     : { state: null, stats: { ...this.stats }, slot: this.activeSaveSlot });
-            const loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
-            if (loaded.state) {
+            let loaded = null;
+            try {
+                loaded = resolveSnapshot({ activeSaveSlot: this.activeSaveSlot, Hex });
+            } catch (error) {
+                this.logBootstrapWarning('Snapshot load failed; starting fresh campaign.', error);
+                this.bootstrapNewWorld({ preserveIntro: true });
+            }
+            if (loaded?.state) {
                 try {
                     this.applySnapshot(loaded.state);
                     this.stats = loaded.stats;
                     this.activeSaveSlot = loaded.slot || '1';
                 } catch (error) {
                     this.logBootstrapWarning('Snapshot bootstrap failed; starting fresh campaign.', error);
-                    this.bootstrapNewWorld();
+                    this.bootstrapNewWorld({ preserveIntro: true });
                 }
+            } else if (!loaded) {
+                // Snapshot load failed; bootstrap handled in the catch block.
             } else {
                 this.bootstrapNewWorld();
             }
@@ -657,8 +665,11 @@ const Game = {
     /** Reset per-war counters so leaderboard streaks remain scoped to current conflict. */
     resetSession() { this.session = { warKills: 0 }; },
 
-    /** Build the starting overworld state and clear any lingering combat/claimable data. */
-    bootstrapNewWorld() {
+    /**
+     * Build the starting overworld state and clear any lingering combat/claimable data.
+     * @param {{preserveIntro?: boolean}} [options] controls whether intro overlay state is preserved.
+     */
+    bootstrapNewWorld({ preserveIntro = false } = {}) {
         this.state = 'OVERWORLD';
         this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
@@ -680,11 +691,11 @@ const Game = {
         this.updateSaveStatus('Fresh campaign');
         this.showOverworldUI();
         if (imperialMandates?.resetForNewCampaign) imperialMandates.resetForNewCampaign();
-        if (this.introOverlay) {
+        if (this.introOverlay && !preserveIntro) {
             this.introOverlay.clearIntroSeenFlag?.();
             this.introOverlay.reset?.();
         }
-        this.shouldRunImperialIntro = typeof document !== 'undefined';
+        this.shouldRunImperialIntro = !preserveIntro && typeof document !== 'undefined';
         if (!this.shouldRunImperialIntro || this.introOverlay?.active === false) {
             this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
