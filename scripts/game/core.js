@@ -288,6 +288,7 @@ const Game = {
 
     init({ introOverlay = introOverlayDefault, loadSnapshot, onHUDUpdate, onSaveSlotsUpdate, onPostInit } = {}) {
         const docAvailable = typeof document !== 'undefined';
+        const doc = docAvailable ? document : null;
         if (docAvailable) {
             this.canvas = this.canvas || document.getElementById('canvas');
             if (!this.ctx && this.canvas?.getContext) this.ctx = this.canvas.getContext('2d');
@@ -298,7 +299,7 @@ const Game = {
             };
         }
         try {
-            if (introOverlay?.init && !introOverlay?.initialized) introOverlay.init(document);
+            if (introOverlay?.init && !introOverlay?.initialized) introOverlay.init(doc);
             this.introOverlay = introOverlay;
             this.dependencyHealth = resolveBootstrapValidator()({
                 researchSystem,

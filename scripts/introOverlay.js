@@ -200,6 +200,9 @@ function initIntroOverlay(target = typeof window !== 'undefined' ? window : unde
     if (target) {
         target.IntroOverlay = IntroOverlay;
     }
+    if (IntroOverlay.initialized) {
+        return { IntroOverlay, listener: null, initialized: true };
+    }
 
     let listener = null;
     const shouldDefer = options.defer !== false && doc?.addEventListener;
