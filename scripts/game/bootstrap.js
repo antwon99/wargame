@@ -79,6 +79,7 @@ export function bootstrapGame(dependencies = {}) {
 
     Game.init({
         introOverlay: dependencies.introOverlay || null,
+        bootOverlay: dependencies.bootOverlay || null,
         loadSnapshot,
         onHUDUpdate: () => Game.updateHUD(),
         onSaveSlotsUpdate: () => Game.updateSaveSlotsUI(),

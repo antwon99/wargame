@@ -1,4 +1,5 @@
 import { Layout, SQRT3, cubeToPixel, initInputHelpers, isPointerOnDrawnHex, pixelToAxial } from './inputHelpers.js';
+import { BootOverlay } from './bootOverlay.js';
 import { IntroOverlay } from './introOverlay.js';
 import { GameAudio, initAudio } from './audio.js';
 import { initJuice } from './juice.js';
@@ -56,6 +57,7 @@ const dependencies = {
     platformAdapter: PlatformAdapter,
     tutorialCallouts: TutorialCallouts,
     introOverlay: IntroOverlay,
+    bootOverlay: BootOverlay,
     persistence: Persistence,
     storageProbe,
     gameAudio: GameAudio,
