@@ -3,6 +3,8 @@
  * Keeps the audio debug panel hidden by default and exposes a toggle via
  * keyboard (F3 or `) or the Debug button tucked in the bottom-left corner.
  */
+import { BOOT_PHASES, getBootPhase } from './bootManager.js';
+
 let debugPanel = null;
 let toggleButton = null;
 let debugToggles = null;
@@ -17,7 +19,7 @@ function resolveDebugToggles(target = typeof window !== 'undefined' ? window : u
     if (debugToggles) return debugToggles;
     if (!target) return {};
     const existing = target.DebugToggles || {};
-    debugToggles = { showClaimCosts: false, ...existing };
+    debugToggles = { showClaimCosts: false, showDebugLog: false, ...existing };
     target.DebugToggles = debugToggles;
     return debugToggles;
 }
@@ -44,6 +46,18 @@ function setDebugVisibility(isVisible, doc = typeof document !== 'undefined' ? d
     debugPanel.setAttribute('aria-hidden', (!isVisible).toString());
     if (toggleButton) {
         toggleButton.setAttribute('aria-pressed', isVisible.toString());
+    }
+    if (debugToggles) {
+        debugToggles.showDebugLog = isVisible;
+    }
+    const debugLogEl = doc?.getElementById?.('debug-log');
+    if (!debugLogEl?.classList) return;
+    if (isVisible && debugLogEl.textContent) {
+        debugLogEl.classList.add('visible');
+        return;
+    }
+    if (getBootPhase() !== BOOT_PHASES.READY) {
+        debugLogEl.classList.remove('visible');
     }
 }
 

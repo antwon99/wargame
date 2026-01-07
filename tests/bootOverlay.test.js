@@ -24,14 +24,20 @@ function createStubElement() {
 
 function buildStubDocument() {
     const overlayEl = createStubElement();
+    const errorEl = createStubElement();
     return {
-        getElementById: id => (id === 'boot-overlay' ? overlayEl : null),
+        getElementById: id => {
+            if (id === 'boot-overlay') return overlayEl;
+            if (id === 'boot-overlay-error') return errorEl;
+            return null;
+        },
         overlayEl
     };
 }
 
 function resetBootOverlayState() {
     BootOverlay.overlayEl = null;
+    BootOverlay.errorEl = null;
     BootOverlay.initialized = false;
     BootOverlay.hidden = false;
 }
@@ -76,10 +82,27 @@ function testShowRestoresOverlay() {
     assert.strictEqual(doc.overlayEl.style.display, 'flex', 'show should restore flex display');
 }
 
+function testSetErrorDisplaysMessage() {
+    const doc = buildStubDocument();
+    resetBootOverlayState();
+    BootOverlay.initBootOverlay
+        ? BootOverlay.initBootOverlay(globalThis, { document: doc, defer: false })
+        : BootOverlay.init(doc);
+
+    BootOverlay.setError('Loading failed.');
+    const errorEl = doc.getElementById('boot-overlay-error');
+    assert.ok(errorEl.classList.contains('is-visible'), 'setError should show the error block');
+    assert.strictEqual(errorEl.textContent, 'Loading failed.', 'setError should populate the error text');
+
+    BootOverlay.setError('');
+    assert.ok(!errorEl.classList.contains('is-visible'), 'setError should hide the error block when cleared');
+}
+
 function run() {
     testInitBindsOverlay();
     testHideFadesOverlay();
     testShowRestoresOverlay();
+    testSetErrorDisplaysMessage();
     console.log('All boot overlay tests passed.');
 }
 

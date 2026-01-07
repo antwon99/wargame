@@ -15,6 +15,7 @@ const bootState = {
     introOverlay: null,
     audioManager: null,
     debugEl: null,
+    debugToggles: null,
     listeners: new Set()
 };
 
@@ -26,6 +27,7 @@ const bootState = {
  * @param {object|null} [dependencies.introOverlay] intro overlay helper instance.
  * @param {object|null} [dependencies.audioManager] audio manager with UI guard APIs.
  * @param {HTMLElement|null} [dependencies.debugEl] debug log element reference.
+ * @param {object|null} [dependencies.debugToggles] debug toggle flag map.
  */
 function registerBootDependencies(dependencies = {}) {
     if (Object.prototype.hasOwnProperty.call(dependencies, 'bootOverlay')) {
@@ -39,6 +41,9 @@ function registerBootDependencies(dependencies = {}) {
     }
     if (Object.prototype.hasOwnProperty.call(dependencies, 'debugEl')) {
         bootState.debugEl = dependencies.debugEl;
+    }
+    if (Object.prototype.hasOwnProperty.call(dependencies, 'debugToggles')) {
+        bootState.debugToggles = dependencies.debugToggles;
     }
 }
 
@@ -60,13 +65,47 @@ function resolveDebugEl() {
     return document.getElementById('debug-log');
 }
 
+function resolveDebugToggles() {
+    if (bootState.debugToggles) return bootState.debugToggles;
+    if (typeof globalThis === 'undefined') return null;
+    return globalThis.DebugToggles || null;
+}
+
+/**
+ * Determine whether debug log content should be visible for the current phase.
+ * @param {string} phase target boot phase.
+ * @returns {boolean} true when debug log output can be shown.
+ */
+function shouldShowDebugLog(phase = bootState.phase) {
+    const debugToggles = resolveDebugToggles();
+    return phase === BOOT_PHASES.READY || debugToggles?.showDebugLog === true;
+}
+
 function applyDebugVisibility(phase) {
     const debugEl = resolveDebugEl();
     if (!debugEl) return;
-    if (phase === BOOT_PHASES.READY) return;
-    if (debugEl.classList?.remove) {
-        debugEl.classList.remove('visible');
+    if (!shouldShowDebugLog(phase)) {
+        if (debugEl.classList?.remove) {
+            debugEl.classList.remove('visible');
+        }
+        return;
     }
+    if (debugEl.textContent && debugEl.classList?.add) {
+        debugEl.classList.add('visible');
+    }
+}
+
+/**
+ * Publish a boot-time error message to the overlay UI so players can see
+ * blockers without exposing the debug log.
+ * @param {string} message error summary to display.
+ * @returns {boolean} true when the overlay accepted the error.
+ */
+function reportBootIssue(message) {
+    const bootOverlay = resolveBootOverlay();
+    if (!bootOverlay?.setError) return false;
+    bootOverlay.setError(message);
+    return true;
 }
 
 /**
@@ -108,6 +147,9 @@ function setBootPhase(phase) {
             bootOverlay.hide();
         }
     }
+    if (nextPhase === BOOT_PHASES.READY) {
+        bootOverlay?.setError?.('');
+    }
 
     const introOverlay = resolveIntroOverlay();
     if (nextPhase === BOOT_PHASES.INTRO) {
@@ -125,12 +167,14 @@ function setBootPhase(phase) {
     return nextPhase;
 }
 
-export { BOOT_PHASES, getBootPhase, onBootPhaseChange, registerBootDependencies, setBootPhase };
+export { BOOT_PHASES, getBootPhase, onBootPhaseChange, registerBootDependencies, reportBootIssue, setBootPhase, shouldShowDebugLog };
 
 export default {
     BOOT_PHASES,
     getBootPhase,
     onBootPhaseChange,
     registerBootDependencies,
+    reportBootIssue,
+    shouldShowDebugLog,
     setBootPhase
 };

@@ -5,6 +5,7 @@
  */
 const BootOverlay = {
     overlayEl: null,
+    errorEl: null,
     initialized: false,
     hidden: false,
 
@@ -18,6 +19,7 @@ const BootOverlay = {
         if (!doc) return false;
         if (this.initialized) return true;
         this.overlayEl = doc.getElementById('boot-overlay');
+        this.errorEl = doc.getElementById('boot-overlay-error');
         if (!this.overlayEl) return false;
 
         this.overlayEl.classList.remove('boot-hidden');
@@ -49,6 +51,18 @@ const BootOverlay = {
         this.hidden = false;
         this.overlayEl.classList.remove('boot-hidden');
         this.overlayEl.style.display = 'flex';
+    },
+
+    /**
+     * Surface a loading failure message inside the boot overlay so players see
+     * why the game cannot proceed without exposing the debug log.
+     * @param {string} message human-readable error message to display.
+     */
+    setError(message) {
+        if (!this.errorEl) return;
+        const hasMessage = Boolean(message);
+        this.errorEl.textContent = hasMessage ? message : '';
+        this.errorEl.classList.toggle('is-visible', hasMessage);
     }
 };
 

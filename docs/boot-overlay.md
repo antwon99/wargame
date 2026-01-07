@@ -8,6 +8,9 @@ It stays visible until the game finishes state hydration and UI binding.
 ## Behavior
 - **Visible by default:** The overlay is rendered in `Wargame.html` and styled in
   `style.css` with an opaque background so it shows immediately.
+- **Failure feedback:** When bootstrap dependencies are missing, the overlay
+  reveals a small "Loading failed" block so players know what stalled the boot
+  flow before the main UI is ready.
 - **Dismissal timing:** `Game.init()` hides the boot overlay only after UI
   bindings and state hydration are complete, and then it triggers the intro
   overlay reveal (if the intro is still active).
