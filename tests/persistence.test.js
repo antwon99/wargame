@@ -158,8 +158,15 @@ async function runTests() {
         { difficulty: 2 },
         { warsWon: 5 }
     );
-    assert.strictEqual(difficultyAlignment.state.difficulty, 5, 'difficulty should reconcile to the highest progress value');
-    assert.strictEqual(difficultyAlignment.stats.warsWon, 5, 'warsWon should reconcile to the highest progress value');
+    assert.strictEqual(difficultyAlignment.state.difficulty, 5, 'difficulty should reconcile to the saved wars-won value');
+    assert.strictEqual(difficultyAlignment.stats.warsWon, 5, 'warsWon should remain the authoritative progress value');
+
+    const lowerWarsWon = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
+        { difficulty: 8 },
+        { warsWon: 1 }
+    );
+    assert.strictEqual(lowerWarsWon.state.difficulty, 1, 'difficulty should follow stats.warsWon when provided');
+    assert.strictEqual(lowerWarsWon.stats.warsWon, 1, 'warsWon should not be overridden by difficulty');
 
     const missingWarsWon = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
         { difficulty: 3 },
@@ -301,7 +308,7 @@ async function runTests() {
     assert.strictEqual(loaded.stats.totalKills, 11);
     assert.strictEqual(loaded.stats.bestKills, 13);
     assert.strictEqual(loaded.stats.bestLevel, 2);
-    assert.strictEqual(loaded.stats.warsWon, 4);
+    assert.strictEqual(loaded.stats.warsWon, 3);
     assert.strictEqual(loaded.stats.warsFought, 8);
     assert.strictEqual(loaded.stats.lastOutcome, 'VICTORY');
     assert.ok(loaded.stats.lastSaveISO, 'last save timestamp should be preserved');

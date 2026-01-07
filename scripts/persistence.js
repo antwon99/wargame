@@ -219,27 +219,31 @@ function createPersistence(global) {
 
     /**
      * Keep difficulty and wars-won counters aligned when loading snapshots.
-     * Wars won is treated as the source of truth, with difficulty derived
-     * from the same value. When values conflict, the highest known value
-     * is preserved to avoid losing legacy progress.
+     * Wars won is treated as the source of truth when it is present and valid,
+     * with difficulty derived from the same value. When wars-won is missing,
+     * the current difficulty value is used as the fallback source of truth.
      *
      * @param {object|null} state hydrated or raw state payload.
      * @param {object|null} stats hydrated or raw stats payload.
      * @param {object} [options]
      * @param {number} [options.fallbackDifficulty=0] fallback difficulty when neither value is set.
+     * @param {object|null} [options.statsSource=null] optional raw stats payload for presence checks.
      * @returns {{state: object|null, stats: object|null, difficulty: number, warsWon: number}} aligned payloads.
      */
-    function reconcileDifficultyAndWarsWon(state, stats, { fallbackDifficulty = 0 } = {}) {
+    function reconcileDifficultyAndWarsWon(state, stats, { fallbackDifficulty = 0, statsSource = null } = {}) {
         const fallback = Number.isFinite(fallbackDifficulty) ? fallbackDifficulty : 0;
         const difficultyValue = Number.isFinite(state?.difficulty)
             ? Math.max(0, Math.floor(state.difficulty))
             : null;
-        const warsWonValue = Number.isFinite(stats?.warsWon)
+        const warsWonSource = statsSource || stats;
+        const hasWarsWon = Boolean(warsWonSource)
+            && Object.prototype.hasOwnProperty.call(warsWonSource, 'warsWon');
+        const warsWonValue = hasWarsWon && Number.isFinite(stats?.warsWon)
             ? Math.max(0, Math.floor(stats.warsWon))
             : null;
-        const resolvedWarsWon = Number.isFinite(difficultyValue) && Number.isFinite(warsWonValue)
-            ? Math.max(difficultyValue, warsWonValue)
-            : (Number.isFinite(warsWonValue) ? warsWonValue : (Number.isFinite(difficultyValue) ? difficultyValue : fallback));
+        const resolvedWarsWon = Number.isFinite(warsWonValue)
+            ? warsWonValue
+            : (Number.isFinite(difficultyValue) ? difficultyValue : fallback);
 
         return {
             state: state ? { ...state, difficulty: resolvedWarsWon } : state,
@@ -355,11 +359,16 @@ function createPersistence(global) {
      * @returns {object} snapshot that can be persisted.
      */
     function serializeGameState(game, options = {}) {
-        const rawStats = normalizeStats(game.stats || {});
-        const progressAlignment = reconcileDifficultyAndWarsWon({ difficulty: game.difficulty }, rawStats);
+        const rawStatsInput = game.stats || {};
+        const rawStats = normalizeStats(rawStatsInput);
+        const progressAlignment = reconcileDifficultyAndWarsWon(
+            { difficulty: game.difficulty },
+            rawStats,
+            { statsSource: rawStatsInput }
+        );
         const overwriteStats = progressAlignment.stats || rawStats;
-        const alignedDifficulty = Number.isFinite(progressAlignment.difficulty)
-            ? progressAlignment.difficulty
+        const alignedDifficulty = Number.isFinite(progressAlignment.warsWon)
+            ? progressAlignment.warsWon
             : Math.max(0, Number.isFinite(game.difficulty) ? game.difficulty : 0);
         const timekeeper = normalizeTimekeeperSnapshot(game.timekeeper);
         const mandateSerializer = options.mandateSerializer
@@ -564,9 +573,10 @@ function createPersistence(global) {
         const { slot, options: normalizedOptions } = normalizeSlotAndOptions(slotOrOptions, options);
         const rawState = readFromStorage(storageKeyForSlot(slot));
         const rawStats = readFromStorage(statsKeyForSlot(slot));
-        const stats = normalizeStats(rawStats || rawState?.stats);
+        const rawStatsSource = rawStats || rawState?.stats || null;
+        const stats = normalizeStats(rawStatsSource);
         const state = deserializeGameState(rawState, normalizedOptions);
-        const reconciled = reconcileDifficultyAndWarsWon(state, stats);
+        const reconciled = reconcileDifficultyAndWarsWon(state, stats, { statsSource: rawStatsSource });
         return {
             state: reconciled.state,
             stats: reconciled.stats,
