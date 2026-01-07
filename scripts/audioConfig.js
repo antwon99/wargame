@@ -109,6 +109,7 @@ export const SFX_MANIFEST = {
         groupKey: 'combat-death',
         groupWindowMs: 140,
         maxGroupPlays: 1,
+        volume: 0.45,
         variations: SFX_GROUPS.deaths
     },
     raredeath: {
@@ -117,6 +118,7 @@ export const SFX_MANIFEST = {
         groupKey: 'combat-death',
         groupWindowMs: 140,
         maxGroupPlays: 1,
+        volume: 0.45,
         variations: SFX_GROUPS.rareDeaths
     },
     defeat: { src: SFX_GROUPS.defeat[0], cooldownMs: 400 },

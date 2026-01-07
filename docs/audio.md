@@ -39,4 +39,5 @@ The game routes every sound effect through `scripts/audio.js`, which exposes an 
 - `exitCombat(outcome)` plays the relevant stinger (`victory` or `defeat`) and returns the conductor to `TERRITORY` so the overworld ambience resumes after wins, losses, or retreats.
 - Per-sound cooldowns prevent excessive layering while keeping overlap enabled for rapid attacks.
 - Grouped SFX windows coalesce bursty events (like many deaths) into a single playback so battles do not overload slower hardware.
+- Combat death cues are chance-gated (≈35% for standard units, ≈60% for dragons) and mixed lower to keep battle noise from overpowering other SFX.
 - To add a new effect, extend `SFX_MANIFEST` in `scripts/audio.js` with either a `src` or a `variations` array and trigger it via `AudioBridge.play()`.

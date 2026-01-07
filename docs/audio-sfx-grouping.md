@@ -18,6 +18,8 @@ playback per time slice.
   `maxGroupPlays: 1`.
   - Applies to both `death` and `raredeath` so a large volley of deaths resolves
     into a single audio cue.
+  - Death cues are also chance-gated (≈35% regular, ≈60% dragon) to reduce overall
+    call volume.
 
 ## Where to update
 - `scripts/audioConfig.js` — tweak the grouping values on the SFX manifest

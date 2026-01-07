@@ -28,6 +28,11 @@ function resolveImperialMandates() {
 const WAR_TAX_RATE = 0.15;
 /** Seconds until combat rewards fully decay to zero. */
 const WAR_REWARD_DECAY_SECONDS = 240;
+/**
+ * Tune combat death SFX odds so large battles do not spam every KO.
+ * Regular units are rarer, dragons more likely to announce the kill.
+ */
+const DEATH_SFX_CHANCE = { normal: 0.35, rare: 0.6 };
 
 /**
  * Compute a reward multiplier based on elapsed war time.
@@ -86,7 +91,7 @@ export const COMBAT_BUILDINGS = {
 
 /** Base unit stats before upgrades are applied. */
 export const UNITS = {
-    soldier: { hp: 150, dmg: 12, speed: 2.0, range: 1, char: '⚔️' },
+    soldier: { hp: 150, dmg: 12, speed: 2.0, range: 0, char: '⚔️' },
     archer:  { hp: 70,  dmg: 18, speed: 1.8, range: 3, char: '🏹' },
     dragon:  { hp: 1200, dmg: 80, speed: 1.5, range: 2, char: '🐲' }
 };
@@ -375,7 +380,10 @@ export function damageUnit(game, u, dmg, attackerOwner) {
         const deathKey = u.type === 'dragon'
             ? 'raredeath'
             : (u.type === 'archer' || u.type === 'soldier' ? 'death' : null);
-        if (deathKey) {
+        const shouldPlayDeath = u.type === 'dragon'
+            ? Math.random() < DEATH_SFX_CHANCE.rare
+            : Math.random() < DEATH_SFX_CHANCE.normal;
+        if (deathKey && shouldPlayDeath) {
             game.playSound(deathKey, { allowOverlap: true });
         }
         game.spawnBurstAtHex(u.pos, 7);
