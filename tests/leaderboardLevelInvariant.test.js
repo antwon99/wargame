@@ -55,8 +55,8 @@ function testLevelDisplayDerivedFromWarsWon() {
 
         assert.strictEqual(
             doc.elements.get('lvl-txt').innerText,
-            'Lv.1',
-            'level display should derive from wars won when warsFought is tracked'
+            'Lv.2',
+            'level display should derive from wars won with the +1 baseline'
         );
     } finally {
         global.document = originalDocument;

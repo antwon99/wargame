@@ -50,8 +50,8 @@ async function testEconomyOverMultipleMonths() {
 }
 
 function testAIPrepScaling() {
-    const early = deriveAIPrep({ difficulty: 1, timekeeper: { getCalendar: () => ({ month: 1 }) } });
-    const late = deriveAIPrep({ difficulty: 4, timekeeper: { getCalendar: () => ({ month: 9 }) } });
+    const early = deriveAIPrep({ stats: { warsWon: 0 }, timekeeper: { getCalendar: () => ({ month: 1 }) } });
+    const late = deriveAIPrep({ stats: { warsWon: 3 }, timekeeper: { getCalendar: () => ({ month: 9 }) } });
 
     assert.ok(late.gold > early.gold, 'AI gold should rise with campaign age and level');
     assert.ok(late.nextMove < early.nextMove, 'AI cadence should quicken over time');

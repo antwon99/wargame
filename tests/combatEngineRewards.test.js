@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { damageBuilding, damageUnit, endWar, computeWarRewardMultiplier } from '../scripts/combatEngine.js';
+import { resolveEnemyLevel } from '../scripts/utils/resolveEnemyLevel.js';
 import { RebelSystem, initRebelSystem } from '../scripts/rebelSystem.js';
 
 class Hex {
@@ -223,7 +224,7 @@ function testVictoryRaisesDifficultyByOne() {
     endWar(game, 'VICTORY');
 
     assert.strictEqual(game.stats.warsWon, startingWins + 1, 'victory should increment wars won after clearing a rebel camp');
-    assert.strictEqual(game.difficulty, game.stats.warsWon, 'enemy level should mirror wars won');
+    assert.strictEqual(resolveEnemyLevel(game), game.stats.warsWon + 1, 'enemy level should stay one ahead of wars won');
 
     global.window = originalWindow;
     global.document = originalDocument;
@@ -248,7 +249,7 @@ function testVictoryRestoresRebelCampWithStalePendingTile() {
 
     const updated = game.overworld.hexes.get(rebelHex.toString());
     assert.strictEqual(game.stats.warsWon, startingWins + 1, 'rebel victories should increment wars won');
-    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should mirror wars won after rebel victory');
+    assert.strictEqual(resolveEnemyLevel(game), game.stats.warsWon + 1, 'enemy level should stay one ahead of wars won after rebel victory');
     assert.ok(updated, 'overworld tile should exist after rebel restoration');
     assert.strictEqual(updated.owner, 'player', 'restored rebel tiles should return to player control');
     assert.notStrictEqual(updated.type, 'rebelcamp', 'restored rebel tiles should no longer be rebel camps');
@@ -268,7 +269,7 @@ function testVictoryAppliesWarTax() {
     const { game } = buildEndWarGame(100);
     endWar(game, 'VICTORY');
 
-    assert.strictEqual(game.gold, 134, 'victory rewards should pay the 15% royal levy');
+    assert.strictEqual(game.gold, 143, 'victory rewards should pay the 15% royal levy');
     assert.ok(game.messages.find((m) => m.text.includes('royal levy')), 'levy should be surfaced via spawnTxt on victory');
 
     global.window = originalWindow;
@@ -331,7 +332,7 @@ function testVictoryUsesRebelStartFlagAfterRestoration() {
         startingWins + 1,
         'victory should honor the rebel-start flag even if the tile was already restored'
     );
-    assert.strictEqual(game.difficulty, game.stats.warsWon, 'difficulty should mirror wars won after flagged rebel victory');
+    assert.strictEqual(resolveEnemyLevel(game), game.stats.warsWon + 1, 'enemy level should stay one ahead of wars won after flagged rebel victory');
 
     global.window = originalWindow;
     global.document = originalDocument;
