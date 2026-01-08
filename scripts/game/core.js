@@ -1118,11 +1118,21 @@ const Game = {
     getTechCost(tech, optionId) {
         if (!researchSystem?.getCostForTech) return null;
         try {
-            const pending = tech?.id === 'land-reclamation'
-                ? Math.max(tech.pendingPlacements || 0, 0)
+            const isReclamation = tech?.id === 'land-reclamation';
+            const normalizedOptionId = optionId === 'town' ? 'town' : 'forest';
+            const pending = isReclamation && optionId
+                ? (this.pendingReclamations || []).filter(entry =>
+                    entry?.techId === 'land-reclamation' && entry.targetType === normalizedOptionId
+                ).length
                 : 0;
-            const normalized = pending
-                ? { ...tech, timesPurchased: (tech.timesPurchased || 0) + pending }
+            const normalized = pending && isReclamation
+                ? {
+                    ...tech,
+                    optionPurchaseCounts: {
+                        ...(tech.optionPurchaseCounts || {}),
+                        [normalizedOptionId]: (tech.optionPurchaseCounts?.[normalizedOptionId] || 0) + pending
+                    }
+                }
                 : tech;
             return researchSystem.getCostForTech(normalized, optionId);
         } catch (error) {
@@ -1335,7 +1345,7 @@ const Game = {
 
         // Payment is finalized only after a valid placement lands.
         this.gold -= cost.gold || 0;
-        if (tech) researchSystem.recordPurchase(tech);
+        if (tech) researchSystem.recordPurchase(tech, targetType);
         this.updateResearchBonuses();
         this.refreshClusterBonuses();
         this.spawnTxt(tile.hex, `${targetType.toUpperCase()} RECLAIMED`, targetType === 'town' ? '#ffd166' : '#8ae7a8');

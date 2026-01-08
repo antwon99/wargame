@@ -41,6 +41,7 @@ function createResearchSystem() {
                 { id: 'forest', label: '500g: Plant Forest', cost: { gold: 500 } },
                 { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
             ],
+            optionPurchaseCounts: { forest: 0, town: 0 },
             growthFactor: 1.35
         }
     ];
@@ -51,6 +52,24 @@ function createResearchSystem() {
 
     function cloneOptions(options = []) {
         return options.map(opt => ({ ...opt, cost: cloneCost(opt.cost) }));
+    }
+
+    function buildOptionPurchaseCounts(options = []) {
+        return options.reduce((acc, option) => {
+            if (option?.id) acc[option.id] = 0;
+            return acc;
+        }, {});
+    }
+
+    function hydrateOptionPurchaseCounts(savedCounts, options = []) {
+        const baseCounts = buildOptionPurchaseCounts(options);
+        if (!savedCounts || typeof savedCounts !== 'object') return baseCounts;
+        Object.entries(savedCounts).forEach(([key, value]) => {
+            if (!Object.prototype.hasOwnProperty.call(baseCounts, key)) return;
+            const numeric = Number.isFinite(value) ? value : 0;
+            baseCounts[key] = Math.max(0, numeric);
+        });
+        return baseCounts;
     }
 
     /**
@@ -66,10 +85,14 @@ function createResearchSystem() {
             const cappedPurchases = typeof base.maxPurchases === 'number'
                 ? Math.min(savedTimesPurchased, base.maxPurchases)
                 : savedTimesPurchased;
+            const optionPurchaseCounts = base.costOptions
+                ? hydrateOptionPurchaseCounts(savedTech?.optionPurchaseCounts, base.costOptions)
+                : undefined;
             const clone = {
                 ...base,
                 cost: cloneCost(base.cost),
                 costOptions: cloneOptions(base.costOptions),
+                optionPurchaseCounts,
                 purchased: cappedPurchases > 0,
                 timesPurchased: cappedPurchases
             };
@@ -86,9 +109,9 @@ function createResearchSystem() {
      * option is required but missing/invalid.
      */
     function getCostForTech(tech, optionId) {
-        const purchaseCount = tech.timesPurchased || 0;
         const factor = Math.max(tech.growthFactor || 1, 1);
         const hasOptions = Array.isArray(tech.costOptions) && tech.costOptions.length > 0;
+        let purchaseCount = tech.timesPurchased || 0;
         let baseCost;
 
         if (hasOptions) {
@@ -97,6 +120,8 @@ function createResearchSystem() {
             }
             const selectedOption = tech.costOptions.find(opt => opt.id === optionId);
             if (!selectedOption) return null;
+            const optionCounts = tech.optionPurchaseCounts || {};
+            purchaseCount = Math.max(optionCounts[optionId] || 0, 0);
             baseCost = cloneCost(selectedOption.cost);
         } else {
             baseCost = cloneCost(tech.cost);
@@ -124,10 +149,21 @@ function createResearchSystem() {
     /**
      * Increment purchase metadata for a tech after a successful transaction.
      * @param {object} tech technology entry to mutate.
+     * @param {string} [optionId] optional option key for variable-cost techs.
      */
-    function recordPurchase(tech) {
+    function recordPurchase(tech, optionId) {
         tech.timesPurchased = (tech.timesPurchased || 0) + 1;
         tech.purchased = true;
+        if (optionId && Array.isArray(tech.costOptions)) {
+            const optionExists = tech.costOptions.some(option => option.id === optionId);
+            if (optionExists) {
+                if (!tech.optionPurchaseCounts || typeof tech.optionPurchaseCounts !== 'object') {
+                    tech.optionPurchaseCounts = buildOptionPurchaseCounts(tech.costOptions);
+                }
+                const current = tech.optionPurchaseCounts[optionId] || 0;
+                tech.optionPurchaseCounts[optionId] = current + 1;
+            }
+        }
     }
 
     /**

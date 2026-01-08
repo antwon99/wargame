@@ -393,9 +393,11 @@ async function testReclamationCostScalingRespectsPurchaseHistory() {
 
     const firstField = new game.Hex(0, 0, 0);
     const secondField = new game.Hex(1, -1, 0);
+    const thirdField = new game.Hex(2, -2, 0);
     game.overworld.hexes = new Map([
         [firstField.toString(), { hex: firstField, type: 'field', owner: 'player' }],
-        [secondField.toString(), { hex: secondField, type: 'field', owner: 'player' }]
+        [secondField.toString(), { hex: secondField, type: 'field', owner: 'player' }],
+        [thirdField.toString(), { hex: thirdField, type: 'field', owner: 'player' }]
     ]);
     game.overworld.claimable = new Map();
     const startingGold = 2000;
@@ -410,14 +412,21 @@ async function testReclamationCostScalingRespectsPurchaseHistory() {
     game.buyTechnology('land-reclamation', 'town');
     assert.strictEqual(game.gold, startingGold, 'queuing multiple conversions should not pre-charge gold');
     assert.strictEqual(game.pendingReclamations.length, 2, 'second purchase should queue an additional placement');
-    assert.strictEqual(game.pendingReclamations[1].cost.gold, 675, 'cost scaling should respect pending purchases');
+    assert.strictEqual(game.pendingReclamations[1].cost.gold, 500, 'town costs should not scale from forest purchases');
+
+    game.buyTechnology('land-reclamation', 'forest');
+    assert.strictEqual(game.pendingReclamations.length, 3, 'third purchase should queue another placement');
+    assert.strictEqual(game.pendingReclamations[2].cost.gold, 675, 'forest costs should scale per forest purchase history');
 
     game.applyQueuedReclamationToTile(game.overworld.hexes.get(firstField.toString()));
     assert.strictEqual(game.gold, startingGold - 500, 'gold should deduct when the first placement lands');
 
     game.applyQueuedReclamationToTile(game.overworld.hexes.get(secondField.toString()));
-    assert.strictEqual(game.gold, startingGold - 500 - 675, 'second placement should deduct the scaled cost');
-    assert.strictEqual(game.getTech('land-reclamation').timesPurchased, 2, 'purchases should register after successful placements');
+    assert.strictEqual(game.gold, startingGold - 500 - 500, 'second placement should deduct the town cost');
+
+    game.applyQueuedReclamationToTile(game.overworld.hexes.get(thirdField.toString()));
+    assert.strictEqual(game.gold, startingGold - 500 - 500 - 675, 'third placement should deduct the scaled forest cost');
+    assert.strictEqual(game.getTech('land-reclamation').timesPurchased, 3, 'purchases should register after successful placements');
 }
 
 async function testClusterBonusesRefreshAfterReclamation() {

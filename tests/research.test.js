@@ -51,10 +51,13 @@ function testInvalidOptionYieldsNullCost() {
 function testLandReclamationScalesCost() {
     const techs = ResearchSystem.instantiateTechnologies();
     const reclaim = techs.find(t => t.id === 'land-reclamation');
-    const baseCost = ResearchSystem.getCostForTech(reclaim, 'forest');
-    ResearchSystem.recordPurchase(reclaim);
-    const nextCost = ResearchSystem.getCostForTech(reclaim, 'forest');
-    assert.ok(nextCost.gold > baseCost.gold, 'subsequent reclamations should scale in gold cost');
+    const baseForest = ResearchSystem.getCostForTech(reclaim, 'forest');
+    const baseTown = ResearchSystem.getCostForTech(reclaim, 'town');
+    ResearchSystem.recordPurchase(reclaim, 'forest');
+    const nextForest = ResearchSystem.getCostForTech(reclaim, 'forest');
+    const nextTown = ResearchSystem.getCostForTech(reclaim, 'town');
+    assert.ok(nextForest.gold > baseForest.gold, 'subsequent forest reclamations should scale in gold cost');
+    assert.strictEqual(nextTown.gold, baseTown.gold, 'town costs should not scale from forest purchases');
 }
 
 function testAffordabilityHelper() {

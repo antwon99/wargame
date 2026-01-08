@@ -390,7 +390,10 @@ function createPersistence(global) {
                 technologies: Array.from(game.research?.technologies || []).map(t => ({
                     id: t.id,
                     purchased: Boolean(t.purchased),
-                    timesPurchased: t.timesPurchased || 0
+                    timesPurchased: t.timesPurchased || 0,
+                    optionPurchaseCounts: t.optionPurchaseCounts
+                        ? { ...t.optionPurchaseCounts }
+                        : undefined
                 })),
                 lives: game.research?.lives || 0
             },
