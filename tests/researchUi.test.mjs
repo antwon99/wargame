@@ -276,8 +276,16 @@ function testLandReclamationOptionStates() {
     const card = grid.children[0];
     const optionButtons = card.querySelectorAll('.option-btn');
     assert.strictEqual(optionButtons.length, 2, 'land reclamation should render two option buttons');
-    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest', 'forest option should show the action label');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise City', 'town option should show the action label');
+    assert.strictEqual(
+        optionButtons[0].querySelector('.option-btn__label')?.innerText,
+        'Plant Forest',
+        'forest option should show the action label'
+    );
+    assert.strictEqual(
+        optionButtons[1].querySelector('.option-btn__label')?.innerText,
+        'Raise City',
+        'town option should show the action label'
+    );
 
     const purchaseBtn = card.querySelector('.tech-purchase-btn');
     assert.ok(purchaseBtn.disabled, 'purchase button should stay disabled until an option is selected');
@@ -285,11 +293,20 @@ function testLandReclamationOptionStates() {
 
     optionButtons[0].onclick();
 
-    assert.strictEqual(optionButtons[0].innerText, '675g', 'selected option should show the scaled price');
+    assert.strictEqual(
+        optionButtons[0].querySelector('.option-btn__price')?.innerText,
+        '675g',
+        'selected option should show the scaled price'
+    );
+    assert.ok(optionButtons[0].classList.contains('option-btn--selected'), 'selected option should be marked as selected');
     assert.ok(optionButtons[0].classList.contains('active'), 'selected option should keep the active class');
     assert.ok(optionButtons[0].classList.contains('confirm'), 'selected option should add the confirm class');
     assert.ok(optionButtons[0].classList.contains('affordable'), 'selected option should reflect affordability styling');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise City', 'unselected option should keep its label');
+    assert.strictEqual(
+        optionButtons[1].querySelector('.option-btn__label')?.innerText,
+        'Raise City',
+        'unselected option should keep its label'
+    );
     assert.ok(!optionButtons[1].classList.contains('affordable'), 'unselected option should not show affordability styling');
 
     assert.strictEqual(purchaseBtn.innerText, 'Confirm', 'purchase button should show a confirm label');
