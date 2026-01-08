@@ -116,6 +116,7 @@ function testInitShowsOverlayAfterWiring() {
     IntroOverlay.notifyUIReady();
     assert.ok(!doc.overlayEl.classList.contains('intro-hidden'), 'notifyUIReady should reveal the overlay once UI is ready');
     assert.strictEqual(doc.overlayEl.style.display, 'flex', 'notifyUIReady should restore flex display for the overlay');
+    assert.ok(doc.overlayEl.classList.contains('is-fading'), 'notifyUIReady should trigger a fade-in handoff');
 }
 
 function testInitSkipsCopyWhenAlreadyMatches() {
