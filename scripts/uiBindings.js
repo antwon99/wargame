@@ -829,6 +829,14 @@ function toggleResearch(game, forceOpen) {
     controller.showResearch?.();
 }
 
+const LAND_RECLAMATION_LABELS = {
+    forest: 'Plant Forest',
+    town: 'Raise Town'
+};
+
+const formatReclamationTargetLabel = (targetId, fallback = 'Upgrade') =>
+    LAND_RECLAMATION_LABELS[targetId] || fallback;
+
 /**
  * Rebuild the research modal using the shared card visuals so tech options mirror
  * the upgrade screen, including hover/active feedback and unified cost badges.
@@ -884,7 +892,7 @@ function updateResearchUI(game) {
 
         if (tech.costOptions && tech.costOptions.length > 0) {
             const optionLabelOverrides = tech.id === 'land-reclamation'
-                ? { forest: 'Plant Forest', town: 'Raise Town' }
+                ? LAND_RECLAMATION_LABELS
                 : null;
             const optionPicker = document.createElement('div');
             optionPicker.className = 'tech-options option-stack';
@@ -905,7 +913,7 @@ function updateResearchUI(game) {
 
             const formatPurchaseLabel = (costLabel) => {
                 const suffix = purchaseIndexLabel ? ` ${purchaseIndexLabel}` : '';
-                if (!costLabel) return 'Select focus';
+                if (!costLabel) return 'Select option';
                 return `Purchase${suffix ? ` ${suffix}` : ''} (${costLabel})`;
             };
 
@@ -914,7 +922,6 @@ function updateResearchUI(game) {
                 const affordableState = Boolean(canAfford);
                 btn.classList.toggle('affordable', affordableState);
                 btn.classList.toggle('unaffordable', !affordableState);
-                btn.disabled = !affordableState;
             };
 
             const updateOptionButtons = () => {
@@ -928,10 +935,14 @@ function updateResearchUI(game) {
                         && game.canPayCost(cost);
                     const isSelected = selectedOptionId === opt.id;
                     const baseLabel = optionLabels.get(opt.id) || opt.label;
+                    const optionCostLabel = cost ? game.formatCost(cost) : '';
+                    const showCostLabel = tech.id === 'land-reclamation' && optionCostLabel
+                        ? `${formatReclamationTargetLabel(opt.id, baseLabel)} (${optionCostLabel})`
+                        : baseLabel;
                     optBtn.classList.toggle('active', isSelected);
                     optBtn.classList.toggle('confirm', isSelected);
-                    optBtn.innerText = isSelected && cost ? game.formatCost(cost) : baseLabel;
-                    optBtn.title = cost ? `${baseLabel} — ${game.formatCost(cost)}` : baseLabel;
+                    optBtn.innerText = showCostLabel;
+                    optBtn.title = optionCostLabel ? `${baseLabel} — ${optionCostLabel}` : baseLabel;
                     applyOptionAffordability(optBtn, canAfford);
                 });
             };
@@ -1280,12 +1291,12 @@ function updateTileInspector(game, tile) {
         if (bonus) {
             bonus.classList.toggle('paused', !!game.paused);
             if (pendingReclamations) {
-                const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
+                const targetLabel = formatReclamationTargetLabel(pendingReclamationTarget, 'Upgrade');
                 if (!hasEligibleFields) {
                     bonus.innerText = 'Reclamation paused: no player fields available to convert.';
                     bonus.title = 'Claim or reclaim neutral territory to free up a field target.';
                 } else {
-                    bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build a ${targetLabel}${placementCost}.`;
+                    bonus.innerText = `Reclamation ready (${pendingReclamations}): select a field to build ${targetLabel}${placementCost}.`;
                     bonus.title = 'Gold will be charged when you confirm a valid placement.';
                 }
             } else {
@@ -1349,7 +1360,7 @@ function updateTileInspector(game, tile) {
         }
 
         if (pendingReclamations && resolvedTile.type === 'field' && resolvedTile.owner !== 'enemy') {
-            const targetLabel = pendingReclamationTarget ? pendingReclamationTarget.toUpperCase() : 'UPGRADE';
+            const targetLabel = formatReclamationTargetLabel(pendingReclamationTarget, 'Upgrade');
             const costLine = pendingCostLabel ? ` (${pendingCostLabel} on placement)` : '';
             bonus.innerText = `Reclaim ready: convert to ${targetLabel}${costLine}.`;
             bonus.title = 'Gold will be charged after selecting a valid player-owned field.';
