@@ -250,8 +250,8 @@ function testLandReclamationOptionStates() {
             { id: 'town', label: 'Raise City', cost: { gold: 900 } }
         ],
         growthFactor: 1.35,
-        timesPurchased: 1,
-        optionPurchaseCounts: { forest: 1, town: 1 }
+        timesPurchased: 2,
+        optionPurchaseCounts: { forest: 0, town: 2 }
     };
     const game = {
         resources: { gold: 700 },
@@ -295,8 +295,8 @@ function testLandReclamationOptionStates() {
 
     assert.strictEqual(
         optionButtons[0].querySelector('.option-btn__price')?.innerText,
-        '675g',
-        'selected option should show the scaled price'
+        '500g',
+        'selected option should show the per-option scaled price'
     );
     assert.ok(optionButtons[0].classList.contains('option-btn--selected'), 'selected option should be marked as selected');
     assert.ok(optionButtons[0].classList.contains('active'), 'selected option should keep the active class');
@@ -317,8 +317,8 @@ function testLandReclamationOptionStates() {
 
     assert.strictEqual(
         optionButtons[1].querySelector('.option-btn__price')?.innerText,
-        '1215g',
-        'switching selection should refresh the priced cost for the new option'
+        '1640g',
+        'switching selection should refresh the per-option priced cost for the new option'
     );
     assert.ok(optionButtons[1].classList.contains('unaffordable'), 'unaffordable selected option should carry styling state');
     assert.ok(purchaseBtn.disabled, 'purchase button should disable when the selected option is unaffordable');

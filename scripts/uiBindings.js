@@ -895,6 +895,7 @@ function updateResearchUI(game) {
             const optionLabelOverrides = isLandReclamation
                 ? LAND_RECLAMATION_LABELS
                 : null;
+            const getOptionCost = (optionId) => game.getTechCost(tech, optionId);
             const optionPicker = document.createElement('div');
             optionPicker.className = 'tech-options option-stack';
             let selectedOptionId = null;
@@ -904,7 +905,7 @@ function updateResearchUI(game) {
             const optionPriceNodes = new Map();
 
             const hasAffordableOption = tech.costOptions.some((opt) => {
-                const optCost = game.getTechCost(tech, opt.id);
+                const optCost = getOptionCost(opt.id);
                 return optCost
                     && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
                     && game.canPayCost(optCost);
@@ -933,7 +934,7 @@ function updateResearchUI(game) {
                     if (!optBtn) return;
                     const optLabel = optionLabelNodes.get(opt.id);
                     const optPrice = optionPriceNodes.get(opt.id);
-                    const cost = game.getTechCost(tech, opt.id);
+                    const cost = getOptionCost(opt.id);
                     const canAfford = cost
                         && canBuyMore
                         && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
@@ -963,7 +964,7 @@ function updateResearchUI(game) {
 
             const updateOptionState = () => {
                 const hasSelection = Boolean(selectedOptionId);
-                const pricedCost = hasSelection ? game.getTechCost(tech, selectedOptionId) : null;
+                const pricedCost = hasSelection ? getOptionCost(selectedOptionId) : null;
                 const canAfford = pricedCost
                     && canBuyMore
                     && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
