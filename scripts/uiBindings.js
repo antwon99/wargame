@@ -900,6 +900,8 @@ function updateResearchUI(game) {
             let selectedOptionId = null;
             const optionButtons = new Map();
             const optionLabels = new Map();
+            const optionLabelNodes = new Map();
+            const optionPriceNodes = new Map();
 
             const hasAffordableOption = tech.costOptions.some((opt) => {
                 const optCost = game.getTechCost(tech, opt.id);
@@ -929,6 +931,8 @@ function updateResearchUI(game) {
                 tech.costOptions.forEach((opt) => {
                     const optBtn = optionButtons.get(opt.id);
                     if (!optBtn) return;
+                    const optLabel = optionLabelNodes.get(opt.id);
+                    const optPrice = optionPriceNodes.get(opt.id);
                     const cost = game.getTechCost(tech, opt.id);
                     const canAfford = cost
                         && canBuyMore
@@ -937,13 +941,13 @@ function updateResearchUI(game) {
                     const isSelected = selectedOptionId === opt.id;
                     const baseLabel = optionLabels.get(opt.id) || opt.label;
                     const optionCostLabel = cost ? game.formatCost(cost) : '';
-                    let showCostLabel = baseLabel;
-                    if (isLandReclamation && isSelected && optionCostLabel) {
-                        showCostLabel = optionCostLabel;
-                    }
                     optBtn.classList.toggle('active', isSelected);
                     optBtn.classList.toggle('confirm', isSelected);
-                    optBtn.innerText = showCostLabel;
+                    optBtn.classList.toggle('option-btn--selected', isSelected);
+                    if (optLabel) optLabel.innerText = baseLabel;
+                    if (optPrice) {
+                        optPrice.innerText = (isLandReclamation && !isSelected) ? '' : optionCostLabel;
+                    }
                     optBtn.title = baseLabel;
                     if (isLandReclamation) {
                         if (isSelected) {
@@ -989,14 +993,22 @@ function updateResearchUI(game) {
             tech.costOptions.forEach((opt) => {
                 const optBtn = document.createElement('button');
                 const baseLabel = optionLabelOverrides?.[opt.id] || opt.label;
+                const labelSpan = document.createElement('span');
+                const priceSpan = document.createElement('span');
                 optionLabels.set(opt.id, baseLabel);
-                optBtn.innerText = baseLabel;
+                labelSpan.className = 'option-btn__label';
+                priceSpan.className = 'option-btn__price';
+                labelSpan.innerText = baseLabel;
                 optBtn.classList.add('card-btn', 'primary-btn', 'option-btn');
+                optBtn.appendChild(labelSpan);
+                optBtn.appendChild(priceSpan);
                 optBtn.onclick = () => {
                     selectedOptionId = opt.id;
                     updateOptionState();
                 };
                 optionButtons.set(opt.id, optBtn);
+                optionLabelNodes.set(opt.id, labelSpan);
+                optionPriceNodes.set(opt.id, priceSpan);
                 optionPicker.appendChild(optBtn);
             });
 

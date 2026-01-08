@@ -1261,7 +1261,39 @@
 
         .card-btn.primary-btn { border-color: #2dd4bf; color: #2dd4bf; }
         .card-btn.primary-btn:hover:not(:disabled) { background: rgba(45, 212, 191, 0.14); }
-        .card-btn.option-btn { flex: 1; min-width: 130px; }
+        .card-btn.option-btn {
+            flex: 1;
+            min-width: 130px;
+            display: grid;
+            place-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .card-btn.option-btn .option-btn__label,
+        .card-btn.option-btn .option-btn__price {
+            grid-area: 1 / 1;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-btn.option-btn .option-btn__label {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .card-btn.option-btn .option-btn__price {
+            opacity: 0;
+            transform: translateY(8px);
+            font-variant-numeric: tabular-nums;
+        }
+        .card-btn.option-btn.option-btn--selected .option-btn__label {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        .card-btn.option-btn.option-btn--selected .option-btn__price {
+            opacity: 1;
+            transform: translateY(0);
+        }
         .card-btn.option-btn.active { background: rgba(45, 212, 191, 0.16); border-color: #2dd4bf; color: #2dd4bf; }
         .card-btn.purchased-btn { border-color: var(--gold); color: var(--gold); background: rgba(255, 209, 102, 0.08); }
         .card-btn.tech-purchase-btn.affordable { border-color: #2dd4bf; color: #2dd4bf; background: rgba(45, 212, 191, 0.08); }
