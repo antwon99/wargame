@@ -48,6 +48,107 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     }
 
     /**
+     * Compute axial hex distance between two coordinates with a manual fallback.
+     * @param {object} a starting hex coordinate.
+     * @param {object} b ending hex coordinate.
+     * @param {object} HexImpl hex helper implementation.
+     * @returns {number} axial distance between the two coordinates.
+     */
+    function getHexDistance(a, b, HexImpl) {
+        if (HexImpl?.distance) return HexImpl.distance(a, b);
+        if (!a || !b) return Number.POSITIVE_INFINITY;
+        const dq = Math.abs((a.q ?? 0) - (b.q ?? 0));
+        const dr = Math.abs((a.r ?? 0) - (b.r ?? 0));
+        const ds = Math.abs((a.s ?? 0) - (b.s ?? 0));
+        return (dq + dr + ds) / 2;
+    }
+
+    /**
+     * Spawn a starter rebel camp near the castle without replacing starter terrain.
+     * Prefers empty neighbor slots around the castle, then falls back to the closest
+     * unseen frontier slot so forests/towns remain intact.
+     * @param {object} gameState live game state containing overworld data.
+     * @param {object} [options] optional configuration for deterministic tests.
+     * @param {function} [options.rng] random number generator returning [0,1).
+     * @returns {object|null} rebel camp tile payload or null when placement fails.
+     */
+    function spawnStarterRebelCampNearCastle(gameState, options = {}) {
+        const hexes = gameState?.overworld?.hexes;
+        if (!hexes || typeof hexes.forEach !== 'function') return null;
+        const HexImpl = getHexImpl(gameState);
+        if (!HexImpl || typeof HexImpl.neighbor !== 'function') return null;
+
+        const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+        let castleHex = null;
+        hexes.forEach((tile) => {
+            if (!castleHex && tile?.type === 'castle' && tile.hex) {
+                castleHex = tile.hex;
+            }
+        });
+        if (!castleHex && HexImpl) {
+            try {
+                castleHex = new HexImpl(0, 0);
+            } catch (error) {
+                castleHex = null;
+            }
+        }
+        if (!castleHex) return null;
+
+        const openNeighbors = [];
+        for (let dir = 0; dir < 6; dir += 1) {
+            const neighbor = HexImpl.neighbor(castleHex, dir);
+            const key = neighbor?.toString?.();
+            if (key && !hexes.has(key)) {
+                openNeighbors.push(neighbor);
+            }
+        }
+
+        let targetHex = null;
+        if (openNeighbors.length > 0) {
+            targetHex = openNeighbors[Math.floor(rng() * openNeighbors.length)];
+        } else {
+            const frontierSlots = new Map();
+            hexes.forEach((tile) => {
+                if (!tile?.hex) return;
+                for (let dir = 0; dir < 6; dir += 1) {
+                    const neighbor = HexImpl.neighbor(tile.hex, dir);
+                    const key = neighbor?.toString?.();
+                    if (!key || hexes.has(key) || frontierSlots.has(key)) continue;
+                    frontierSlots.set(key, neighbor);
+                }
+            });
+            if (!frontierSlots.size) return null;
+
+            let minDistance = Number.POSITIVE_INFINITY;
+            frontierSlots.forEach((hex) => {
+                const distance = getHexDistance(castleHex, hex, HexImpl);
+                if (distance < minDistance) minDistance = distance;
+            });
+            const closest = [];
+            frontierSlots.forEach((hex) => {
+                const distance = getHexDistance(castleHex, hex, HexImpl);
+                if (distance === minDistance) closest.push(hex);
+            });
+            if (!closest.length) return null;
+            targetHex = closest[Math.floor(rng() * closest.length)];
+        }
+
+        if (!targetHex) return null;
+        const rebelTile = {
+            hex: targetHex,
+            type: REBEL_CAMP_TYPE,
+            owner: 'rebel',
+            isRebelCamp: true,
+            prevType: 'field'
+        };
+        const key = getTileKey(rebelTile);
+        if (key && typeof hexes.set === 'function') {
+            hexes.set(key, rebelTile);
+        }
+        return rebelTile;
+    }
+
+    /**
      * Compute the per-day rebel spread chance, scaling with elapsed days.
      * @param {object} gameState live game state containing a timekeeper (optional).
      * @param {object} [options] optional overrides for testing.
@@ -211,6 +312,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
 
     const api = {
         spawnRebelCampNearFrontier,
+        spawnStarterRebelCampNearCastle,
         isRebelCampTile,
         getAllRebelCamps,
         restoreRebelTile,

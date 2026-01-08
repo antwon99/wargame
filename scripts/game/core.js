@@ -32,6 +32,7 @@ import { buildDefaultSettings } from '../settings.js';
 import '../researchSystem.js';
 import { RebelSystem } from '../rebelSystem.js';
 import { ResearchSystem } from '../researchSystem.js';
+import { TutorialHandler } from '../tutorialHandler.js';
 import Persistence from '../persistence.js';
 import ImperialMandateManager from '../mandates/imperialMandateManager.js';
 import {
@@ -710,6 +711,15 @@ const Game = {
         this.overworld.claimable = new Map();
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
+        if (!preserveIntro) {
+            const starterCamp = RebelSystem?.spawnStarterRebelCampNearCastle?.(this);
+            if (starterCamp && typeof TutorialHandler?.markFrontierSweepCamp === 'function') {
+                TutorialHandler.markFrontierSweepCamp(this, starterCamp, {
+                    source: 'starter_spawn',
+                    spreadImmune: true
+                });
+            }
+        }
         this.calcOverworldGhosts();
         this.finalizeStarterTerritory();
         this.syncReclamationAwaitState();
