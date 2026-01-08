@@ -883,9 +883,14 @@ function updateResearchUI(game) {
         let affordable = false;
 
         if (tech.costOptions && tech.costOptions.length > 0) {
+            const optionLabelOverrides = tech.id === 'land-reclamation'
+                ? { forest: 'Plant Forest', town: 'Raise Town' }
+                : null;
             const optionPicker = document.createElement('div');
             optionPicker.className = 'tech-options option-stack';
             let selectedOptionId = null;
+            const optionButtons = new Map();
+            const optionLabels = new Map();
 
             const hasAffordableOption = tech.costOptions.some((opt) => {
                 const optCost = game.getTechCost(tech, opt.id);
@@ -904,6 +909,33 @@ function updateResearchUI(game) {
                 return `Purchase${suffix ? ` ${suffix}` : ''} (${costLabel})`;
             };
 
+            const applyOptionAffordability = (btn, canAfford) => {
+                if (!btn) return;
+                const affordableState = Boolean(canAfford);
+                btn.classList.toggle('affordable', affordableState);
+                btn.classList.toggle('unaffordable', !affordableState);
+                btn.disabled = !affordableState;
+            };
+
+            const updateOptionButtons = () => {
+                tech.costOptions.forEach((opt) => {
+                    const optBtn = optionButtons.get(opt.id);
+                    if (!optBtn) return;
+                    const cost = game.getTechCost(tech, opt.id);
+                    const canAfford = cost
+                        && canBuyMore
+                        && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
+                        && game.canPayCost(cost);
+                    const isSelected = selectedOptionId === opt.id;
+                    const baseLabel = optionLabels.get(opt.id) || opt.label;
+                    optBtn.classList.toggle('active', isSelected);
+                    optBtn.classList.toggle('confirm', isSelected);
+                    optBtn.innerText = isSelected && cost ? game.formatCost(cost) : baseLabel;
+                    optBtn.title = cost ? `${baseLabel} — ${game.formatCost(cost)}` : baseLabel;
+                    applyOptionAffordability(optBtn, canAfford);
+                });
+            };
+
             const updateOptionState = () => {
                 const cost = selectedOptionId ? game.getTechCost(tech, selectedOptionId) : null;
                 const canAfford = cost
@@ -916,17 +948,20 @@ function updateResearchUI(game) {
                 purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
                 purchaseBtn.innerText = formatPurchaseLabel(costLabel);
                 affordable = (hasAffordableOption && canBuyMore) || canAfford;
+                updateOptionButtons();
             };
 
             tech.costOptions.forEach((opt) => {
                 const optBtn = document.createElement('button');
-                optBtn.innerText = opt.label;
+                const baseLabel = optionLabelOverrides?.[opt.id] || opt.label;
+                optionLabels.set(opt.id, baseLabel);
+                optBtn.innerText = baseLabel;
                 optBtn.classList.add('card-btn', 'primary-btn', 'option-btn');
                 optBtn.onclick = () => {
                     selectedOptionId = opt.id;
-                    optionPicker.querySelectorAll('button').forEach((btn) => btn.classList.toggle('active', btn === optBtn));
                     updateOptionState();
                 };
+                optionButtons.set(opt.id, optBtn);
                 optionPicker.appendChild(optBtn);
             });
 

@@ -56,6 +56,7 @@ class StubElement {
         this._innerHTML = '';
         this.id = '';
         this.title = '';
+        this.disabled = false;
     }
 
     appendChild(child) {
@@ -229,5 +230,80 @@ function testScalingHintAndPurchaseStates() {
     global.ResearchSystem = originalResearchSystem;
 }
 
+function testLandReclamationOptionStates() {
+    const originalDocument = global.document;
+    const originalWindow = global.window;
+    const originalResearchSystem = global.ResearchSystem;
+    const document = new StubDocument();
+    const grid = document.register('tech-grid', new StubElement('div'));
+    global.document = document;
+    global.window = { document };
+    global.ResearchSystem = ResearchSystem;
+
+    const landTech = {
+        id: 'land-reclamation',
+        name: 'Land Reclamation',
+        description: 'Spend gold to reclaim a field of your choice into a forest or town.',
+        costOptions: [
+            { id: 'forest', label: '500g: Plant Forest', cost: { gold: 500 } },
+            { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
+        ],
+        growthFactor: 1.35,
+        timesPurchased: 1
+    };
+    const game = {
+        resources: { gold: 700 },
+        research: { lives: 1, technologies: [landTech] },
+        hasFieldToConvert: () => true,
+        getTech: () => landTech,
+        getTechCost: (tech, optionId) => ResearchSystem.getCostForTech(tech, optionId),
+        formatCost: (cost) => Object.entries(cost || {})
+            .map(([key, value]) => `${value}${key[0]}`)
+            .join(' + '),
+        canPayCost(cost) {
+            return Object.entries(cost || {}).every(([key, value]) => (this.resources[key] || 0) >= value);
+        },
+        buyTechnologyCalls: [],
+        buyTechnology(id) {
+            this.buyTechnologyCalls.push(id);
+        }
+    };
+
+    updateResearchUI(game);
+
+    const card = grid.children[0];
+    const optionButtons = card.querySelectorAll('.option-btn');
+    assert.strictEqual(optionButtons.length, 2, 'land reclamation should render two option buttons');
+    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest', 'forest option should drop the price from its label');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise Town', 'town option should drop the price from its label');
+
+    optionButtons[0].onclick();
+
+    assert.strictEqual(optionButtons[0].innerText, '675g', 'selected option should show the scaled price');
+    assert.ok(optionButtons[0].classList.contains('active'), 'selected option should keep the active class');
+    assert.ok(optionButtons[0].classList.contains('confirm'), 'selected option should add the confirm class');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise Town', 'unselected option should keep its label');
+
+    const purchaseBtn = card.querySelector('.tech-purchase-btn');
+    assert.ok(purchaseBtn.innerText.includes('675g'), 'purchase button should mirror the selected price');
+    assert.ok(!purchaseBtn.disabled, 'purchase button should enable when the selected option is affordable');
+
+    game.resources.gold = 500;
+    updateResearchUI(game);
+    const updatedCard = grid.children[0];
+    const updatedOptionButtons = updatedCard.querySelectorAll('.option-btn');
+    updatedOptionButtons.forEach((btn) => {
+        assert.ok(btn.disabled, 'unaffordable options should be disabled');
+        assert.ok(btn.classList.contains('unaffordable'), 'unaffordable options should carry styling state');
+    });
+    const updatedPurchaseBtn = updatedCard.querySelector('.tech-purchase-btn');
+    assert.ok(updatedPurchaseBtn.disabled, 'purchase button should disable when the selected option is unaffordable');
+
+    global.document = originalDocument;
+    global.window = originalWindow;
+    global.ResearchSystem = originalResearchSystem;
+}
+
 testScalingHintAndPurchaseStates();
+testLandReclamationOptionStates();
 console.log('Research UI rendering tests passed.');
