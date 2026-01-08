@@ -38,8 +38,8 @@ function createResearchSystem() {
             name: 'Land Reclamation',
             description: 'Spend gold to reclaim a field of your choice into a forest or town. Costs scale per purchase.',
             costOptions: [
-                { id: 'forest', label: '500g: Plant Forest', cost: { gold: 500 } },
-                { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
+                { id: 'forest', label: 'Plant Forest', cost: { gold: 500 } },
+                { id: 'town', label: 'Raise City', cost: { gold: 500 } }
             ],
             optionPurchaseCounts: { forest: 0, town: 0 },
             growthFactor: 1.35
