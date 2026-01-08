@@ -216,8 +216,10 @@ async function runTests() {
             }
         }
     };
+    const legacyMigrationLog = [];
     const result = Persistence.deserializeGameState(snapshot, {
-        hexFactory: (q, r, s) => new Hex(q, r, s)
+        hexFactory: (q, r, s) => new Hex(q, r, s),
+        migrationLog: legacyMigrationLog
     });
     assert.strictEqual(result.overworld.hexes.size, 1);
     const only = Array.from(result.overworld.hexes.values())[0];
@@ -237,6 +239,14 @@ async function runTests() {
     assert.strictEqual(result.factionState.standings.reformers, 50, 'missing faction standings should default');
     assert.strictEqual(result.tutorial.frontierSweep.targetTileKey, '2,0', 'tutorial state should hydrate');
     assert.strictEqual(result.tutorial.frontierSweep.spreadImmune, false, 'tutorial spread immunity should hydrate');
+    assert.ok(
+        legacyMigrationLog.includes('stats.bestDifficulty'),
+        'legacy stat migrations should be tracked for bestDifficulty'
+    );
+    assert.ok(
+        legacyMigrationLog.includes('stats.warsPlayed'),
+        'legacy stat migrations should be tracked for warsPlayed'
+    );
 
     // Guard against malformed overworld tiles sneaking into state
     const malformedSnapshot = {
@@ -266,11 +276,19 @@ async function runTests() {
         },
         stats: {}
     };
-    const legacyRebelState = Persistence.deserializeGameState(legacyRebelSnapshot, { hexFactory: (q, r, s) => new Hex(q, r, s) });
+    const legacyRebelMigrationLog = [];
+    const legacyRebelState = Persistence.deserializeGameState(legacyRebelSnapshot, {
+        hexFactory: (q, r, s) => new Hex(q, r, s),
+        migrationLog: legacyRebelMigrationLog
+    });
     const legacyRebelTile = legacyRebelState.overworld.hexes.get('4,0');
     assert.strictEqual(legacyRebelTile.type, 'rebelcamp', 'legacy rebel tiles should normalize to rebel camps');
     assert.strictEqual(legacyRebelTile.owner, 'rebel', 'legacy rebel ownership should persist');
     assert.strictEqual(legacyRebelTile.isRebelCamp, true, 'legacy rebels should carry camp metadata');
+    assert.ok(
+        legacyRebelMigrationLog.includes('overworld.tileType.rebel'),
+        'legacy rebel tile migrations should be tracked'
+    );
 
     // Legacy saves without timekeeper data should inherit calendar defaults
     const legacySnapshot = {
@@ -294,6 +312,29 @@ async function runTests() {
     }).getCalendar();
     const defaultCalendar = new Timekeeper().getCalendar();
     assert.deepStrictEqual(restoredCalendar, defaultCalendar, 'restored calendar math should match Timekeeper defaults');
+
+    const legacySlot = 'legacy';
+    const legacySlotKey = Persistence.storageKeyForSlot(legacySlot);
+    global.localStorage.setItem(legacySlotKey, JSON.stringify({
+        gold: 1,
+        wood: 0,
+        difficulty: 2,
+        overworld: { hexes: [] },
+        stats: { bestDifficulty: 1 }
+    }));
+    const loadMigrationLog = [];
+    const legacyLoad = Persistence.loadSnapshot(legacySlot, {
+        hexFactory: (q, r, s) => new Hex(q, r, s),
+        migrationLog: loadMigrationLog
+    });
+    assert.ok(
+        legacyLoad.migrations.includes('stats.bestDifficulty'),
+        'loadSnapshot should surface legacy stat migrations'
+    );
+    assert.ok(
+        legacyLoad.migrations.includes('stats.warsWonFromDifficulty'),
+        'loadSnapshot should record warsWon migrations when falling back to difficulty'
+    );
 
     // Save/Load via mocked storage
     const saveGame = {

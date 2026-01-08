@@ -65,24 +65,45 @@ function createPersistence(global) {
         lastOutcome: 'N/A',
         lastSaveISO: null
     };
+    const LEGACY_MIGRATIONS = {
+        BEST_DIFFICULTY: 'stats.bestDifficulty',
+        WARS_PLAYED: 'stats.warsPlayed',
+        WARS_WON_FROM_DIFFICULTY: 'stats.warsWonFromDifficulty',
+        REBEL_TILE_TYPE: 'overworld.tileType.rebel'
+    };
 
     /**
      * Normalize leaderboard stats and translate legacy save keys into the UI schema.
      * @param {object} stats raw stats payload from the game or storage.
+     * @param {object} [options]
+     * @param {Array<string>} [options.migrationLog] optional array to record legacy migrations.
      * @returns {object} stats hydrated with defaults and modern field names.
      */
-    function normalizeStats(stats) {
+    function normalizeStats(stats, { migrationLog = null } = {}) {
         const safeStats = stats ?? {};
         const normalized = { ...DEFAULT_STATS, ...safeStats };
         const hasBestLevel = Object.prototype.hasOwnProperty.call(safeStats, 'bestLevel');
         const hasWarsFought = Object.prototype.hasOwnProperty.call(safeStats, 'warsFought');
         if (!hasBestLevel && Number.isFinite(safeStats.bestDifficulty)) {
             normalized.bestLevel = safeStats.bestDifficulty;
+            recordLegacyMigration(migrationLog, LEGACY_MIGRATIONS.BEST_DIFFICULTY);
         }
         if (!hasWarsFought && Number.isFinite(safeStats.warsPlayed)) {
             normalized.warsFought = safeStats.warsPlayed;
+            recordLegacyMigration(migrationLog, LEGACY_MIGRATIONS.WARS_PLAYED);
         }
         return normalized;
+    }
+
+    /**
+     * Record legacy migrations without duplicating entries in the provided log.
+     * @param {Array<string>|null} migrationLog optional log for tracking migrations.
+     * @param {string} entry migration identifier to append when missing.
+     */
+    function recordLegacyMigration(migrationLog, entry) {
+        if (!Array.isArray(migrationLog) || !entry) return;
+        if (migrationLog.includes(entry)) return;
+        migrationLog.push(entry);
     }
 
     /**
@@ -231,7 +252,15 @@ function createPersistence(global) {
      * @param {object|null} [options.statsSource=null] optional raw stats payload for presence checks.
      * @returns {{state: object|null, stats: object|null, difficulty: number, warsWon: number}} aligned payloads.
      */
-    function reconcileDifficultyAndWarsWon(state, stats, { fallbackDifficulty = 0, statsSource = null } = {}) {
+    function reconcileDifficultyAndWarsWon(
+        state,
+        stats,
+        {
+            fallbackDifficulty = 0,
+            statsSource = null,
+            migrationLog = null
+        } = {}
+    ) {
         const fallback = Number.isFinite(fallbackDifficulty) ? fallbackDifficulty : 0;
         const difficultyValue = Number.isFinite(state?.difficulty)
             ? Math.max(0, Math.floor(state.difficulty))
@@ -242,6 +271,9 @@ function createPersistence(global) {
         const warsWonValue = hasWarsWon && Number.isFinite(stats?.warsWon)
             ? Math.max(0, Math.floor(stats.warsWon))
             : null;
+        if (!hasWarsWon && Number.isFinite(difficultyValue)) {
+            recordLegacyMigration(migrationLog, LEGACY_MIGRATIONS.WARS_WON_FROM_DIFFICULTY);
+        }
         const resolvedWarsWon = Number.isFinite(warsWonValue)
             ? warsWonValue
             : (Number.isFinite(difficultyValue) ? difficultyValue : fallback);
@@ -463,6 +495,7 @@ function createPersistence(global) {
         if (!snapshot) return null;
         const allowedTileIds = getAllowedTileIds(options);
         const allowedOwners = new Set([null, 'player', 'rebel', 'scorched', 'enemy', 'neutral']);
+        const migrationLog = options.migrationLog || null;
         const makeHex =
             options.hexFactory ||
             ((q, r, s) => {
@@ -481,7 +514,10 @@ function createPersistence(global) {
         (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner }) => {
             if (!Number.isFinite(q) || !Number.isFinite(r) || !Number.isFinite(s)) return;
             let normalizedType = typeof type === 'string' ? type.toLowerCase() : null;
-            if (normalizedType === 'rebel') normalizedType = 'rebelcamp';
+            if (normalizedType === 'rebel') {
+                normalizedType = 'rebelcamp';
+                recordLegacyMigration(migrationLog, LEGACY_MIGRATIONS.REBEL_TILE_TYPE);
+            }
             if (!normalizedType || !allowedTileIds.has(normalizedType)) return;
 
             let normalizedOwner = null;
@@ -516,7 +552,7 @@ function createPersistence(global) {
             upgrades: snapshot.upgrades || {},
             research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
-            stats: normalizeStats(snapshot.stats),
+            stats: normalizeStats(snapshot.stats, { migrationLog }),
             notifications: Array.isArray(snapshot.notifications) ? snapshot.notifications : [],
             factionState: normalizeFactionStateSnapshot(snapshot.factionState),
             tutorial: normalizeTutorialSnapshot(snapshot.tutorial),
@@ -571,20 +607,28 @@ function createPersistence(global) {
      * Load the saved snapshot for a specific slot, if present.
      * @param {string|number|object} [slotOrOptions] slot identifier or options object.
      * @param {object} [options] passthrough options for deserialization when slot is provided first.
-     * @returns {{state: object|null, stats: object, slot: string}} hydrated state + stats.
+     * @returns {{state: object|null, stats: object, slot: string, migrations: Array<string>}}
+     * hydrated state + stats and legacy migration notes.
      */
     function loadSnapshot(slotOrOptions = {}, options = {}) {
         const { slot, options: normalizedOptions } = normalizeSlotAndOptions(slotOrOptions, options);
         const rawState = readFromStorage(storageKeyForSlot(slot));
         const rawStats = readFromStorage(statsKeyForSlot(slot));
         const rawStatsSource = rawStats || rawState?.stats || null;
-        const stats = normalizeStats(rawStatsSource);
-        const state = deserializeGameState(rawState, normalizedOptions);
-        const reconciled = reconcileDifficultyAndWarsWon(state, stats, { statsSource: rawStatsSource });
+        const migrationLog = Array.isArray(normalizedOptions.migrationLog)
+            ? normalizedOptions.migrationLog
+            : [];
+        const stats = normalizeStats(rawStatsSource, { migrationLog });
+        const state = deserializeGameState(rawState, { ...normalizedOptions, migrationLog });
+        const reconciled = reconcileDifficultyAndWarsWon(state, stats, {
+            statsSource: rawStatsSource,
+            migrationLog
+        });
         return {
             state: reconciled.state,
             stats: reconciled.stats,
-            slot
+            slot,
+            migrations: migrationLog
         };
     }
 
