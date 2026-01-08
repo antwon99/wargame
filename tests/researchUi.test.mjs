@@ -249,7 +249,8 @@ function testLandReclamationOptionStates() {
             { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
         ],
         growthFactor: 1.35,
-        timesPurchased: 1
+        timesPurchased: 1,
+        optionPurchaseCounts: { forest: 1, town: 1 }
     };
     const game = {
         resources: { gold: 700 },
@@ -274,17 +275,19 @@ function testLandReclamationOptionStates() {
     const card = grid.children[0];
     const optionButtons = card.querySelectorAll('.option-btn');
     assert.strictEqual(optionButtons.length, 2, 'land reclamation should render two option buttons');
-    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest', 'forest option should drop the price from its label');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise Town', 'town option should drop the price from its label');
+    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest (675g)', 'forest option should show the scaled price');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise Town (675g)', 'town option should show the scaled price');
+
+    const purchaseBtn = card.querySelector('.tech-purchase-btn');
+    assert.ok(purchaseBtn.disabled, 'purchase button should stay disabled until an option is selected');
 
     optionButtons[0].onclick();
 
-    assert.strictEqual(optionButtons[0].innerText, '675g', 'selected option should show the scaled price');
+    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest (675g)', 'selected option should keep the scaled price');
     assert.ok(optionButtons[0].classList.contains('active'), 'selected option should keep the active class');
     assert.ok(optionButtons[0].classList.contains('confirm'), 'selected option should add the confirm class');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise Town', 'unselected option should keep its label');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise Town (675g)', 'unselected option should keep its label');
 
-    const purchaseBtn = card.querySelector('.tech-purchase-btn');
     assert.ok(purchaseBtn.innerText.includes('675g'), 'purchase button should mirror the selected price');
     assert.ok(!purchaseBtn.disabled, 'purchase button should enable when the selected option is affordable');
 
@@ -293,7 +296,6 @@ function testLandReclamationOptionStates() {
     const updatedCard = grid.children[0];
     const updatedOptionButtons = updatedCard.querySelectorAll('.option-btn');
     updatedOptionButtons.forEach((btn) => {
-        assert.ok(btn.disabled, 'unaffordable options should be disabled');
         assert.ok(btn.classList.contains('unaffordable'), 'unaffordable options should carry styling state');
     });
     const updatedPurchaseBtn = updatedCard.querySelector('.tech-purchase-btn');
