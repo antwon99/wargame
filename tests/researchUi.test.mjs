@@ -57,6 +57,7 @@ class StubElement {
         this.id = '';
         this.title = '';
         this.disabled = false;
+        this.hidden = false;
     }
 
     appendChild(child) {
@@ -245,8 +246,8 @@ function testLandReclamationOptionStates() {
         name: 'Land Reclamation',
         description: 'Spend gold to reclaim a field of your choice into a forest or town.',
         costOptions: [
-            { id: 'forest', label: '500g: Plant Forest', cost: { gold: 500 } },
-            { id: 'town', label: '500g: Raise Town', cost: { gold: 500 } }
+            { id: 'forest', label: 'Plant Forest', cost: { gold: 500 } },
+            { id: 'town', label: 'Raise City', cost: { gold: 500 } }
         ],
         growthFactor: 1.35,
         timesPurchased: 1,
@@ -275,31 +276,35 @@ function testLandReclamationOptionStates() {
     const card = grid.children[0];
     const optionButtons = card.querySelectorAll('.option-btn');
     assert.strictEqual(optionButtons.length, 2, 'land reclamation should render two option buttons');
-    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest (675g)', 'forest option should show the scaled price');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise Town (675g)', 'town option should show the scaled price');
+    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest', 'forest option should show the action label');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise City', 'town option should show the action label');
 
     const purchaseBtn = card.querySelector('.tech-purchase-btn');
     assert.ok(purchaseBtn.disabled, 'purchase button should stay disabled until an option is selected');
+    assert.ok(purchaseBtn.hidden, 'purchase button should stay hidden until an option is selected');
 
     optionButtons[0].onclick();
 
-    assert.strictEqual(optionButtons[0].innerText, 'Plant Forest (675g)', 'selected option should keep the scaled price');
+    assert.strictEqual(optionButtons[0].innerText, '675g', 'selected option should show the scaled price');
     assert.ok(optionButtons[0].classList.contains('active'), 'selected option should keep the active class');
     assert.ok(optionButtons[0].classList.contains('confirm'), 'selected option should add the confirm class');
-    assert.strictEqual(optionButtons[1].innerText, 'Raise Town (675g)', 'unselected option should keep its label');
+    assert.ok(optionButtons[0].classList.contains('affordable'), 'selected option should reflect affordability styling');
+    assert.strictEqual(optionButtons[1].innerText, 'Raise City', 'unselected option should keep its label');
+    assert.ok(!optionButtons[1].classList.contains('affordable'), 'unselected option should not show affordability styling');
 
-    assert.ok(purchaseBtn.innerText.includes('675g'), 'purchase button should mirror the selected price');
+    assert.strictEqual(purchaseBtn.innerText, 'Confirm', 'purchase button should show a confirm label');
     assert.ok(!purchaseBtn.disabled, 'purchase button should enable when the selected option is affordable');
+    assert.ok(!purchaseBtn.hidden, 'purchase button should show when the selected option is affordable');
 
     game.resources.gold = 500;
     updateResearchUI(game);
     const updatedCard = grid.children[0];
     const updatedOptionButtons = updatedCard.querySelectorAll('.option-btn');
-    updatedOptionButtons.forEach((btn) => {
-        assert.ok(btn.classList.contains('unaffordable'), 'unaffordable options should carry styling state');
-    });
+    updatedOptionButtons[0].onclick();
+    assert.ok(updatedOptionButtons[0].classList.contains('unaffordable'), 'unaffordable selected option should carry styling state');
     const updatedPurchaseBtn = updatedCard.querySelector('.tech-purchase-btn');
     assert.ok(updatedPurchaseBtn.disabled, 'purchase button should disable when the selected option is unaffordable');
+    assert.ok(updatedPurchaseBtn.hidden, 'purchase button should hide when the selected option is unaffordable');
 
     global.document = originalDocument;
     global.window = originalWindow;

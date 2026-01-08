@@ -831,7 +831,7 @@ function toggleResearch(game, forceOpen) {
 
 const LAND_RECLAMATION_LABELS = {
     forest: 'Plant Forest',
-    town: 'Raise Town'
+    town: 'Raise City'
 };
 
 const formatReclamationTargetLabel = (targetId, fallback = 'Upgrade') =>
@@ -891,7 +891,8 @@ function updateResearchUI(game) {
         let affordable = false;
 
         if (tech.costOptions && tech.costOptions.length > 0) {
-            const optionLabelOverrides = tech.id === 'land-reclamation'
+            const isLandReclamation = tech.id === 'land-reclamation';
+            const optionLabelOverrides = isLandReclamation
                 ? LAND_RECLAMATION_LABELS
                 : null;
             const optionPicker = document.createElement('div');
@@ -936,14 +937,23 @@ function updateResearchUI(game) {
                     const isSelected = selectedOptionId === opt.id;
                     const baseLabel = optionLabels.get(opt.id) || opt.label;
                     const optionCostLabel = cost ? game.formatCost(cost) : '';
-                    const showCostLabel = tech.id === 'land-reclamation' && optionCostLabel
-                        ? `${formatReclamationTargetLabel(opt.id, baseLabel)} (${optionCostLabel})`
-                        : baseLabel;
+                    let showCostLabel = baseLabel;
+                    if (isLandReclamation && isSelected && optionCostLabel) {
+                        showCostLabel = optionCostLabel;
+                    }
                     optBtn.classList.toggle('active', isSelected);
                     optBtn.classList.toggle('confirm', isSelected);
                     optBtn.innerText = showCostLabel;
-                    optBtn.title = optionCostLabel ? `${baseLabel} — ${optionCostLabel}` : baseLabel;
-                    applyOptionAffordability(optBtn, canAfford);
+                    optBtn.title = baseLabel;
+                    if (isLandReclamation) {
+                        if (isSelected) {
+                            applyOptionAffordability(optBtn, canAfford);
+                        } else {
+                            optBtn.classList.remove('affordable', 'unaffordable');
+                        }
+                    } else {
+                        applyOptionAffordability(optBtn, canAfford);
+                    }
                 });
             };
 
@@ -954,10 +964,24 @@ function updateResearchUI(game) {
                     && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
                     && game.canPayCost(cost);
                 const costLabel = cost ? game.formatCost(cost) : '';
-                purchaseBtn.disabled = !canAfford;
-                applyPurchaseAffordability(purchaseBtn, canAfford);
-                purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
-                purchaseBtn.innerText = formatPurchaseLabel(costLabel);
+                if (isLandReclamation) {
+                    const shouldConfirm = Boolean(selectedOptionId && canAfford);
+                    purchaseBtn.hidden = !shouldConfirm;
+                    purchaseBtn.disabled = !shouldConfirm;
+                    purchaseBtn.setAttribute('aria-hidden', shouldConfirm ? 'false' : 'true');
+                    purchaseBtn.title = shouldConfirm ? '' : 'Choose an option first';
+                    purchaseBtn.innerText = 'Confirm';
+                    if (shouldConfirm) {
+                        applyPurchaseAffordability(purchaseBtn, true);
+                    } else {
+                        purchaseBtn.classList.remove('affordable', 'unaffordable');
+                    }
+                } else {
+                    purchaseBtn.disabled = !canAfford;
+                    applyPurchaseAffordability(purchaseBtn, canAfford);
+                    purchaseBtn.title = selectedOptionId ? '' : 'Choose an option first';
+                    purchaseBtn.innerText = formatPurchaseLabel(costLabel);
+                }
                 affordable = (hasAffordableOption && canBuyMore) || canAfford;
                 updateOptionButtons();
             };
