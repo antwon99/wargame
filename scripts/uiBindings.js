@@ -962,18 +962,25 @@ function updateResearchUI(game) {
             };
 
             const updateOptionState = () => {
-                const cost = selectedOptionId ? game.getTechCost(tech, selectedOptionId) : null;
-                const canAfford = cost
+                const hasSelection = Boolean(selectedOptionId);
+                const pricedCost = hasSelection ? game.getTechCost(tech, selectedOptionId) : null;
+                const canAfford = pricedCost
                     && canBuyMore
                     && (tech.id !== 'land-reclamation' || game.hasFieldToConvert())
-                    && game.canPayCost(cost);
-                const costLabel = cost ? game.formatCost(cost) : '';
+                    && game.canPayCost(pricedCost);
+                const costLabel = pricedCost ? game.formatCost(pricedCost) : '';
                 if (isLandReclamation) {
-                    const shouldConfirm = Boolean(selectedOptionId && canAfford);
+                    const shouldConfirm = Boolean(hasSelection && canAfford);
                     purchaseBtn.hidden = !shouldConfirm;
                     purchaseBtn.disabled = !shouldConfirm;
                     purchaseBtn.setAttribute('aria-hidden', shouldConfirm ? 'false' : 'true');
-                    purchaseBtn.title = shouldConfirm ? '' : 'Choose an option first';
+                    if (shouldConfirm) {
+                        purchaseBtn.title = '';
+                    } else if (!hasSelection) {
+                        purchaseBtn.title = 'Choose an option first';
+                    } else {
+                        purchaseBtn.title = 'Option is not affordable';
+                    }
                     purchaseBtn.innerText = 'Confirm';
                     if (shouldConfirm) {
                         applyPurchaseAffordability(purchaseBtn, true);
