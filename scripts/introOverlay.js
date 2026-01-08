@@ -70,8 +70,30 @@ const IntroOverlay = {
     reveal() {
         if (!this.overlayEl || !this.active) return;
         this.pendingReveal = false;
-        this.overlayEl.classList.remove('intro-hidden');
         this.overlayEl.style.display = 'flex';
+        this.overlayEl.classList.remove('intro-hidden');
+        this.beginFadeIn();
+    },
+
+    /**
+     * Apply a brief fade-in handoff so the overlay can crossfade with other
+     * boot-time blockers before becoming fully interactive.
+     */
+    beginFadeIn() {
+        if (!this.overlayEl) return;
+        this.overlayEl.classList.add('is-fading');
+        const clearFade = () => {
+            if (this.overlayEl) {
+                this.overlayEl.classList.remove('is-fading');
+            }
+        };
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => requestAnimationFrame(clearFade));
+        } else if (typeof setTimeout === 'function') {
+            setTimeout(clearFade, 16);
+        } else {
+            clearFade();
+        }
     },
 
     /**

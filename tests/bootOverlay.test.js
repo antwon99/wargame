@@ -92,9 +92,11 @@ function testHideRequiresAcknowledgement() {
     assert.ok(doc.statusEl.classList.contains('is-hidden'), 'markReady should hide the loading status');
 
     doc.readyButtonEl.trigger('click');
-    assert.ok(doc.overlayEl.classList.contains('boot-hidden'), 'clicking the ready button should hide the overlay');
+    assert.ok(doc.overlayEl.classList.contains('is-fading'), 'clicking the ready button should start fading the overlay');
+    assert.ok(!doc.overlayEl.classList.contains('boot-hidden'), 'overlay should not be fully hidden until the fade completes');
 
     doc.overlayEl.trigger('transitionend');
+    assert.ok(doc.overlayEl.classList.contains('boot-hidden'), 'transition end should finalize the hidden state');
     assert.strictEqual(doc.overlayEl.style.display, 'none', 'transition end should remove overlay from layout');
 }
 

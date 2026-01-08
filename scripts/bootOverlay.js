@@ -31,7 +31,7 @@ const BootOverlay = {
         this.readyButtonEl = doc.getElementById('boot-overlay-ready');
         if (!this.overlayEl) return false;
 
-        this.overlayEl.classList.remove('boot-hidden');
+        this.overlayEl.classList.remove('boot-hidden', 'is-fading');
         this.overlayEl.style.display = 'flex';
         this.requiresAcknowledgement = Boolean(this.readyButtonEl);
         this.readyAcknowledged = false;
@@ -53,6 +53,11 @@ const BootOverlay = {
             this.statusEl.classList.remove('is-hidden');
         }
         this.overlayEl.addEventListener('transitionend', () => {
+            if (!this.overlayEl) return;
+            if (this.overlayEl.classList.contains('is-fading')) {
+                this.overlayEl.classList.remove('is-fading');
+                this.overlayEl.classList.add('boot-hidden');
+            }
             if (this.overlayEl.classList.contains('boot-hidden')) {
                 this.overlayEl.style.display = 'none';
             }
@@ -70,7 +75,7 @@ const BootOverlay = {
         if (!this.overlayEl || this.hidden) return;
         if (this.requiresAcknowledgement && !this.readyAcknowledged) return;
         this.hidden = true;
-        this.overlayEl.classList.add('boot-hidden');
+        this.overlayEl.classList.add('is-fading');
     },
 
     /**
@@ -80,7 +85,7 @@ const BootOverlay = {
         if (!this.overlayEl) return;
         this.hidden = false;
         this.readyAcknowledged = false;
-        this.overlayEl.classList.remove('boot-hidden');
+        this.overlayEl.classList.remove('boot-hidden', 'is-fading');
         this.overlayEl.style.display = 'flex';
         if (this.statusEl) {
             this.statusEl.classList.remove('is-hidden');

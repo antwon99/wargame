@@ -33,6 +33,7 @@
             z-index: 60;
             opacity: 1;
             transition: opacity 0.35s ease, visibility 0.35s ease;
+            visibility: visible;
         }
 
         .boot-overlay__content {
@@ -132,6 +133,11 @@
             pointer-events: none;
         }
 
+        .boot-overlay.is-fading {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         /* Intro Overlay */
         .intro-overlay {
             position: fixed;
@@ -148,6 +154,7 @@
             padding: 20px;
             opacity: 1;
             transition: opacity 0.4s ease, visibility 0.4s ease;
+            visibility: visible;
         }
 
         .intro-overlay h1 {
@@ -189,6 +196,11 @@
         .intro-overlay.intro-hidden {
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
+        }
+
+        .intro-overlay.is-fading {
+            opacity: 0;
             pointer-events: none;
         }
 
