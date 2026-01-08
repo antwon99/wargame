@@ -712,6 +712,17 @@ const Game = {
         this.addOverworldHex(new Hex(0,0), 'castle');
         for(let i=0; i<6; i++) this.claimHexLogic(Hex.neighbor(new Hex(0,0),i), true);
         if (!preserveIntro) {
+            const tutorialState = TutorialHandler?.ensureTutorialState?.(this);
+            if (tutorialState?.frontierSweep) {
+                tutorialState.frontierSweep = {
+                    ...tutorialState.frontierSweep,
+                    targetTileKey: null,
+                    completionTick: null,
+                    issuedTick: null,
+                    source: null,
+                    enemyLevel: null
+                };
+            }
             const starterCamp = RebelSystem?.spawnStarterRebelCampNearCastle?.(this);
             if (starterCamp && typeof TutorialHandler?.markFrontierSweepCamp === 'function') {
                 TutorialHandler.markFrontierSweepCamp(this, starterCamp, {
