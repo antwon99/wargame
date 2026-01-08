@@ -29,6 +29,11 @@ This prototype now ships with a lightweight persistence layer backed by `localSt
 - `lastSaveISO`: ISO8601 timestamp set by the most recent save.
 
 Legacy saves are automatically upgraded on load: `bestDifficulty` maps to `bestLevel`, and `warsPlayed` maps to `warsFought` so older payloads remain compatible with the UI leaderboard.
+The loader also logs a `migrations` array on the `Persistence.loadSnapshot` result whenever it detects legacy fields (including `rebel` tile ids or missing `warsWon` values that fall back to `difficulty`) so tests can track when pre-cutover data is still in use.
+
+### Legacy cutover notes
+- New saves no longer emit `bestDifficulty`/`warsPlayed` or `rebel` tile ids; only the read-time migration layer supports those legacy fields.
+- The migration log exists to spot when older payloads are still being loaded so the fallback paths can be retired once production data catches up.
 
 ## Extending the system
 - Add new fields to `Persistence.DEFAULT_STATS` if you introduce more metrics—`serializeGameState` will automatically merge them.

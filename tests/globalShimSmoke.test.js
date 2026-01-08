@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { buildBootstrapDependencies, ensureGlobalShims, publishBootstrapHandles } from '../scripts/globalShim.js';
+import { buildBootstrapDependencies, publishBootstrapHandles } from '../scripts/globalShim.js';
 
 function run() {
     const scope = {};
@@ -33,9 +33,6 @@ function run() {
     assert.strictEqual(scope.InputHelpers, undefined, 'dependency builder should not mutate scope');
     assert.strictEqual(dependencies.inputHelpers, providers.InputHelpers, 'dependency builder should use explicit providers');
 
-    const missing = ensureGlobalShims(scope, providers);
-    assert.deepStrictEqual(missing, [], 'shim should populate all required globals when invoked');
-
     let didBootstrap = false;
     publishBootstrapHandles(() => { didBootstrap = true; }, () => ({}), scope);
     assert.strictEqual(typeof scope.bootstrapGame, 'function');
@@ -43,7 +40,13 @@ function run() {
     scope.bootstrapGame();
     assert.ok(didBootstrap, 'published bootstrap should be callable');
 
-    assert.throws(() => ensureGlobalShims({}, {}), /Missing required globals/, 'missing globals should throw');
+    const legacyScope = { ...providers };
+    const legacyDependencies = buildBootstrapDependencies(legacyScope);
+    assert.strictEqual(
+        legacyDependencies.platformAdapter,
+        providers.PlatformAdapter,
+        'dependency builder should read legacy globals when providers are absent'
+    );
 
     console.log('Global shim smoke test passed.');
 }
