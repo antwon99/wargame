@@ -247,7 +247,7 @@ function testLandReclamationOptionStates() {
         description: 'Spend gold to reclaim a field of your choice into a forest or town.',
         costOptions: [
             { id: 'forest', label: 'Plant Forest', cost: { gold: 500 } },
-            { id: 'town', label: 'Raise City', cost: { gold: 500 } }
+            { id: 'town', label: 'Raise City', cost: { gold: 900 } }
         ],
         growthFactor: 1.35,
         timesPurchased: 1,
@@ -313,15 +313,16 @@ function testLandReclamationOptionStates() {
     assert.ok(!purchaseBtn.disabled, 'purchase button should enable when the selected option is affordable');
     assert.ok(!purchaseBtn.hidden, 'purchase button should show when the selected option is affordable');
 
-    game.resources.gold = 500;
-    updateResearchUI(game);
-    const updatedCard = grid.children[0];
-    const updatedOptionButtons = updatedCard.querySelectorAll('.option-btn');
-    updatedOptionButtons[0].onclick();
-    assert.ok(updatedOptionButtons[0].classList.contains('unaffordable'), 'unaffordable selected option should carry styling state');
-    const updatedPurchaseBtn = updatedCard.querySelector('.tech-purchase-btn');
-    assert.ok(updatedPurchaseBtn.disabled, 'purchase button should disable when the selected option is unaffordable');
-    assert.ok(updatedPurchaseBtn.hidden, 'purchase button should hide when the selected option is unaffordable');
+    optionButtons[1].onclick();
+
+    assert.strictEqual(
+        optionButtons[1].querySelector('.option-btn__price')?.innerText,
+        '1215g',
+        'switching selection should refresh the priced cost for the new option'
+    );
+    assert.ok(optionButtons[1].classList.contains('unaffordable'), 'unaffordable selected option should carry styling state');
+    assert.ok(purchaseBtn.disabled, 'purchase button should disable when the selected option is unaffordable');
+    assert.ok(purchaseBtn.hidden, 'purchase button should hide when the selected option is unaffordable');
 
     global.document = originalDocument;
     global.window = originalWindow;
