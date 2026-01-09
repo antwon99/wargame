@@ -1283,6 +1283,17 @@
             border-color: rgba(255, 209, 102, 0.2);
         }
 
+        .ultimate-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .ultimate-btn {
+            align-self: stretch;
+        }
+
         .ultimate-status {
             text-transform: uppercase;
             font-size: 0.72rem;

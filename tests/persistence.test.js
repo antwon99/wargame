@@ -116,6 +116,7 @@ async function runTests() {
         imperialFavor: 7,
         timekeeper: { ticks: 12, daysPerWeek: 5, weeksPerMonth: 3 },
         upgrades: { soldier: 1 },
+        ultimates: { rush: 2, gold: 3 },
         overworld: {
             hexes: new Map([
                 ['0,0', { hex: new Hex(0, 0, 0), type: 'castle' }],
@@ -146,6 +147,7 @@ async function runTests() {
     assert.strictEqual(snap.stats.warsFought, 0);
     assert.strictEqual(snap.stats.lastOutcome, 'N/A');
     assert.strictEqual(snap.gold, 100);
+    assert.deepStrictEqual(snap.ultimates, { rush: 2, gold: 3 }, 'ultimate upgrades should persist');
     assert.strictEqual(snap.timekeeper.ticks, 12);
     assert.strictEqual(snap.timekeeper.daysPerWeek, 5);
     assert.strictEqual(snap.notifications.length, 2, 'pending notifications should persist');
@@ -198,6 +200,7 @@ async function runTests() {
         wood: 7,
         difficulty: 1,
         upgrades: { soldier: 2 },
+        ultimates: { manpower: 2 },
         imperialFavor: 3,
         overworld: { hexes: [{ q: 0, r: 0, s: 0, type: 'castle' }] },
         stats: { totalKills: 3, bestDifficulty: 4, warsPlayed: 6 },
@@ -231,6 +234,7 @@ async function runTests() {
     assert.strictEqual(result.imperialFavor, 3);
     assert.strictEqual(result.timekeeper.ticks, 4);
     assert.strictEqual(result.timekeeper.daysPerWeek, 6);
+    assert.deepStrictEqual(result.ultimates, { manpower: 2 }, 'ultimate upgrades should deserialize');
     assert.strictEqual(result.notifications.length, 1);
     assert.strictEqual(result.mandates.currentTick, mandateSnapshot.currentTick);
     assert.deepStrictEqual(result.narrative, narrativeSnapshot);

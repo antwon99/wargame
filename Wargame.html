@@ -390,9 +390,16 @@
                         <h3 class="card-title" id="ultimate-rush-title">Rush ⚡</h3>
                         <p class="card-desc" id="ultimate-rush-desc">Sound the charge to boost allied march speed for a short burst.</p>
                     </div>
-                    <span class="cost-badge ultimate-status" id="ultimate-rush-status" aria-label="Rush status">Locked</span>
+                    <div class="ultimate-actions">
+                        <span class="cost-badge ultimate-status" id="ultimate-rush-status" aria-label="Rush level">Level 1</span>
+                        <button class="card-btn primary-btn upg-btn ultimate-btn" data-ultimate-button="rush" id="buy-ultimate-rush" type="button">
+                            <span class="upgrade-btn__label" data-ultimate-label="rush">Upgrade</span>
+                            <span class="upgrade-btn__cost" data-ultimate-cost="rush">220g</span>
+                        </button>
+                    </div>
                 </div>
-                <p class="card-note" id="ultimate-rush-meta">Upgrade this ultimate between wars to extend its duration.</p>
+                <p class="card-note" id="ultimate-rush-meta" data-ultimate-level="rush">Upgrade this ultimate between wars to extend its duration.</p>
+                <p class="card-note" id="ultimate-rush-effect" data-ultimate-effect="rush">Rush: +25% speed for 6 seconds.</p>
             </article>
 
             <article
@@ -407,9 +414,16 @@
                         <h3 class="card-title" id="ultimate-manpower-title">Manpower 🪖</h3>
                         <p class="card-desc" id="ultimate-manpower-desc">Rally conscripts to accelerate spawn cadence and reinforce the line.</p>
                     </div>
-                    <span class="cost-badge ultimate-status" id="ultimate-manpower-status" aria-label="Manpower status">Locked</span>
+                    <div class="ultimate-actions">
+                        <span class="cost-badge ultimate-status" id="ultimate-manpower-status" aria-label="Manpower level">Level 1</span>
+                        <button class="card-btn primary-btn upg-btn ultimate-btn" data-ultimate-button="manpower" id="buy-ultimate-manpower" type="button">
+                            <span class="upgrade-btn__label" data-ultimate-label="manpower">Upgrade</span>
+                            <span class="upgrade-btn__cost" data-ultimate-cost="manpower">240g</span>
+                        </button>
+                    </div>
                 </div>
-                <p class="card-note" id="ultimate-manpower-meta">Upgrade this ultimate between wars to sharpen reinforcement timing.</p>
+                <p class="card-note" id="ultimate-manpower-meta" data-ultimate-level="manpower">Upgrade this ultimate between wars to sharpen reinforcement timing.</p>
+                <p class="card-note" id="ultimate-manpower-effect" data-ultimate-effect="manpower">Manpower: +20% spawn speed with 50% double spawns for 8 seconds.</p>
             </article>
 
             <article
@@ -424,9 +438,16 @@
                         <h3 class="card-title" id="ultimate-gold-title">Gold 💰</h3>
                         <p class="card-desc" id="ultimate-gold-desc">Requisition veteran ranks for immediate war spoils and funding.</p>
                     </div>
-                    <span class="cost-badge ultimate-status" id="ultimate-gold-status" aria-label="Gold status">Locked</span>
+                    <div class="ultimate-actions">
+                        <span class="cost-badge ultimate-status" id="ultimate-gold-status" aria-label="Gold level">Level 1</span>
+                        <button class="card-btn primary-btn upg-btn ultimate-btn" data-ultimate-button="gold" id="buy-ultimate-gold" type="button">
+                            <span class="upgrade-btn__label" data-ultimate-label="gold">Upgrade</span>
+                            <span class="upgrade-btn__cost" data-ultimate-cost="gold">260g</span>
+                        </button>
+                    </div>
                 </div>
-                <p class="card-note" id="ultimate-gold-meta">Upgrade this ultimate between wars to reclaim more bounty.</p>
+                <p class="card-note" id="ultimate-gold-meta" data-ultimate-level="gold">Upgrade this ultimate between wars to reclaim more bounty.</p>
+                <p class="card-note" id="ultimate-gold-effect" data-ultimate-effect="gold">Gold: cull 25% of standing units for 6g each.</p>
             </article>
         </div>
     </div>

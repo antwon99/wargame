@@ -30,6 +30,31 @@ export const ULTIMATE_CONFIG = Object.freeze({
 });
 
 /**
+ * Upgrade economy tuning for ultimate purchases.
+ * Base cost is the gold price of upgrading from level 1 → 2.
+ */
+export const ULTIMATE_UPGRADE_CONFIG = Object.freeze({
+    rush: {
+        id: 'rush',
+        baseCost: 220,
+        costMultiplier: 1.6,
+        maxLevel: 3
+    },
+    manpower: {
+        id: 'manpower',
+        baseCost: 240,
+        costMultiplier: 1.6,
+        maxLevel: 3
+    },
+    gold: {
+        id: 'gold',
+        baseCost: 260,
+        costMultiplier: 1.6,
+        maxLevel: 3
+    }
+});
+
+/**
  * Resolve a numeric value from a per-level tuning table, clamping to valid bounds.
  * @param {number[]} table array of values indexed by level - 1.
  * @param {number} level upgrade level to read (1-based).
@@ -63,6 +88,34 @@ export function getUltimateChargeDelayMs(ultimateId, level) {
 export function getUltimateDurationMs(ultimateId, level) {
     const config = ULTIMATE_CONFIG[ultimateId];
     return resolveUltimateLevelValue(config?.durationMs, level);
+}
+
+/**
+ * Read the maximum upgrade level allowed for an ultimate.
+ * @param {string} ultimateId unique ultimate identifier.
+ * @returns {number} max upgrade level allowed for the ultimate.
+ */
+export function getUltimateMaxLevel(ultimateId) {
+    const config = ULTIMATE_UPGRADE_CONFIG[ultimateId];
+    return Number.isFinite(config?.maxLevel) ? Math.max(1, config.maxLevel) : 1;
+}
+
+/**
+ * Compute the gold cost required to purchase the next ultimate upgrade level.
+ * Returns null when the ultimate has reached its maximum level.
+ * @param {string} ultimateId unique ultimate identifier.
+ * @param {number} currentLevel current ultimate level (1-based).
+ * @returns {number|null} gold cost for the next upgrade or null if maxed.
+ */
+export function getUltimateUpgradeCost(ultimateId, currentLevel) {
+    const config = ULTIMATE_UPGRADE_CONFIG[ultimateId];
+    if (!config) return null;
+    const safeLevel = Number.isFinite(currentLevel) ? Math.max(1, Math.floor(currentLevel)) : 1;
+    const maxLevel = getUltimateMaxLevel(ultimateId);
+    if (safeLevel >= maxLevel) return null;
+    const exponent = Math.max(0, safeLevel - 1);
+    const scaled = config.baseCost * Math.pow(config.costMultiplier, exponent);
+    return Math.floor(scaled);
 }
 
 /**
