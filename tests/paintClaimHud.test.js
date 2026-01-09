@@ -1,90 +1,52 @@
 import assert from 'assert';
 import fs from 'fs';
 
-function createStubElement(id) {
-    const classes = new Set();
-    const attributes = new Map();
+function createStubInput(dataset) {
     return {
-        id,
-        innerText: '',
-        dataset: {},
-        classList: {
-            add: (...tokens) => tokens.forEach((t) => classes.add(t)),
-            remove: (...tokens) => tokens.forEach((t) => classes.delete(t)),
-            toggle: (token, force) => {
-                if (force === undefined) {
-                    if (classes.has(token)) { classes.delete(token); return false; }
-                    classes.add(token); return true;
-                }
-                if (force) { classes.add(token); return true; }
-                classes.delete(token); return false;
-            },
-            contains: (token) => classes.has(token)
-        },
-        setAttribute(name, value) { attributes.set(name, value); },
-        getAttribute(name) { return attributes.get(name); }
+        dataset: { ...dataset },
+        checked: false
     };
 }
 
-function createStubDocument(ids = []) {
-    const elements = new Map();
-    const doc = {
-        getElementById: (id) => elements.get(id) || null,
-        register: (id) => {
-            const el = createStubElement(id);
-            elements.set(id, el);
-            return el;
+function createStubDocument() {
+    const inputs = new Map();
+    return {
+        querySelectorAll: (selector) => inputs.get(selector) || [],
+        registerInputs: (selector, elements) => {
+            inputs.set(selector, elements);
         }
     };
-    ids.forEach((id) => doc.register(id));
-    return doc;
 }
 
-async function testPaintClaimHudIndicator() {
-    const doc = createStubDocument([
-        'gold',
-        'wood',
-        'lives-count',
-        'imperial-favor',
-        'lvl-txt',
-        'paint-claim-status',
-        'btn-claim-paint'
-    ]);
+async function testPaintClaimSettingsToggle() {
+    const doc = createStubDocument();
+    const paintToggle = createStubInput({ generalToggle: 'paintToClaim' });
+    doc.registerInputs('[data-general-toggle]', [paintToggle]);
     global.document = doc;
-    const { updateHUD } = await import('../scripts/uiBindings.js');
+    const { updateSettingsUI } = await import('../scripts/uiBindings.js');
 
     const game = {
-        gold: 100,
-        wood: 80,
-        research: { lives: 0 },
-        imperialFavor: 0,
-        difficulty: 0,
-        paintClaimMode: true,
-        paintClaimStatus: 'Painted frontier for 8w. 72w left.',
-        paintClaimStatusTone: 'success'
+        getGeneralSettings: () => ({ paintToClaim: true })
     };
 
-    updateHUD(game);
+    updateSettingsUI(game);
 
-    const status = doc.getElementById('paint-claim-status');
-    const button = doc.getElementById('btn-claim-paint');
-    assert.strictEqual(status.innerText, game.paintClaimStatus, 'paint status should mirror game message');
-    assert.strictEqual(status.dataset.tone, 'success');
-    assert.ok(status.classList.contains('paint-claim-status--active'), 'status should reflect active mode');
-    assert.strictEqual(button.getAttribute('aria-pressed'), 'true');
+    assert.strictEqual(paintToggle.checked, true, 'settings toggle should reflect stored paint-to-claim state');
 }
 
-function testTemplateHasPaintClaimControls() {
+function testTemplateHasPaintClaimSetting() {
     const html = fs.readFileSync('Wargame.html', 'utf8');
-    assert.ok(html.includes('id="btn-claim-paint"'), 'HUD template should expose paint claim toggle');
-    assert.ok(html.includes('id="paint-claim-status"'), 'HUD template should expose paint claim status');
+    assert.ok(html.includes('data-general-toggle="paintToClaim"'), 'settings template should expose paint-to-claim toggle');
+    assert.ok(html.includes('Paint-to-Claim'), 'settings label should mention paint-to-claim');
+    assert.ok(!html.includes('id="btn-claim-paint"'), 'paint claim HUD button should be removed');
+    assert.ok(!html.includes('id="paint-claim-status"'), 'paint claim HUD status should be removed');
 }
 
 async function run() {
-    await testPaintClaimHudIndicator();
-    testTemplateHasPaintClaimControls();
+    await testPaintClaimSettingsToggle();
+    testTemplateHasPaintClaimSetting();
     delete global.document;
-    console.log('Paint claim HUD tests passed.');
+    console.log('Paint claim settings tests passed.');
 }
 
 run().catch((err) => {

@@ -300,9 +300,6 @@ export function setupUIBindings(game) {
     const drawerClose = document.getElementById('hud-drawer-close');
     if (drawerClose) drawerClose.onclick = () => drawerController.hide?.();
 
-    const paintClaimBtn = document.getElementById('btn-claim-paint');
-    if (paintClaimBtn) paintClaimBtn.onclick = () => game.setPaintClaimMode?.();
-
     const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
 
@@ -363,6 +360,18 @@ export function setupUIBindings(game) {
                 return;
             }
             if (typeof game.setSnowToggle === 'function') game.setSnowToggle(input.dataset.visualToggle, input.checked);
+        });
+    });
+
+    document.querySelectorAll('[data-general-toggle]').forEach((input) => {
+        input.addEventListener('change', () => {
+            if (settings?.applyGeneral) {
+                settings.applyGeneral({ [input.dataset.generalToggle]: input.checked });
+                return;
+            }
+            if (input.dataset.generalToggle === 'paintToClaim' && typeof game.setPaintClaimMode === 'function') {
+                game.setPaintClaimMode(input.checked);
+            }
         });
     });
 
@@ -1158,7 +1167,7 @@ function updateLeaderboardUI(game) {
  * so sliders and toggles always mirror the current runtime state.
  * @param {object} game live game singleton
  */
-function updateSettingsUI(game) {
+export function updateSettingsUI(game) {
     const snapshot = game.settingsService?.getSnapshot?.();
     const audioSettings = snapshot?.audio
         || (typeof game.getAudioSettings === 'function' ? game.getAudioSettings() : { master: 1, music: 1, sfx: 1 });
@@ -1178,6 +1187,16 @@ function updateSettingsUI(game) {
         const key = input.dataset.visualToggle;
         const desired = visuals && Object.prototype.hasOwnProperty.call(visuals, key)
             ? visuals[key]
+            : false;
+        input.checked = Boolean(desired);
+    });
+
+    const general = snapshot?.general
+        || (typeof game.getGeneralSettings === 'function' ? game.getGeneralSettings() : {});
+    document.querySelectorAll('[data-general-toggle]').forEach((input) => {
+        const key = input.dataset.generalToggle;
+        const desired = general && Object.prototype.hasOwnProperty.call(general, key)
+            ? general[key]
             : false;
         input.checked = Boolean(desired);
     });
@@ -1412,24 +1431,6 @@ export function updateHUD(game) {
     if (pauseIndicator) {
         pauseIndicator.innerText = game.paused ? 'Paused' : 'Live';
         pauseIndicator.classList.toggle('paused', !!game.paused);
-    }
-    const paintClaimBtn = document.getElementById('btn-claim-paint');
-    if (paintClaimBtn) {
-        const enabled = Boolean(game.paintClaimMode);
-        paintClaimBtn.classList.toggle('btn-claim-paint--active', enabled);
-        paintClaimBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-        paintClaimBtn.innerText = enabled ? '🖌️ Paint Claim On' : '🖌️ Paint Claim';
-    }
-    const paintStatus = document.getElementById('paint-claim-status');
-    if (paintStatus) {
-        const enabled = Boolean(game.paintClaimMode);
-        const tone = game.paintClaimStatusTone || (enabled ? 'info' : 'muted');
-        const fallback = enabled
-            ? 'Paint claim ready — drag across frontier tiles.'
-            : 'Paint claim: Off';
-        paintStatus.innerText = game.paintClaimStatus || fallback;
-        paintStatus.dataset.tone = tone;
-        paintStatus.classList.toggle('paint-claim-status--active', enabled);
     }
     document.getElementById('lvl-txt').innerText = `Lv.${resolveCampaignLevel(game)}`;
     updateCombatUltimateHud(game);
