@@ -156,6 +156,34 @@ async function runTests() {
     assert.deepStrictEqual(snap.factionState, factionState, 'faction state should persist');
     assert.strictEqual(snap.tutorial.frontierSweep.targetTileKey, '0,0', 'tutorial state should persist');
 
+    const ultimateLevels = { rush: 4, manpower: 2, gold: 1 };
+    const ultimateRoundTripGame = {
+        gold: 0,
+        wood: 0,
+        difficulty: 0,
+        imperialFavor: 0,
+        timekeeper: { ticks: 0, daysPerWeek: 7, weeksPerMonth: 4 },
+        upgrades: {},
+        ultimates: ultimateLevels,
+        overworld: { hexes: new Map() },
+        stats: {},
+        getNotificationStack: () => ({ queue: [], visible: new Map() })
+    };
+    const ultimateSnap = Persistence.serializeGameState(ultimateRoundTripGame);
+    assert.deepStrictEqual(
+        ultimateSnap.ultimates,
+        ultimateLevels,
+        'ultimate levels should serialize with their current upgrade values'
+    );
+    const ultimateResult = Persistence.deserializeGameState(ultimateSnap, {
+        hexFactory: (q, r, s) => new Hex(q, r, s)
+    });
+    assert.deepStrictEqual(
+        ultimateResult.ultimates,
+        ultimateLevels,
+        'ultimate levels should deserialize back to their saved values'
+    );
+
     const difficultyAlignment = Persistence.StatHelpers.reconcileDifficultyAndWarsWon(
         { difficulty: 2 },
         { warsWon: 5 }

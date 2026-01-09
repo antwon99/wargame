@@ -45,10 +45,21 @@ function buildBaseGame() {
     };
 }
 
-function testRushSpeedMultiplierAffectsMovement() {
+function testRushSpeedMultiplierAffectsMovementOnlyWhileActive() {
     const baseGame = buildBaseGame();
+    const inactiveRushGame = buildBaseGame();
     const rushGame = buildBaseGame();
     baseGame.combat.units.push({
+        type: 'soldier',
+        owner: 'player',
+        hp: 100,
+        dmg: 10,
+        range: 1,
+        speed: 1,
+        cooldown: 0,
+        pos: new Hex(0, 0)
+    });
+    inactiveRushGame.combat.units.push({
         type: 'soldier',
         owner: 'player',
         hp: 100,
@@ -68,40 +79,86 @@ function testRushSpeedMultiplierAffectsMovement() {
         cooldown: 0,
         pos: new Hex(0, 0)
     });
+    inactiveRushGame.combat.ultimates = buildUltimatesState();
     rushGame.combat.ultimates = buildUltimatesState();
     rushGame.combat.ultimates.activeEffects.rush = { speedMultiplier: 2 };
 
     updateCombat(baseGame, 1);
+    updateCombat(inactiveRushGame, 1);
     updateCombat(rushGame, 1);
 
     assert.ok(
         Math.abs(rushGame.combat.units[0].pos.r) > Math.abs(baseGame.combat.units[0].pos.r),
         'Rush should increase player unit movement speed'
     );
+    assert.strictEqual(
+        Math.abs(inactiveRushGame.combat.units[0].pos.r),
+        Math.abs(baseGame.combat.units[0].pos.r),
+        'Rush should not affect movement when the ultimate is inactive'
+    );
 }
 
-function testManpowerAdjustsSpawnRateAndDoubleSpawns() {
+function testManpowerAdjustsSpawnRateAndDoubleSpawnsOnlyWhileActive() {
+    const baseGame = buildBaseGame();
     const manpowerGame = buildBaseGame();
+    const inactiveGame = buildBaseGame();
+    const barracks = {
+        type: 'barracks',
+        owner: 'player',
+        hp: 500,
+        prodTimer: 2.4,
+        attackTimer: 0,
+        pulse: 0
+    };
+    baseGame.combat.buildings.set('0,0', { ...barracks });
+    inactiveGame.combat.buildings.set('0,0', { ...barracks });
     manpowerGame.combat.buildings.set('0,0', {
         type: 'barracks',
         owner: 'player',
         hp: 500,
-        prodTimer: 3,
+        prodTimer: 2.4,
         attackTimer: 0,
         pulse: 0
     });
     manpowerGame.combat.ultimates = buildUltimatesState();
-    manpowerGame.combat.ultimates.activeEffects.manpower = { spawnRateMultiplier: 0.5, doubleSpawnChance: 0.5 };
+    manpowerGame.combat.ultimates.activeEffects.manpower = { spawnRateMultiplier: 0.5, doubleSpawnChance: 1 };
+    inactiveGame.combat.ultimates = buildUltimatesState();
 
     const originalRandom = Math.random;
-    Math.random = () => 0.4;
-    updateCombat(manpowerGame, 0);
+    Math.random = () => 0;
+    updateCombat(baseGame, 0.2);
+    updateCombat(inactiveGame, 0.2);
+    updateCombat(manpowerGame, 0.2);
     Math.random = originalRandom;
 
+    assert.strictEqual(
+        baseGame.combat.units.length,
+        0,
+        'Spawn rate should stay unchanged when manpower is inactive'
+    );
+    assert.strictEqual(
+        inactiveGame.combat.units.length,
+        0,
+        'Inactive manpower should not accelerate spawn timing'
+    );
     assert.strictEqual(
         manpowerGame.combat.units.length,
         2,
         'Manpower should allow a double spawn when the chance roll succeeds'
+    );
+
+    const manpowerBarracks = manpowerGame.combat.buildings.get('0,0');
+    manpowerGame.combat.ultimates.activeEffects = {};
+    manpowerGame.combat.units = [];
+    manpowerBarracks.prodTimer = 5;
+    const originalRandomSecond = Math.random;
+    Math.random = () => 0;
+    updateCombat(manpowerGame, 0);
+    Math.random = originalRandomSecond;
+    assert.strictEqual(
+        manpowerGame.combat.units.length,
+        1,
+        'Manpower should not double-spawn once the ultimate effect ends'
     );
 }
 
@@ -145,8 +202,8 @@ function testGoldUltimateCullsUnitsOnce() {
 }
 
 function run() {
-    testRushSpeedMultiplierAffectsMovement();
-    testManpowerAdjustsSpawnRateAndDoubleSpawns();
+    testRushSpeedMultiplierAffectsMovementOnlyWhileActive();
+    testManpowerAdjustsSpawnRateAndDoubleSpawnsOnlyWhileActive();
     testGoldUltimateCullsUnitsOnce();
     console.log('Combat ultimate effect tests passed.');
 }
