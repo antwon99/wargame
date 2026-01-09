@@ -50,6 +50,7 @@ Use this index to find the major systems and their supporting documentation. Eac
 - **Platform scaling:** [`docs/platform-scaling.md`](platform-scaling.md).
 - **Juice + feedback:** [`docs/juice.md`](juice.md).
 - **Narrative dispatches:** [`docs/narrative-system.md`](narrative-system.md).
+- **Runtime utilities:** [`docs/global-shim.md`](global-shim.md), [`docs/storage-probe.md`](storage-probe.md), [`docs/debug-toggle.md`](debug-toggle.md), [`docs/void-easter-egg.md`](void-easter-egg.md), [`docs/water-generator.md`](water-generator.md), [`docs/campaign-store.md`](campaign-store.md).
 
 ## Combat + War Flow
 
