@@ -1,8 +1,9 @@
 import { buildDefaultSettings, createSettingsService } from '../settings.js';
 
 /**
- * Compose the settings service for the running Game instance so audio and
- * visuals can be persisted and updated consistently across UI surfaces.
+ * Compose the settings service for the running Game instance so audio,
+ * visuals, and general toggles can be persisted and updated consistently
+ * across UI surfaces.
  *
  * @param {Object} game live Game instance.
  * @param {Object} options dependency injection bundle.
@@ -25,6 +26,10 @@ export function composeGameSettings(game, options = {}) {
             game.applyVisualSettings(visuals);
             game.playerSettings = { ...(game.playerSettings || {}), visuals };
         },
+        generalAdapter: (general) => {
+            game.applyGeneralSettings(general);
+            game.playerSettings = { ...(game.playerSettings || {}), general };
+        },
         onError: (context, error) => game.reportRecoverableError?.(context, error)
     });
 
@@ -36,7 +41,8 @@ export function composeGameSettings(game, options = {}) {
     const resolvedSettings = settingsService.load();
     const audioSnapshot = settingsService.applyAudio(resolvedSettings.audio);
     const visualSnapshot = settingsService.applyVisual(resolvedSettings.visuals);
-    const settingsSnapshot = { audio: audioSnapshot, visuals: visualSnapshot };
+    const generalSnapshot = settingsService.applyGeneral(resolvedSettings.general);
+    const settingsSnapshot = { audio: audioSnapshot, visuals: visualSnapshot, general: generalSnapshot };
 
     game.settingsService = settingsService;
     game.playerSettings = settingsSnapshot;

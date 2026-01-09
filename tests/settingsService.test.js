@@ -14,13 +14,18 @@ const defaults = buildDefaultSettings();
 
 {
     const storage = createMemoryStorage();
-    storage.setItem('settings:test', JSON.stringify({ audio: { master: 0.25 }, visuals: { snowEnabled: false } }));
+    storage.setItem('settings:test', JSON.stringify({
+        audio: { master: 0.25 },
+        visuals: { snowEnabled: false },
+        general: { paintToClaim: true }
+    }));
     const service = createSettingsService({ storageKey: 'settings:test', storage, defaults });
     let emitted = null;
     service.on('change', (snapshot) => { emitted = snapshot; });
     const loaded = service.load();
     assert.strictEqual(loaded.audio.master, 0.25, 'retains saved audio slider');
     assert.strictEqual(loaded.visuals.snowEnabled, false, 'retains saved visual toggle');
+    assert.strictEqual(loaded.general.paintToClaim, true, 'retains saved general toggle');
     assert.deepStrictEqual(emitted.visuals, loaded.visuals, 'emits change event on load');
 }
 
@@ -44,6 +49,17 @@ const defaults = buildDefaultSettings();
     assert.strictEqual(visuals.snowEnabled, false, 'applies supplied visual toggle');
     assert.strictEqual(visualEvent.snowfallEnabled, false, 'emits visual event payload');
     assert.strictEqual(JSON.parse(storage.getItem('settings:visual')).visuals.snowEnabled, false, 'persists visual toggles');
+}
+
+{
+    const storage = createMemoryStorage();
+    let generalEvent = null;
+    const service = createSettingsService({ storageKey: 'settings:general', storage, defaults });
+    service.on('general', (payload) => { generalEvent = payload; });
+    const general = service.applyGeneral({ paintToClaim: true });
+    assert.strictEqual(general.paintToClaim, true, 'applies supplied general toggle');
+    assert.strictEqual(generalEvent.paintToClaim, true, 'emits general event payload');
+    assert.strictEqual(JSON.parse(storage.getItem('settings:general')).general.paintToClaim, true, 'persists general toggles');
 }
 
 {

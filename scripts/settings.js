@@ -23,6 +23,9 @@ export function buildDefaultSettings() {
         visuals: {
             snowEnabled: SNOW_VISUAL_CONFIG.enabled !== false,
             snowfallEnabled: SNOW_VISUAL_CONFIG.snowfallEnabled !== false
+        },
+        general: {
+            paintToClaim: false
         }
     };
 }
@@ -52,13 +55,14 @@ function createEmitter() {
 
 /**
  * Encapsulates load/save behavior and runtime application hooks for
- * player-facing audio + visual preferences.
+ * player-facing audio, visuals, and general preferences.
  * @param {Object} options dependency + configuration bundle.
  * @param {string} [options.storageKey] persisted storage key for snapshots.
  * @param {Storage|null} [options.storage] persistence layer (localStorage or stub).
  * @param {Object} [options.defaults] baseline settings bundle.
  * @param {Function} [options.audioAdapter] invoked with normalized audio settings when they change.
  * @param {Function} [options.visualAdapter] invoked with normalized visual settings when they change.
+ * @param {Function} [options.generalAdapter] invoked with normalized general settings when they change.
  * @param {Function} [options.onError] optional error reporter for parse/persist failures.
  * @returns {Object} settings service with load/save/apply helpers and an `on` subscription API.
  */
@@ -69,6 +73,7 @@ export function createSettingsService(options = {}) {
         defaults = buildDefaultSettings(),
         audioAdapter = () => {},
         visualAdapter = () => {},
+        generalAdapter = () => {},
         onError = () => {}
     } = options;
 
@@ -77,7 +82,8 @@ export function createSettingsService(options = {}) {
 
     const getSnapshot = () => ({
         audio: { ...defaults.audio, ...(state.audio || {}) },
-        visuals: { ...defaults.visuals, ...(state.visuals || {}) }
+        visuals: { ...defaults.visuals, ...(state.visuals || {}) },
+        general: { ...defaults.general, ...(state.general || {}) }
     });
 
     const persist = (settings) => {
@@ -93,7 +99,7 @@ export function createSettingsService(options = {}) {
     return {
         defaults,
         /**
-         * Subscribe to settings events. Supported events: `change`, `audio`, `visual`.
+         * Subscribe to settings events. Supported events: `change`, `audio`, `visual`, `general`.
          * @param {string} event event name.
          * @param {Function} handler callback invoked with the latest payload.
          * @returns {Function} unsubscribe handle.
@@ -120,7 +126,8 @@ export function createSettingsService(options = {}) {
                 const parsed = JSON.parse(raw);
                 state = {
                     audio: { ...defaults.audio, ...(parsed.audio || {}) },
-                    visuals: { ...defaults.visuals, ...(parsed.visuals || {}) }
+                    visuals: { ...defaults.visuals, ...(parsed.visuals || {}) },
+                    general: { ...defaults.general, ...(parsed.general || {}) }
                 };
             } catch (error) {
                 onError('settings parse', error);
@@ -174,6 +181,23 @@ export function createSettingsService(options = {}) {
             visualAdapter(normalized);
             persist(state);
             emitter.emit('visual', normalized);
+            emitter.emit('change', getSnapshot());
+            return normalized;
+        },
+        /**
+         * Merge and apply general settings, coerce booleans, persist, and emit events.
+         * @param {Object} generalSettings partial general payload.
+         * @returns {Object} normalized general settings.
+         */
+        applyGeneral(generalSettings = {}) {
+            const merged = { ...getSnapshot().general, ...(generalSettings || {}) };
+            const normalized = {
+                paintToClaim: merged.paintToClaim === true
+            };
+            state = { ...getSnapshot(), general: normalized };
+            generalAdapter(normalized);
+            persist(state);
+            emitter.emit('general', normalized);
             emitter.emit('change', getSnapshot());
             return normalized;
         },

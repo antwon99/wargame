@@ -484,7 +484,8 @@ const Game = {
     togglePause() { return this.setPaused(!this.paused); },
 
     /**
-     * Build the default player-facing settings bundle for audio and visuals.
+     * Build the default player-facing settings bundle for audio, visuals,
+     * and general gameplay preferences.
      * Defaults mirror the snow/audio baselines so sliders start aligned with
      * the current build's expected presentation.
      * @returns {Object} default settings snapshot
@@ -519,16 +520,19 @@ const Game = {
         const defaults = this.settingsService?.defaults || this.defaultPlayerSettings();
         const merged = {
             audio: { ...defaults.audio, ...(settings.audio || {}) },
-            visuals: { ...defaults.visuals, ...(settings.visuals || {}) }
+            visuals: { ...defaults.visuals, ...(settings.visuals || {}) },
+            general: { ...defaults.general, ...(settings.general || {}) }
         };
         if (!this.settingsService) {
             this.playerSettings = merged;
             this.applyAudioSettings(merged.audio);
             this.applyVisualSettings(merged.visuals);
+            this.applyGeneralSettings(merged.general);
             return merged;
         }
         this.settingsService.applyAudio(merged.audio);
         this.settingsService.applyVisual(merged.visuals);
+        this.settingsService.applyGeneral(merged.general);
         return this.settingsService.getSnapshot();
     },
 
@@ -566,6 +570,16 @@ const Game = {
     },
 
     /**
+     * Return the current general settings, merged with defaults when needed.
+     * @returns {{ paintToClaim: boolean }} general settings snapshot
+     */
+    getGeneralSettings() {
+        if (this.settingsService?.getSnapshot) return this.settingsService.getSnapshot().general;
+        const defaults = this.defaultPlayerSettings().general;
+        return { ...defaults, ...(this.playerSettings?.general || {}) };
+    },
+
+    /**
      * Push visual toggle preferences into the snow feature toggles and cache
      * them for persistence.
      * @param {Object} visualSettings snow preferences
@@ -582,6 +596,19 @@ const Game = {
         };
         this.featureToggles = { ...this.featureToggles, snow: nextSnow };
         return nextSnow;
+    },
+
+    /**
+     * Apply general gameplay settings and synchronize derived modes.
+     * @param {{ paintToClaim?: boolean }} generalSettings general preferences.
+     * @returns {{ paintToClaim: boolean }} normalized general settings.
+     */
+    applyGeneralSettings(generalSettings = this.defaultPlayerSettings().general) {
+        const defaults = this.defaultPlayerSettings().general;
+        const safe = { ...defaults, ...(generalSettings || {}) };
+        const paintToClaim = safe.paintToClaim === true;
+        this.setPaintClaimMode?.(paintToClaim);
+        return { paintToClaim };
     },
 
     /** Update an individual mixer channel from the settings sidebar. */
