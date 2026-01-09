@@ -238,6 +238,7 @@ const Game = {
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
     pendingReclamations: [],
+    paintClaimPreference: false,
     paintClaimMode: false,
     paintClaimLastKey: null,
     paintClaimStatus: '',
@@ -580,6 +581,25 @@ const Game = {
     },
 
     /**
+     * Determine whether paint-claim should be active based on the latest settings
+     * snapshot and current game state.
+     * @returns {boolean} true when paint-claim input should be active.
+     */
+    isPaintClaimModeActive() {
+        const snapshot = this.settingsService?.getSnapshot?.();
+        const cachedPreference = typeof this.paintClaimPreference === 'boolean'
+            ? this.paintClaimPreference
+            : this.paintClaimMode === true;
+        const paintToClaim = typeof snapshot?.general?.paintToClaim === 'boolean'
+            ? snapshot.general.paintToClaim
+            : cachedPreference;
+        this.paintClaimPreference = paintToClaim === true;
+        const shouldEnable = this.paintClaimPreference && this.state !== 'COMBAT';
+        if (shouldEnable !== this.paintClaimMode) this.setPaintClaimMode?.(shouldEnable);
+        return this.paintClaimMode;
+    },
+
+    /**
      * Push visual toggle preferences into the snow feature toggles and cache
      * them for persistence.
      * @param {Object} visualSettings snow preferences
@@ -607,7 +627,8 @@ const Game = {
         const defaults = this.defaultPlayerSettings().general;
         const safe = { ...defaults, ...(generalSettings || {}) };
         const paintToClaim = safe.paintToClaim === true;
-        this.setPaintClaimMode?.(paintToClaim);
+        this.paintClaimPreference = paintToClaim;
+        this.setPaintClaimMode?.(paintToClaim && this.state !== 'COMBAT');
         return { paintToClaim };
     },
 
@@ -787,6 +808,7 @@ const Game = {
             this.issueImperialIntroMandate();
             this.shouldRunImperialIntro = false;
         }
+        this.isPaintClaimModeActive?.();
     },
 
     /** Apply a hydrated snapshot to the live game state (overworld only). */
@@ -822,6 +844,7 @@ const Game = {
         this.updateSaveStatus(snapshot.stats?.lastSaveISO ? `Loaded ${snapshot.stats.lastSaveISO}` : 'Loaded save file');
         this.showOverworldUI();
         this.shouldRunImperialIntro = false;
+        this.isPaintClaimModeActive?.();
     },
 
     /** Persist the overworld snapshot and leaderboard stats to a chosen slot. */
@@ -1801,7 +1824,7 @@ const Game = {
         const previousState = this.state;
         startWar(this, clickEvt, this.Hex);
         this.combat.ultimates = buildUltimatesState(this.ultimates);
-        if (this.state === 'COMBAT' && this.paintClaimMode) this.setPaintClaimMode(false);
+        this.isPaintClaimModeActive?.();
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
@@ -1833,6 +1856,7 @@ const Game = {
         this.pendingClearTileKey = null;
         this.pendingClearTileWasRebel = null;
         this.setSelectedOverworldTile(null);
+        this.isPaintClaimModeActive?.();
         return undefined;
     },
 

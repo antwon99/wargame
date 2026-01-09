@@ -57,9 +57,26 @@ async function testPaintClaimBlocksWhenInsufficientWood() {
     assert.ok(Game.paintClaimStatus.includes('Need'), 'status should report missing wood');
 }
 
+async function testPaintClaimSettingsPreferenceRestoresAfterCombat() {
+    const { Game } = createGameCore({ dependencies: { persistence: null } });
+    Game.settingsService = {
+        getSnapshot: () => ({ general: { paintToClaim: true } })
+    };
+
+    Game.state = 'COMBAT';
+    Game.setPaintClaimMode(true);
+    Game.isPaintClaimModeActive();
+    assert.strictEqual(Game.paintClaimMode, false, 'paint-claim should disable during combat even when enabled');
+
+    Game.state = 'OVERWORLD';
+    Game.isPaintClaimModeActive();
+    assert.strictEqual(Game.paintClaimMode, true, 'paint-claim should re-enable in overworld when enabled');
+}
+
 async function run() {
     await testPaintClaimSpendsOnce();
     await testPaintClaimBlocksWhenInsufficientWood();
+    await testPaintClaimSettingsPreferenceRestoresAfterCombat();
     console.log('Paint claim mode tests passed.');
 }
 

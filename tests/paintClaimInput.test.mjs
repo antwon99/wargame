@@ -18,7 +18,9 @@ function testPaintClaimDragClaimsMultipleTilesWithoutCameraDrag() {
     const game = {
         cam: { x: 0, y: 0, zoom: 1 },
         canvas,
-        paintClaimMode: true,
+        settingsService: {
+            getSnapshot: () => ({ general: { paintToClaim: true } })
+        },
         onPaint(x) {
             if (x < 20) claims.add('0,0');
             else if (x < 40) claims.add('1,0');

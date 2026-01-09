@@ -440,15 +440,22 @@ function setupInput(game) {
     let isDrag = false;
     let start = { x: 0, y: 0 };
     let camStart = { x: 0, y: 0 };
+    const isPaintClaimModeActive = () => {
+        if (typeof game.isPaintClaimModeActive === 'function') return game.isPaintClaimModeActive();
+        const snapshot = game.settingsService?.getSnapshot?.();
+        if (snapshot?.general) return snapshot.general.paintToClaim === true;
+        if (typeof game.getGeneralSettings === 'function') return game.getGeneralSettings().paintToClaim === true;
+        return game.paintClaimMode === true;
+    };
     const onDown = (x, y) => {
         isDrag = true;
         start = { x, y };
         camStart = { x: game.cam.x, y: game.cam.y };
-        if (game.paintClaimMode && typeof game.onPaint === 'function') game.onPaint(x, y);
+        if (isPaintClaimModeActive() && typeof game.onPaint === 'function') game.onPaint(x, y);
     };
     const onMove = (x, y) => {
         if (isDrag) {
-            if (game.paintClaimMode && typeof game.onPaint === 'function') {
+            if (isPaintClaimModeActive() && typeof game.onPaint === 'function') {
                 game.onPaint(x, y);
             } else {
                 game.cam.x = camStart.x + (x - start.x);
@@ -460,7 +467,7 @@ function setupInput(game) {
     const onUp = (x, y) => {
         if (isDrag) {
             isDrag = false;
-            if (game.paintClaimMode) {
+            if (isPaintClaimModeActive()) {
                 if (typeof game.resetPaintClaimDrag === 'function') game.resetPaintClaimDrag();
                 return;
             }
