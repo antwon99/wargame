@@ -238,6 +238,10 @@ const Game = {
     hoveredClaimableKey: null,
     selectedOverworldTile: null,
     pendingReclamations: [],
+    paintClaimMode: false,
+    paintClaimLastKey: null,
+    paintClaimStatus: '',
+    paintClaimStatusTone: 'muted',
     awaitingReclamationTarget: false,
     shouldRunImperialIntro: false, // Flagged when a fresh campaign needs to play the decree after BEGIN
     narrative: null,
@@ -1592,6 +1596,81 @@ const Game = {
     },
 
     /**
+     * Toggle paint-claim mode for drag-based frontier claiming and keep HUD messaging in sync.
+     * @param {boolean} [forceState] optional explicit on/off state override.
+     * @returns {boolean} true when paint-claim mode is enabled after the update.
+     */
+    setPaintClaimMode(forceState) {
+        const nextState = typeof forceState === 'boolean' ? forceState : !this.paintClaimMode;
+        this.paintClaimMode = nextState;
+        this.paintClaimLastKey = null;
+        this.paintClaimStatusTone = nextState ? 'info' : 'muted';
+        this.paintClaimStatus = nextState
+            ? 'Paint claim enabled — drag across frontier tiles to spend wood.'
+            : 'Paint claim disabled.';
+        if (typeof this.updateHUD === 'function') this.updateHUD();
+        return nextState;
+    },
+
+    /**
+     * Reset drag-tracking for paint-claim so subsequent drags can spend wood again.
+     */
+    resetPaintClaimDrag() {
+        this.paintClaimLastKey = null;
+    },
+
+    /**
+     * Drag-to-claim handler that spends wood on claimable frontier tiles without double-charging.
+     * @param {number} x pointer x coordinate.
+     * @param {number} y pointer y coordinate.
+     */
+    onPaint(x, y) {
+        if (this.state !== 'OVERWORLD') return;
+        if (this.awaitingReclamationTarget) {
+            this.paintClaimStatusTone = 'warning';
+            this.paintClaimStatus = 'Finish the reclamation target before painting frontier claims.';
+            if (typeof this.updateHUD === 'function') this.updateHUD();
+            return;
+        }
+
+        const hit = this.isPointerOnDrawnHex(x, y);
+        if (!hit || !hit.hit || !hit.hex) return;
+        const hex = hit.hex instanceof Hex ? hit.hex : new Hex(hit.hex.q, hit.hex.r, hit.hex.s ?? -hit.hex.q - hit.hex.r);
+        const key = hex.toString();
+        if (key === this.paintClaimLastKey) return;
+        this.paintClaimLastKey = key;
+
+        if (!this.overworld.claimable.has(key)) {
+            const fallback = this.overworld.hexes.has(key)
+                ? 'Tile already claimed — drag to frontier borders instead.'
+                : 'No frontier claimable here.';
+            this.paintClaimStatusTone = 'muted';
+            this.paintClaimStatus = fallback;
+            if (typeof this.updateHUD === 'function') this.updateHUD();
+            return;
+        }
+
+        const cost = this.overworld.claimable.get(key);
+        this.hoveredClaimableKey = key;
+        this.updateClaimPreview(hex, cost);
+        if (this.wood >= cost) {
+            this.wood -= cost;
+            this.claimHexLogic(hex, false);
+            this.calcOverworldGhosts();
+            this.hoveredClaimableKey = null;
+            this.clearClaimPreview();
+            this.paintClaimStatusTone = 'success';
+            this.paintClaimStatus = `Painted frontier for ${cost}w. ${Math.max(0, Math.floor(this.wood))}w left.`;
+            if (typeof this.updateHUD === 'function') this.updateHUD();
+        } else {
+            const deficit = Math.max(0, Math.ceil(cost - this.wood));
+            this.paintClaimStatusTone = 'warning';
+            this.paintClaimStatus = `Need ${deficit} more wood to paint this ${cost}w frontier tile.`;
+            if (typeof this.updateHUD === 'function') this.updateHUD();
+        }
+    },
+
+    /**
      * Tile-driven battle entry point that funnels hostile selections into the core war pipeline.
      * Ensures the target tile is marked for clearing before deferring to startWar so hooks fire.
      * @param {object} targetTile overworld tile being attacked.
@@ -1695,6 +1774,7 @@ const Game = {
         const previousState = this.state;
         startWar(this, clickEvt, this.Hex);
         this.combat.ultimates = buildUltimatesState(this.ultimates);
+        if (this.state === 'COMBAT' && this.paintClaimMode) this.setPaintClaimMode(false);
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
