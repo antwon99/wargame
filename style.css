@@ -525,6 +525,7 @@
         .btn-war { background: #800; border-color: #f00; color: #fff; }
         .btn-upg { background: #5a189a; border-color: #7b2cbf; color: #fff; margin-right: 10px; }
         .btn-research { background: linear-gradient(45deg, #4895ef, #4cc9f0); border-color: #5e9bff; color: #0a0a16; margin-right: 10px; }
+        .btn-ultimates { background: linear-gradient(45deg, #ff5d8f, #fcbf49); border-color: #f9844a; color: #2b0b1f; }
         .btn-retreat { background: #334; border-color: #445; font-size: 0.9rem; padding: 10px 20px; }
         .btn-close { background: #444; border-color: #555; padding: 8px 16px; margin-top: 20px; width: 100%; }
 
@@ -570,6 +571,87 @@
 
         .mode-panel { display: none; width: 100%; flex-direction: column; align-items: center; gap: 10px; }
         .visible { display: flex; }
+
+        .combat-ultimate-hud {
+            display: none;
+            pointer-events: auto;
+            justify-content: center;
+            align-items: center;
+            padding: 10px 14px;
+            border-radius: 16px;
+            background: rgba(11, 14, 20, 0.75);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+        }
+
+        .combat-ultimate-hud.is-visible { display: flex; }
+
+        .ultimate-button {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: none;
+            color: #f8fafc;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .ultimate-button--disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: grayscale(0.4);
+        }
+
+        .ultimate-button--ready {
+            color: #fef9c3;
+            text-shadow: 0 0 12px rgba(255, 209, 102, 0.7);
+        }
+
+        .ultimate-button--active {
+            color: #e0f2fe;
+            text-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+        }
+
+        .ultimate-ring {
+            --charge-progress: 0;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: conic-gradient(#ffd166 calc(var(--charge-progress) * 1turn), rgba(255,255,255,0.18) 0);
+            box-shadow: inset 0 0 0 4px rgba(0,0,0,0.3), 0 0 12px rgba(255, 209, 102, 0.35);
+        }
+
+        .ultimate-ring__core {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: radial-gradient(circle at top, rgba(255,255,255,0.14), rgba(0,0,0,0.75));
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+
+        .ultimate-icon { font-size: 1.2rem; }
+
+        .ultimate-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .ultimate-label { font-size: 0.9rem; }
+
+        .ultimate-timer {
+            font-size: 0.75rem;
+            letter-spacing: 0.6px;
+            color: #94a3b8;
+        }
 
         .tile-inspector {
             pointer-events: auto;
@@ -1143,6 +1225,7 @@
         .hud-drawer__body { overflow-y: auto; padding-right: 4px; flex: 1; min-height: 0; }
         .hud-drawer__content { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
         .tech-drawer { flex: 1; }
+        .ultimate-drawer { flex: 1; }
 
         .modal-close {
             background: rgba(255,255,255,0.08);
@@ -1171,6 +1254,11 @@
             align-items: stretch;
         }
 
+        .ultimate-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
         .command-card {
             background: rgba(18, 22, 32, 0.95);
             border: 1px solid rgba(255,255,255,0.08);
@@ -1188,6 +1276,18 @@
             gap: 6px;
             min-height: 48px;
             justify-content: center;
+        }
+
+        .ultimate-card {
+            background: linear-gradient(135deg, rgba(45, 29, 68, 0.95), rgba(18, 22, 32, 0.98));
+            border-color: rgba(255, 209, 102, 0.2);
+        }
+
+        .ultimate-status {
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.4px;
+            color: #ffd166;
         }
 
         .command-card:hover { border-color: rgba(255,255,255,0.18); transform: translateY(-1px); box-shadow: 0 10px 24px rgba(0,0,0,0.3); }

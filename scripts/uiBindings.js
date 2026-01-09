@@ -2,6 +2,7 @@ import { createNotificationStack, getSharedStack, setSharedStack } from './notif
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
+import { ULTIMATE_CONFIG } from './game/ultimatesConfig.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -82,7 +83,7 @@ export function applyUIBindings(game, deps = {}) {
  */
 /**
  * Refresh the shared drawer header with context for either upgrades or research.
- * @param {'upgrades'|'research'} mode active drawer view.
+ * @param {'upgrades'|'research'|'ultimates'} mode active drawer view.
  * @param {object} game live game singleton exposing research metadata.
  */
 function syncHudDrawerHeader(mode, game) {
@@ -101,6 +102,12 @@ function syncHudDrawerHeader(mode, game) {
         lives.innerText = `❤️ ${game.research?.lives ?? 0}/${livesCap}`;
         lives.setAttribute('aria-hidden', 'false');
         lives.style.display = 'inline-flex';
+    } else if (mode === 'ultimates') {
+        eyebrow.innerText = 'War Room';
+        title.innerText = 'Ultimates';
+        subtitle.innerText = 'Preview combat ultimates and plan the next battle-changing surge.';
+        lives.setAttribute('aria-hidden', 'true');
+        lives.style.display = 'none';
     } else {
         eyebrow.innerText = 'Imperial Engineering';
         title.innerText = 'Imperial Upgrades';
@@ -147,11 +154,13 @@ function createHudDrawerController(game) {
     const body = getScopedElement('#hud-drawer-body');
     const templates = {
         upgrades: getScopedElement('#drawer-upgrades-template'),
-        research: getScopedElement('#drawer-research-template')
+        research: getScopedElement('#drawer-research-template'),
+        ultimates: getScopedElement('#drawer-ultimates-template')
     };
     const triggers = {
         upgrades: getScopedElement('#btn-upg'),
-        research: getScopedElement('#btn-research')
+        research: getScopedElement('#btn-research'),
+        ultimates: getScopedElement('#btn-ultimates')
     };
     const closeBtn = getScopedElement('#hud-drawer-close');
 
@@ -159,6 +168,7 @@ function createHudDrawerController(game) {
         return {
             showUpgrades: () => bindUpgradeButtons(game),
             showResearch: () => game.updateResearchUI?.(),
+            showUltimates: () => {},
             hide: () => {},
             hideIfActive: () => {},
             activeView: () => null
@@ -230,6 +240,7 @@ function createHudDrawerController(game) {
     return {
         showUpgrades: () => show('upgrades'),
         showResearch: () => show('research'),
+        showUltimates: () => show('ultimates'),
         hide,
         hideIfActive,
         activeView: () => activeView
@@ -253,6 +264,9 @@ export function setupUIBindings(game) {
 
     const researchBtn = document.getElementById('btn-research');
     if (researchBtn) researchBtn.onclick = () => drawerController.showResearch?.();
+
+    const ultimatesBtn = document.getElementById('btn-ultimates');
+    if (ultimatesBtn) ultimatesBtn.onclick = () => drawerController.showUltimates?.();
 
     const drawerClose = document.getElementById('hud-drawer-close');
     if (drawerClose) drawerClose.onclick = () => drawerController.hide?.();
@@ -1260,6 +1274,66 @@ export function updateHUD(game) {
         pauseIndicator.classList.toggle('paused', !!game.paused);
     }
     document.getElementById('lvl-txt').innerText = `Lv.${resolveCampaignLevel(game)}`;
+    updateCombatUltimateHud(game);
+}
+
+/**
+ * Update the combat ultimate HUD ring, label, and timer for the active battle.
+ * @param {object} game live game singleton exposing combat ultimate charge data.
+ */
+function updateCombatUltimateHud(game) {
+    const hud = document.getElementById('combat-ultimate-hud');
+    if (!hud) return;
+
+    const inCombat = game.state === 'COMBAT';
+    hud.classList.toggle('is-visible', inCombat);
+    hud.setAttribute('aria-hidden', inCombat ? 'false' : 'true');
+    if (!inCombat) return;
+
+    const ultimateId = hud.dataset.ultimateId || 'rush';
+    const ultimateConfig = ULTIMATE_CONFIG[ultimateId] || {};
+    const ultimates = game?.combat?.ultimates || {};
+    const readyAtMs = Number(ultimates.readyAtMs?.[ultimateId] ?? 0);
+    const chargeMs = Number(ultimates.chargeMs?.[ultimateId] ?? 0);
+    const consumed = Boolean(ultimates.consumed?.[ultimateId]);
+    const activeEffect = ultimates.activeEffects?.[ultimateId];
+
+    const ring = document.querySelector('#combat-ultimate-hud .ultimate-ring');
+    const icon = document.getElementById('ultimate-icon');
+    const label = document.getElementById('ultimate-label');
+    const timer = document.getElementById('ultimate-timer');
+    const button = document.getElementById('ultimate-button');
+
+    const progress = readyAtMs > 0 ? Math.min(chargeMs / readyAtMs, 1) : 0;
+    if (ring?.style?.setProperty) ring.style.setProperty('--charge-progress', progress.toString());
+
+    const ready = !consumed && progress >= 1;
+    if (button) {
+        button.classList.toggle('ultimate-button--ready', ready);
+        button.classList.toggle('ultimate-button--active', Boolean(activeEffect));
+        button.classList.toggle('ultimate-button--disabled', consumed);
+        button.setAttribute('aria-disabled', consumed ? 'true' : 'false');
+        const labelText = ultimateConfig.label || 'Ultimate';
+        const stateLabel = consumed ? 'used' : ready ? 'ready' : 'charging';
+        button.setAttribute('aria-label', `${labelText} ultimate ${stateLabel}`);
+    }
+
+    if (label) label.innerText = ultimateConfig.label || 'Ultimate';
+    if (icon) icon.innerText = resolveUltimateIcon(ultimateId);
+
+    if (timer) {
+        const secondsRemaining = readyAtMs > 0 ? Math.max(0, Math.ceil((readyAtMs - chargeMs) / 1000)) : 0;
+        timer.innerText = consumed ? 'Used' : ready ? 'Ready' : `${secondsRemaining}s`;
+    }
+}
+
+function resolveUltimateIcon(ultimateId) {
+    const icons = {
+        rush: '⚡',
+        manpower: '🪖',
+        gold: '💰'
+    };
+    return icons[ultimateId] || '✨';
 }
 
 /**
