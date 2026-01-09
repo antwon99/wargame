@@ -2,6 +2,7 @@ import { DEFAULT_IMPERIAL_FAVOR } from '../imperialFavor.js';
 import { DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { START_TICK } from '../timekeeper.js';
 import { SNOW_VISUAL_CONFIG } from '../snowVisualConfig.js';
+import { REAL_WORLD_HEX_CONFIG } from '../realWorldOverworld.js';
 
 export const CAMERA_MOTION_CONFIG = {
     enabled: true,
@@ -125,10 +126,25 @@ export function buildCoreResourceState({
 
 /**
  * Build the blank overworld container used by bootstrap and tests.
- * @returns {{hexes: Map, claimable: Map, timer: number, tickRate: number, clusterBonuses: Map}}
+ * @returns {{hexes: Map, claimable: Map, timer: number, tickRate: number, clusterBonuses: Map, realWorld: object}}
  */
 export function buildOverworldState() {
-    return { hexes: new Map(), claimable: new Map(), timer: 0, tickRate: 3.5, clusterBonuses: new Map() };
+    return {
+        hexes: new Map(),
+        claimable: new Map(),
+        timer: 0,
+        tickRate: 3.5,
+        clusterBonuses: new Map(),
+        realWorld: {
+            enabled: false,
+            origin: { lat: 0, lon: 0 },
+            hexSizeMeters: REAL_WORLD_HEX_CONFIG.approxHexSpacingMeters,
+            hexFaceMeters: REAL_WORLD_HEX_CONFIG.hexFaceMeters,
+            providerId: 'synthetic-satellite',
+            index: null,
+            lastClaim: null
+        }
+    };
 }
 
 /**

@@ -33,6 +33,11 @@ import '../researchSystem.js';
 import { RebelSystem } from '../rebelSystem.js';
 import { ResearchSystem } from '../researchSystem.js';
 import { TutorialHandler } from '../tutorialHandler.js';
+import {
+    REAL_WORLD_HEX_CONFIG,
+    RealWorldOverworldIndex,
+    defaultRealWorldProvider
+} from '../realWorldOverworld.js';
 import Persistence from '../persistence.js';
 import ImperialMandateManager from '../mandates/imperialMandateManager.js';
 import {
@@ -1686,6 +1691,106 @@ const Game = {
         this.pendingClearTileWasRebel = null;
         this.setSelectedOverworldTile(null);
         return undefined;
+    },
+
+    /**
+     * Configure the real-world overworld projection and provider settings.
+     * Intended for MMO-style claims that start from device GPS coordinates.
+     * @param {object} [options]
+     * @param {{lat: number, lon: number}} [options.origin] lat/lon anchor for the grid.
+     * @param {number} [options.hexSizeMeters] hex radius used to size each IRL tile.
+     * @param {boolean} [options.enabled] toggle for real-world claiming mode.
+     * @param {function} [options.provider] provider to resolve terrain from satellite data.
+     * @param {RealWorldOverworldIndex} [options.index] prebuilt index override.
+     * @returns {object} updated real-world overworld config.
+     */
+    configureRealWorldOverworld({
+        origin,
+        hexSizeMeters,
+        enabled,
+        provider,
+        index
+    } = {}) {
+        const existing = this.overworld?.realWorld || {};
+        const nextOrigin = origin || existing.origin || { lat: 0, lon: 0 };
+        const nextHexSize = Number.isFinite(hexSizeMeters) ? hexSizeMeters : existing.hexSizeMeters;
+        const nextProvider = typeof provider === 'function' ? provider : existing.provider || defaultRealWorldProvider;
+        let nextIndex = index || existing.index;
+
+        if (!(nextIndex instanceof RealWorldOverworldIndex)) {
+            nextIndex = new RealWorldOverworldIndex({
+                origin: nextOrigin,
+                hexSizeMeters: nextHexSize || REAL_WORLD_HEX_CONFIG.approxHexSpacingMeters,
+                provider: nextProvider
+            });
+        } else {
+            nextIndex.setOrigin(nextOrigin);
+            if (Number.isFinite(nextHexSize)) nextIndex.setHexSize(nextHexSize);
+            nextIndex.provider = nextProvider;
+        }
+
+        this.overworld.realWorld = {
+            ...existing,
+            enabled: typeof enabled === 'boolean' ? enabled : existing.enabled,
+            origin: nextOrigin,
+            hexSizeMeters: nextIndex.hexSizeMeters,
+            hexFaceMeters: existing.hexFaceMeters ?? REAL_WORLD_HEX_CONFIG.hexFaceMeters,
+            providerId: nextProvider?.providerId || existing.providerId || 'synthetic-satellite',
+            provider: nextProvider,
+            index: nextIndex
+        };
+        return this.overworld.realWorld;
+    },
+
+    /**
+     * Claim a real-world tile by lat/lon and translate it into an overworld hex.
+     * The resolved tile type comes from the configured satellite provider.
+     * @param {object} [options]
+     * @param {number} options.lat latitude in degrees.
+     * @param {number} options.lon longitude in degrees.
+     * @param {string} [options.owner='player'] faction that owns the claim.
+     * @param {boolean} [options.free=false] skip rewards/FX when seeding claims.
+     * @returns {object|null} stored overworld tile record or null on failure.
+     */
+    claimRealWorldLocation({ lat, lon, owner = 'player', free = false } = {}) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const realWorld = this.configureRealWorldOverworld({ enabled: true });
+        const resolved = realWorld.index.resolveTileForLatLon({ lat, lon });
+        const { q, r, s } = resolved.hex;
+        const hex = new Hex(q, r, s);
+        const key = hex.toString();
+        if (this.overworld.hexes.has(key)) return this.overworld.hexes.get(key);
+
+        const tileType = resolved.tile?.type || 'field';
+        const def = OVERWORLD_TILES[tileType.toUpperCase()] || OVERWORLD_TILES.FIELD;
+        const resolvedType = def?.id || 'field';
+        const extras = {
+            realWorld: {
+                lat,
+                lon,
+                source: resolved.tile?.source || 'synthetic-satellite',
+                tags: resolved.tile?.tags || [],
+                signal: resolved.tile?.signal || {}
+            }
+        };
+        if (resolvedType === 'water') extras.isWater = true;
+
+        const record = this.addOverworldHex(hex, resolvedType, owner, extras);
+
+        if (resolvedType === 'water') {
+            const body = buildWaterBody(hex, { rng: Math.random });
+            stampWaterBody(this, hex, body, { owner });
+        } else if (!free && def?.char) {
+            this.spawnTxt?.(hex, `${def.char} ${resolvedType.toUpperCase()}`, '#9be3ff');
+        }
+
+        if (def?.onClaim && !free) def.onClaim(this, hex);
+        if (!free) this.refreshClusterBonuses();
+        this.calcOverworldGhosts();
+        this.overworld.realWorld.lastClaim = { lat, lon, hex: { q, r, s }, tileType: resolvedType };
+        if (typeof this.updateHUD === 'function') this.updateHUD();
+
+        return record;
     },
 
     claimHexLogic(hex, free) {
