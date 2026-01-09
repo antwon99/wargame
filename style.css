@@ -1300,6 +1300,20 @@
             align-self: stretch;
         }
 
+        .ultimate-select-btn {
+            align-self: stretch;
+            font-size: 0.85rem;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .ultimate-select-btn--active {
+            background: rgba(255, 209, 102, 0.2);
+            border-color: rgba(255, 209, 102, 0.5);
+            color: #ffd166;
+            cursor: default;
+        }
+
         .ultimate-status {
             text-transform: uppercase;
             font-size: 0.72rem;

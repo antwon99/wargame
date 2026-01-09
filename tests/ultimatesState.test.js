@@ -35,10 +35,35 @@ function testUltimatesStateRespectsLevelOverrides() {
     );
 }
 
+function testUltimatesStateRespectsSelection() {
+    const ultimates = buildUltimatesState({}, 'manpower');
+    assert.strictEqual(
+        ultimates.selectedId,
+        'manpower',
+        'Ultimates should store the selected ultimate id'
+    );
+    assert.strictEqual(
+        ultimates.consumed.manpower,
+        false,
+        'Selected ultimate should be available at the start of combat'
+    );
+    assert.strictEqual(
+        ultimates.consumed.rush,
+        true,
+        'Non-selected ultimates should be unavailable at battle start'
+    );
+    assert.strictEqual(
+        ultimates.consumed.gold,
+        true,
+        'Non-selected ultimates should be unavailable at battle start'
+    );
+}
+
 function run() {
     testCombatStateHasUltimatesContainer();
     testUltimatesStateSeedsChargeDelays();
     testUltimatesStateRespectsLevelOverrides();
+    testUltimatesStateRespectsSelection();
     console.log('Ultimate state factory tests passed.');
 }
 
