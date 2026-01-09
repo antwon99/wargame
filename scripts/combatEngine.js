@@ -6,6 +6,13 @@
 import { RebelSystem } from './rebelSystem.js';
 import { initImperialMandates } from './mandates/imperialMandates.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
+import {
+    DEFAULT_ULTIMATE_LEVELS,
+    getUltimateChargeDelayMs,
+    getUltimateDurationMs,
+    resolveUltimateLevelValue,
+    ULTIMATE_CONFIG
+} from './game/ultimatesConfig.js';
 
 const GLOBAL_HEX = (typeof window !== 'undefined' && window.Hex)
     || (typeof global !== 'undefined' && global.Hex)
@@ -34,6 +41,94 @@ const WAR_REWARD_DECAY_SECONDS = 240;
  * Regular units are rarer, dragons more likely to announce the kill.
  */
 const DEATH_SFX_CHANCE = { normal: 0.35, rare: 0.6 };
+
+/**
+ * Sync the per-ultimate charge timers and retire expired effects.
+ * Charge thresholds are expressed as 15–30 second delays by level and each
+ * ultimate may be consumed once per battle; consumed ultimates stop ticking.
+ * @param {object} game current game object.
+ */
+function updateUltimateChargeState(game) {
+    const ultimates = game?.combat?.ultimates;
+    if (!ultimates) return;
+    const warElapsedMs = Math.max(0, game.combat.warElapsedMs || 0);
+    const levelOverrides = ultimates.levels && typeof ultimates.levels === 'object' ? ultimates.levels : {};
+    const levels = { ...DEFAULT_ULTIMATE_LEVELS, ...levelOverrides };
+
+    Object.keys(ULTIMATE_CONFIG).forEach((ultimateId) => {
+        const level = Number(levels[ultimateId] ?? 1);
+        const chargeDelayMs = getUltimateChargeDelayMs(ultimateId, level);
+        const readyAtMs = ultimates.readyAtMs || {};
+        const chargeMs = ultimates.chargeMs || {};
+        const consumed = ultimates.consumed || {};
+        const activeEffects = ultimates.activeEffects || {};
+
+        readyAtMs[ultimateId] = chargeDelayMs;
+        chargeMs[ultimateId] = consumed[ultimateId]
+            ? chargeDelayMs
+            : Math.min(warElapsedMs, chargeDelayMs);
+
+        const activeEffect = activeEffects[ultimateId];
+        if (activeEffect?.expiresAtMs && warElapsedMs >= activeEffect.expiresAtMs) {
+            activeEffects[ultimateId] = null;
+        }
+
+        ultimates.readyAtMs = readyAtMs;
+        ultimates.chargeMs = chargeMs;
+        ultimates.consumed = consumed;
+        ultimates.activeEffects = activeEffects;
+        ultimates.levels = levels;
+    });
+}
+
+/**
+ * Apply the one-shot gold ultimate, converting a percentage of player units
+ * into immediate war spoils once its charge threshold has elapsed.
+ * @param {object} game current game object.
+ */
+function applyGoldUltimateEffect(game) {
+    const ultimates = game?.combat?.ultimates;
+    const goldEffect = ultimates?.activeEffects?.gold;
+    if (!ultimates || !goldEffect || ultimates.consumed?.gold) return;
+
+    const warElapsedMs = Math.max(0, game.combat.warElapsedMs || 0);
+    const level = Number(ultimates.levels?.gold ?? DEFAULT_ULTIMATE_LEVELS.gold);
+    const chargeDelayMs = getUltimateChargeDelayMs('gold', level);
+    if (warElapsedMs < chargeDelayMs) return;
+
+    const percent = resolveUltimateLevelValue(ULTIMATE_CONFIG.gold.unitCullPercent, level);
+    const goldPerUnit = resolveUltimateLevelValue(ULTIMATE_CONFIG.gold.goldPerUnit, level);
+    const units = game.combat.units || [];
+    let remainingCull = Math.floor(units.filter((u) => u.owner === 'player').length * percent);
+    let culled = 0;
+
+    for (let i = units.length - 1; i >= 0 && remainingCull > 0; i -= 1) {
+        if (units[i].owner === 'player') {
+            units.splice(i, 1);
+            remainingCull -= 1;
+            culled += 1;
+        }
+    }
+
+    const goldGain = Math.max(0, culled * goldPerUnit);
+    if (goldGain > 0) {
+        game.gold = Math.max(0, Math.floor(game.gold || 0)) + goldGain;
+        if (typeof game.spawnTxt === 'function') {
+            game.spawnTxt(new (resolveHex(game))(0, 0), `+${goldGain}g`, '#ffd166');
+        }
+    }
+
+    ultimates.consumed = { ...(ultimates.consumed || {}), gold: true };
+    ultimates.activeEffects = { ...(ultimates.activeEffects || {}), gold: null };
+    ultimates.metadata = {
+        ...(ultimates.metadata || {}),
+        gold: {
+            ...(ultimates.metadata?.gold || {}),
+            activatedAtMs: goldEffect.activatedAtMs ?? warElapsedMs,
+            lastAppliedAtMs: warElapsedMs
+        }
+    };
+}
 
 /**
  * Compute a reward multiplier based on elapsed war time.
@@ -193,8 +288,41 @@ export function updateCombat(game, dt, hexImpl) {
     const safeDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
     if (!game.combat.warStartMs) game.combat.warStartMs = Date.now();
     game.combat.warElapsedMs = Math.max(0, (game.combat.warElapsedMs || 0) + (safeDt * 1000));
+    updateUltimateChargeState(game);
+    applyGoldUltimateEffect(game);
     const rewardMultiplier = computeWarRewardMultiplier(game.combat.warElapsedMs);
     const Hex = resolveHex(game, hexImpl);
+    const activeUltimates = game.combat.ultimates?.activeEffects || {};
+    const ultimateLevelOverrides = game.combat.ultimates?.levels
+        && typeof game.combat.ultimates.levels === 'object'
+        ? game.combat.ultimates.levels
+        : {};
+    const ultimateLevels = {
+        ...DEFAULT_ULTIMATE_LEVELS,
+        ...ultimateLevelOverrides
+    };
+    const rushLevel = Number(ultimateLevels.rush ?? DEFAULT_ULTIMATE_LEVELS.rush);
+    const manpowerLevel = Number(ultimateLevels.manpower ?? DEFAULT_ULTIMATE_LEVELS.manpower);
+    const rushSpeedMultiplier = activeUltimates.rush
+        ? (activeUltimates.rush.speedMultiplier
+            ?? resolveUltimateLevelValue(ULTIMATE_CONFIG.rush.speedMultiplier, rushLevel))
+        : 1;
+    const manpowerSpawnRateMultiplier = activeUltimates.manpower
+        ? (activeUltimates.manpower.spawnRateMultiplier
+            ?? resolveUltimateLevelValue(ULTIMATE_CONFIG.manpower.spawnRateMultiplier, manpowerLevel))
+        : 1;
+    const manpowerDoubleSpawnChance = activeUltimates.manpower
+        ? (activeUltimates.manpower.doubleSpawnChance
+            ?? resolveUltimateLevelValue(ULTIMATE_CONFIG.manpower.doubleSpawnChance, manpowerLevel))
+        : 0;
+    if (activeUltimates.rush && !activeUltimates.rush.expiresAtMs) {
+        activeUltimates.rush.expiresAtMs = game.combat.warElapsedMs
+            + getUltimateDurationMs('rush', rushLevel);
+    }
+    if (activeUltimates.manpower && !activeUltimates.manpower.expiresAtMs) {
+        activeUltimates.manpower.expiresAtMs = game.combat.warElapsedMs
+            + getUltimateDurationMs('manpower', manpowerLevel);
+    }
     for(let [k, b] of game.combat.buildings) {
         if(b.type === 'rocks') continue;
 
@@ -205,7 +333,7 @@ export function updateCombat(game, dt, hexImpl) {
 
         // Determine correct rate: specific prodRate > upgrades > default rate
         let rate = def.prodRate || def.rate;
-        if (b.owner === 'player' && def.spawn) rate = getSpawnRate(game, rate);
+        if (b.owner === 'player' && def.spawn) rate = getSpawnRate(game, rate) * manpowerSpawnRateMultiplier;
 
         if((def.spawn || def.income) && b.prodTimer >= rate) {
             b.prodTimer = 0;
@@ -228,6 +356,9 @@ export function updateCombat(game, dt, hexImpl) {
             // Spawn Logic
             if (def.spawn) {
                 spawnUnit(game, def.spawn, b.owner, hex);
+                if (b.owner === 'player' && manpowerDoubleSpawnChance > 0 && Math.random() < manpowerDoubleSpawnChance) {
+                    spawnUnit(game, def.spawn, b.owner, hex);
+                }
                 b.pulse = 0.5;
             }
         }
@@ -303,7 +434,8 @@ export function updateCombat(game, dt, hexImpl) {
             const dr = dest.r - u.pos.r;
             const dist = Math.hypot(dq, dr);
             if(dist > 0.1) {
-                const speed = u.speed * safeDt * 0.5;
+                const speedMultiplier = u.owner === 'player' ? rushSpeedMultiplier : 1;
+                const speed = u.speed * safeDt * 0.5 * speedMultiplier;
                 u.pos.q += (dq / dist) * speed;
                 u.pos.r += (dr / dist) * speed;
                 u.pos.s = -u.pos.q - u.pos.r;

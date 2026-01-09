@@ -45,6 +45,7 @@ import {
     buildOverworldState,
     buildSnowState,
     buildTimekeeperConfig,
+    buildUltimatesState,
     createHexFactory,
     createHexLayout
 } from './state.js';
@@ -1655,6 +1656,7 @@ const Game = {
     startWar(clickEvt) {
         const previousState = this.state;
         startWar(this, clickEvt, this.Hex);
+        this.combat.ultimates = buildUltimatesState(this.upgrades?.ultimates);
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
@@ -1681,6 +1683,7 @@ const Game = {
 
     endWar(outcome, clickEvt) {
         endWar(this, outcome, clickEvt, this.Hex);
+        this.combat.ultimates = buildUltimatesState(this.upgrades?.ultimates);
         this.pendingClearTile = null;
         this.pendingClearTileKey = null;
         this.pendingClearTileWasRebel = null;
