@@ -275,6 +275,47 @@ function createHudDrawerController(game) {
         activeView: () => activeView
     };
 }
+
+/**
+ * Bind checkbox toggles to a settings group keyed by data attributes.
+ * @param {object} config binding configuration.
+ * @param {string} config.selector CSS selector for toggle inputs.
+ * @param {string} config.datasetKey dataset key holding the setting name.
+ * @param {Function} [config.applySettings] handler for applying settings.
+ * @param {(key: string, value: boolean, input: HTMLInputElement) => void} [config.fallback]
+ * fallback handler when a settings service is unavailable.
+ */
+function bindToggleInputs({ selector, datasetKey, applySettings, fallback }) {
+    document.querySelectorAll(selector).forEach((input) => {
+        input.addEventListener('change', () => {
+            const key = input.dataset[datasetKey];
+            const value = input.checked;
+            if (applySettings) {
+                applySettings({ [key]: value });
+                return;
+            }
+            if (typeof fallback === 'function') fallback(key, value, input);
+        });
+    });
+}
+
+/**
+ * Sync checkbox toggles against the provided settings snapshot.
+ * @param {object} config binding configuration.
+ * @param {string} config.selector CSS selector for toggle inputs.
+ * @param {string} config.datasetKey dataset key holding the setting name.
+ * @param {Record<string, boolean>} config.values settings snapshot.
+ */
+function syncToggleInputs({ selector, datasetKey, values }) {
+    document.querySelectorAll(selector).forEach((input) => {
+        const key = input.dataset[datasetKey];
+        const desired = values && Object.prototype.hasOwnProperty.call(values, key)
+            ? values[key]
+            : false;
+        input.checked = Boolean(desired);
+    });
+}
+
 /**
  * Wire DOM event listeners for primary UI controls.
  * @param {object} game live game singleton.
@@ -353,26 +394,24 @@ export function setupUIBindings(game) {
         });
     });
 
-    document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
-        input.addEventListener('change', () => {
-            if (settings?.applyVisual) {
-                settings.applyVisual({ [input.dataset.visualToggle]: input.checked });
-                return;
-            }
-            if (typeof game.setSnowToggle === 'function') game.setSnowToggle(input.dataset.visualToggle, input.checked);
-        });
+    bindToggleInputs({
+        selector: '[data-visual-toggle]',
+        datasetKey: 'visualToggle',
+        applySettings: settings?.applyVisual,
+        fallback: (key, value) => {
+            if (typeof game.setSnowToggle === 'function') game.setSnowToggle(key, value);
+        }
     });
 
-    document.querySelectorAll('[data-general-toggle]').forEach((input) => {
-        input.addEventListener('change', () => {
-            if (settings?.applyGeneral) {
-                settings.applyGeneral({ [input.dataset.generalToggle]: input.checked });
-                return;
+    bindToggleInputs({
+        selector: '[data-general-toggle]',
+        datasetKey: 'generalToggle',
+        applySettings: settings?.applyGeneral,
+        fallback: (key, value) => {
+            if (typeof game.applyGeneralSettings === 'function') {
+                game.applyGeneralSettings({ [key]: value });
             }
-            if (input.dataset.generalToggle === 'paintToClaim' && typeof game.setPaintClaimMode === 'function') {
-                game.setPaintClaimMode(input.checked);
-            }
-        });
+        }
     });
 
     if (typeof game.updateSettingsUI === 'function') game.updateSettingsUI();
@@ -1183,22 +1222,18 @@ export function updateSettingsUI(game) {
 
     const visuals = snapshot?.visuals
         || (typeof game.getVisualSettings === 'function' ? game.getVisualSettings() : {});
-    document.querySelectorAll('[data-visual-toggle]').forEach((input) => {
-        const key = input.dataset.visualToggle;
-        const desired = visuals && Object.prototype.hasOwnProperty.call(visuals, key)
-            ? visuals[key]
-            : false;
-        input.checked = Boolean(desired);
+    syncToggleInputs({
+        selector: '[data-visual-toggle]',
+        datasetKey: 'visualToggle',
+        values: visuals
     });
 
     const general = snapshot?.general
         || (typeof game.getGeneralSettings === 'function' ? game.getGeneralSettings() : {});
-    document.querySelectorAll('[data-general-toggle]').forEach((input) => {
-        const key = input.dataset.generalToggle;
-        const desired = general && Object.prototype.hasOwnProperty.call(general, key)
-            ? general[key]
-            : false;
-        input.checked = Boolean(desired);
+    syncToggleInputs({
+        selector: '[data-general-toggle]',
+        datasetKey: 'generalToggle',
+        values: general
     });
 }
 
