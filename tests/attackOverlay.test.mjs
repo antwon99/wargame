@@ -39,9 +39,7 @@ function run() {
         'tile-attack-overlay-btn': button
     });
     global.window = { addEventListener: () => {}, removeEventListener: () => {} };
-    global.RebelSystem = {
-        isRebelCampTile: (tile) => Boolean(tile?.isRebelCamp)
-    };
+    delete global.RebelSystem;
 
     const game = {
         state: 'OVERWORLD',
