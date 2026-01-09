@@ -28,6 +28,8 @@ gold from the overworld economy.
 ## Consumption Rules
 - Each ultimate can only be consumed **once per battle**.
 - Returning to the overworld resets all ultimate charge timers and active effects.
+- Only one ultimate can be selected for combat at a time; the Ultimates drawer
+  selection dictates which ability is available during the next battle.
 
 ## Ultimate Upgrades
 - **Max level:** 3 for every ultimate (matching the tuning tables in

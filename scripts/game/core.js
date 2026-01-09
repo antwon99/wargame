@@ -22,7 +22,13 @@ import {
 } from '../combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from '../gameAudioHooks.js';
 import { START_TICK, Timekeeper } from '../timekeeper.js';
-import { DEFAULT_ULTIMATE_LEVELS, getUltimateMaxLevel, getUltimateUpgradeCost } from './ultimatesConfig.js';
+import {
+    DEFAULT_ULTIMATE_LEVELS,
+    DEFAULT_ULTIMATE_SELECTION,
+    getUltimateMaxLevel,
+    getUltimateUpgradeCost,
+    resolveUltimateSelection
+} from './ultimatesConfig.js';
 import { OVERWORLD_TERRAIN_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
@@ -85,6 +91,33 @@ const normalizeFactionStateSnapshot = (snapshot = null) => {
             frontier: Array.isArray(contributors.frontier) ? [...contributors.frontier] : base.recentContributors.frontier
         }
     };
+};
+
+/**
+ * Align combat ultimate state with the currently selected ultimate so only one
+ * option is available during a battle.
+ * @param {object|null} ultimates combat ultimates state container.
+ * @param {string} selectedUltimateId validated ultimate identifier.
+ */
+const applySelectedUltimateToCombat = (ultimates, selectedUltimateId) => {
+    if (!ultimates || !selectedUltimateId) return;
+    ultimates.selectedId = selectedUltimateId;
+    const consumed = ultimates.consumed || {};
+    const activeEffects = ultimates.activeEffects || {};
+    const chargeMs = ultimates.chargeMs || {};
+
+    Object.keys(consumed).forEach((ultimateId) => {
+        const isSelected = ultimateId === selectedUltimateId;
+        consumed[ultimateId] = !isSelected;
+        if (!isSelected) {
+            activeEffects[ultimateId] = null;
+            chargeMs[ultimateId] = 0;
+        }
+    });
+
+    ultimates.consumed = consumed;
+    ultimates.activeEffects = activeEffects;
+    ultimates.chargeMs = chargeMs;
 };
 /** Clamp normalized slider values (0–1) while tolerating NaN input. */
 function clamp01(value, fallback = 1) {
@@ -762,6 +795,7 @@ const Game = {
         this.gold = 300; this.wood = 40; this.difficulty = 0;
         this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
         this.ultimates = { ...DEFAULT_ULTIMATE_LEVELS };
+        this.selectedUltimate = DEFAULT_ULTIMATE_SELECTION;
         this.factionState = buildFactionState();
         this.overworld.hexes = new Map();
         this.overworld.claimable = new Map();
@@ -820,6 +854,7 @@ const Game = {
         this.difficulty = snapshot.difficulty;
         this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
         this.ultimates = { ...DEFAULT_ULTIMATE_LEVELS, ...(snapshot.ultimates || {}) };
+        this.selectedUltimate = resolveUltimateSelection(snapshot.selectedUltimate);
         this.factionState = normalizeFactionStateSnapshot(snapshot.factionState);
         this.research = this.buildResearchState(snapshot.research);
         this.updateResearchBonuses();
@@ -1144,6 +1179,22 @@ const Game = {
         if (typeof this.updateUltimatesUI === 'function') this.updateUltimatesUI();
         this.spawnTxt(new Hex(0,0), `${ultimateId.toUpperCase()} ULTIMATE UPGRADED!`, '#ffd166');
         return true;
+    },
+
+    /**
+     * Choose the single ultimate that is available during combat.
+     * Updates persistent selection, refreshes HUD/UI, and locks combat state
+     * so only the chosen ultimate can charge or activate.
+     * @param {string} ultimateId ultimate identifier to select.
+     * @returns {string} resolved ultimate identifier that was applied.
+     */
+    selectUltimate(ultimateId) {
+        const resolved = resolveUltimateSelection(ultimateId);
+        this.selectedUltimate = resolved;
+        applySelectedUltimateToCombat(this.combat?.ultimates, resolved);
+        if (typeof this.updateUltimatesUI === 'function') this.updateUltimatesUI();
+        if (typeof this.updateHUD === 'function') this.updateHUD();
+        return resolved;
     },
 
     /**
@@ -1823,7 +1874,10 @@ const Game = {
     startWar(clickEvt) {
         const previousState = this.state;
         startWar(this, clickEvt, this.Hex);
-        this.combat.ultimates = buildUltimatesState(this.ultimates);
+        const resolvedSelection = resolveUltimateSelection(this.selectedUltimate);
+        this.selectedUltimate = resolvedSelection;
+        this.combat.ultimates = buildUltimatesState(this.ultimates, resolvedSelection);
+        applySelectedUltimateToCombat(this.combat.ultimates, resolvedSelection);
         this.isPaintClaimModeActive?.();
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
@@ -1851,7 +1905,10 @@ const Game = {
 
     endWar(outcome, clickEvt) {
         endWar(this, outcome, clickEvt, this.Hex);
-        this.combat.ultimates = buildUltimatesState(this.ultimates);
+        const resolvedSelection = resolveUltimateSelection(this.selectedUltimate);
+        this.selectedUltimate = resolvedSelection;
+        this.combat.ultimates = buildUltimatesState(this.ultimates, resolvedSelection);
+        applySelectedUltimateToCombat(this.combat.ultimates, resolvedSelection);
         this.pendingClearTile = null;
         this.pendingClearTileKey = null;
         this.pendingClearTileWasRebel = null;

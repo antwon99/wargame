@@ -55,6 +55,25 @@ export const ULTIMATE_UPGRADE_CONFIG = Object.freeze({
 });
 
 /**
+ * Default ultimate selection used when a saved choice is missing or invalid.
+ */
+export const DEFAULT_ULTIMATE_SELECTION = 'rush';
+
+/**
+ * Resolve a valid ultimate selection id based on the configured ultimate list.
+ * Ensures callers always receive a supported id for UI and combat availability.
+ * @param {string|null|undefined} candidate ultimate identifier to validate.
+ * @returns {string} supported ultimate id.
+ */
+export function resolveUltimateSelection(candidate) {
+    const knownIds = Object.keys(ULTIMATE_CONFIG);
+    if (knownIds.length === 0) return DEFAULT_ULTIMATE_SELECTION;
+    if (typeof candidate === 'string' && knownIds.includes(candidate)) return candidate;
+    if (knownIds.includes(DEFAULT_ULTIMATE_SELECTION)) return DEFAULT_ULTIMATE_SELECTION;
+    return knownIds[0];
+}
+
+/**
  * Resolve a numeric value from a per-level tuning table, clamping to valid bounds.
  * @param {number[]} table array of values indexed by level - 1.
  * @param {number} level upgrade level to read (1-based).

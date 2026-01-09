@@ -2,7 +2,13 @@ import { DEFAULT_IMPERIAL_FAVOR } from '../imperialFavor.js';
 import { DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { START_TICK } from '../timekeeper.js';
 import { SNOW_VISUAL_CONFIG } from '../snowVisualConfig.js';
-import { DEFAULT_ULTIMATE_LEVELS, getUltimateChargeDelayMs, ULTIMATE_CONFIG } from './ultimatesConfig.js';
+import {
+    DEFAULT_ULTIMATE_LEVELS,
+    DEFAULT_ULTIMATE_SELECTION,
+    getUltimateChargeDelayMs,
+    resolveUltimateSelection,
+    ULTIMATE_CONFIG
+} from './ultimatesConfig.js';
 
 export const CAMERA_MOTION_CONFIG = {
     enabled: true,
@@ -112,6 +118,7 @@ export function buildCoreResourceState({
         difficulty: 0,
         upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
         ultimates: { ...DEFAULT_ULTIMATE_LEVELS },
+        selectedUltimate: DEFAULT_ULTIMATE_SELECTION,
         factionState: buildFactionState(),
         research: {
             technologies: [],
@@ -156,11 +163,13 @@ export function buildCombatState() {
  * Each ultimate has one charge window per battle (15–30 seconds by level)
  * and can be consumed only once; metadata tracks when effects trigger.
  * @param {object} [levelOverrides] optional per-ultimate level overrides.
- * @returns {{chargeMs: object, readyAtMs: object, consumed: object, activeEffects: object, levels: object, metadata: object}}
+ * @param {string} [selectedUltimateId] ultimate identifier selected for battle use.
+ * @returns {{chargeMs: object, readyAtMs: object, consumed: object, activeEffects: object, levels: object, metadata: object, selectedId: string}}
  */
-export function buildUltimatesState(levelOverrides = {}) {
+export function buildUltimatesState(levelOverrides = {}, selectedUltimateId = DEFAULT_ULTIMATE_SELECTION) {
     const safeOverrides = levelOverrides && typeof levelOverrides === 'object' ? levelOverrides : {};
     const levels = { ...DEFAULT_ULTIMATE_LEVELS, ...safeOverrides };
+    const resolvedSelection = resolveUltimateSelection(selectedUltimateId);
     const chargeMs = {};
     const readyAtMs = {};
     const consumed = {};
@@ -169,9 +178,10 @@ export function buildUltimatesState(levelOverrides = {}) {
 
     Object.keys(ULTIMATE_CONFIG).forEach((ultimateId) => {
         const level = Number(levels[ultimateId] ?? 1);
+        const isSelected = ultimateId === resolvedSelection;
         chargeMs[ultimateId] = 0;
         readyAtMs[ultimateId] = getUltimateChargeDelayMs(ultimateId, level);
-        consumed[ultimateId] = false;
+        consumed[ultimateId] = !isSelected;
         activeEffects[ultimateId] = null;
         metadata[ultimateId] = { activatedAtMs: null, lastAppliedAtMs: null };
     });
@@ -182,7 +192,8 @@ export function buildUltimatesState(levelOverrides = {}) {
         consumed,
         activeEffects,
         levels,
-        metadata
+        metadata,
+        selectedId: resolvedSelection
     };
 }
 

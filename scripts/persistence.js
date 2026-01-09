@@ -419,6 +419,7 @@ function createPersistence(global) {
             difficulty: alignedDifficulty,
             upgrades: { ...game.upgrades },
             ultimates: { ...(game.ultimates || {}) },
+            selectedUltimate: game.selectedUltimate,
             research: {
                 technologies: Array.from(game.research?.technologies || []).map(t => ({
                     id: t.id,

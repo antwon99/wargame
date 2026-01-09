@@ -4,9 +4,11 @@ import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
+    DEFAULT_ULTIMATE_SELECTION,
     getUltimateDurationMs,
     getUltimateMaxLevel,
     getUltimateUpgradeCost,
+    resolveUltimateSelection,
     resolveUltimateLevelValue,
     ULTIMATE_CONFIG
 } from './game/ultimatesConfig.js';
@@ -157,6 +159,15 @@ function bindUltimateButtons(game) {
     Object.entries(mapping).forEach(([id, key]) => {
         const btn = document.getElementById(id);
         if (btn) btn.onclick = () => game.buyUltimate(key);
+    });
+    const selectMapping = {
+        'select-ultimate-rush': 'rush',
+        'select-ultimate-manpower': 'manpower',
+        'select-ultimate-gold': 'gold'
+    };
+    Object.entries(selectMapping).forEach(([id, key]) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.onclick = () => game.selectUltimate?.(key);
     });
 }
 
@@ -1338,9 +1349,12 @@ function buildUltimateEffectSummary(ultimateId, level) {
 function updateUltimatesMenu(game) {
     if (typeof document === 'undefined') return;
     const ensureText = (el, text) => { if (el && typeof text === 'string') el.innerText = text; };
+    const resolvedSelection = resolveUltimateSelection(game.selectedUltimate);
 
     ULTIMATE_DRAWER_ENTRIES.forEach(({ id, buttonId }) => {
         const btn = document.querySelector(`[data-ultimate-button="${id}"]`) || document.getElementById(buttonId);
+        const selectBtn = document.querySelector(`[data-ultimate-select="${id}"]`)
+            || document.getElementById(`select-ultimate-${id}`);
         const statusEl = document.getElementById(`ultimate-${id}-status`);
         const levelEl = document.querySelector(`[data-ultimate-level="${id}"]`) || document.getElementById(`ultimate-${id}-meta`);
         const effectEl = document.querySelector(`[data-ultimate-effect="${id}"]`) || document.getElementById(`ultimate-${id}-effect`);
@@ -1381,6 +1395,20 @@ function updateUltimatesMenu(game) {
         btn.classList.toggle('affordable', canAfford && !atMax);
         btn.classList.toggle('unaffordable', !canAfford || atMax);
         btn.title = atMax ? 'Max level reached' : (canAfford ? '' : 'Insufficient gold');
+
+        if (selectBtn) {
+            const isSelected = id === resolvedSelection;
+            const ultimateLabel = ULTIMATE_CONFIG[id]?.label || id;
+            selectBtn.disabled = isSelected;
+            selectBtn.classList.toggle('ultimate-select-btn--active', isSelected);
+            selectBtn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            selectBtn.setAttribute(
+                'aria-label',
+                isSelected ? `${ultimateLabel} selected for battle` : `Select ${ultimateLabel} for battle`
+            );
+            selectBtn.innerText = isSelected ? 'Selected' : 'Select';
+            selectBtn.title = isSelected ? 'Selected for battle' : 'Pick this ultimate for combat';
+        }
     });
 }
 
@@ -1491,7 +1519,14 @@ function updateCombatUltimateHud(game) {
     hud.setAttribute('aria-hidden', inCombat ? 'false' : 'true');
     if (!inCombat) return;
 
-    const ultimateId = hud.dataset.ultimateId || 'rush';
+    const selectedId = resolveUltimateSelection(
+        game?.combat?.ultimates?.selectedId
+        || game?.selectedUltimate
+        || hud.dataset.ultimateId
+        || DEFAULT_ULTIMATE_SELECTION
+    );
+    if (hud.dataset.ultimateId !== selectedId) hud.dataset.ultimateId = selectedId;
+    const ultimateId = hud.dataset.ultimateId;
     const ultimateConfig = ULTIMATE_CONFIG[ultimateId] || {};
     const ultimates = game?.combat?.ultimates || {};
     const readyAtMs = Number(ultimates.readyAtMs?.[ultimateId] ?? 0);
