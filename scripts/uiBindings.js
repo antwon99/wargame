@@ -2,6 +2,7 @@ import { createNotificationStack, getSharedStack, setSharedStack } from './notif
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
+import { RebelSystem } from './rebelSystem.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
     DEFAULT_ULTIMATE_SELECTION,
@@ -1675,7 +1676,7 @@ function updateTileInspector(game, tile) {
 
     const resolvedTile = resolveOverworldTile(game, tile);
     const claimCost = typeof resolvedTile.claimCost === 'number' ? resolvedTile.claimCost : null;
-    const isRebelTile = typeof RebelSystem !== 'undefined' && RebelSystem.isRebelCampTile?.(resolvedTile);
+    const isRebelTile = RebelSystem?.isRebelCampTile?.(resolvedTile);
     const isHostile = !claimCost && (isRebelTile || resolvedTile.owner === 'enemy');
     const labelText = claimCost !== null
         ? 'Unclaimed Frontier'
@@ -1784,7 +1785,7 @@ function updateTileAttackOverlay(game, tile) {
 
     const resolvedTile = resolveOverworldTile(game, tile);
     const isHostile = resolvedTile
-        && (RebelSystem.isRebelCampTile?.(resolvedTile) || resolvedTile.owner === 'enemy');
+        && (RebelSystem?.isRebelCampTile?.(resolvedTile) || resolvedTile.owner === 'enemy');
     const shouldHide = !resolvedTile || !isHostile || game.state !== 'OVERWORLD';
     if (shouldHide) {
         btn.style.display = 'none';
