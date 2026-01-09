@@ -131,6 +131,7 @@
                         <div class="hud-action-row__buttons">
                             <button class="btn btn-upg" id="btn-upg" aria-expanded="false">💪 Upgrades</button>
                             <button class="btn btn-research" id="btn-research" aria-expanded="false">🔬 Research</button>
+                            <button class="btn btn-ultimates" id="btn-ultimates" aria-expanded="false">💥 Ultimates</button>
                         </div>
                         <div id="reclamation-hint" class="reclamation-hint" aria-live="polite" aria-hidden="true"></div>
                     </div>
@@ -169,6 +170,31 @@
 
             <!-- Combat UI -->
             <div id="ui-combat" class="mode-panel">
+                <div
+                    class="combat-ultimate-hud"
+                    id="combat-ultimate-hud"
+                    data-ultimate-id="rush"
+                    aria-hidden="true"
+                    aria-label="Ultimate ability status"
+                >
+                    <button
+                        class="ultimate-button"
+                        id="ultimate-button"
+                        type="button"
+                        aria-label="Ultimate ability"
+                        aria-disabled="true"
+                    >
+                        <span class="ultimate-ring" aria-hidden="true">
+                            <span class="ultimate-ring__core">
+                                <span class="ultimate-icon" id="ultimate-icon" aria-hidden="true">⚡</span>
+                            </span>
+                        </span>
+                        <span class="ultimate-text">
+                            <span class="ultimate-label" id="ultimate-label">Rush</span>
+                            <span class="ultimate-timer" id="ultimate-timer" aria-live="polite">Charging</span>
+                        </span>
+                    </button>
+                </div>
                 <button class="btn btn-retreat" id="btn-retreat">🏳️ Retreat</button>
             </div>
         </div>
@@ -346,6 +372,63 @@
 <template id="drawer-research-template">
     <div class="tech-drawer">
         <div id="tech-grid" class="card-grid tech-grid"></div>
+    </div>
+</template>
+
+<template id="drawer-ultimates-template">
+    <div class="ultimate-drawer">
+        <div class="card-grid ultimate-grid" role="list" aria-label="Ultimate abilities">
+            <article
+                class="command-card ultimate-card"
+                role="listitem"
+                aria-labelledby="ultimate-rush-title"
+                aria-describedby="ultimate-rush-desc ultimate-rush-meta"
+            >
+                <div class="card-header">
+                    <div class="card-heading">
+                        <p class="card-eyebrow">Combat Ultimate</p>
+                        <h3 class="card-title" id="ultimate-rush-title">Rush ⚡</h3>
+                        <p class="card-desc" id="ultimate-rush-desc">Sound the charge to boost allied march speed for a short burst.</p>
+                    </div>
+                    <span class="cost-badge ultimate-status" id="ultimate-rush-status" aria-label="Rush status">Locked</span>
+                </div>
+                <p class="card-note" id="ultimate-rush-meta">Upgrade this ultimate between wars to extend its duration.</p>
+            </article>
+
+            <article
+                class="command-card ultimate-card"
+                role="listitem"
+                aria-labelledby="ultimate-manpower-title"
+                aria-describedby="ultimate-manpower-desc ultimate-manpower-meta"
+            >
+                <div class="card-header">
+                    <div class="card-heading">
+                        <p class="card-eyebrow">Combat Ultimate</p>
+                        <h3 class="card-title" id="ultimate-manpower-title">Manpower 🪖</h3>
+                        <p class="card-desc" id="ultimate-manpower-desc">Rally conscripts to accelerate spawn cadence and reinforce the line.</p>
+                    </div>
+                    <span class="cost-badge ultimate-status" id="ultimate-manpower-status" aria-label="Manpower status">Locked</span>
+                </div>
+                <p class="card-note" id="ultimate-manpower-meta">Upgrade this ultimate between wars to sharpen reinforcement timing.</p>
+            </article>
+
+            <article
+                class="command-card ultimate-card"
+                role="listitem"
+                aria-labelledby="ultimate-gold-title"
+                aria-describedby="ultimate-gold-desc ultimate-gold-meta"
+            >
+                <div class="card-header">
+                    <div class="card-heading">
+                        <p class="card-eyebrow">Combat Ultimate</p>
+                        <h3 class="card-title" id="ultimate-gold-title">Gold 💰</h3>
+                        <p class="card-desc" id="ultimate-gold-desc">Requisition veteran ranks for immediate war spoils and funding.</p>
+                    </div>
+                    <span class="cost-badge ultimate-status" id="ultimate-gold-status" aria-label="Gold status">Locked</span>
+                </div>
+                <p class="card-note" id="ultimate-gold-meta">Upgrade this ultimate between wars to reclaim more bounty.</p>
+            </article>
+        </div>
     </div>
 </template>
 

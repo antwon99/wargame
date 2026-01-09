@@ -55,6 +55,8 @@ function buildTemplates(document) {
     upgrades.content = { cloneNode: () => document.register('upgrades-view', createStubElement('upgrades-view')) };
     const research = document.register('drawer-research-template', createStubElement('drawer-research-template'));
     research.content = { cloneNode: () => document.register('research-view', createStubElement('research-view')) };
+    const ultimates = document.register('drawer-ultimates-template', createStubElement('drawer-ultimates-template'));
+    ultimates.content = { cloneNode: () => document.register('ultimates-view', createStubElement('ultimates-view')) };
 }
 
 function wireDrawerShell(document) {
@@ -76,9 +78,10 @@ function wireDrawerShell(document) {
 function registerActionButtons(document) {
     const upg = document.register('btn-upg', createStubElement('btn-upg'));
     const research = document.register('btn-research', createStubElement('btn-research'));
+    const ultimates = document.register('btn-ultimates', createStubElement('btn-ultimates'));
     document.register('reclamation-hint', createStubElement('reclamation-hint'));
     ['buy-soldier', 'buy-archer', 'buy-prod', 'buy-mines', 'buy-defense'].forEach(id => document.register(id, createStubElement(id)));
-    return { upg, research };
+    return { upg, research, ultimates };
 }
 
 function resetGlobals(document, windowStub) {
@@ -121,6 +124,7 @@ function testHudDrawerController() {
     assert.strictEqual(actions.research.getAttribute('aria-expanded'), 'false', 'research trigger should be collapsed');
     assert.strictEqual(actions.upg.getAttribute('aria-controls'), 'hud-drawer', 'upgrade trigger should target the drawer shell');
     assert.strictEqual(actions.research.getAttribute('aria-controls'), 'hud-drawer', 'research trigger should target the drawer shell');
+    assert.strictEqual(actions.ultimates.getAttribute('aria-controls'), 'hud-drawer', 'ultimate trigger should target the drawer shell');
 
     const soldierBtn = document.getElementById('buy-soldier');
     soldierBtn.onclick?.();
@@ -132,6 +136,12 @@ function testHudDrawerController() {
     assert.strictEqual(shell.content.children[0].id, 'research-view', 'research content should replace upgrades');
     assert.strictEqual(actions.upg.getAttribute('aria-expanded'), 'false', 'upgrade trigger should collapse when research opens');
     assert.strictEqual(actions.research.getAttribute('aria-expanded'), 'true', 'research trigger should expand when active');
+    assert.strictEqual(actions.ultimates.getAttribute('aria-expanded'), 'false', 'ultimate trigger should remain collapsed');
+
+    controller.showUltimates();
+    assert.ok(shell.drawer.classList.contains('open'), 'drawer should stay open when ultimates are selected');
+    assert.strictEqual(shell.content.children[0].id, 'ultimates-view', 'ultimate content should replace prior content');
+    assert.strictEqual(actions.ultimates.getAttribute('aria-expanded'), 'true', 'ultimate trigger should expand when active');
 
     const outsideTarget = createStubElement('outside');
     (document.listeners.click || []).forEach((handler) => handler({ target: outsideTarget }));
