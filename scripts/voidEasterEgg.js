@@ -43,7 +43,3 @@ function initVoidEasterEgg(target = typeof window !== 'undefined' ? window : und
 
 export { VoidEasterEgg, initVoidEasterEgg };
 
-if (typeof module !== 'undefined') {
-    VoidEasterEgg.initVoidEasterEgg = initVoidEasterEgg;
-    module.exports = VoidEasterEgg;
-}

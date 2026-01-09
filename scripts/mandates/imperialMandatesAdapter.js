@@ -255,7 +255,3 @@ ImperialMandateUIAdapter.createImperialMandateUIAdapter = createImperialMandateU
 export { initImperialMandatesAdapter, createImperialMandateUIAdapter };
 export default ImperialMandateUIAdapter;
 
-if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateUIAdapter, {
-    initImperialMandatesAdapter,
-    createImperialMandateUIAdapter
-});

@@ -177,7 +177,3 @@ function initBootOverlay(target = typeof window !== 'undefined' ? window : undef
 
 export { BootOverlay, initBootOverlay };
 
-if (typeof module !== 'undefined') {
-    BootOverlay.initBootOverlay = initBootOverlay;
-    module.exports = BootOverlay;
-}

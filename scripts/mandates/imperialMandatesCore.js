@@ -1503,6 +1503,3 @@ createImperialMandates.initImperialMandatesCore = initImperialMandatesCore;
 export { initImperialMandatesCore };
 export default createImperialMandates;
 
-if (typeof module !== 'undefined') {
-    module.exports = createImperialMandates;
-}

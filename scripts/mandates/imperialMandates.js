@@ -35,6 +35,3 @@ function initImperialMandates(global = typeof window !== 'undefined' ? window : 
 
 export { initImperialMandates };
 
-if (typeof module !== 'undefined') {
-    module.exports = { initImperialMandates };
-}

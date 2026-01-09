@@ -16,6 +16,3 @@ const ImperialFavor = { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor };
 if (typeof globalThis !== 'undefined') {
     globalThis.ImperialFavor = ImperialFavor;
 }
-if (typeof module !== 'undefined') {
-    module.exports = ImperialFavor;
-}
