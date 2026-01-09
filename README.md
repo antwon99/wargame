@@ -67,6 +67,18 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
   ```
   - The test runner stubs DOM APIs and executes both `.js` and `.mjs` suites.
 
+### Linting and formatting
+
+- Run ESLint checks with:
+  ```bash
+  npm run lint
+  ```
+- Check formatting or auto-format the codebase with:
+  ```bash
+  npm run format:check
+  npm run format
+  ```
+
 ## Audio
 
 - MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop. Effects are grouped into `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` subfolders, with `/sfx/ui` reserved for future interface cues.
