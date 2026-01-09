@@ -300,6 +300,9 @@ export function setupUIBindings(game) {
     const drawerClose = document.getElementById('hud-drawer-close');
     if (drawerClose) drawerClose.onclick = () => drawerController.hide?.();
 
+    const paintClaimBtn = document.getElementById('btn-claim-paint');
+    if (paintClaimBtn) paintClaimBtn.onclick = () => game.setPaintClaimMode?.();
+
     const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
 
@@ -389,14 +392,30 @@ function setupInput(game) {
     let isDrag = false;
     let start = { x: 0, y: 0 };
     let camStart = { x: 0, y: 0 };
-    const onDown = (x, y) => { isDrag = true; start = { x, y }; camStart = { x: game.cam.x, y: game.cam.y }; };
+    const onDown = (x, y) => {
+        isDrag = true;
+        start = { x, y };
+        camStart = { x: game.cam.x, y: game.cam.y };
+        if (game.paintClaimMode && typeof game.onPaint === 'function') game.onPaint(x, y);
+    };
     const onMove = (x, y) => {
-        if (isDrag) { game.cam.x = camStart.x + (x - start.x); game.cam.y = camStart.y + (y - start.y); }
+        if (isDrag) {
+            if (game.paintClaimMode && typeof game.onPaint === 'function') {
+                game.onPaint(x, y);
+            } else {
+                game.cam.x = camStart.x + (x - start.x);
+                game.cam.y = camStart.y + (y - start.y);
+            }
+        }
         else if (typeof game.onHover === 'function') { game.onHover(x, y); }
     };
     const onUp = (x, y) => {
         if (isDrag) {
             isDrag = false;
+            if (game.paintClaimMode) {
+                if (typeof game.resetPaintClaimDrag === 'function') game.resetPaintClaimDrag();
+                return;
+            }
             if (Math.hypot(x - start.x, y - start.y) < 10) {
                 const hit = game.isPointerOnDrawnHex(x, y);
                 if (hit && hit.hit) game.onClick(x, y);
@@ -1393,6 +1412,24 @@ export function updateHUD(game) {
     if (pauseIndicator) {
         pauseIndicator.innerText = game.paused ? 'Paused' : 'Live';
         pauseIndicator.classList.toggle('paused', !!game.paused);
+    }
+    const paintClaimBtn = document.getElementById('btn-claim-paint');
+    if (paintClaimBtn) {
+        const enabled = Boolean(game.paintClaimMode);
+        paintClaimBtn.classList.toggle('btn-claim-paint--active', enabled);
+        paintClaimBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        paintClaimBtn.innerText = enabled ? '🖌️ Paint Claim On' : '🖌️ Paint Claim';
+    }
+    const paintStatus = document.getElementById('paint-claim-status');
+    if (paintStatus) {
+        const enabled = Boolean(game.paintClaimMode);
+        const tone = game.paintClaimStatusTone || (enabled ? 'info' : 'muted');
+        const fallback = enabled
+            ? 'Paint claim ready — drag across frontier tiles.'
+            : 'Paint claim: Off';
+        paintStatus.innerText = game.paintClaimStatus || fallback;
+        paintStatus.dataset.tone = tone;
+        paintStatus.classList.toggle('paint-claim-status--active', enabled);
     }
     document.getElementById('lvl-txt').innerText = `Lv.${resolveCampaignLevel(game)}`;
     updateCombatUltimateHud(game);

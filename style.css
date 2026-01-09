@@ -526,6 +526,13 @@
         .btn-upg { background: #5a189a; border-color: #7b2cbf; color: #fff; margin-right: 10px; }
         .btn-research { background: linear-gradient(45deg, #4895ef, #4cc9f0); border-color: #5e9bff; color: #0a0a16; margin-right: 10px; }
         .btn-ultimates { background: linear-gradient(45deg, #ff5d8f, #fcbf49); border-color: #f9844a; color: #2b0b1f; }
+        .btn-claim-paint { background: linear-gradient(45deg, #577590, #43aa8b); border-color: #277da1; color: #0a0f14; }
+        .btn-claim-paint--active {
+            background: linear-gradient(45deg, #90be6d, #43aa8b);
+            border-color: #52b788;
+            color: #0a0f14;
+            box-shadow: 0 0 14px rgba(144, 190, 109, 0.5);
+        }
         .btn-retreat { background: #334; border-color: #445; font-size: 0.9rem; padding: 10px 20px; }
         .btn-close { background: #444; border-color: #555; padding: 8px 16px; margin-top: 20px; width: 100%; }
 
@@ -571,6 +578,19 @@
 
         .mode-panel { display: none; width: 100%; flex-direction: column; align-items: center; gap: 10px; }
         .visible { display: flex; }
+
+        .paint-claim-status {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #8d8d9f;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .paint-claim-status--active { color: #b8f2e6; }
+        .paint-claim-status[data-tone="success"] { color: #9be3b4; }
+        .paint-claim-status[data-tone="warning"] { color: #ffd166; }
+        .paint-claim-status[data-tone="muted"] { color: #8d8d9f; }
 
         .combat-ultimate-hud {
             display: none;
