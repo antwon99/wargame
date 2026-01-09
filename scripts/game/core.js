@@ -22,6 +22,7 @@ import {
 } from '../combatEngine.js';
 import { armAmbientLoop as armAmbientLoopHelper, haltAmbientLoop as haltAmbientLoopHelper } from '../gameAudioHooks.js';
 import { START_TICK, Timekeeper } from '../timekeeper.js';
+import { DEFAULT_ULTIMATE_LEVELS, getUltimateMaxLevel, getUltimateUpgradeCost } from './ultimatesConfig.js';
 import { OVERWORLD_TERRAIN_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
@@ -224,6 +225,7 @@ const Game = {
     state: 'OVERWORLD',
     paused: false,
     ...baseResources,
+    ultimates: { ...DEFAULT_ULTIMATE_LEVELS, ...(baseResources.ultimates || {}) },
     Hex,
     Layout,
     deviceProfile: Platform.detectPlatformProfile(),
@@ -707,6 +709,7 @@ const Game = {
         this.paused = false;
         this.gold = 300; this.wood = 40; this.difficulty = 0;
         this.upgrades = { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 };
+        this.ultimates = { ...DEFAULT_ULTIMATE_LEVELS };
         this.factionState = buildFactionState();
         this.overworld.hexes = new Map();
         this.overworld.claimable = new Map();
@@ -763,6 +766,7 @@ const Game = {
         this.wood = snapshot.wood;
         this.difficulty = snapshot.difficulty;
         this.upgrades = { ...this.upgrades, ...snapshot.upgrades };
+        this.ultimates = { ...DEFAULT_ULTIMATE_LEVELS, ...(snapshot.ultimates || {}) };
         this.factionState = normalizeFactionStateSnapshot(snapshot.factionState);
         this.research = this.buildResearchState(snapshot.research);
         this.updateResearchBonuses();
@@ -1035,6 +1039,7 @@ const Game = {
     },
 
     // --- UPGRADES ---
+    /** Compute the gold cost for the next upgrade purchase. */
     getUpgradeCost(type) {
         const level = this.upgrades[type];
         if (type === 'production') return Math.floor(150 * Math.pow(1.5, level - 1));
@@ -1043,6 +1048,7 @@ const Game = {
         return Math.floor(100 * Math.pow(1.3, level - 1));
     },
 
+    /** Spend gold to purchase a permanent upgrade level. */
     buyUpgrade(type) {
         const cost = this.getUpgradeCost(type);
         if(this.gold >= cost) {
@@ -1052,6 +1058,38 @@ const Game = {
             this.updateUpgradeMenu();
             this.spawnTxt(new Hex(0,0), `${type.toUpperCase()} UPGRADED!`, '#d4f');
         }
+    },
+
+    // --- ULTIMATE UPGRADES ---
+    /**
+     * Compute the gold cost required to upgrade an ultimate, or null when maxed.
+     * @param {string} ultimateId ultimate identifier to price.
+     * @returns {number|null} gold cost for the next level, or null if maxed.
+     */
+    getUltimateUpgradeCost(ultimateId) {
+        const currentLevel = this.ultimates?.[ultimateId] ?? DEFAULT_ULTIMATE_LEVELS[ultimateId] ?? 1;
+        return getUltimateUpgradeCost(ultimateId, currentLevel);
+    },
+
+    /**
+     * Spend gold to upgrade a combat ultimate between wars.
+     * Updates the HUD + ultimate drawer so the purchase feedback is immediate.
+     * @param {string} ultimateId ultimate identifier to upgrade.
+     * @returns {boolean} true when the purchase succeeds.
+     */
+    buyUltimate(ultimateId) {
+        const currentLevel = this.ultimates?.[ultimateId] ?? DEFAULT_ULTIMATE_LEVELS[ultimateId] ?? 1;
+        const maxLevel = getUltimateMaxLevel(ultimateId);
+        if (currentLevel >= maxLevel) return false;
+        const cost = getUltimateUpgradeCost(ultimateId, currentLevel);
+        if (!Number.isFinite(cost) || cost <= 0) return false;
+        if ((Number.isFinite(this.gold) ? this.gold : 0) < cost) return false;
+        this.gold -= cost;
+        this.ultimates = { ...(this.ultimates || {}), [ultimateId]: currentLevel + 1 };
+        this.updateHUD();
+        if (typeof this.updateUltimatesUI === 'function') this.updateUltimatesUI();
+        this.spawnTxt(new Hex(0,0), `${ultimateId.toUpperCase()} ULTIMATE UPGRADED!`, '#ffd166');
+        return true;
     },
 
     /**
@@ -1656,7 +1694,7 @@ const Game = {
     startWar(clickEvt) {
         const previousState = this.state;
         startWar(this, clickEvt, this.Hex);
-        this.combat.ultimates = buildUltimatesState(this.upgrades?.ultimates);
+        this.combat.ultimates = buildUltimatesState(this.ultimates);
         if (previousState === 'OVERWORLD' && this.state !== 'COMBAT') {
             this.pendingClearTile = null;
             this.pendingClearTileKey = null;
@@ -1683,7 +1721,7 @@ const Game = {
 
     endWar(outcome, clickEvt) {
         endWar(this, outcome, clickEvt, this.Hex);
-        this.combat.ultimates = buildUltimatesState(this.upgrades?.ultimates);
+        this.combat.ultimates = buildUltimatesState(this.ultimates);
         this.pendingClearTile = null;
         this.pendingClearTileKey = null;
         this.pendingClearTileWasRebel = null;

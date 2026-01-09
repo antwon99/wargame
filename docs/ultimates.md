@@ -4,6 +4,8 @@ Combat ultimates are single-use battle abilities that charge once per war. Each 
 charge delay that scales by upgrade level (15–30 seconds), then grants a short-lived effect or a
 one-time payout. The combat engine tracks per-ultimate state in `game.combat.ultimates` so UI and
 gameplay systems can display readiness, consume the effect, and clear the state on war exit.
+Persistent ultimate upgrade levels live on `game.ultimates` and are upgraded between wars using
+gold from the overworld economy.
 
 ## Ultimate Behavior
 
@@ -26,3 +28,11 @@ gameplay systems can display readiness, consume the effect, and clear the state 
 ## Consumption Rules
 - Each ultimate can only be consumed **once per battle**.
 - Returning to the overworld resets all ultimate charge timers and active effects.
+
+## Ultimate Upgrades
+- **Max level:** 3 for every ultimate (matching the tuning tables in
+  `scripts/game/ultimatesConfig.js`).
+- **Base costs:** Rush 220g, Manpower 240g, Gold 260g.
+- **Scaling:** Each additional level scales the base cost by ×1.6.
+- **UI copy:** The Ultimates drawer shows current level, max level, and a summary of the
+  active effect (e.g., “Rush: +25% speed for 6s”).

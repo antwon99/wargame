@@ -418,6 +418,7 @@ function createPersistence(global) {
             wood: game.wood,
             difficulty: alignedDifficulty,
             upgrades: { ...game.upgrades },
+            ultimates: { ...(game.ultimates || {}) },
             research: {
                 technologies: Array.from(game.research?.technologies || []).map(t => ({
                     id: t.id,
@@ -550,6 +551,7 @@ function createPersistence(global) {
             imperialFavor: clampImperialFavor(snapshot.imperialFavor),
             timekeeper: normalizeTimekeeperSnapshot(snapshot.timekeeper),
             upgrades: snapshot.upgrades || {},
+            ultimates: snapshot.ultimates || {},
             research: snapshot.research || {},
             overworld: { hexes: overworldHexes },
             stats: normalizeStats(snapshot.stats, { migrationLog }),

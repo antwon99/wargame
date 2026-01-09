@@ -2,7 +2,14 @@ import { createNotificationStack, getSharedStack, setSharedStack } from './notif
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
-import { ULTIMATE_CONFIG } from './game/ultimatesConfig.js';
+import {
+    DEFAULT_ULTIMATE_LEVELS,
+    getUltimateDurationMs,
+    getUltimateMaxLevel,
+    getUltimateUpgradeCost,
+    resolveUltimateLevelValue,
+    ULTIMATE_CONFIG
+} from './game/ultimatesConfig.js';
 
 /**
  * UI binding helpers responsible for DOM wiring and presentation updates.
@@ -49,6 +56,8 @@ export function applyUIBindings(game, deps = {}) {
     game.updateLeaderboardUI = () => updateLeaderboardUI(game);
     game.updateSettingsUI = () => updateSettingsUI(game);
     game.updateUpgradeMenu = () => updateUpgradeMenu(game);
+    /** Refresh ultimate upgrade details, costs, and effect readouts in the drawer. */
+    game.updateUltimatesUI = () => updateUltimatesMenu(game);
     game.updateHUD = () => updateHUD(game);
     game.updateTileInspector = (tile) => updateTileInspector(game, tile);
     game.updateTileAttackOverlay = (tile) => updateTileAttackOverlay(game, tile);
@@ -136,6 +145,22 @@ function bindUpgradeButtons(game) {
 }
 
 /**
+ * Attach ultimate purchase handlers after the drawer template has been cloned.
+ * @param {object} game live game singleton.
+ */
+function bindUltimateButtons(game) {
+    const mapping = {
+        'buy-ultimate-rush': 'rush',
+        'buy-ultimate-manpower': 'manpower',
+        'buy-ultimate-gold': 'gold'
+    };
+    Object.entries(mapping).forEach(([id, key]) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.onclick = () => game.buyUltimate(key);
+    });
+}
+
+/**
  * Create and manage the bottom HUD drawer shared by upgrades and research.
  * Handles swapping template content, accessibility states, and close affordances.
  * @param {object} game live game singleton.
@@ -199,6 +224,10 @@ function createHudDrawerController(game) {
             game.updateUpgradeMenu?.();
         }
         if (mode === 'research') game.updateResearchUI?.();
+        if (mode === 'ultimates') {
+            bindUltimateButtons(game);
+            game.updateUltimatesUI?.();
+        }
         if (body?.scrollTo) body.scrollTo({ top: 0 });
     };
 
@@ -1182,6 +1211,98 @@ const UPGRADE_COPY = {
         }
     }
 };
+
+const ULTIMATE_DRAWER_ENTRIES = [
+    { id: 'rush', buttonId: 'buy-ultimate-rush' },
+    { id: 'manpower', buttonId: 'buy-ultimate-manpower' },
+    { id: 'gold', buttonId: 'buy-ultimate-gold' }
+];
+
+const formatSeconds = (ms) => `${Math.max(0, Math.round(ms / 1000))}s`;
+
+/**
+ * Build the effect summary line for an ultimate at the provided level.
+ * @param {string} ultimateId ultimate identifier.
+ * @param {number} level current level to describe.
+ * @returns {string} human-readable effect summary.
+ */
+function buildUltimateEffectSummary(ultimateId, level) {
+    if (ultimateId === 'rush') {
+        const speedMultiplier = resolveUltimateLevelValue(ULTIMATE_CONFIG.rush.speedMultiplier, level);
+        const duration = getUltimateDurationMs('rush', level);
+        const percent = Math.round((speedMultiplier - 1) * 100);
+        return `Rush: +${percent}% speed for ${formatSeconds(duration)}.`;
+    }
+    if (ultimateId === 'manpower') {
+        const spawnMultiplier = resolveUltimateLevelValue(ULTIMATE_CONFIG.manpower.spawnRateMultiplier, level);
+        const doubleChance = resolveUltimateLevelValue(ULTIMATE_CONFIG.manpower.doubleSpawnChance, level);
+        const duration = getUltimateDurationMs('manpower', level);
+        const percent = Math.round((1 - spawnMultiplier) * 100);
+        const chance = Math.round(doubleChance * 100);
+        return `Manpower: +${percent}% spawn speed with ${chance}% double spawns for ${formatSeconds(duration)}.`;
+    }
+    if (ultimateId === 'gold') {
+        const cullPercent = resolveUltimateLevelValue(ULTIMATE_CONFIG.gold.unitCullPercent, level);
+        const goldPerUnit = resolveUltimateLevelValue(ULTIMATE_CONFIG.gold.goldPerUnit, level);
+        const percent = Math.round(cullPercent * 100);
+        return `Gold: cull ${percent}% of standing units for ${goldPerUnit}g each.`;
+    }
+    return '';
+}
+
+/**
+ * Refresh the ultimate drawer so level readouts, effect text, and purchase
+ * buttons reflect the player's current gold and ultimate levels.
+ * @param {object} game live game singleton containing ultimate levels and gold.
+ */
+function updateUltimatesMenu(game) {
+    if (typeof document === 'undefined') return;
+    const ensureText = (el, text) => { if (el && typeof text === 'string') el.innerText = text; };
+
+    ULTIMATE_DRAWER_ENTRIES.forEach(({ id, buttonId }) => {
+        const btn = document.querySelector(`[data-ultimate-button="${id}"]`) || document.getElementById(buttonId);
+        const statusEl = document.getElementById(`ultimate-${id}-status`);
+        const levelEl = document.querySelector(`[data-ultimate-level="${id}"]`) || document.getElementById(`ultimate-${id}-meta`);
+        const effectEl = document.querySelector(`[data-ultimate-effect="${id}"]`) || document.getElementById(`ultimate-${id}-effect`);
+
+        const level = Number.isFinite(game.ultimates?.[id])
+            ? Math.max(1, game.ultimates[id])
+            : (DEFAULT_ULTIMATE_LEVELS[id] ?? 1);
+        const maxLevel = getUltimateMaxLevel(id);
+        const nextLevel = Math.min(level + 1, maxLevel);
+        const cost = typeof game.getUltimateUpgradeCost === 'function'
+            ? game.getUltimateUpgradeCost(id)
+            : getUltimateUpgradeCost(id, level);
+        const atMax = level >= maxLevel;
+        const costLabel = cost !== null ? `${cost}g` : 'MAX';
+        const canAfford = !atMax && (Number.isFinite(game.gold) ? game.gold : 0) >= (cost ?? 0);
+
+        ensureText(statusEl, atMax ? `Max ${level}` : `Level ${level}`);
+        ensureText(levelEl, `Level ${level} of ${maxLevel}`);
+        ensureText(effectEl, buildUltimateEffectSummary(id, level));
+
+        if (!btn) return;
+        const label = btn.querySelector('[data-ultimate-label]');
+        const costEl = btn.querySelector('[data-ultimate-cost]');
+        const labelText = atMax ? 'Max Level' : `Upgrade Lv.${nextLevel}`;
+        const ariaLabel = atMax
+            ? `${ULTIMATE_CONFIG[id]?.label || id} ultimate maxed`
+            : `${labelText} costs ${costLabel}`;
+
+        if (label || costEl) {
+            if (label) label.innerText = atMax ? labelText : (canAfford ? labelText : '');
+            if (costEl) costEl.innerText = costLabel;
+            btn.setAttribute('aria-label', ariaLabel);
+        } else {
+            btn.innerText = atMax ? labelText : `${labelText} (${costLabel})`;
+        }
+
+        btn.disabled = atMax || !canAfford;
+        btn.classList.toggle('affordable', canAfford && !atMax);
+        btn.classList.toggle('unaffordable', !canAfford || atMax);
+        btn.title = atMax ? 'Max level reached' : (canAfford ? '' : 'Insufficient gold');
+    });
+}
 
 /**
  * Refresh the upgrade drawer so titles, descriptions, scaling text, and purchase

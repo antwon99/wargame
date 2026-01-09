@@ -111,6 +111,7 @@ export function buildCoreResourceState({
         imperialFavor,
         difficulty: 0,
         upgrades: { soldier: 1, archer: 1, production: 1, mines: 1, defense: 1 },
+        ultimates: { ...DEFAULT_ULTIMATE_LEVELS },
         factionState: buildFactionState(),
         research: {
             technologies: [],
