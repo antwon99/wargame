@@ -2,6 +2,7 @@ import { DEFAULT_IMPERIAL_FAVOR } from '../imperialFavor.js';
 import { DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
 import { START_TICK } from '../timekeeper.js';
 import { SNOW_VISUAL_CONFIG } from '../snowVisualConfig.js';
+import { DEFAULT_ULTIMATE_LEVELS, getUltimateChargeDelayMs, ULTIMATE_CONFIG } from './ultimatesConfig.js';
 
 export const CAMERA_MOTION_CONFIG = {
     enabled: true,
@@ -144,7 +145,43 @@ export function buildCombatState() {
         particles: [],
         fx: [],
         ai: { timer: 0, nextMove: 3.0, gold: 300 },
-        castles: { player: null, enemy: null }
+        castles: { player: null, enemy: null },
+        ultimates: buildUltimatesState()
+    };
+}
+
+/**
+ * Build the combat ultimate state container for a single battle.
+ * Each ultimate has one charge window per battle (15–30 seconds by level)
+ * and can be consumed only once; metadata tracks when effects trigger.
+ * @param {object} [levelOverrides] optional per-ultimate level overrides.
+ * @returns {{chargeMs: object, readyAtMs: object, consumed: object, activeEffects: object, levels: object, metadata: object}}
+ */
+export function buildUltimatesState(levelOverrides = {}) {
+    const safeOverrides = levelOverrides && typeof levelOverrides === 'object' ? levelOverrides : {};
+    const levels = { ...DEFAULT_ULTIMATE_LEVELS, ...safeOverrides };
+    const chargeMs = {};
+    const readyAtMs = {};
+    const consumed = {};
+    const activeEffects = {};
+    const metadata = {};
+
+    Object.keys(ULTIMATE_CONFIG).forEach((ultimateId) => {
+        const level = Number(levels[ultimateId] ?? 1);
+        chargeMs[ultimateId] = 0;
+        readyAtMs[ultimateId] = getUltimateChargeDelayMs(ultimateId, level);
+        consumed[ultimateId] = false;
+        activeEffects[ultimateId] = null;
+        metadata[ultimateId] = { activatedAtMs: null, lastAppliedAtMs: null };
+    });
+
+    return {
+        chargeMs,
+        readyAtMs,
+        consumed,
+        activeEffects,
+        levels,
+        metadata
     };
 }
 
