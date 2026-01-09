@@ -14,8 +14,3 @@ export function haltAmbientLoop(windowRef = (typeof window !== 'undefined' ? win
     if (!windowRef) return;
     windowRef.AmbientSoundscape?.stopAll?.();
 }
-
-// CommonJS compatibility for the lightweight test harness.
-if (typeof module !== 'undefined') {
-    module.exports = { armAmbientLoop, haltAmbientLoop };
-}

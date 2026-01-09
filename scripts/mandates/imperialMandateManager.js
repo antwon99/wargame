@@ -104,7 +104,3 @@ ImperialMandateManager.createImperialMandateManager = createImperialMandateManag
 export { initImperialMandateManager, createImperialMandateManager };
 export default ImperialMandateManager;
 
-if (typeof module !== 'undefined') module.exports = Object.assign(ImperialMandateManager, {
-    initImperialMandateManager,
-    createImperialMandateManager
-});

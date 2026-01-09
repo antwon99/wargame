@@ -104,6 +104,3 @@ defaultGlobal.CampaignStore = CampaignStore;
 export { createCampaignStore };
 export default CampaignStore;
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CampaignStore;
-}

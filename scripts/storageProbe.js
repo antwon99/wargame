@@ -44,6 +44,3 @@ export function initStorageProbe(target = typeof window !== 'undefined' ? window
     return api;
 }
 
-if (typeof module !== 'undefined') {
-    module.exports = { ...api, initStorageProbe };
-}

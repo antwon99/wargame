@@ -235,7 +235,3 @@ function initIntroOverlay(target = typeof window !== 'undefined' ? window : unde
 
 export { IntroOverlay, initIntroOverlay };
 
-if (typeof module !== 'undefined') {
-    IntroOverlay.initIntroOverlay = initIntroOverlay;
-    module.exports = IntroOverlay;
-}

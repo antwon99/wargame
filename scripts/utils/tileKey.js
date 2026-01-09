@@ -12,6 +12,3 @@ function getTileKey(tile) {
 
 export { getTileKey };
 
-if (typeof module !== 'undefined') {
-    module.exports = { getTileKey };
-}

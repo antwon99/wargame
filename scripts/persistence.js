@@ -1,7 +1,7 @@
 /**
  * Persistence and leaderboard utilities for the Wargame prototype.
  * The functions here are written to be browser-friendly while also
- * supporting simple Node-based tests via CommonJS exports.
+ * supporting simple Node-based tests.
  */
 import { DEFAULT_IMPERIAL_FAVOR as DEFAULT_FAVOR, clampImperialFavor as clampImperialFavorBase } from './imperialFavor.js';
 /**
@@ -729,7 +729,3 @@ Persistence.createPersistence = createPersistence;
 
 export { createPersistence, Persistence, initPersistence };
 export default Persistence;
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Persistence;
-}

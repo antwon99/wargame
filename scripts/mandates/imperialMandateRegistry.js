@@ -79,6 +79,3 @@ if (typeof globalThis !== 'undefined') {
 export { imperialMandateRegistry };
 export default imperialMandateRegistry;
 
-if (typeof module !== 'undefined') {
-    module.exports = imperialMandateRegistry;
-}

@@ -188,10 +188,3 @@ function initTutorialHandler(target = typeof window !== 'undefined' ? window : g
 
 export { createTutorialHandler, TutorialHandler, initTutorialHandler };
 
-if (typeof module !== 'undefined') {
-    module.exports = Object.assign(TutorialHandler, {
-        TutorialHandler,
-        initTutorialHandler,
-        createTutorialHandler
-    });
-}

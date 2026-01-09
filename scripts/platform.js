@@ -99,7 +99,3 @@ function initPlatformAdapter(target = typeof window !== 'undefined' ? window : u
 
 export { PlatformAdapter, detectPlatformProfile, sizeCanvasForDisplay, initPlatformAdapter };
 
-if (typeof module !== 'undefined') {
-    PlatformAdapter.initPlatformAdapter = initPlatformAdapter;
-    module.exports = PlatformAdapter;
-}

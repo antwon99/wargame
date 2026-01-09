@@ -116,9 +116,6 @@ function isPointerOnDrawnHex(options) {
     return { hit: true, hex: rounded, key, layout };
 }
 
-if (typeof module !== 'undefined') {
-    module.exports = { Layout, SQRT3, isPointerOnDrawnHex, pixelToAxial, cubeToPixel, initInputHelpers };
-}
 
 /**
  * Register input helpers on the provided global scope for browser access.

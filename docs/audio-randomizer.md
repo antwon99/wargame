@@ -21,7 +21,7 @@ ver stack indefinitely.
 ## Integration Hooks
 - `AudioBridge.startAmbient()` arms the territory playlist and restarts the overworld ambient loop once the browser allows playback.
 - `AudioBridge.enterWarAmbience()` pauses the overworld loop and pivots the conductor into the war playlist.
-- `AmbientSoundscape` is exported via `window`/`module.exports` so other systems (or future UI controls) can inspect or tune the scheduler. Tracks pull from the organized `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` folders, with `/sfx/ui` reserved for upcoming interface effects.
+- `AmbientSoundscape` is exported via `window` so other systems (or future UI controls) can inspect or tune the scheduler. Tracks pull from the organized `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` folders, with `/sfx/ui` reserved for upcoming interface effects.
 
 ## Extending
 - To add more variations, append to a `variations` array with `weight` tuned to your desired frequency.
