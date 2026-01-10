@@ -80,6 +80,10 @@ function createSequenceRandom(...values) {
     };
 }
 
+function flushPromises() {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+
 function testAmbientRandomizerUsesFairWeightsAndDelays() {
     const randomizer = new AmbientRandomizer(() => 0.3, {
         initialDelayRangeMs: [100, 200],
@@ -141,9 +145,48 @@ function testCooldownPreventsSpam() {
     assert.strictEqual(firstNode.playCount, 1, 'first play should increment counter');
     assert.strictEqual(manager.play('ping'), false, 'cooldown should block immediate replay');
     assert.strictEqual(firstNode.playCount, 1, 'cooldown should not trigger another play');
-    manager.lastPlayed.set('ping', Date.now() - 500);
+    manager.lastAttempted.set('ping', Date.now() - 500);
     assert.ok(manager.play('ping'), 'cooldown should expire');
     assert.strictEqual(firstNode.playCount, 2, 'play should reuse base node after cooldown');
+}
+
+async function testPlaybackUnlockRetriesBlockedAudio() {
+    let allowPlayback = false;
+    const nodeLog = [];
+    const manager = new AudioManager({ click: { src: 'click', cooldownMs: 200 } }, {
+        createAudio: (src) => {
+            const node = {
+                src,
+                loop: false,
+                currentTime: 0,
+                volume: 1,
+                playCount: 0,
+                paused: false,
+                listeners: {},
+                play() {
+                    this.playCount += 1;
+                    return allowPlayback ? Promise.resolve() : Promise.reject(new Error('Blocked'));
+                },
+                pause() { this.paused = true; },
+                addEventListener(event, fn) { this.listeners[event] = fn; }
+            };
+            nodeLog.push(node);
+            return node;
+        }
+    });
+
+    assert.ok(manager.play('click'), 'play should attempt even when blocked');
+    await flushPromises();
+    assert.strictEqual(manager.pendingPlays.size, 1, 'blocked plays should be queued for unlock retries');
+    assert.strictEqual(manager.lastPlayed.has('click'), false, 'lastPlayed should not update on blocked play');
+
+    allowPlayback = true;
+    const retried = manager.unlock('gesture');
+    assert.strictEqual(retried, 1, 'unlock should retry pending plays');
+    await flushPromises();
+    assert.strictEqual(manager.pendingPlays.size, 0, 'pending plays should clear after successful retry');
+    assert.ok(manager.lastPlayed.has('click'), 'lastPlayed should update after successful retry');
+    assert.strictEqual(nodeLog[0].playCount, 2, 'retry should trigger another play call');
 }
 
 function testManifestIncludesNewEffects() {
@@ -790,11 +833,12 @@ function testImperialMessagingGuardsWardrumPlayback() {
     if (typeof previousGameAudio === 'undefined') delete global.GameAudio; else global.GameAudio = previousGameAudio;
 }
 
-function run() {
+async function run() {
     testAmbientRandomizerUsesFairWeightsAndDelays();
     testAmbientRandomizerAvoidsImmediateRepeats();
     testAmbientSchedulerClearsAllTrackedTimers();
     testCooldownPreventsSpam();
+    await testPlaybackUnlockRetriesBlockedAudio();
     testOverlapCreatesClone();
     testAmbientLoop();
     testWeightedSelectionUsesRandomizer();
@@ -816,10 +860,8 @@ function run() {
 }
 
 loadAudioModule()
-    .then(() => {
-        run();
-        process.exit(0);
-    })
+    .then(() => run())
+    .then(() => process.exit(0))
     .catch((err) => {
         console.error(err);
         process.exit(1);

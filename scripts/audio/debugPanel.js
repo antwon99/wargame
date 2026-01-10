@@ -80,9 +80,17 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
     const snowSnapshot = resolveSnowSnapshot();
 
     const activeSources = snapshot.activeSources || [];
+    const blockedPlays = snapshot.blockedPlays || [];
     const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
     const playingList = activeSources.length
         ? `<ul>${activeSources.map(src => `<li>${src.label || src.src || src.key || 'unknown'}</li>`).join('')}</ul>`
+        : '<div>None</div>';
+    const blockedList = blockedPlays.length
+        ? `<ul>${blockedPlays.map(entry => {
+            const label = entry.key || entry.src || entry.variantKey || 'unknown';
+            const reason = entry.message || entry.reason;
+            return `<li>${label}${reason ? ` — ${reason}` : ''}</li>`;
+        }).join('')}</ul>`
         : '<div>None</div>';
 
     debugState.el.innerHTML = `
@@ -93,6 +101,10 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
             <div class="section">
                 <div class="label">Active Audio Elements (${activeSources.length})</div>
                 ${playingList}
+            </div>
+            <div class="section">
+                <div class="label">Blocked Audio Plays (${blockedPlays.length})</div>
+                ${blockedList}
             </div>
             <div class="section">
                 <div class="label">Master Volume</div>

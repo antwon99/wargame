@@ -5,14 +5,17 @@ function createNoopBus() {
         intendedTrack: 'None',
         masterVolume: 1,
         boundNodes: new WeakSet(),
+        blockedPlays: [],
         reportIntent() {},
         registerPlayback() {},
         unregisterPlayback() {},
+        reportPlaybackFailure() {},
         snapshot() {
             return {
                 intendedTrack: 'None',
                 masterVolume: this.masterVolume,
-                activeSources: []
+                activeSources: [],
+                blockedPlays: []
             };
         }
     };
