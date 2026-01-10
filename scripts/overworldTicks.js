@@ -61,7 +61,10 @@ export function applyOverworldIncome(game, options = {}) {
         if (favorInc) lines.push(`+${favorInc} Favor`);
         game.spawnTxt(origin, lines.join('  '), '#fff');
     }
-    if (typeof RebelSystem?.spreadRebelCamps === 'function') {
+    const canSpawnRebels = typeof TutorialHandler?.canSpawnRebelCamps === 'function'
+        ? TutorialHandler.canSpawnRebelCamps(game)
+        : true;
+    if (canSpawnRebels && typeof RebelSystem?.spreadRebelCamps === 'function') {
         const protectedKeys = typeof TutorialHandler?.getProtectedRebelSpreadKeys === 'function'
             ? TutorialHandler.getProtectedRebelSpreadKeys(game)
             : new Set();

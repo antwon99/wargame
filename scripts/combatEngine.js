@@ -891,8 +891,10 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
             if (!tile.prevType && previousType && previousType !== 'rebelcamp') {
                 tile.prevType = previousType;
             }
+            tile.rebelSpreadMisses = 0;
         } else {
             tile.type = 'scorched';
+            if (tile.rebelSpreadMisses !== undefined) delete tile.rebelSpreadMisses;
         }
         tile.owner = fate === 'rebelcamp' ? 'rebel' : fate;
         tile.hex = tile.hex || parseKey(key);

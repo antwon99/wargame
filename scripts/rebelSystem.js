@@ -14,12 +14,11 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     const REBEL_CAMP_TYPE = 'rebelcamp';
     const DEFAULT_REBEL_SPREAD = {
         /** Base daily chance for each rebel camp to expand. */
-        baseChance: 0.02,
-        /** Additional chance gained per day elapsed. */
-        dailyGrowth: 0.002,
-        /** Hard ceiling to keep spread from becoming guaranteed. */
-        maxChance: 0.25
+        baseChance: 0.015
     };
+    const DEFAULT_DAYS_PER_WEEK = 7;
+    const DEFAULT_WEEKS_PER_MONTH = 4;
+    const DEFAULT_MONTH_TICKS = DEFAULT_DAYS_PER_WEEK * DEFAULT_WEEKS_PER_MONTH;
 
     /**
      * Determine whether a tile has been marked as a rebel camp.
@@ -139,7 +138,8 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
             type: REBEL_CAMP_TYPE,
             owner: 'rebel',
             isRebelCamp: true,
-            prevType: 'field'
+            prevType: 'field',
+            rebelSpreadMisses: 0
         };
         const key = getTileKey(rebelTile);
         if (key && typeof hexes.set === 'function') {
@@ -149,24 +149,30 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     }
 
     /**
-     * Compute the per-day rebel spread chance, scaling with elapsed days.
+     * Compute the per-day rebel spread chance, scaling with consecutive failed spread rolls.
      * @param {object} gameState live game state containing a timekeeper (optional).
      * @param {object} [options] optional overrides for testing.
-     * @param {number} [options.ticks] absolute tick count override (days elapsed).
+     * @param {number} [options.misses] consecutive failed spread attempts.
      * @param {number} [options.baseChance] starting spread chance per day.
-     * @param {number} [options.dailyGrowth] additional chance gained per day.
-     * @param {number} [options.maxChance] upper bound for the spread chance.
+     * @param {number} [options.growth] additive chance gained per failed attempt.
+     * @param {number} [options.monthTicks] ticks required to guarantee spread.
      * @returns {number} chance in the [0,1] range.
      */
     function getRebelSpreadChance(gameState, options = {}) {
-        const ticks = Number.isFinite(options.ticks)
-            ? options.ticks
-            : (Number.isFinite(gameState?.timekeeper?.ticks) ? gameState.timekeeper.ticks : 0);
+        const misses = Math.max(0, Number.isFinite(options.misses) ? options.misses : 0);
         const baseChance = Number.isFinite(options.baseChance) ? options.baseChance : DEFAULT_REBEL_SPREAD.baseChance;
-        const dailyGrowth = Number.isFinite(options.dailyGrowth) ? options.dailyGrowth : DEFAULT_REBEL_SPREAD.dailyGrowth;
-        const maxChance = Number.isFinite(options.maxChance) ? options.maxChance : DEFAULT_REBEL_SPREAD.maxChance;
-        const scaled = baseChance + Math.max(0, ticks) * dailyGrowth;
-        return Math.min(maxChance, Math.max(0, scaled));
+        const monthTicks = Number.isFinite(options.monthTicks)
+            ? options.monthTicks
+            : Math.max(
+                1,
+                (gameState?.timekeeper?.daysPerWeek ?? DEFAULT_DAYS_PER_WEEK)
+                    * (gameState?.timekeeper?.weeksPerMonth ?? DEFAULT_WEEKS_PER_MONTH)
+            );
+        const growth = Number.isFinite(options.growth)
+            ? options.growth
+            : (1 - baseChance) / monthTicks;
+        const scaled = baseChance + misses * growth;
+        return Math.min(1, Math.max(0, scaled));
     }
 
     /**
@@ -206,6 +212,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         chosen.type = 'rebelcamp';
         chosen.isRebelCamp = true;
         chosen.owner = 'rebel';
+        chosen.rebelSpreadMisses = 0;
         const key = getTileKey(chosen);
         if (key && typeof hexes.set === 'function') {
             hexes.set(key, chosen);
@@ -215,7 +222,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
 
     /**
      * Attempt to spread rebel camps into adjacent player tiles.
-     * Each camp rolls a daily chance that scales up with the campaign duration.
+     * Each camp rolls a daily chance that increases after consecutive failures.
      * @param {object} gameState live game state containing overworld data.
      * @param {object} [options] optional configuration for deterministic tests.
      * @param {function} [options.rng] random number generator returning [0,1).
@@ -230,7 +237,6 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         if (!HexImpl || typeof HexImpl.neighbor !== 'function') return [];
 
         const rng = typeof options.rng === 'function' ? options.rng : Math.random;
-        const chance = Number.isFinite(options.chance) ? options.chance : getRebelSpreadChance(gameState);
         const rebels = getAllRebelCamps(gameState);
         const conversions = [];
         const protectedKeys = options.protectedKeys instanceof Set
@@ -242,31 +248,53 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         rebels.forEach((rebelTile) => {
             const rebelKey = getTileKey(rebelTile);
             if (rebelKey && protectedKeys.has(rebelKey)) return;
-            if (rng() >= chance) return;
-            const candidates = [];
-            for (let dir = 0; dir < 6; dir += 1) {
-                const neighbor = HexImpl.neighbor(rebelTile.hex, dir);
-                const neighborKey = neighbor.toString();
-                const tile = hexes.get(neighborKey);
-                if (!tile || isRebelCampTile(tile) || tile.type === 'castle' || tile.type === 'water') continue;
-                if ((tile.owner || '').toLowerCase() !== 'player') continue;
-                candidates.push(tile);
-            }
-            if (!candidates.length) return;
 
-            const target = candidates[Math.floor(rng() * candidates.length)];
-            const updated = {
-                ...target,
-                prevType: target.prevType || target.type || 'field',
-                type: REBEL_CAMP_TYPE,
-                isRebelCamp: true,
-                owner: 'rebel'
-            };
-            const key = getTileKey(updated);
-            if (key && typeof hexes.set === 'function') {
-                hexes.set(key, updated);
+            const missCount = Number.isFinite(rebelTile.rebelSpreadMisses) ? rebelTile.rebelSpreadMisses : 0;
+            const chance = Number.isFinite(options.chance)
+                ? options.chance
+                : getRebelSpreadChance(gameState, { misses: missCount });
+            let didSpread = false;
+
+            if (rng() < chance) {
+                const candidates = [];
+                for (let dir = 0; dir < 6; dir += 1) {
+                    const neighbor = HexImpl.neighbor(rebelTile.hex, dir);
+                    const neighborKey = neighbor.toString();
+                    const tile = hexes.get(neighborKey);
+                    if (!tile || isRebelCampTile(tile) || tile.type === 'castle' || tile.type === 'water') continue;
+                    if ((tile.owner || '').toLowerCase() !== 'player') continue;
+                    candidates.push(tile);
+                }
+                if (candidates.length) {
+                    const target = candidates[Math.floor(rng() * candidates.length)];
+                    const updated = {
+                        ...target,
+                        prevType: target.prevType || target.type || 'field',
+                        type: REBEL_CAMP_TYPE,
+                        isRebelCamp: true,
+                        owner: 'rebel',
+                        rebelSpreadMisses: 0
+                    };
+                    const key = getTileKey(updated);
+                    if (key && typeof hexes.set === 'function') {
+                        hexes.set(key, updated);
+                    }
+                    conversions.push(updated);
+                    didSpread = true;
+                }
             }
-            conversions.push(updated);
+
+            const nextMisses = didSpread ? 0 : missCount + 1;
+            if (!didSpread && rebelTile.rebelSpreadMisses === nextMisses) return;
+            const updatedRebel = {
+                ...rebelTile,
+                rebelSpreadMisses: nextMisses
+            };
+            if (rebelKey && typeof hexes.set === 'function') {
+                hexes.set(rebelKey, updatedRebel);
+            } else {
+                rebelTile.rebelSpreadMisses = nextMisses;
+            }
         });
 
         return conversions;
@@ -302,6 +330,7 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
         if (type === 'water') updated.isWater = true;
         else if (updated.isWater) delete updated.isWater;
         if (updated.prevType) delete updated.prevType;
+        if (updated.rebelSpreadMisses !== undefined) delete updated.rebelSpreadMisses;
 
         const key = getTileKey(updated);
         if (key && gameState?.overworld?.hexes) {
@@ -338,4 +367,3 @@ function initRebelSystem(target = typeof window !== 'undefined' ? window : globa
 }
 
 export { createRebelSystem, RebelSystem, initRebelSystem };
-
