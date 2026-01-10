@@ -335,6 +335,8 @@ function syncToggleInputs({ selector, datasetKey, values }) {
 export function setupUIBindings(game) {
     const retreatBtn = document.getElementById('btn-retreat');
     if (retreatBtn) retreatBtn.onclick = (e) => game.endWar('RETREAT', e);
+    const combatUltimateBtn = document.getElementById('ultimate-button');
+    if (combatUltimateBtn) combatUltimateBtn.onclick = () => game.activateUltimate?.();
 
     const drawerController = createHudDrawerController(game);
     game.hudDrawer = drawerController;
@@ -1534,6 +1536,7 @@ function updateCombatUltimateHud(game) {
     const chargeMs = Number(ultimates.chargeMs?.[ultimateId] ?? 0);
     const consumed = Boolean(ultimates.consumed?.[ultimateId]);
     const activeEffect = ultimates.activeEffects?.[ultimateId];
+    const warElapsedMs = Number(game?.combat?.warElapsedMs ?? 0);
 
     const ring = document.querySelector('#combat-ultimate-hud .ultimate-ring');
     const icon = document.getElementById('ultimate-icon');
@@ -1541,7 +1544,14 @@ function updateCombatUltimateHud(game) {
     const timer = document.getElementById('ultimate-timer');
     const button = document.getElementById('ultimate-button');
 
-    const progress = readyAtMs > 0 ? Math.min(chargeMs / readyAtMs, 1) : 0;
+    let progress = readyAtMs > 0 ? Math.min(chargeMs / readyAtMs, 1) : 0;
+    if (activeEffect && ultimateId !== 'gold') {
+        const level = Number(ultimates.levels?.[ultimateId] ?? DEFAULT_ULTIMATE_LEVELS[ultimateId] ?? 1);
+        const durationMs = getUltimateDurationMs(ultimateId, level);
+        const activatedAtMs = Number(activeEffect.activatedAtMs ?? warElapsedMs);
+        const elapsedActiveMs = Math.max(0, warElapsedMs - activatedAtMs);
+        progress = durationMs > 0 ? Math.max(0, 1 - Math.min(elapsedActiveMs / durationMs, 1)) : 0;
+    }
     if (ring?.style?.setProperty) ring.style.setProperty('--charge-progress', progress.toString());
 
     const ready = !consumed && progress >= 1;
