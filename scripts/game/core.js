@@ -16,6 +16,7 @@ import {
     registerKill,
     runAI,
     scorchEarth,
+    restoreScorchedTile,
     spawnUnit,
     startWar,
     updateCombat
@@ -29,7 +30,7 @@ import {
     getUltimateUpgradeCost,
     resolveUltimateSelection
 } from './ultimatesConfig.js';
-import { OVERWORLD_TERRAIN_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType } from '../overworldConfig.js';
+import { OVERWORLD_TERRAIN_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType, SCORCHED_DOUSE_COST } from '../overworldConfig.js';
 import { drawOverworldTiles } from '../overworldRenderer.js';
 import { advanceOverworldTimer } from '../overworldTicks.js';
 import { buildClusterBonusMap, DEFAULT_CLUSTER_RATE } from '../overworldAdjacency.js';
@@ -1623,6 +1624,29 @@ const Game = {
     },
 
     /**
+     * Spend gold to clear a scorched overworld tile, restoring it to usable terrain.
+     * @param {object} tile scorched overworld tile payload.
+     * @param {Hex|object} hex tile coordinate for anchoring feedback text.
+     * @returns {object|null} restored tile payload or null when dousing failed.
+     */
+    douseScorchedTile(tile, hex) {
+        if (!tile || tile.owner !== 'scorched') return null;
+        const cost = SCORCHED_DOUSE_COST;
+        if ((this.gold || 0) < cost) {
+            this.spawnTxt(hex, `Need ${cost}g`, '#f55');
+            return null;
+        }
+        this.gold -= cost;
+        const restored = restoreScorchedTile(this, tile);
+        if (restored) {
+            this.spawnTxt(hex, `-${cost}g Doused`, '#9be3b4');
+            this.calcOverworldGhosts();
+            this.refreshClusterBonuses();
+        }
+        return restored;
+    },
+
+    /**
      * Normalize starter tile ownership and rebuild the adjacency cache so the inspector
      * can reference fresh cluster data as soon as the campaign boots.
      * @returns {Map<string, object>} updated cluster bonus map keyed by hex key.
@@ -1851,7 +1875,12 @@ const Game = {
                 }
             } else if (this.overworld.hexes.has(key)) {
                 const tile = this.overworld.hexes.get(key);
-                this.setSelectedOverworldTile(tile);
+                if (tile?.owner === 'scorched') {
+                    const restored = this.douseScorchedTile(tile, hex);
+                    this.setSelectedOverworldTile(restored || tile);
+                } else {
+                    this.setSelectedOverworldTile(tile);
+                }
             }
         }
         else if (this.state === 'COMBAT') {
