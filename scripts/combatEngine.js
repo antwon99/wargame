@@ -6,6 +6,7 @@
 import { RebelSystem } from './rebelSystem.js';
 import { initImperialMandates } from './mandates/imperialMandates.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
+import { OVERWORLD_RESTORE_WEIGHTS, OVERWORLD_TILES, rollWeightedTerrainType } from './overworldConfig.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
     getUltimateChargeDelayMs,
@@ -651,6 +652,82 @@ export function scorchEarth(game, key) {
 }
 
 /**
+ * Restore a scorched overworld tile back into playable terrain.
+ * Prefers the tile's previous terrain type when available, otherwise rolls
+ * from the standard restoration weights. Callers are responsible for
+ * refreshing HUD or adjacency state after invoking this helper.
+ * @param {object} game current game object containing overworld hexes.
+ * @param {object|string} tileOrKey tile payload or key to restore.
+ * @param {object} [options]
+ * @param {function} [options.rng=Math.random] optional RNG override for tests.
+ * @returns {object|null} restored tile payload or null when unavailable.
+ */
+export function restoreScorchedTile(game, tileOrKey, options = {}) {
+    const overworldHexes = game?.overworld?.hexes;
+    if (!overworldHexes) return null;
+    const tile = typeof tileOrKey === 'string' ? overworldHexes.get(tileOrKey) : tileOrKey;
+    if (!tile) return null;
+    if (tile.owner !== 'scorched' && tile.type !== 'scorched') return tile;
+
+    const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+    const prevType = typeof tile.prevType === 'string' ? tile.prevType.toLowerCase() : null;
+    const normalizedPrev = prevType && OVERWORLD_TILES[prevType.toUpperCase()] ? prevType : null;
+    const type = normalizedPrev || rollWeightedTerrainType(OVERWORLD_RESTORE_WEIGHTS, rng);
+    const updated = { ...tile, type, owner: 'player', isRebelCamp: false };
+    if (type === 'water') updated.isWater = true;
+    else if (updated.isWater) delete updated.isWater;
+    if (updated.prevType) delete updated.prevType;
+    if (updated.scorchedBy) delete updated.scorchedBy;
+    if (updated.rebelSpreadMisses !== undefined) delete updated.rebelSpreadMisses;
+
+    const key = tile.hex?.toString?.()
+        || tile.toString?.()
+        || (typeof tileOrKey === 'string' ? tileOrKey : null);
+    if (key) overworldHexes.set(key, updated);
+    return updated;
+}
+
+/**
+ * Restore all scorched overworld tiles linked to a given rebel camp key.
+ * @param {object} game current game object containing overworld hexes.
+ * @param {string} rebelKey overworld key for the rebel camp that triggered the scorch.
+ * @param {object} [options]
+ * @param {function} [options.rng=Math.random] optional RNG override for tests.
+ * @returns {Array<object>} list of restored tile payloads.
+ */
+export function restoreScorchedTilesByRebelCamp(game, rebelKey, options = {}) {
+    const overworldHexes = game?.overworld?.hexes;
+    if (!overworldHexes || !rebelKey) return [];
+    const restored = [];
+    overworldHexes.forEach((tile) => {
+        if (tile?.owner !== 'scorched') return;
+        if (tile?.scorchedBy !== rebelKey) return;
+        const updated = restoreScorchedTile(game, tile, options);
+        if (updated) restored.push(updated);
+    });
+    if (!restored.length) return restored;
+
+    if (typeof game.calcOverworldGhosts === 'function') {
+        game.calcOverworldGhosts();
+    }
+    if (typeof game.refreshClusterBonuses === 'function') {
+        game.refreshClusterBonuses();
+    }
+
+    const selectedKey = game.selectedOverworldTile?.hex?.toString?.()
+        || game.selectedOverworldTile?.toString?.();
+    if (selectedKey) {
+        const refreshed = overworldHexes.get(selectedKey);
+        if (refreshed && typeof game.setSelectedOverworldTile === 'function') {
+            game.setSelectedOverworldTile(refreshed);
+        } else if (refreshed) {
+            game.selectedOverworldTile = refreshed;
+        }
+    }
+    return restored;
+}
+
+/**
  * Evaluate whether a tile is a frontier position for a faction.
  * @param {object} game current game object.
  * @param {string} key hex key.
@@ -880,6 +957,12 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         return (Math.abs(hex.q) + Math.abs(hex.r) + Math.abs(s)) / 2;
     };
 
+    const hexDistanceBetween = (a, b) => {
+        const aS = typeof a.s === 'number' ? a.s : -a.q - a.r;
+        const bS = typeof b.s === 'number' ? b.s : -b.q - b.r;
+        return (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(aS - bS)) / 2;
+    };
+
     const isFrontierKey = (key) => {
         const hex = parseKey(key);
         for (let i = 0; i < 6; i++) {
@@ -899,8 +982,12 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
                 tile.prevType = previousType;
             }
             tile.rebelSpreadMisses = 0;
+            if (tile.scorchedBy) delete tile.scorchedBy;
         } else {
             tile.type = 'scorched';
+            if (!tile.prevType && previousType && previousType !== 'scorched') {
+                tile.prevType = previousType;
+            }
             if (tile.rebelSpreadMisses !== undefined) delete tile.rebelSpreadMisses;
         }
         tile.owner = fate === 'rebelcamp' ? 'rebel' : fate;
@@ -944,6 +1031,32 @@ export function loseOverworldHexes(game, count, protectedKeys = new Set()) {
         (tally, conv) => ({ ...tally, [conv.fate]: (tally[conv.fate] || 0) + 1 }),
         { scorched: 0, rebelcamp: 0 }
     );
+
+    const rebelCamps = conversions.filter((conv) => conv.fate === 'rebelcamp');
+    if (rebelCamps.length) {
+        const rebelLookup = rebelCamps.map((camp) => ({
+            key: camp.key,
+            hex: camp.hex || parseKey(camp.key)
+        }));
+        conversions
+            .filter((conv) => conv.fate === 'scorched')
+            .forEach((scorched) => {
+                const tile = game.overworld.hexes.get(scorched.key);
+                if (!tile) return;
+                const scorchedHex = scorched.hex || parseKey(scorched.key);
+                let best = null;
+                rebelLookup.forEach((camp) => {
+                    const distance = hexDistanceBetween(scorchedHex, camp.hex);
+                    if (!best || distance < best.distance || (distance === best.distance && camp.key < best.key)) {
+                        best = { key: camp.key, distance };
+                    }
+                });
+                if (best?.key) {
+                    tile.scorchedBy = best.key;
+                    game.overworld.hexes.set(scorched.key, tile);
+                }
+            });
+    }
 
     return {
         lost,
@@ -1082,10 +1195,10 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
             // Enemy level now scales strictly with rebel camp victories (wars won).
             game.stats.warsWon = currentWins + 1;
         }
-        if (shouldRestoreRebel) {
-            const restoredTile = rebelSystem?.restoreRebelTile?.(resolvedTile, game);
-            const restoredKey = restoredTile?.hex?.toString?.() || restoredTile?.toString?.();
-            const selectedKey = game.selectedOverworldTile?.hex?.toString?.() || game.selectedOverworldTile?.toString?.();
+    if (shouldRestoreRebel) {
+        const restoredTile = rebelSystem?.restoreRebelTile?.(resolvedTile, game);
+        const restoredKey = restoredTile?.hex?.toString?.() || restoredTile?.toString?.();
+        const selectedKey = game.selectedOverworldTile?.hex?.toString?.() || game.selectedOverworldTile?.toString?.();
             if (restoredTile && restoredKey && selectedKey && restoredKey === selectedKey) {
                 if (typeof game.setSelectedOverworldTile === 'function') {
                     game.setSelectedOverworldTile(restoredTile);
@@ -1105,6 +1218,9 @@ export function endWar(game, outcome, clickEvt, hexImpl) {
                     hexKey: restoredKey,
                     tileType: restoredTile?.type
                 });
+            }
+            if (targetKey) {
+                restoreScorchedTilesByRebelCamp(game, targetKey);
             }
         }
     }

@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { damageBuilding, loseOverworldHexes } from '../scripts/combatEngine.js';
+import { damageBuilding, loseOverworldHexes, restoreScorchedTile } from '../scripts/combatEngine.js';
 
 class Hex {
     constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
@@ -106,6 +106,40 @@ function testLossReportTracksFates() {
     });
 }
 
+function testScorchedTilesLinkToRebelCamps() {
+    const coords = [
+        [0, 0], [1, 0], [2, 0], [3, 0]
+    ];
+    const gameState = buildGameState(coords);
+
+    withMockedRandom([0.1], () => {
+        loseOverworldHexes(gameState, 2);
+    });
+
+    const scorchedTile = gameState.overworld.hexes.get('3,0');
+    assert.strictEqual(scorchedTile.type, 'scorched', 'tile should be scorched first');
+    assert.strictEqual(scorchedTile.scorchedBy, '2,0', 'scorched tiles should link to the nearest rebel camp');
+}
+
+function testRestoreScorchedTilePrefersPreviousType() {
+    const gameState = buildGameState([[0, 0, 'field']]);
+    const hex = new Hex(0, 0, 0);
+    const tile = {
+        hex,
+        type: 'scorched',
+        owner: 'scorched',
+        prevType: 'forest',
+        scorchedBy: '2,0'
+    };
+    gameState.overworld.hexes.set(hex.toString(), tile);
+
+    const restored = restoreScorchedTile(gameState, tile, { rng: () => 0.99 });
+    assert.strictEqual(restored.type, 'forest', 'restoration should prefer prior terrain when known');
+    assert.strictEqual(restored.owner, 'player', 'restored tiles should return to player control');
+    assert.ok(!restored.prevType, 'restored tiles should clear previous type metadata');
+    assert.ok(!restored.scorchedBy, 'restored tiles should clear scorch ownership metadata');
+}
+
 function testWarModeScorchesDestroyedHexes() {
     const gameState = {
         Hex,
@@ -138,6 +172,8 @@ function run() {
     testFrontierConversionMarksOuterRingFirst();
     testProtectedTilesStopFurtherLoss();
     testLossReportTracksFates();
+    testScorchedTilesLinkToRebelCamps();
+    testRestoreScorchedTilePrefersPreviousType();
     testWarModeScorchesDestroyedHexes();
     console.log('All loseOverworldHexes tests passed.');
 }

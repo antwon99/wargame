@@ -450,7 +450,16 @@ async function runTests() {
         overworld: {
             hexes: new Map([
                 ['0,0', { hex: new Hex(0, 0, 0), type: 'rebelcamp', owner: 'rebel', isRebelCamp: true }],
-                ['1,0', { hex: new Hex(1, 0, -1), type: 'scorched', owner: 'scorched' }]
+                [
+                    '1,0',
+                    {
+                        hex: new Hex(1, 0, -1),
+                        type: 'scorched',
+                        owner: 'scorched',
+                        prevType: 'forest',
+                        scorchedBy: '0,0'
+                    }
+                ]
             ])
         },
         stats: {}
@@ -464,6 +473,8 @@ async function runTests() {
     const scorchedTile = reloadedPenalty.state.overworld.hexes.get('1,0');
     assert.strictEqual(scorchedTile.type, 'scorched');
     assert.strictEqual(scorchedTile.owner, 'scorched');
+    assert.strictEqual(scorchedTile.prevType, 'forest');
+    assert.strictEqual(scorchedTile.scorchedBy, '0,0');
 
     const rebelTile = reloadedPenalty.state.overworld.hexes.get('0,0');
     assert.strictEqual(rebelTile.owner, 'rebel');

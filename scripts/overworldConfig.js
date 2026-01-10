@@ -31,6 +31,12 @@ export const OVERWORLD_RESTORE_WEIGHTS = [
 ];
 
 /**
+ * Gold cost to douse a scorched overworld tile and restore it to usable terrain.
+ * Shared between gameplay logic and UI callouts to keep costs consistent.
+ */
+export const SCORCHED_DOUSE_COST = 500;
+
+/**
  * Roll a terrain type from a weighted table used by overworld expansion.
  * @param {Array<{type: string, weight: number}>} weights weighted terrain entries.
  * @param {function} [rng=Math.random] random number generator returning [0, 1).

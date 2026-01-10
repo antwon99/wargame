@@ -434,13 +434,19 @@ function createPersistence(global) {
             imperialFavor: clampImperialFavor(game.imperialFavor),
             timekeeper,
             overworld: {
-                hexes: Array.from(game.overworld.hexes.values()).map(({ hex, type, owner }) => ({
-                    q: hex.q,
-                    r: hex.r,
-                    s: hex.s,
-                    type,
-                    owner: owner ?? null
-                }))
+                hexes: Array.from(game.overworld.hexes.values()).map((tile) => {
+                    const { hex, type, owner, prevType, scorchedBy } = tile;
+                    const payload = {
+                        q: hex.q,
+                        r: hex.r,
+                        s: hex.s,
+                        type,
+                        owner: owner ?? null
+                    };
+                    if (typeof prevType === 'string') payload.prevType = prevType;
+                    if (typeof scorchedBy === 'string') payload.scorchedBy = scorchedBy;
+                    return payload;
+                })
             },
             stats: overwriteStats,
             notifications: snapshotNotifications(game),
@@ -513,7 +519,7 @@ function createPersistence(global) {
             });
 
         const overworldHexes = new Map();
-        (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner }) => {
+        (snapshot.overworld?.hexes || []).forEach(({ q, r, s, type, owner, prevType, scorchedBy }) => {
             if (!Number.isFinite(q) || !Number.isFinite(r) || !Number.isFinite(s)) return;
             let normalizedType = typeof type === 'string' ? type.toLowerCase() : null;
             if (normalizedType === 'rebel') {
@@ -532,12 +538,18 @@ function createPersistence(global) {
             if (normalizedType === 'rebelcamp' && !normalizedOwner) {
                 normalizedOwner = 'rebel';
             }
+            let normalizedPrevType = typeof prevType === 'string' ? prevType.toLowerCase() : null;
+            if (normalizedPrevType && !allowedTileIds.has(normalizedPrevType)) {
+                normalizedPrevType = null;
+            }
             const payload = {
                 hex,
                 type: normalizedType,
                 owner: normalizedOwner,
                 isRebelCamp: normalizedType === 'rebelcamp'
             };
+            if (normalizedPrevType) payload.prevType = normalizedPrevType;
+            if (typeof scorchedBy === 'string' && scorchedBy) payload.scorchedBy = scorchedBy;
             overworldHexes.set(hex.toString(), payload);
         });
 

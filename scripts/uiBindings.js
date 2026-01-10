@@ -4,6 +4,7 @@ import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 import { RebelSystem } from './rebelSystem.js';
 import { beginCombatFromTile } from './game/combatEntry.js';
+import { SCORCHED_DOUSE_COST } from './overworldConfig.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
     DEFAULT_ULTIMATE_SELECTION,
@@ -1707,6 +1708,16 @@ function updateTileInspector(game, tile) {
             const affordability = delta > 0 ? `${delta} more wood needed` : 'Affordable now';
             bonus.innerText = `${claimCost}w to claim — ${affordability}`;
             bonus.title = `You have ${currentWood} wood available.`;
+            hideAdjacency();
+            return;
+        }
+
+        if (resolvedTile.owner === 'scorched') {
+            const currentGold = Math.max(0, Math.floor(game.gold ?? 0));
+            const delta = Math.max(0, SCORCHED_DOUSE_COST - currentGold);
+            const affordability = delta > 0 ? `${delta} more gold needed` : 'Affordable now';
+            bonus.innerText = `Scorched land — click to douse for ${SCORCHED_DOUSE_COST}g (${affordability}).`;
+            bonus.title = `You have ${currentGold} gold available.`;
             hideAdjacency();
             return;
         }
