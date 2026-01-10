@@ -50,8 +50,19 @@ function run() {
 
     applyUIBindings(game);
 
+    const diagnostics = [];
+    game.debugAttackOverlay = (payload) => diagnostics.push(payload);
+
     const tile = { isRebelCamp: true, type: 'rebelcamp', owner: 'rebel', hex: { toString: () => '0,0' } };
     game.overworld.hexes.set('0,0', tile);
+
+    game.state = 'COMBAT';
+    game.updateTileAttackOverlay(tile);
+    assert.strictEqual(button.style.display, 'none', 'attack overlay should hide when not in overworld state');
+    assert.strictEqual(diagnostics.length, 1, 'attack overlay should emit a diagnostic when hidden');
+    assert.strictEqual(diagnostics[0].reason, 'state', 'attack overlay should report the state gate');
+
+    game.state = 'OVERWORLD';
     game.updateTileAttackOverlay(tile);
 
     assert.strictEqual(button.style.display, 'inline-flex', 'attack overlay should render when a rebel camp is selected');

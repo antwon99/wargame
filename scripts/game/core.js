@@ -1812,10 +1812,36 @@ const Game = {
     /**
      * Tile-driven battle entry point that funnels hostile selections into the core war pipeline.
      * Ensures the target tile is marked for clearing before deferring to startWar so hooks fire.
+     * Guards against attack triggers when the overworld state is not active to avoid desync.
      * @param {object} targetTile overworld tile being attacked.
      * @param {Event} [clickEvt] originating click event for FX anchoring.
      */
     beginBattleFromTile(targetTile, clickEvt) {
+        if (this.state !== 'OVERWORLD') {
+            const warning = `Attack suppressed: expected OVERWORLD, found ${this.state}.`;
+            if (typeof this.logBootstrapWarning === 'function') {
+                this.logBootstrapWarning(warning);
+            } else {
+                console.warn(warning);
+            }
+            const notification = {
+                id: 'attack-state-guard',
+                title: 'Attack Unavailable',
+                lines: [`Cannot start battle while in ${this.state} mode.`],
+                tone: 'warning'
+            };
+            if (typeof this.enqueueNotification === 'function') {
+                this.enqueueNotification(notification);
+            } else if (typeof this.spawnTxt === 'function') {
+                this.spawnTxt(new Hex(0,0), 'Attack Unavailable', '#ef476f');
+            }
+            if (this.allowAttackStateCorrection === true) {
+                this.state = 'OVERWORLD';
+                this.showOverworldUI?.();
+            } else {
+                return;
+            }
+        }
         if (targetTile) {
             this.pendingClearTile = targetTile;
             this.pendingClearTileKey = targetTile?.hex?.toString?.() || targetTile?.toString?.() || null;
