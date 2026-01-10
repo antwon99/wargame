@@ -58,6 +58,24 @@ function testClearFrontierSweepCamp() {
     assert.strictEqual(tutorialState.targetTileKey, null, 'clearing should reset the tracked rebel camp key');
 }
 
+function testRebelSpawnGate() {
+    const gameState = buildGameState();
+    gameState.tutorial = {
+        frontierSweep: {
+            targetTileKey: '0,0',
+            completionTick: null
+        }
+    };
+
+    const blocked = TutorialHandler.canSpawnRebelCamps(gameState);
+    assert.strictEqual(blocked, false, 'rebel spawns should be gated before Frontier Sweep is cleared');
+
+    gameState.tutorial.frontierSweep.completionTick = 12;
+    const allowed = TutorialHandler.canSpawnRebelCamps(gameState);
+    assert.strictEqual(allowed, true, 'rebel spawns should resume after Frontier Sweep completion');
+}
+
 testSpawnTracksFrontierSweepCamp();
 testClearFrontierSweepCamp();
+testRebelSpawnGate();
 console.log('Tutorial handler tests passed.');

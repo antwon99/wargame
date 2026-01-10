@@ -47,24 +47,36 @@ function buildGameState() {
     };
 }
 
-function testSpreadChanceScalesWithTime() {
-    const baseChance = 0.05;
-    const dailyGrowth = 0.01;
-    const maxChance = 0.1;
+function testSpreadChanceScalesWithMisses() {
+    const baseChance = 0.02;
+    const growth = 0.03;
     const earlyChance = RebelSystem.getRebelSpreadChance({}, {
-        ticks: 3,
+        misses: 0,
         baseChance,
-        dailyGrowth,
-        maxChance
+        growth,
+        monthTicks: 30
     });
-    const cappedChance = RebelSystem.getRebelSpreadChance({}, {
-        ticks: 10,
+    const secondChance = RebelSystem.getRebelSpreadChance({}, {
+        misses: 1,
         baseChance,
-        dailyGrowth,
-        maxChance
+        growth,
+        monthTicks: 30
     });
-    assert.strictEqual(earlyChance, 0.08, 'spread chance should scale linearly with ticks');
-    assert.strictEqual(cappedChance, 0.1, 'spread chance should clamp to the max chance');
+    const laterChance = RebelSystem.getRebelSpreadChance({}, {
+        misses: 3,
+        baseChance,
+        growth,
+        monthTicks: 30
+    });
+    const guaranteedChance = RebelSystem.getRebelSpreadChance({}, {
+        misses: 30,
+        baseChance,
+        monthTicks: 30
+    });
+    assert.strictEqual(earlyChance, 0.02, 'spread chance should start with the base chance');
+    assert.strictEqual(secondChance, 0.05, 'spread chance should rise after failed rolls');
+    assert.strictEqual(laterChance, 0.11, 'spread chance should keep scaling with misses');
+    assert.ok(Math.abs(guaranteedChance - 1) < 1e-6, 'spread chance should guarantee a spawn by month end');
 }
 
 function testSpreadConvertsAdjacentPlayerTile() {
@@ -173,8 +185,40 @@ function testTutorialCampIgnoresDailySpread() {
     assert.strictEqual(updated.owner, 'player', 'tutorial rebel camp should ignore daily spread rolls');
 }
 
-testSpreadChanceScalesWithTime();
+function testFrontierSweepGracePeriodBlocksSpread() {
+    const gameState = buildGameState();
+    const rebelHex = new Hex(0, 0);
+    const targetHex = new Hex(1, 0);
+    gameState.overworld.hexes.set(rebelHex.toString(), {
+        hex: rebelHex,
+        type: 'rebelcamp',
+        owner: 'rebel',
+        isRebelCamp: true
+    });
+    gameState.overworld.hexes.set(targetHex.toString(), {
+        hex: targetHex,
+        type: 'field',
+        owner: 'player'
+    });
+    gameState.tutorial = {
+        frontierSweep: {
+            targetTileKey: rebelHex.toString(),
+            completionTick: null,
+            spreadImmune: false
+        }
+    };
+
+    withPatchedRandom([0, 0], () => {
+        applyOverworldIncome(gameState);
+    });
+
+    const updated = gameState.overworld.hexes.get(targetHex.toString());
+    assert.strictEqual(updated.owner, 'player', 'spread should pause until Frontier Sweep is cleared');
+}
+
+testSpreadChanceScalesWithMisses();
 testSpreadConvertsAdjacentPlayerTile();
 testSpreadSkipsProtectedCamp();
 testOverworldTickTriggersRebelSpread();
 testTutorialCampIgnoresDailySpread();
+testFrontierSweepGracePeriodBlocksSpread();

@@ -161,6 +161,18 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
         return key === getFrontierSweepState(gameState).targetTileKey;
     }
 
+    /**
+     * Determine whether rebel camp spawns should be allowed.
+     * Spawns remain gated until the Frontier Sweep camp is cleared.
+     * @param {object} gameState live game state reference.
+     * @returns {boolean} true when rebel spawns are allowed.
+     */
+    function canSpawnRebelCamps(gameState) {
+        const state = getFrontierSweepState(gameState);
+        if (!state.targetTileKey) return true;
+        return Number.isFinite(state.completionTick);
+    }
+
     return {
         ensureTutorialState,
         getFrontierSweepState,
@@ -168,7 +180,8 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
         spawnFrontierSweepCamp,
         clearFrontierSweepCamp,
         getProtectedRebelSpreadKeys,
-        isFrontierSweepCamp
+        isFrontierSweepCamp,
+        canSpawnRebelCamps
     };
 }
 
@@ -187,4 +200,3 @@ function initTutorialHandler(target = typeof window !== 'undefined' ? window : g
 }
 
 export { createTutorialHandler, TutorialHandler, initTutorialHandler };
-

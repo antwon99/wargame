@@ -1920,10 +1920,17 @@ const Game = {
     claimHexLogic(hex, free) {
         // Keep rebel discoveries rarer than towns (~18%) but slightly above mines/shrines/ruins (8–12%).
         const rebelSpawnChance = free ? 0 : 0.08 + (Math.random() * 0.04);
-        const shouldSpawnRebels = !free && Math.random() < rebelSpawnChance;
+        const canSpawnRebels = typeof TutorialHandler?.canSpawnRebelCamps === 'function'
+            ? TutorialHandler.canSpawnRebelCamps(this)
+            : true;
+        const shouldSpawnRebels = !free && canSpawnRebels && Math.random() < rebelSpawnChance;
 
         if (shouldSpawnRebels) {
-            const rebelTile = this.addOverworldHex(hex, 'rebelcamp', 'rebel', { prevType: 'field', isRebelCamp: true });
+            const rebelTile = this.addOverworldHex(hex, 'rebelcamp', 'rebel', {
+                prevType: 'field',
+                isRebelCamp: true,
+                rebelSpreadMisses: 0
+            });
             this.spawnTxt(hex, '🏴 REBEL CAMP!', '#f55');
             if (typeof this.playSound === 'function') this.playSound('alert');
             this.refreshClusterBonuses();

@@ -24,6 +24,12 @@ Rebel spread checks now consult the tutorial handler for protected rebel camp ke
 marked and `spreadImmune` is enabled, that camp is skipped during spread rolls. This prevents the
 Frontier Sweep camp from spreading before the player clears it.
 
+## Rebel spawn gating
+
+While the Frontier Sweep camp is active (no `completionTick` set), the tutorial handler can
+signal that rebel spawns should pause. Both rebel spread ticks and random rebel discoveries
+check this gate to give players a small grace period before additional camps appear.
+
 ## Key functions
 
 - `spawnFrontierSweepCamp(gameState, options)`: spawns or resolves the tutorial rebel camp,
@@ -31,11 +37,13 @@ Frontier Sweep camp from spreading before the player clears it.
 - `getProtectedRebelSpreadKeys(gameState)`: returns the set of rebel camp keys that should be
   ignored during spread checks.
 - `clearFrontierSweepCamp(gameState, tileOrKey)`: clears the tracked tutorial camp once reclaimed.
+- `canSpawnRebelCamps(gameState)`: returns whether rebel spawns should be allowed yet.
 
 ## Integrations
 
 - **Mandates:** `scripts/mandates/imperialMandatesCore.js` uses the handler to spawn and track the
   Frontier Sweep camp.
 - **Rebel spread:** `scripts/overworldTicks.js` passes protected keys to `RebelSystem.spreadRebelCamps`.
+- **Rebel discovery:** `scripts/game/core.js` consults `canSpawnRebelCamps` before spawning camps.
 - **Persistence:** `scripts/persistence.js` serializes `game.tutorial` so tutorial state survives
   save/load cycles.

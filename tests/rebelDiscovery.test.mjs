@@ -130,6 +130,26 @@ async function testRebelCampDiscoveryHasChance() {
     assert.strictEqual(narrativeEvent.payload?.tick, 123, 'narrative payload should include the current tick');
 }
 
+async function testFrontierSweepBlocksRebelDiscovery() {
+    const { Game, Hex } = await buildGame();
+    const target = new Hex(1, 0, -1);
+    Game.tutorial = {
+        frontierSweep: {
+            targetTileKey: '0,0',
+            completionTick: null,
+            spreadImmune: true
+        }
+    };
+
+    withMockedRandom([0, 0.01], () => {
+        Game.claimHexLogic(target, false);
+    });
+
+    const stored = Game.overworld.hexes.get(target.toString());
+    assert.strictEqual(stored.owner, 'player', 'Frontier Sweep should block new rebel discoveries');
+    assert.ok(!stored.isRebelCamp, 'blocked discoveries should remain non-rebel tiles');
+}
+
 async function testFrontierClaimsDefaultToPlayerTiles() {
     const { Game, Hex } = await buildGame();
     const target = new Hex(1, -1, 0);
@@ -174,6 +194,7 @@ async function testSpecialTileClaimEmitsNarrative() {
 
 async function run() {
     await testRebelCampDiscoveryHasChance();
+    await testFrontierSweepBlocksRebelDiscovery();
     await testFrontierClaimsDefaultToPlayerTiles();
     await testFreeClaimsAvoidRebels();
     await testSpecialTileClaimEmitsNarrative();
