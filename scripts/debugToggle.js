@@ -4,6 +4,7 @@
  * keyboard (F3 or `) or the Debug button tucked in the bottom-left corner.
  */
 import { BOOT_PHASES, getBootPhase } from './bootManager.js';
+import { hydrateDebugBus } from './audio/debugBus.js';
 
 let debugPanel = null;
 let toggleButton = null;
@@ -19,7 +20,7 @@ function resolveDebugToggles(target = typeof window !== 'undefined' ? window : u
     if (debugToggles) return debugToggles;
     if (!target) return {};
     const existing = target.DebugToggles || {};
-    debugToggles = { showClaimCosts: false, showDebugLog: false, ...existing };
+    debugToggles = { showClaimCosts: false, showDebugLog: false, audioDebugBus: false, ...existing };
     target.DebugToggles = debugToggles;
     return debugToggles;
 }
@@ -49,6 +50,10 @@ function setDebugVisibility(isVisible, doc = typeof document !== 'undefined' ? d
     }
     if (debugToggles) {
         debugToggles.showDebugLog = isVisible;
+        if (isVisible) {
+            debugToggles.audioDebugBus = true;
+            hydrateDebugBus();
+        }
     }
     const debugLogEl = doc?.getElementById?.('debug-log');
     if (!debugLogEl?.classList) return;
@@ -136,4 +141,3 @@ const DebugToggle = {
 };
 
 export { DebugToggle, initDebugToggle, toggleDebug, setDebugVisibility, toggleClaimCostLabels };
-
