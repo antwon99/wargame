@@ -47,6 +47,25 @@ const imperialMandates = initImperialMandates?.(bootstrapScope) || null;
 const storageProbe = initStorageProbe?.(bootstrapScope) || null;
 const debugToggles = bootstrapScope?.DebugToggles || null;
 
+/**
+ * Wire audio unlock retries to user interactions and visibility changes so
+ * autoplay-blocked sounds can recover as soon as the browser allows playback.
+ * @param {Object} audioManager audio manager instance that can unlock playback.
+ * @param {Document|null} doc document instance used for input listeners.
+ */
+function armAudioUnlock(audioManager, doc) {
+    if (!audioManager || !doc || typeof doc.addEventListener !== 'function') return;
+    const attemptUnlock = (reason) => {
+        if (typeof audioManager.unlock === 'function') audioManager.unlock(reason);
+    };
+    ['click', 'keydown', 'touchstart'].forEach((eventName) => {
+        doc.addEventListener(eventName, () => attemptUnlock(eventName), { passive: true });
+    });
+    doc.addEventListener('visibilitychange', () => {
+        if (doc.visibilityState === 'visible') attemptUnlock('visibility');
+    });
+}
+
 const dependencies = {
     inputHelpers,
     researchSystem: ResearchSystem,
@@ -64,6 +83,8 @@ const dependencies = {
     debugToggles,
     windowScope: bootstrapScope
 };
+
+armAudioUnlock(GameAudio, bootstrapScope?.document || null);
 const bootstrapWithDependencies = (overrides = {}) => bootstrapGame({ ...dependencies, ...overrides });
 const createGameCoreWithDependencies = (overrides = {}) => createGameCore({
     ...overrides,

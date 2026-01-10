@@ -8,6 +8,7 @@ function createAudioDebugBus() {
         intendedTrack: 'None',
         masterVolume: 1,
         boundNodes: new WeakSet(),
+        blockedPlays: [],
         reportIntent(name) {
             if (!this.enabled) return;
             this.intendedTrack = name || 'Unknown';
@@ -30,11 +31,18 @@ function createAudioDebugBus() {
             if (!node) return;
             this.sources.delete(node);
         },
+        reportPlaybackFailure(meta = {}) {
+            if (!this.enabled) return;
+            const entry = { ...meta, at: Date.now() };
+            this.blockedPlays.unshift(entry);
+            if (this.blockedPlays.length > 5) this.blockedPlays.length = 5;
+        },
         snapshot() {
             return {
                 intendedTrack: this.intendedTrack,
                 masterVolume: this.masterVolume,
-                activeSources: Array.from(this.sources.values())
+                activeSources: Array.from(this.sources.values()),
+                blockedPlays: [...this.blockedPlays]
             };
         }
     };

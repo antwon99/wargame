@@ -28,6 +28,8 @@ class AudioManager {
         };
         this.groupWindows = new Map();
         this.liveNodes = new Map();
+        this.pendingPlays = new Map();
+        this.lastAttempted = new Map();
         AudioDebugBus.masterVolume = this.masterVolume;
     }
 
@@ -222,6 +224,29 @@ class AudioManager {
         };
     }
 
+    /**
+     * Retry any blocked audio playbacks after a user gesture or visibility
+     * change unlocks the Web Audio stack.
+     * @param {string} reason optional reason describing the unlock source.
+     * @returns {number} count of pending playbacks retried.
+     */
+    unlock(reason = 'gesture') {
+        if (!this.pendingPlays.size) return 0;
+        const pending = Array.from(this.pendingPlays.values());
+        pending.forEach((entry) => {
+            if (!entry?.node) {
+                this.pendingPlays.delete(entry?.node);
+                return;
+            }
+            const scaledVolume = this.getScaledVolume(entry.baseVolume, entry.category);
+            if (entry.node.volume !== scaledVolume) entry.node.volume = scaledVolume;
+            if (typeof entry.loopSetting !== 'undefined') entry.node.loop = !!entry.loopSetting;
+            if (entry.resetOnRetry && typeof entry.node.currentTime === 'number') entry.node.currentTime = 0;
+            this._attemptPlayback(entry, reason);
+        });
+        return pending.length;
+    }
+
     _playInternal(key, options, returnHandle) {
         const resolved = this.resolveForPlayback(key);
         if (!resolved) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
@@ -229,7 +254,7 @@ class AudioManager {
         const { variantKey, variantDef } = resolved;
         const now = Date.now();
         const cooldownMs = options.cooldownMs ?? variantDef.cooldownMs;
-        const last = this.lastPlayed.get(key) || 0;
+        const last = this.lastAttempted.get(key) || 0;
         if (cooldownMs && now - last < cooldownMs) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
 
         const groupKey = options.groupKey ?? variantDef.groupKey;
@@ -246,7 +271,7 @@ class AudioManager {
 
         const base = this.getOrCreateNode(variantKey, variantDef);
         if (!base) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
-        const useClone = overlap && this.lastPlayed.has(key) && base.cloneNode;
+        const useClone = overlap && this.lastAttempted.has(key) && base.cloneNode;
         const node = useClone ? base.cloneNode() : base;
         const category = this.resolveCategory(key, variantDef);
         const baseVolume = typeof volume === 'number'
@@ -259,14 +284,70 @@ class AudioManager {
         if (typeof loop !== 'undefined') node.loop = !!loop;
         if (reset && typeof node.currentTime === 'number') node.currentTime = 0;
 
-        AudioDebugBus.registerPlayback(node, { key, variantKey, src: variantDef.src });
+        this.lastAttempted.set(key, now);
+        this._attemptPlayback({
+            key,
+            variantKey,
+            src: variantDef.src,
+            node,
+            category,
+            baseVolume,
+            loopSetting: loop,
+            resetOnRetry: reset
+        });
 
-        const promise = node.play ? node.play() : null;
-        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-
-        this.lastPlayed.set(key, now);
         if (returnHandle) return { attempted: true, node, variantKey, category, baseVolume };
         return true;
+    }
+
+    /**
+     * Attempt to start playback on a node while recording success or failure.
+     * @param {Object} entry playback metadata for pending retries.
+     * @param {string} [reason] optional reason for attempts (gesture/visibility/etc.).
+     */
+    _attemptPlayback(entry, reason = 'play') {
+        const attemptStamp = Date.now();
+        if (entry?.key) this.lastAttempted.set(entry.key, attemptStamp);
+        const finalizeSuccess = () => {
+            if (!entry?.node) return;
+            this.pendingPlays.delete(entry.node);
+            this.lastPlayed.set(entry.key, attemptStamp);
+            AudioDebugBus.registerPlayback(entry.node, {
+                key: entry.key,
+                variantKey: entry.variantKey,
+                src: entry.src
+            });
+        };
+
+        const recordFailure = (err) => {
+            if (!entry?.node) return;
+            const existing = this.pendingPlays.get(entry.node);
+            const attempts = existing ? existing.attempts + 1 : 1;
+            const pendingEntry = {
+                ...entry,
+                attempts,
+                lastError: err,
+                lastFailedAt: attemptStamp
+            };
+            this.pendingPlays.set(entry.node, pendingEntry);
+            if (typeof AudioDebugBus.reportPlaybackFailure === 'function') {
+                AudioDebugBus.reportPlaybackFailure({
+                    key: entry.key,
+                    variantKey: entry.variantKey,
+                    src: entry.src,
+                    reason,
+                    attempts,
+                    message: err?.message || String(err)
+                });
+            }
+        };
+
+        const promise = entry?.node?.play ? entry.node.play() : null;
+        if (promise && typeof promise.then === 'function') {
+            promise.then(finalizeSuccess).catch(recordFailure);
+        } else {
+            finalizeSuccess();
+        }
     }
 
     /**
