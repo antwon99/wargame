@@ -28,17 +28,32 @@ function shouldEnableAudioDebugBus() {
 
 const AudioDebugBus = createNoopBus();
 
-function hydrateDebugBusIfNeeded() {
-    if (!shouldEnableAudioDebugBus()) return;
-    import('./debugBus.dev.js')
+let hydratePromise = null;
+
+/**
+ * Re-check runtime toggles and load the full debug bus implementation when enabled.
+ * @returns {Promise<Object>} Promise that resolves to the hydrated audio debug bus.
+ */
+function hydrateDebugBus() {
+    if (AudioDebugBus.enabled) return Promise.resolve(AudioDebugBus);
+    if (!shouldEnableAudioDebugBus()) return Promise.resolve(AudioDebugBus);
+    if (hydratePromise) return hydratePromise;
+
+    hydratePromise = import('./debugBus.dev.js')
         .then(({ createAudioDebugBus, registerGlobalAudioDebugBus }) => {
             const realBus = createAudioDebugBus();
             Object.assign(AudioDebugBus, realBus, { enabled: true });
             registerGlobalAudioDebugBus(AudioDebugBus);
+            return AudioDebugBus;
         })
-        .catch(() => {});
+        .catch(() => AudioDebugBus)
+        .finally(() => {
+            hydratePromise = null;
+        });
+
+    return hydratePromise;
 }
 
-hydrateDebugBusIfNeeded();
+hydrateDebugBus();
 
-export { AudioDebugBus, shouldEnableAudioDebugBus };
+export { AudioDebugBus, hydrateDebugBus, shouldEnableAudioDebugBus };
