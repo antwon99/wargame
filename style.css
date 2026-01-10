@@ -571,17 +571,24 @@
 
         .mode-panel { display: none; width: 100%; flex-direction: column; align-items: center; gap: 10px; }
         .visible { display: flex; }
+        .combat-panel {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding-top: 6px;
+        }
 
         .combat-ultimate-hud {
             display: none;
             pointer-events: auto;
             justify-content: center;
             align-items: center;
-            padding: 10px 14px;
-            border-radius: 16px;
-            background: rgba(11, 14, 20, 0.75);
-            border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+            padding: 0;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            box-shadow: none;
         }
 
         .combat-ultimate-hud.is-visible { display: flex; }
@@ -589,7 +596,7 @@
         .ultimate-button {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 0;
             background: transparent;
             border: none;
             color: #f8fafc;
@@ -597,6 +604,7 @@
             letter-spacing: 0.4px;
             text-transform: uppercase;
             cursor: pointer;
+            padding: 0;
         }
 
         .ultimate-button--disabled {
@@ -617,8 +625,8 @@
 
         .ultimate-ring {
             --charge-progress: 0;
-            width: 54px;
-            height: 54px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             display: grid;
             place-items: center;
@@ -627,31 +635,15 @@
         }
 
         .ultimate-ring__core {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             background: radial-gradient(circle at top, rgba(255,255,255,0.14), rgba(0,0,0,0.75));
             display: grid;
             place-items: center;
             border: 1px solid rgba(255,255,255,0.18);
         }
-
-        .ultimate-icon { font-size: 1.2rem; }
-
-        .ultimate-text {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-        }
-
-        .ultimate-label { font-size: 0.9rem; }
-
-        .ultimate-timer {
-            font-size: 0.75rem;
-            letter-spacing: 0.6px;
-            color: #94a3b8;
-        }
+        .ultimate-icon { font-size: 1.05rem; }
 
         .tile-inspector {
             pointer-events: auto;
