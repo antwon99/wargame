@@ -73,8 +73,6 @@ function seedHudElements(document) {
 
     document.register('ultimate-button', createStubElement('ultimate-button'));
     document.register('ultimate-icon', createStubElement('ultimate-icon'));
-    document.register('ultimate-label', createStubElement('ultimate-label'));
-    document.register('ultimate-timer', createStubElement('ultimate-timer'));
 }
 
 function buildGameState() {
@@ -118,13 +116,14 @@ function testUltimateHudUpdates() {
     updateHUD(game);
     const ring = document.querySelector('#combat-ultimate-hud .ultimate-ring');
     assert.strictEqual(ring.style['--charge-progress'], '0.5', 'ultimate ring should show 50% charge');
-    assert.strictEqual(document.getElementById('ultimate-timer').innerText, '5s', 'timer should display remaining seconds');
-    assert.strictEqual(document.getElementById('ultimate-label').innerText, 'Rush', 'label should match ultimate config');
+    assert.ok(
+        document.getElementById('ultimate-button').getAttribute('aria-label')?.includes('Rush'),
+        'ultimate button should describe the selected ultimate via aria-label'
+    );
 
     game.combat.ultimates.chargeMs.rush = 10000;
     updateHUD(game);
     assert.ok(document.getElementById('ultimate-button').classList.contains('ultimate-button--ready'), 'ultimate should mark ready state');
-    assert.strictEqual(document.getElementById('ultimate-timer').innerText, 'Ready', 'timer should announce ready state');
 
     game.combat.warElapsedMs = 3000;
     game.combat.ultimates.activeEffects.rush = { activatedAtMs: 0 };
@@ -135,7 +134,6 @@ function testUltimateHudUpdates() {
     game.combat.ultimates.consumed.rush = true;
     updateHUD(game);
     assert.ok(document.getElementById('ultimate-button').classList.contains('ultimate-button--disabled'), 'ultimate should disable after use');
-    assert.strictEqual(document.getElementById('ultimate-timer').innerText, 'Used', 'timer should announce used state');
 
     restoreGlobals(originalDocument, originalWindow);
     console.log('Ultimate HUD tests passed.');
