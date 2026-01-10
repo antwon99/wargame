@@ -44,7 +44,7 @@ function run() {
     const game = {
         state: 'OVERWORLD',
         overworld: { hexes: new Map() },
-        beginBattleFromTile: () => { game.battleStarted = true; },
+        startWar: () => { game.battleStarted = true; },
         projectHexToScreen: () => ({ x: 120, y: 160 })
     };
 

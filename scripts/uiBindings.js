@@ -3,6 +3,7 @@ import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from './imperialFavor.js';
 import { getTileKey } from './utils/tileKey.js';
 import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 import { RebelSystem } from './rebelSystem.js';
+import { beginCombatFromTile } from './game/combatEntry.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
     DEFAULT_ULTIMATE_SELECTION,
@@ -1825,7 +1826,7 @@ function updateTileAttackOverlay(game, tile) {
     btn.onclick = (e) => {
         e?.stopPropagation?.();
         btn.style.display = 'none';
-        game.beginBattleFromTile(resolvedTile, e);
+        beginCombatFromTile(game, resolvedTile, e);
     };
 }
 
