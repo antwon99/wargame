@@ -73,6 +73,7 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
     if (debugState.timer < 0.5) return;
     debugState.timer = 0;
 
+    const busActive = Boolean(window.AudioDebugBus && window.AudioDebugBus.enabled);
     const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
         ? window.AudioDebugBus.snapshot()
         : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
@@ -94,6 +95,10 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
         : '<div>None</div>';
 
     debugState.el.innerHTML = `
+            <div class="section">
+                <div class="label">Audio debug bus</div>
+                <div>${busActive ? 'ON' : 'OFF'}</div>
+            </div>
             <div class="section">
                 <div class="label">Current Music Track</div>
                 <div>${snapshot.intendedTrack || 'None'}</div>

@@ -12,11 +12,10 @@ async function testDebugPanelHydratesAudioBus() {
     globalThis.window = target;
 
     const debugToggleModule = await import('../scripts/debugToggle.js?test=audio-bus-toggle');
-    const { AudioDebugBus, hydrateDebugBus } = await import('../scripts/audio/debugBus.js');
+    const { AudioDebugBus } = await import('../scripts/audio/debugBus.js');
 
     debugToggleModule.initDebugToggle(target, { document: doc });
-    debugToggleModule.setDebugVisibility(true, doc);
-    await hydrateDebugBus();
+    await debugToggleModule.setDebugVisibility(true, doc);
 
     assert.strictEqual(target.DebugToggles.audioDebugBus, true, 'debug panel should enable the audio debug bus toggle');
     assert.strictEqual(AudioDebugBus.enabled, true, 'debug panel should hydrate the audio debug bus on demand');

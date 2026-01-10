@@ -4,7 +4,7 @@
  * keyboard (F3 or `) or the Debug button tucked in the bottom-left corner.
  */
 import { BOOT_PHASES, getBootPhase } from './bootManager.js';
-import { hydrateDebugBus } from './audio/debugBus.js';
+import { enableAudioDebugBus } from './audio/debugBus.js';
 
 let debugPanel = null;
 let toggleButton = null;
@@ -48,11 +48,12 @@ function setDebugVisibility(isVisible, doc = typeof document !== 'undefined' ? d
     if (toggleButton) {
         toggleButton.setAttribute('aria-pressed', isVisible.toString());
     }
+    let debugBusPromise = null;
     if (debugToggles) {
         debugToggles.showDebugLog = isVisible;
         if (isVisible) {
             debugToggles.audioDebugBus = true;
-            hydrateDebugBus();
+            debugBusPromise = enableAudioDebugBus();
         }
     }
     const debugLogEl = doc?.getElementById?.('debug-log');
@@ -64,6 +65,8 @@ function setDebugVisibility(isVisible, doc = typeof document !== 'undefined' ? d
     if (getBootPhase() !== BOOT_PHASES.READY) {
         debugLogEl.classList.remove('visible');
     }
+
+    return debugBusPromise;
 }
 
 /**
