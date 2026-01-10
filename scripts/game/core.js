@@ -65,6 +65,7 @@ import { init as initAudioDebugPanel, update as updateAudioDebugPanel } from '..
 import { DEFAULT_IMPERIAL_FAVOR, clampImperialFavor } from '../imperialFavor.js';
 import createNarrativeSystem from '../narrative/narrativeSystem.js';
 import { BOOT_PHASES, markBootReady, registerBootDependencies, setBootPhase } from '../bootManager.js';
+import { beginCombatFromTile } from './combatEntry.js';
 /**
  * Normalize a hydrated faction state payload so missing entries revert to defaults.
  * @param {object|null} snapshot saved faction state from persistence.
@@ -1817,41 +1818,7 @@ const Game = {
      * @param {Event} [clickEvt] originating click event for FX anchoring.
      */
     beginBattleFromTile(targetTile, clickEvt) {
-        if (this.state !== 'OVERWORLD') {
-            const warning = `Attack suppressed: expected OVERWORLD, found ${this.state}.`;
-            if (typeof this.logBootstrapWarning === 'function') {
-                this.logBootstrapWarning(warning);
-            } else {
-                console.warn(warning);
-            }
-            const notification = {
-                id: 'attack-state-guard',
-                title: 'Attack Unavailable',
-                lines: [`Cannot start battle while in ${this.state} mode.`],
-                tone: 'warning'
-            };
-            if (typeof this.enqueueNotification === 'function') {
-                this.enqueueNotification(notification);
-            } else if (typeof this.spawnTxt === 'function') {
-                this.spawnTxt(new Hex(0,0), 'Attack Unavailable', '#ef476f');
-            }
-            if (this.allowAttackStateCorrection === true) {
-                this.state = 'OVERWORLD';
-                this.showOverworldUI?.();
-            } else {
-                return;
-            }
-        }
-        if (targetTile) {
-            this.pendingClearTile = targetTile;
-            this.pendingClearTileKey = targetTile?.hex?.toString?.() || targetTile?.toString?.() || null;
-            this.pendingClearTileWasRebel = RebelSystem?.isRebelCampTile?.(targetTile) || false;
-        } else {
-            this.pendingClearTile = null;
-            this.pendingClearTileKey = null;
-            this.pendingClearTileWasRebel = null;
-        }
-        this.startWar(clickEvt);
+        beginCombatFromTile(this, targetTile, clickEvt);
     },
 
     onClick(x, y) {
