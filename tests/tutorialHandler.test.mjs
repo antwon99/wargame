@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { RebelSystem } from '../scripts/rebelSystem.js';
 import { TutorialHandler } from '../scripts/tutorialHandler.js';
 
 class Hex {
@@ -75,7 +76,34 @@ function testRebelSpawnGate() {
     assert.strictEqual(allowed, true, 'rebel spawns should resume after Frontier Sweep completion');
 }
 
+function testSpawnRestoresFrontierSweepCampFlags() {
+    const gameState = buildGameState();
+    const hex = new Hex(2, -1);
+    const key = hex.toString();
+    const tile = { hex, type: 'field', owner: 'player' };
+    gameState.overworld.hexes.set(key, tile);
+    gameState.tutorial = {
+        frontierSweep: {
+            targetTileKey: key,
+            spreadImmune: true
+        }
+    };
+
+    const restored = TutorialHandler.spawnFrontierSweepCamp(gameState);
+    assert.strictEqual(restored, tile, 'spawn should return the tracked tile when it already exists');
+    assert.strictEqual(restored.type, 'rebelcamp', 'tracked camp type should be re-asserted');
+    assert.strictEqual(restored.owner, 'rebel', 'tracked camp owner should be re-asserted');
+    assert.strictEqual(restored.isRebelCamp, true, 'tracked camp flag should be re-asserted');
+    assert.strictEqual(restored.rebelSpreadMisses, 0, 'tracked camp spread misses should be initialized');
+    assert.strictEqual(
+        RebelSystem.isRebelCampTile(restored),
+        true,
+        'RebelSystem should recognize restored tutorial camps as hostile tiles'
+    );
+}
+
 testSpawnTracksFrontierSweepCamp();
 testClearFrontierSweepCamp();
 testRebelSpawnGate();
+testSpawnRestoresFrontierSweepCampFlags();
 console.log('Tutorial handler tests passed.');

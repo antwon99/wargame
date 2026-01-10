@@ -63,6 +63,7 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
      * @param {boolean} [options.spreadImmune=true] whether spread immunity should be enforced.
      * @param {string} [options.source] source label for diagnostics.
      * @param {number} [options.enemyLevel] enemy level preset used when spawning the camp.
+     * @param {boolean} [options.reassertFlags=false] whether to re-apply rebel camp flags when already tracked.
      * @returns {string|null} recorded tile key or null if unavailable.
      */
     function markFrontierSweepCamp(gameState, rebelTile, options = {}) {
@@ -74,6 +75,9 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
         if (!key) return null;
 
         const current = tutorial.frontierSweep || { ...DEFAULT_FRONTIER_SWEEP_STATE };
+        if (options.reassertFlags && current.targetTileKey === key) {
+            applyRebelCampFlags(rebelTile);
+        }
         tutorial.frontierSweep = {
             ...current,
             targetTileKey: key,
@@ -99,7 +103,10 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
 
         const existingKey = tutorial.frontierSweep?.targetTileKey;
         const existingTile = existingKey && gameState?.overworld?.hexes?.get?.(existingKey);
-        if (existingTile) return existingTile;
+        if (existingTile) {
+            applyRebelCampFlags(existingTile);
+            return existingTile;
+        }
 
         const rebelTile = RebelSystem?.spawnRebelCampNearFrontier?.(gameState, options) || null;
         if (!rebelTile) return null;
@@ -171,6 +178,33 @@ function createTutorialHandler(global = typeof window !== 'undefined' ? window :
         const state = getFrontierSweepState(gameState);
         if (!state.targetTileKey) return true;
         return Number.isFinite(state.completionTick);
+    }
+
+    /**
+     * Re-apply rebel camp ownership flags when a tracked tile drifted from hostile state.
+     * @param {object} tile overworld tile payload to normalize.
+     * @returns {boolean} true when the tile was mutated.
+     */
+    function applyRebelCampFlags(tile) {
+        if (!tile || typeof tile !== 'object') return false;
+        let updated = false;
+        if (tile.type !== 'rebelcamp') {
+            tile.type = 'rebelcamp';
+            updated = true;
+        }
+        if (tile.owner !== 'rebel') {
+            tile.owner = 'rebel';
+            updated = true;
+        }
+        if (!tile.isRebelCamp) {
+            tile.isRebelCamp = true;
+            updated = true;
+        }
+        if (!Number.isFinite(tile.rebelSpreadMisses)) {
+            tile.rebelSpreadMisses = 0;
+            updated = true;
+        }
+        return updated;
     }
 
     return {
