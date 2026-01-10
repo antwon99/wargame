@@ -1798,6 +1798,22 @@ function updateTileAttackOverlay(game, tile) {
         && (RebelSystem?.isRebelCampTile?.(resolvedTile) || resolvedTile.owner === 'enemy');
     const shouldHide = !resolvedTile || !isHostile || game.state !== 'OVERWORLD';
     if (shouldHide) {
+        const reason = !resolvedTile
+            ? 'missing-tile'
+            : !isHostile
+                ? 'not-hostile'
+                : 'state';
+        const tileKey = resolvedTile?.hex?.toString?.()
+            || resolvedTile?.toString?.()
+            || tile?.hex?.toString?.()
+            || tile?.toString?.()
+            || null;
+        game.debugAttackOverlay?.({
+            reason,
+            state: game.state,
+            isHostile,
+            tileKey
+        });
         btn.style.display = 'none';
         return;
     }
