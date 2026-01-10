@@ -40,6 +40,15 @@ let hydratePromise = null;
 function hydrateDebugBus() {
     if (AudioDebugBus.enabled) return Promise.resolve(AudioDebugBus);
     if (!shouldEnableAudioDebugBus()) return Promise.resolve(AudioDebugBus);
+    return enableAudioDebugBus();
+}
+
+/**
+ * Explicitly load the full audio debug bus and register it globally for overlays.
+ * @returns {Promise<Object>} Promise that resolves to the hydrated audio debug bus.
+ */
+function enableAudioDebugBus() {
+    if (AudioDebugBus.enabled) return Promise.resolve(AudioDebugBus);
     if (hydratePromise) return hydratePromise;
 
     hydratePromise = import('./debugBus.dev.js')
@@ -59,4 +68,4 @@ function hydrateDebugBus() {
 
 hydrateDebugBus();
 
-export { AudioDebugBus, hydrateDebugBus, shouldEnableAudioDebugBus };
+export { AudioDebugBus, enableAudioDebugBus, hydrateDebugBus, shouldEnableAudioDebugBus };
