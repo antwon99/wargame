@@ -1198,6 +1198,44 @@ const Game = {
     },
 
     /**
+     * Trigger a combat ultimate once it has fully charged.
+     * Validates combat state, charge thresholds, and one-use rules before
+     * priming the active effect payload consumed by the combat engine.
+     * @param {string} [ultimateId] optional ultimate identifier override.
+     * @returns {boolean} true when the ultimate was successfully activated.
+     */
+    activateUltimate(ultimateId) {
+        if (this.state !== 'COMBAT') return false;
+        const ultimates = this.combat?.ultimates;
+        if (!ultimates) return false;
+        const resolved = resolveUltimateSelection(
+            ultimateId || ultimates.selectedId || this.selectedUltimate
+        );
+        const readyAtMs = Number(ultimates.readyAtMs?.[resolved] ?? 0);
+        const chargeMs = Number(ultimates.chargeMs?.[resolved] ?? 0);
+        const consumed = Boolean(ultimates.consumed?.[resolved]);
+        if (consumed) return false;
+        if (ultimates.activeEffects?.[resolved]) return false;
+        if (!readyAtMs || chargeMs < readyAtMs) return false;
+
+        const warElapsedMs = Math.max(0, this.combat.warElapsedMs || 0);
+        ultimates.activeEffects = {
+            ...(ultimates.activeEffects || {}),
+            [resolved]: { activatedAtMs: warElapsedMs }
+        };
+        ultimates.metadata = {
+            ...(ultimates.metadata || {}),
+            [resolved]: {
+                ...(ultimates.metadata?.[resolved] || {}),
+                activatedAtMs: warElapsedMs,
+                lastAppliedAtMs: warElapsedMs
+            }
+        };
+        if (typeof this.updateHUD === 'function') this.updateHUD();
+        return true;
+    },
+
+    /**
      * Build a fresh research state or hydrate from a saved payload.
      * Keeps the data in sync with the ResearchSystem definition file so tests
      * and gameplay share cost math.

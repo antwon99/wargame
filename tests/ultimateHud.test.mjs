@@ -87,11 +87,13 @@ function buildGameState() {
         stats: { warsWon: 0 },
         state: 'OVERWORLD',
         combat: {
+            warElapsedMs: 0,
             ultimates: {
                 readyAtMs: { rush: 10000 },
                 chargeMs: { rush: 0 },
                 consumed: { rush: false },
-                activeEffects: {}
+                activeEffects: {},
+                levels: { rush: 1 }
             }
         }
     };
@@ -123,6 +125,12 @@ function testUltimateHudUpdates() {
     updateHUD(game);
     assert.ok(document.getElementById('ultimate-button').classList.contains('ultimate-button--ready'), 'ultimate should mark ready state');
     assert.strictEqual(document.getElementById('ultimate-timer').innerText, 'Ready', 'timer should announce ready state');
+
+    game.combat.warElapsedMs = 3000;
+    game.combat.ultimates.activeEffects.rush = { activatedAtMs: 0 };
+    updateHUD(game);
+    const activeProgress = Number(ring.style['--charge-progress']);
+    assert.ok(activeProgress < 1 && activeProgress > 0, 'ultimate ring should deplete while active');
 
     game.combat.ultimates.consumed.rush = true;
     updateHUD(game);

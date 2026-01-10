@@ -71,6 +71,13 @@ function updateUltimateChargeState(game) {
         const activeEffect = activeEffects[ultimateId];
         if (activeEffect?.expiresAtMs && warElapsedMs >= activeEffect.expiresAtMs) {
             activeEffects[ultimateId] = null;
+            consumed[ultimateId] = true;
+            const metadata = ultimates.metadata || {};
+            metadata[ultimateId] = {
+                ...(metadata[ultimateId] || {}),
+                lastAppliedAtMs: activeEffect.expiresAtMs ?? warElapsedMs
+            };
+            ultimates.metadata = metadata;
         }
 
         ultimates.readyAtMs = readyAtMs;
