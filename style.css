@@ -577,6 +577,43 @@
             display: flex; flex-direction: column; align-items: center; gap: 15px;
         }
 
+        .zoom-controls {
+            position: fixed;
+            right: calc(16px + env(safe-area-inset-right));
+            bottom: calc(120px + env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 70;
+            pointer-events: auto;
+        }
+
+        body.hud-action-bar--top .zoom-controls {
+            bottom: calc(24px + env(safe-area-inset-bottom));
+        }
+
+        .zoom-control-button {
+            min-width: 44px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(16, 24, 40, 0.9);
+            color: #f8fafc;
+            font-weight: 800;
+            font-size: 1.2rem;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .zoom-control-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
         .btn {
             pointer-events: auto;
             background: #333; border: 2px solid #555;

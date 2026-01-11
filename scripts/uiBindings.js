@@ -23,6 +23,9 @@ import {
 
 let cachedNotificationStack = null;
 
+const ZOOM_LIMITS = { min: 0.5, max: 2.0 };
+const ZOOM_STEP = 0.1;
+
 const SIDEBAR_SECTION_KEYS = ['stats', 'tasks', 'standing', 'settings'];
 const SIDEBAR_SECTION_IDS = {
     stats: 'sidebar-section-stats',
@@ -50,6 +53,24 @@ function getOrCreateNotificationStack() {
     cachedNotificationStack = createNotificationStack({ mountPoint });
     setSharedStack(cachedNotificationStack);
     return cachedNotificationStack;
+}
+
+/**
+ * Clamp camera zoom to the shared bounds used across all input methods.
+ * @param {number} value candidate zoom level.
+ * @returns {number} zoom level restricted to the supported range.
+ */
+function clampCameraZoom(value) {
+    return Math.min(ZOOM_LIMITS.max, Math.max(ZOOM_LIMITS.min, value));
+}
+
+/**
+ * Update the camera zoom so UI controls and wheel input stay in sync.
+ * @param {object} game live game singleton.
+ * @param {number} nextZoom zoom value to apply before clamping.
+ */
+function setCameraZoom(game, nextZoom) {
+    game.cam.zoom = clampCameraZoom(nextZoom);
 }
 
 /**
@@ -354,6 +375,11 @@ export function setupUIBindings(game) {
     const combatUltimateBtn = document.getElementById('ultimate-button');
     if (combatUltimateBtn) combatUltimateBtn.onclick = () => game.activateUltimate?.();
 
+    const zoomInBtn = document.getElementById('zoom-in');
+    if (zoomInBtn) zoomInBtn.onclick = () => setCameraZoom(game, game.cam.zoom + ZOOM_STEP);
+    const zoomOutBtn = document.getElementById('zoom-out');
+    if (zoomOutBtn) zoomOutBtn.onclick = () => setCameraZoom(game, game.cam.zoom - ZOOM_STEP);
+
     const drawerController = createHudDrawerController(game);
     game.hudDrawer = drawerController;
 
@@ -587,7 +613,10 @@ function setupInput(game) {
     game.canvas.addEventListener('pointerdown', (e) => onDown(e.clientX, e.clientY));
     game.canvas.addEventListener('pointermove', (e) => onMove(e.clientX, e.clientY));
     game.canvas.addEventListener('pointerup', (e) => onUp(e.clientX, e.clientY));
-    game.canvas.addEventListener('wheel', (e) => { e.preventDefault(); game.cam.zoom = Math.max(0.4, Math.min(2.5, game.cam.zoom - e.deltaY * 0.001)); }, { passive: false });
+    game.canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        setCameraZoom(game, game.cam.zoom - e.deltaY * 0.001);
+    }, { passive: false });
 }
 
 function toggleSidebar(forceState) {
