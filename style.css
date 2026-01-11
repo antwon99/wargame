@@ -517,6 +517,41 @@
             color: #f7cad0;
         }
 
+        @media (max-width: 720px) {
+            .top-bar { padding: 8px 10px; }
+            .top-bar__zones {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+            }
+            .top-bar__zone { flex: 0 0 auto; }
+            .top-bar__controls { gap: 6px; }
+
+            .resource-pill { padding: 4px 8px; gap: 6px; }
+            .res { font-size: 0.85rem; }
+
+            .imperial-favor { padding: 4px 8px; gap: 8px; }
+            .favor-label,
+            .enemy-label { font-size: 0.65rem; }
+
+            .calendar-cluster { gap: 6px; flex: 0 1 auto; max-width: none; }
+            .calendar-pill { padding: 4px 8px; max-width: 180px; flex: 0 1 auto; }
+            .calendar-readout { font-size: 0.8rem; }
+
+            .mandates-zone { gap: 6px; }
+            .mandates-zone .hud-panel-anchor + .hud-panel-anchor { display: none; }
+            .mandates-button {
+                min-width: 0;
+                padding: 6px 8px;
+                flex-direction: row;
+                gap: 6px;
+                border-radius: 10px;
+            }
+            .mandates-button__secondary { display: none; }
+        }
+
         .controls {
             padding: 20px; padding-bottom: 40px;
             background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
