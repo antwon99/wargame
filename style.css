@@ -332,7 +332,8 @@
             justify-content: center;
         }
 
-        .hamburger {
+        .hamburger,
+        .gear-button {
             background: rgba(255,255,255,0.05);
             color: #fff;
             border: 1px solid rgba(255,255,255,0.1);
@@ -349,8 +350,10 @@
             min-width: var(--touch-min);
             min-height: var(--touch-min);
         }
-        .hamburger:hover { background: rgba(255,255,255,0.12); }
-        .hamburger:active { transform: translateY(2px); }
+        .hamburger:hover,
+        .gear-button:hover { background: rgba(255,255,255,0.12); }
+        .hamburger:active,
+        .gear-button:active { transform: translateY(2px); }
 
         .resource-pill {
             justify-self: center;
@@ -523,20 +526,26 @@
             color: #f7cad0;
         }
 
-        @media (max-width: 720px) {
+        @media (max-width: 768px) {
             :root {
                 --touch-min: 44px;
             }
-            .top-bar { padding: 8px 10px; }
+            .top-bar { padding: 6px 8px; }
             .top-bar__zones {
                 display: flex;
                 align-items: center;
                 gap: 6px;
                 flex-wrap: nowrap;
-                overflow-x: auto;
+                justify-content: space-between;
+                overflow-x: hidden;
             }
             .top-bar__zone { flex: 0 0 auto; }
             .top-bar__controls { gap: 6px; }
+            .top-bar__controls > * { min-height: var(--touch-min); }
+            .pause-cluster,
+            .resource-pill { min-height: var(--touch-min); }
+            .top-bar__zone--middle,
+            .top-bar__zone--right { display: none; }
 
             .resource-pill { padding: 4px 8px; gap: 6px; }
             .res { font-size: 0.85rem; }
