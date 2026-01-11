@@ -23,6 +23,20 @@ import {
 
 let cachedNotificationStack = null;
 
+const SIDEBAR_SECTION_KEYS = ['stats', 'tasks', 'standing', 'settings'];
+const SIDEBAR_SECTION_IDS = {
+    stats: 'sidebar-section-stats',
+    tasks: 'sidebar-section-tasks',
+    standing: 'sidebar-section-standing',
+    settings: 'sidebar-section-settings'
+};
+const SIDEBAR_TAB_IDS = {
+    stats: 'sidebar-tab-stats',
+    tasks: 'sidebar-tab-tasks',
+    standing: 'sidebar-tab-standing',
+    settings: 'sidebar-tab-settings'
+};
+
 /**
  * Lazily create (or return) the shared notification stack anchored to the game container.
  * Keeping a single instance prevents duplicate DOM overlays when the UI bindings are
@@ -361,10 +375,15 @@ export function setupUIBindings(game) {
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
 
     const settingsGear = document.getElementById('btn-settings-gear');
-    if (settingsGear) settingsGear.onclick = () => game.toggleSidebar(true);
+    if (settingsGear) settingsGear.onclick = () => { setSidebarSection('settings', { openSidebar: false }); game.toggleSidebar(true); };
 
     const sidebarClose = document.getElementById('btn-sidebar-close');
     if (sidebarClose) sidebarClose.onclick = () => game.toggleSidebar(false);
+
+    SIDEBAR_SECTION_KEYS.forEach((key) => {
+        const tab = document.getElementById(SIDEBAR_TAB_IDS[key]);
+        if (tab) tab.onclick = () => setSidebarSection(key);
+    });
 
     const mandatesBtn = document.getElementById('btn-mandates');
     if (mandatesBtn) {
@@ -434,6 +453,74 @@ export function setupUIBindings(game) {
     });
 
     if (typeof game.updateSettingsUI === 'function') game.updateSettingsUI();
+}
+
+/**
+ * Identify the currently active sidebar section key, if any.
+ * @returns {string|null} active sidebar section key.
+ */
+function getActiveSidebarKey() {
+    return SIDEBAR_SECTION_KEYS.find((key) => {
+        const section = document.getElementById(SIDEBAR_SECTION_IDS[key]);
+        return section?.classList?.contains('is-active');
+    }) || null;
+}
+
+/**
+ * Synchronize active sidebar section, tabs, and related button states.
+ * @param {string} sectionKey target section key.
+ * @param {{ openSidebar?: boolean }} [options] control sidebar open state.
+ * @returns {boolean} true when the section is found and activated.
+ */
+function setSidebarSection(sectionKey, options = {}) {
+    const { openSidebar = true } = options;
+    const sidebar = document.getElementById('sidebar');
+    const targetId = SIDEBAR_SECTION_IDS[sectionKey];
+    const targetSection = targetId ? document.getElementById(targetId) : null;
+    if (!sidebar || !targetSection) return false;
+
+    SIDEBAR_SECTION_KEYS.forEach((key) => {
+        const section = document.getElementById(SIDEBAR_SECTION_IDS[key]);
+        if (section) section.classList.toggle('is-active', key === sectionKey);
+    });
+
+    SIDEBAR_SECTION_KEYS.forEach((key) => {
+        const tab = document.getElementById(SIDEBAR_TAB_IDS[key]);
+        if (!tab) return;
+        const isActive = key === sectionKey;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        tab.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+
+    if (openSidebar) toggleSidebar(true);
+
+    syncSidebarTriggerState(sectionKey, sidebar.classList.contains('open') || openSidebar);
+    return true;
+}
+
+/**
+ * Sync sidebar-linked triggers and section panels for tasks and standing.
+ * @param {string|null} activeKey active sidebar section key.
+ * @param {boolean} sidebarOpen whether the sidebar is open.
+ */
+function syncSidebarTriggerState(activeKey, sidebarOpen) {
+    const mandatesTrigger = document.getElementById('btn-mandates');
+    if (mandatesTrigger) {
+        mandatesTrigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'tasks' ? 'true' : 'false');
+    }
+    const reputationTrigger = document.getElementById('btn-reputation');
+    if (reputationTrigger) {
+        reputationTrigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'standing' ? 'true' : 'false');
+    }
+    const mandatesPanel = document.getElementById('mandates-panel');
+    if (mandatesPanel) {
+        mandatesPanel.setAttribute('aria-hidden', sidebarOpen && activeKey === 'tasks' ? 'false' : 'true');
+    }
+    const reputationPanel = document.getElementById('reputation-panel');
+    if (reputationPanel) {
+        reputationPanel.setAttribute('aria-hidden', sidebarOpen && activeKey === 'standing' ? 'false' : 'true');
+    }
 }
 function bindVoidClickEasterEgg(game, deps) {
     const HexImpl = deps.Hex || game.Hex || window.Hex;
@@ -509,22 +596,25 @@ function toggleSidebar(forceState) {
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', shouldOpen);
     document.body.classList.toggle('sidebar-open', shouldOpen);
+    if (shouldOpen && !getActiveSidebarKey()) setSidebarSection('stats', { openSidebar: false });
+    syncSidebarTriggerState(getActiveSidebarKey(), shouldOpen);
 }
 
 /**
- * Toggle the lightweight mandates/task flyout without blocking canvas pointer events.
- * The container keeps pointer-events disabled so the map remains interactive while open.
+ * Toggle the mandates section of the sidebar for task awareness.
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleMandatesPanel(forceState) {
-    const panel = document.getElementById('mandates-panel');
-    if (!panel) return false;
-    const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
-    if (shouldOpen) renderMandatesPanel();
-    panel.classList.toggle('open', shouldOpen);
-    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
-    const trigger = document.getElementById('btn-mandates');
-    if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    const sidebar = document.getElementById('sidebar');
+    const isOpen = sidebar?.classList?.contains('open');
+    const isActive = getActiveSidebarKey() === 'tasks';
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !(isOpen && isActive);
+    if (shouldOpen) {
+        renderMandatesPanel();
+        setSidebarSection('tasks', { openSidebar: true });
+    } else {
+        toggleSidebar(false);
+    }
     return shouldOpen;
 }
 
@@ -544,19 +634,21 @@ const DEFAULT_FACTION_STANDINGS = {
 };
 
 /**
- * Toggle the faction reputation panel without blocking map pointer events.
+ * Toggle the faction reputation section inside the command sidebar.
  * @param {object} game live game singleton.
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleReputationPanel(game, forceState) {
-    const panel = document.getElementById('reputation-panel');
-    if (!panel) return false;
-    const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
-    if (shouldOpen) renderReputationPanel(game);
-    panel.classList.toggle('open', shouldOpen);
-    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
-    const trigger = document.getElementById('btn-reputation');
-    if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    const sidebar = document.getElementById('sidebar');
+    const isOpen = sidebar?.classList?.contains('open');
+    const isActive = getActiveSidebarKey() === 'standing';
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !(isOpen && isActive);
+    if (shouldOpen) {
+        renderReputationPanel(game);
+        setSidebarSection('standing', { openSidebar: true });
+    } else {
+        toggleSidebar(false);
+    }
     return shouldOpen;
 }
 
@@ -1490,16 +1582,17 @@ export function updateHUD(game) {
     document.getElementById('wood').innerText = Math.floor(game.wood);
     const lives = document.getElementById('lives-count');
     if (lives) lives.innerText = game.research.lives;
-    const imperialFavor = document.getElementById('imperial-favor');
-    if (imperialFavor) imperialFavor.innerText = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
-    const calendar = document.getElementById('calendar-readout');
-    if (calendar) {
-        const formatted = game.timekeeper?.formatCalendar?.() || 'M: Jan Y1 | W: 1/4 | D: 1/28';
-        calendar.innerText = formatted;
-        const weeksPerMonth = game.timekeeper?.weeksPerMonth || 4;
-        const daysPerWeek = game.timekeeper?.daysPerWeek || 7;
-        calendar.title = `${weeksPerMonth} weeks/month · ${daysPerWeek}-day weeks`;
-    }
+    const favorValue = clampImperialFavor(game.imperialFavor ?? DEFAULT_IMPERIAL_FAVOR);
+    syncHudReadout({ id: 'imperial-favor', dataKey: 'imperial-favor', value: favorValue });
+    const formatted = game.timekeeper?.formatCalendar?.() || 'M: Jan Y1 | W: 1/4 | D: 1/28';
+    const weeksPerMonth = game.timekeeper?.weeksPerMonth || 4;
+    const daysPerWeek = game.timekeeper?.daysPerWeek || 7;
+    syncHudReadout({
+        id: 'calendar-readout',
+        dataKey: 'calendar',
+        value: formatted,
+        title: `${weeksPerMonth} weeks/month · ${daysPerWeek}-day weeks`
+    });
     const pauseToggle = document.getElementById('btn-pause');
     if (pauseToggle) {
         pauseToggle.innerText = game.paused ? '▶️ Resume' : '⏸️ Pause';
@@ -1510,8 +1603,30 @@ export function updateHUD(game) {
         pauseIndicator.innerText = game.paused ? 'Paused' : 'Live';
         pauseIndicator.classList.toggle('paused', !!game.paused);
     }
-    document.getElementById('lvl-txt').innerText = `Lv.${resolveCampaignLevel(game)}`;
+    syncHudReadout({
+        id: 'lvl-txt',
+        dataKey: 'enemy-level',
+        value: `Lv.${resolveCampaignLevel(game)}`
+    });
     updateCombatUltimateHud(game);
+}
+
+/**
+ * Update shared HUD readouts to keep sidebar mirrors synchronized.
+ * @param {{ id: string, dataKey: string, value: string|number, title?: string }} config readout config.
+ */
+function syncHudReadout({ id, dataKey, value, title }) {
+    const primary = document.getElementById(id);
+    if (primary) {
+        primary.innerText = value;
+        if (title) primary.title = title;
+    }
+    if (typeof document.querySelectorAll === 'function') {
+        document.querySelectorAll(`[data-hud-stat="${dataKey}"]`).forEach((node) => {
+            node.innerText = value;
+            if (title) node.title = title;
+        });
+    }
 }
 
 /**

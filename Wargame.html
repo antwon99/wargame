@@ -82,40 +82,16 @@
                         </div>
                         <div class="mandates-zone">
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel">
+                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks">
                                     <span class="mandates-button__primary">Tasks</span>
                                     <span class="mandates-button__secondary">Mandates</span>
                                 </button>
                             </div>
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="reputation-panel">
+                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing">
                                     <span class="mandates-button__primary">Factions</span>
                                     <span class="mandates-button__secondary">Standing</span>
                                 </button>
-                            </div>
-                            <div id="mandates-panel" class="mandates-panel hud-flyout-panel" aria-hidden="true">
-                                <div class="mandates-panel__inner">
-                                    <div class="mandates-panel__header">
-                                        <div class="mandates-panel__eyebrow">Tasks</div>
-                                        <div class="mandates-panel__title">Imperial Mandates</div>
-                                        <button class="meta-btn mandates-panel__close" id="btn-mandates-close" type="button" aria-label="Close mandates panel">✕</button>
-                                    </div>
-                                    <div class="mandates-panel__body" id="mandates-panel-body">
-                                        <p class="mandates-panel__empty">No active mandates yet.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="reputation-panel" class="reputation-panel hud-flyout-panel" aria-hidden="true">
-                                <div class="reputation-panel__inner">
-                                    <div class="reputation-panel__header">
-                                        <div class="reputation-panel__eyebrow">Standing</div>
-                                        <div class="reputation-panel__title">Faction Reputation</div>
-                                        <button class="meta-btn reputation-panel__close" id="btn-reputation-close" type="button" aria-label="Close reputation panel">✕</button>
-                                    </div>
-                                    <div class="reputation-panel__body" id="reputation-panel-body">
-                                        <p class="reputation-panel__empty">Standing reports will appear here.</p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -202,48 +178,136 @@
                     <button class="meta-btn sidebar-close" id="btn-sidebar-close">✕</button>
                 </div>
 
-                <div class="sidebar-section sidebar-section--save">
-                    <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <h4 style="margin:0;">Save Manager</h4>
-                        <span class="lvl-badge" id="active-slot-label">Slot 1 Active</span>
-                    </div>
-                    <div class="board-caption" id="save-status">No save stored yet.</div>
-                    <div class="save-grid">
-                        <div class="save-slot" data-slot="1">
-                            <div class="slot-details">
-                                <div class="slot-meta">Save Slot 1</div>
-                                <div class="slot-caption" data-slot-caption="1">Empty Slot</div>
-                            </div>
-                            <div class="slot-actions">
-                                <button class="meta-btn slot-save" data-slot="1">💾 Save</button>
-                                <button class="meta-btn slot-load" data-slot="1">📂 Load</button>
-                            </div>
-                        </div>
-                        <div class="save-slot" data-slot="2">
-                            <div class="slot-details">
-                                <div class="slot-meta">Save Slot 2</div>
-                                <div class="slot-caption" data-slot-caption="2">Empty Slot</div>
-                            </div>
-                            <div class="slot-actions">
-                                <button class="meta-btn slot-save" data-slot="2">💾 Save</button>
-                                <button class="meta-btn slot-load" data-slot="2">📂 Load</button>
-                            </div>
-                        </div>
-                        <div class="save-slot" data-slot="3">
-                            <div class="slot-details">
-                                <div class="slot-meta">Save Slot 3</div>
-                                <div class="slot-caption" data-slot-caption="3">Empty Slot</div>
-                            </div>
-                            <div class="slot-actions">
-                                <button class="meta-btn slot-save" data-slot="3">💾 Save</button>
-                                <button class="meta-btn slot-load" data-slot="3">📂 Load</button>
-                            </div>
-                        </div>
-                    </div>
+                <div class="sidebar-tabs" role="tablist" aria-label="Command sidebar sections">
+                    <button
+                        class="sidebar-tab is-active"
+                        id="sidebar-tab-stats"
+                        data-sidebar-tab="stats"
+                        type="button"
+                        role="tab"
+                        aria-selected="true"
+                        aria-controls="sidebar-section-stats"
+                    >
+                        Stats
+                    </button>
+                    <button
+                        class="sidebar-tab"
+                        id="sidebar-tab-tasks"
+                        data-sidebar-tab="tasks"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="sidebar-section-tasks"
+                    >
+                        Tasks
+                    </button>
+                    <button
+                        class="sidebar-tab"
+                        id="sidebar-tab-standing"
+                        data-sidebar-tab="standing"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="sidebar-section-standing"
+                    >
+                        Standing
+                    </button>
+                    <button
+                        class="sidebar-tab"
+                        id="sidebar-tab-settings"
+                        data-sidebar-tab="settings"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="sidebar-section-settings"
+                    >
+                        Settings
+                    </button>
                 </div>
 
-                <div class="sidebar-section sidebar-section--settings">
-                    <h4 style="margin:0;">Settings</h4>
+                <section
+                    class="sidebar-section sidebar-section--stats is-active"
+                    id="sidebar-section-stats"
+                    data-sidebar-section="stats"
+                    role="tabpanel"
+                    aria-labelledby="sidebar-tab-stats"
+                >
+                    <h4 class="sidebar-section__title">Stats</h4>
+                    <div class="sidebar-stat-grid">
+                        <div class="sidebar-stat-card">
+                            <span class="sidebar-stat-label">Enemy Level</span>
+                            <span class="sidebar-stat-value" data-hud-stat="enemy-level">Lv.0</span>
+                        </div>
+                        <div class="sidebar-stat-card">
+                            <span class="sidebar-stat-label">Imperial Favor</span>
+                            <span class="sidebar-stat-value" data-hud-stat="imperial-favor">5</span>
+                        </div>
+                        <div class="sidebar-stat-card sidebar-stat-card--calendar">
+                            <span class="sidebar-stat-label">Calendar</span>
+                            <span class="sidebar-stat-value" data-hud-stat="calendar">M: 1 | W: 1/5 | D: 1/40</span>
+                        </div>
+                    </div>
+
+                    <div class="leaderboard-scroll settings-group leaderboard-panel">
+                        <div class="leaderboard" id="leaderboard">
+                            <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
+                            <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
+                            <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
+                            <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="sidebar-section sidebar-section--tasks"
+                    id="sidebar-section-tasks"
+                    data-sidebar-section="tasks"
+                    role="tabpanel"
+                    aria-labelledby="sidebar-tab-tasks"
+                >
+                    <div id="mandates-panel" class="mandates-panel hud-flyout-panel" aria-hidden="true">
+                        <div class="mandates-panel__inner">
+                            <div class="mandates-panel__header">
+                                <div class="mandates-panel__eyebrow">Tasks</div>
+                                <div class="mandates-panel__title">Imperial Mandates</div>
+                                <button class="meta-btn mandates-panel__close" id="btn-mandates-close" type="button" aria-label="Close mandates panel">✕</button>
+                            </div>
+                            <div class="mandates-panel__body" id="mandates-panel-body">
+                                <p class="mandates-panel__empty">No active mandates yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="sidebar-section sidebar-section--standing"
+                    id="sidebar-section-standing"
+                    data-sidebar-section="standing"
+                    role="tabpanel"
+                    aria-labelledby="sidebar-tab-standing"
+                >
+                    <div id="reputation-panel" class="reputation-panel hud-flyout-panel" aria-hidden="true">
+                        <div class="reputation-panel__inner">
+                            <div class="reputation-panel__header">
+                                <div class="reputation-panel__eyebrow">Standing</div>
+                                <div class="reputation-panel__title">Faction Reputation</div>
+                                <button class="meta-btn reputation-panel__close" id="btn-reputation-close" type="button" aria-label="Close reputation panel">✕</button>
+                            </div>
+                            <div class="reputation-panel__body" id="reputation-panel-body">
+                                <p class="reputation-panel__empty">Standing reports will appear here.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="sidebar-section sidebar-section--settings"
+                    id="sidebar-section-settings"
+                    data-sidebar-section="settings"
+                    role="tabpanel"
+                    aria-labelledby="sidebar-tab-settings"
+                >
+                    <h4 class="sidebar-section__title">Settings</h4>
                     <div class="settings-group" aria-label="Audio Settings">
                         <div class="settings-group__label">Audio</div>
                         <label class="setting setting--range">
@@ -294,23 +358,51 @@
                         </label>
                         <p class="setting__hint">Switch the mobile action bar between bottom and top edges.</p>
                     </div>
-                </div>
 
-                <div class="sidebar-section sidebar-section--scrollable">
-                    <h4 style="margin:0;">Leaderboard / Stats</h4>
-                    <div class="leaderboard-scroll settings-group leaderboard-panel">
-                        <div class="leaderboard" id="leaderboard">
-                            <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
-                            <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
-                            <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
-                            <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
+                    <div class="sidebar-settings-block">
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <h4 style="margin:0;">Save Manager</h4>
+                            <span class="lvl-badge" id="active-slot-label">Slot 1 Active</span>
+                        </div>
+                        <div class="board-caption" id="save-status">No save stored yet.</div>
+                        <div class="save-grid">
+                            <div class="save-slot" data-slot="1">
+                                <div class="slot-details">
+                                    <div class="slot-meta">Save Slot 1</div>
+                                    <div class="slot-caption" data-slot-caption="1">Empty Slot</div>
+                                </div>
+                                <div class="slot-actions">
+                                    <button class="meta-btn slot-save" data-slot="1">💾 Save</button>
+                                    <button class="meta-btn slot-load" data-slot="1">📂 Load</button>
+                                </div>
+                            </div>
+                            <div class="save-slot" data-slot="2">
+                                <div class="slot-details">
+                                    <div class="slot-meta">Save Slot 2</div>
+                                    <div class="slot-caption" data-slot-caption="2">Empty Slot</div>
+                                </div>
+                                <div class="slot-actions">
+                                    <button class="meta-btn slot-save" data-slot="2">💾 Save</button>
+                                    <button class="meta-btn slot-load" data-slot="2">📂 Load</button>
+                                </div>
+                            </div>
+                            <div class="save-slot" data-slot="3">
+                                <div class="slot-details">
+                                    <div class="slot-meta">Save Slot 3</div>
+                                    <div class="slot-caption" data-slot-caption="3">Empty Slot</div>
+                                </div>
+                                <div class="slot-actions">
+                                    <button class="meta-btn slot-save" data-slot="3">💾 Save</button>
+                                    <button class="meta-btn slot-load" data-slot="3">📂 Load</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="sidebar-section sidebar-section--actions">
-                    <button class="meta-btn" id="btn-reset">🧹 Reset Campaign</button>
-                </div>
+                    <div class="sidebar-section--actions">
+                        <button class="meta-btn" id="btn-reset">🧹 Reset Campaign</button>
+                    </div>
+                </section>
             </div>
         </aside>
         </div>
