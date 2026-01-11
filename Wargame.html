@@ -237,18 +237,24 @@
                     aria-labelledby="sidebar-tab-stats"
                 >
                     <h4 class="sidebar-section__title">Stats</h4>
-                    <div class="sidebar-stat-grid">
-                        <div class="sidebar-stat-card">
-                            <span class="sidebar-stat-label">Enemy Level</span>
-                            <span class="sidebar-stat-value" data-hud-stat="enemy-level">Lv.0</span>
+                    <div class="sidebar-stat-group">
+                        <div class="sidebar-stat-group__header">
+                            <span class="sidebar-stat-group__title">Secondary Intel</span>
+                            <span class="sidebar-stat-group__helper">Detailed stats are tucked here for quick reference.</span>
                         </div>
-                        <div class="sidebar-stat-card">
-                            <span class="sidebar-stat-label">Imperial Favor</span>
-                            <span class="sidebar-stat-value" data-hud-stat="imperial-favor">5</span>
-                        </div>
-                        <div class="sidebar-stat-card sidebar-stat-card--calendar">
-                            <span class="sidebar-stat-label">Calendar</span>
-                            <span class="sidebar-stat-value" data-hud-stat="calendar">M: 1 | W: 1/5 | D: 1/40</span>
+                        <div class="sidebar-stat-grid sidebar-stat-grid--secondary">
+                            <div class="sidebar-stat-card sidebar-stat-card--secondary">
+                                <span class="sidebar-stat-label">Enemy Level</span>
+                                <span class="sidebar-stat-value" data-hud-stat="enemy-level">Lv.0</span>
+                            </div>
+                            <div class="sidebar-stat-card sidebar-stat-card--secondary">
+                                <span class="sidebar-stat-label">Imperial Favor</span>
+                                <span class="sidebar-stat-value" data-hud-stat="imperial-favor">5</span>
+                            </div>
+                            <div class="sidebar-stat-card sidebar-stat-card--calendar sidebar-stat-card--secondary">
+                                <span class="sidebar-stat-label">Calendar</span>
+                                <span class="sidebar-stat-value" data-hud-stat="calendar">M: 1 | W: 1/5 | D: 1/40</span>
+                            </div>
                         </div>
                     </div>
 

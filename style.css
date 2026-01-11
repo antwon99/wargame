@@ -548,7 +548,14 @@
             .top-bar__zone--right { display: none; }
 
             .resource-pill { padding: 4px 8px; gap: 6px; }
-            .res { font-size: 0.85rem; }
+            .res { font-size: 0.85rem; font-weight: 700; }
+            #gold,
+            #wood,
+            #lives-count {
+                font-size: 1rem;
+                font-weight: 800;
+            }
+            .res span:first-child { opacity: 0.85; }
 
             .imperial-favor { padding: 4px 8px; gap: 8px; }
             .favor-label,
@@ -1184,9 +1191,33 @@
         .sidebar-section__title { margin: 0; }
         .sidebar-section--actions { padding-bottom: 8px; }
         .sidebar-settings-block { display: flex; flex-direction: column; gap: 10px; }
+        .sidebar-stat-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sidebar-stat-group__header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-stat-group__title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #cbd5f5;
+            font-weight: 700;
+        }
+        .sidebar-stat-group__helper {
+            font-size: 0.75rem;
+            color: #8a93b8;
+        }
         .sidebar-stat-grid {
             display: grid;
             gap: 10px;
+        }
+        .sidebar-stat-grid--secondary {
+            gap: 8px;
         }
         .sidebar-stat-card {
             display: flex;
@@ -1207,6 +1238,18 @@
             font-size: 1rem;
             font-weight: 700;
             color: #f1f3ff;
+        }
+        .sidebar-stat-card--secondary {
+            background: rgba(255,255,255,0.02);
+            border-color: rgba(255,255,255,0.06);
+        }
+        .sidebar-stat-card--secondary .sidebar-stat-label {
+            color: #8a93b8;
+        }
+        .sidebar-stat-card--secondary .sidebar-stat-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #d4dcf4;
         }
         .sidebar .hud-flyout-panel {
             position: static;
