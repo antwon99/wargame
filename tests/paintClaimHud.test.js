@@ -38,6 +38,8 @@ function testTemplateHasPaintClaimSetting() {
     const html = fs.readFileSync('Wargame.html', 'utf8');
     assert.ok(html.includes('data-general-toggle="paintToClaim"'), 'settings template should expose paint-to-claim toggle');
     assert.ok(html.includes('Paint-to-Claim'), 'settings label should mention paint-to-claim');
+    assert.ok(html.includes('data-general-toggle="actionBarTop"'), 'settings template should expose action bar toggle');
+    assert.ok(html.includes('Pin action bar to top'), 'settings label should mention action bar position');
     assert.ok(!html.includes('id="btn-claim-paint"'), 'paint claim HUD button should be removed');
     assert.ok(!html.includes('id="paint-claim-status"'), 'paint claim HUD status should be removed');
 }

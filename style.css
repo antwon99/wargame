@@ -1206,6 +1206,11 @@
             flex-wrap: wrap;
         }
 
+        .hud-action-nav {
+            align-items: center;
+            justify-content: center;
+        }
+
         .reclamation-hint {
             flex: 1 1 240px;
             min-height: 24px;
@@ -1483,6 +1488,53 @@
             .hud-drawer__panel { max-height: 32vh; padding: 10px; }
             .hud-action-row { flex-direction: column; }
             .reclamation-hint { width: 100%; }
+            .controls {
+                padding-bottom: calc(120px + env(safe-area-inset-bottom));
+            }
+            .hud-action-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+                background: rgba(10, 14, 22, 0.94);
+                border-top: 1px solid rgba(255,255,255,0.08);
+                box-shadow: 0 -10px 28px rgba(0,0,0,0.4);
+                z-index: 60;
+                justify-content: center;
+            }
+            .hud-action-nav .btn { margin-right: 0; }
+            body.hud-action-bar--top .controls {
+                padding-top: calc(90px + env(safe-area-inset-top));
+                padding-bottom: 40px;
+            }
+            body.hud-action-bar--top .hud-action-nav {
+                top: 0;
+                bottom: auto;
+                padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+                border-top: none;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+                box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+            }
+            .combat-panel.visible {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+                background: rgba(10, 14, 22, 0.94);
+                border-top: 1px solid rgba(255,255,255,0.08);
+                box-shadow: 0 -10px 28px rgba(0,0,0,0.4);
+                z-index: 65;
+            }
+            body.hud-action-bar--top .combat-panel.visible {
+                top: 0;
+                bottom: auto;
+                padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+                border-top: none;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+                box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+            }
         }
 
         /* IMPERIAL MANDATE DIALOGS */

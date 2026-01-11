@@ -32,7 +32,8 @@ function createStubDocument() {
 async function testGeneralToggleBinding() {
     const documentStub = createStubDocument();
     const toggle = createStubInput({ generalToggle: 'paintToClaim' });
-    documentStub.registerInputs('[data-general-toggle]', [toggle]);
+    const actionBarToggle = createStubInput({ generalToggle: 'actionBarTop' });
+    documentStub.registerInputs('[data-general-toggle]', [toggle, actionBarToggle]);
     documentStub.registerInputs('[data-audio-setting]', []);
     documentStub.registerInputs('[data-visual-toggle]', []);
     documentStub.registerInputs('.slot-save', []);
@@ -54,14 +55,21 @@ async function testGeneralToggleBinding() {
 
     toggle.checked = true;
     toggle.trigger('change');
+    actionBarToggle.checked = true;
+    actionBarToggle.trigger('change');
 
-    assert.deepStrictEqual(calls, [{ paintToClaim: true }], 'general toggle should call settingsService.applyGeneral');
+    assert.deepStrictEqual(
+        calls,
+        [{ paintToClaim: true }, { actionBarTop: true }],
+        'general toggle should call settingsService.applyGeneral'
+    );
 }
 
 async function testGeneralToggleSnapshotSync() {
     const documentStub = createStubDocument();
     const toggle = createStubInput({ generalToggle: 'paintToClaim' });
-    documentStub.registerInputs('[data-general-toggle]', [toggle]);
+    const actionBarToggle = createStubInput({ generalToggle: 'actionBarTop' });
+    documentStub.registerInputs('[data-general-toggle]', [toggle, actionBarToggle]);
     documentStub.registerInputs('[data-audio-setting]', []);
     documentStub.registerInputs('[data-visual-toggle]', []);
     global.document = documentStub;
@@ -72,7 +80,8 @@ async function testGeneralToggleSnapshotSync() {
         settingsService: {
             getSnapshot: () => ({
                 general: {
-                    paintToClaim: true
+                    paintToClaim: true,
+                    actionBarTop: true
                 }
             })
         }
@@ -81,6 +90,7 @@ async function testGeneralToggleSnapshotSync() {
     updateSettingsUI(game);
 
     assert.strictEqual(toggle.checked, true, 'general toggle should reflect settings snapshot state');
+    assert.strictEqual(actionBarToggle.checked, true, 'action bar toggle should reflect settings snapshot state');
 }
 
 async function run() {
