@@ -114,6 +114,15 @@ async function testMandatesPanelToggleStates() {
         doc.body = createStubElement('body');
         const panel = doc.register('mandates-panel');
         const body = doc.register('mandates-panel-body');
+        const sidebar = doc.register('sidebar');
+        const statsSection = doc.register('sidebar-section-stats');
+        const tasksSection = doc.register('sidebar-section-tasks');
+        doc.register('sidebar-section-standing');
+        doc.register('sidebar-section-settings');
+        doc.register('sidebar-tab-stats', createStubElement('button'));
+        doc.register('sidebar-tab-tasks', createStubElement('button'));
+        doc.register('sidebar-tab-standing', createStubElement('button'));
+        doc.register('sidebar-tab-settings', createStubElement('button'));
         const btn = doc.register('btn-mandates', createStubElement('button'));
 
         global.document = doc;
@@ -126,14 +135,17 @@ async function testMandatesPanelToggleStates() {
         setupUIBindings({});
 
         btn.onclick();
-        assert.ok(panel.classList.contains('open'), 'panel should toggle open on first click');
-        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'open panel should flip aria-hidden to false');
-        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when panel opens');
+        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on first click');
+        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'open sidebar should unhide mandates panel');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when section opens');
 
         btn.onclick();
-        assert.ok(!panel.classList.contains('open'), 'panel should close when clicking Tasks again');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should close when clicking Tasks again');
         assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'closing restores aria-hidden guard');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
+        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should remain selected after closing');
+        assert.ok(!statsSection.classList.contains('is-active'), 'stats section should not be active after task selection');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
@@ -150,6 +162,15 @@ async function testMandatesPanelClosesReputationPanel() {
         doc.register('mandates-panel-body');
         const reputationPanel = doc.register('reputation-panel');
         doc.register('reputation-panel-body');
+        const sidebar = doc.register('sidebar');
+        const tasksSection = doc.register('sidebar-section-tasks');
+        const standingSection = doc.register('sidebar-section-standing');
+        doc.register('sidebar-section-stats');
+        doc.register('sidebar-section-settings');
+        doc.register('sidebar-tab-stats', createStubElement('button'));
+        doc.register('sidebar-tab-tasks', createStubElement('button'));
+        doc.register('sidebar-tab-standing', createStubElement('button'));
+        doc.register('sidebar-tab-settings', createStubElement('button'));
         const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
         const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
 
@@ -171,11 +192,14 @@ async function testMandatesPanelClosesReputationPanel() {
         setupUIBindings(game);
 
         reputationBtn.onclick();
-        assert.ok(reputationPanel.classList.contains('open'), 'reputation panel should open on click');
+        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on click');
+        assert.ok(standingSection.classList.contains('is-active'), 'standing section should become active');
+        assert.strictEqual(reputationPanel.getAttribute('aria-hidden'), 'false', 'standing panel should be visible');
 
         mandatesBtn.onclick();
-        assert.ok(mandatesPanel.classList.contains('open'), 'mandates panel should open when clicked');
-        assert.ok(!reputationPanel.classList.contains('open'), 'reputation panel should close when mandates open');
+        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
+        assert.strictEqual(mandatesPanel.getAttribute('aria-hidden'), 'false', 'mandates panel should be visible');
+        assert.strictEqual(reputationPanel.getAttribute('aria-hidden'), 'true', 'reputation panel should be hidden');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
@@ -184,12 +208,9 @@ async function testMandatesPanelClosesReputationPanel() {
 
 function testMandatesPanelTransformsAndPointerGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
-    assert.ok(css.includes('.hud-flyout-panel {') && css.includes('transform: translateX(120%)'), 'closed mandates panel should be translated off-screen by default');
-    assert.ok(css.includes('.mandates-panel.open') && css.includes('transform: translateX(0);'), 'open class should reset transform to keep panel visible');
-    assert.ok(css.includes('pointer-events: none;') && css.includes('.mandates-panel__inner') && css.includes('pointer-events: auto;'), 'panel container should allow clicks to pass through to the map while inner content stays interactive');
-    assert.ok(css.includes('width: min(360px, 92vw);'), 'panel should clamp width for smaller viewports');
-    assert.ok(css.includes('.mandates-zone {') && css.includes('position: relative;') && css.includes('align-items: flex-end;'), 'mandates zone should anchor panels consistently without asymmetric alignment');
-    assert.ok(css.includes('.hud-panel-anchor {') && css.includes('margin: 0;'), 'hud panel anchors should not introduce spacing offsets');
+    assert.ok(css.includes('.sidebar-tabs'), 'sidebar tabs should be styled for section switching');
+    assert.ok(css.includes('.sidebar-section.is-active'), 'sidebar sections should define an active state');
+    assert.ok(css.includes('.sidebar .hud-flyout-panel'), 'sidebar should override flyout panel layout');
 }
 
 async function testRenderSurvivesDomRelocation() {
