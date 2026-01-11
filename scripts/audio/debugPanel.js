@@ -76,12 +76,13 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
     const busActive = Boolean(window.AudioDebugBus && window.AudioDebugBus.enabled);
     const snapshot = (window.AudioDebugBus && window.AudioDebugBus.snapshot)
         ? window.AudioDebugBus.snapshot()
-        : { intendedTrack: 'None', masterVolume: 1, activeSources: [] };
+        : { intendedTrack: 'None', masterVolume: 1, activeSources: [], groupedClusters: [] };
 
     const snowSnapshot = resolveSnowSnapshot();
 
     const activeSources = snapshot.activeSources || [];
     const blockedPlays = snapshot.blockedPlays || [];
+    const groupedClusters = snapshot.groupedClusters || [];
     const friendlyState = gameState === 'COMBAT' ? 'War Mode' : 'Territory Mode';
     const playingList = activeSources.length
         ? `<ul>${activeSources.map(src => `<li>${src.label || src.src || src.key || 'unknown'}</li>`).join('')}</ul>`
@@ -93,6 +94,22 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
             return `<li>${label}${reason ? ` — ${reason}` : ''}</li>`;
         }).join('')}</ul>`
         : '<div>None</div>';
+    const clusterList = groupedClusters.length
+        ? `<ul>${groupedClusters.map((cluster) => {
+            const groupLabel = cluster.groupKey || 'unknown';
+            const windowLabel = cluster.windowMs ? ` / ${cluster.windowMs}ms` : '';
+            const maxLabel = cluster.maxPlays ? ` (max ${cluster.maxPlays})` : '';
+            return `<li>${groupLabel} — blocked ${cluster.blockedCount || 0}${windowLabel}${maxLabel}</li>`;
+        }).join('')}</ul>`
+        : '<div>None</div>';
+    const clusterSection = gameState === 'COMBAT'
+        ? `
+            <div class="section">
+                <div class="label">Combat Audio Clusters (${groupedClusters.length})</div>
+                ${clusterList}
+            </div>
+        `
+        : '';
 
     debugState.el.innerHTML = `
             <div class="section">
@@ -111,6 +128,7 @@ export function update(dt = 0, gameState = 'OVERWORLD') {
                 <div class="label">Blocked Audio Plays (${blockedPlays.length})</div>
                 ${blockedList}
             </div>
+            ${clusterSection}
             <div class="section">
                 <div class="label">Master Volume</div>
                 <div>${Number(snapshot.masterVolume ?? 1).toFixed(2)}</div>
