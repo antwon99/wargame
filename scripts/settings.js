@@ -25,7 +25,8 @@ export function buildDefaultSettings() {
             snowfallEnabled: SNOW_VISUAL_CONFIG.snowfallEnabled !== false
         },
         general: {
-            paintToClaim: false
+            paintToClaim: false,
+            actionBarTop: false
         }
     };
 }

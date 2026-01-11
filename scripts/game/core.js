@@ -657,16 +657,20 @@ const Game = {
 
     /**
      * Apply general gameplay settings and synchronize derived modes.
-     * @param {{ paintToClaim?: boolean }} generalSettings general preferences.
-     * @returns {{ paintToClaim: boolean }} normalized general settings.
+     * @param {{ paintToClaim?: boolean, actionBarTop?: boolean }} generalSettings general preferences.
+     * @returns {{ paintToClaim: boolean, actionBarTop: boolean }} normalized general settings.
      */
     applyGeneralSettings(generalSettings = this.defaultPlayerSettings().general) {
         const defaults = this.defaultPlayerSettings().general;
         const safe = { ...defaults, ...(generalSettings || {}) };
         const paintToClaim = safe.paintToClaim === true;
+        const actionBarTop = safe.actionBarTop === true;
         this.paintClaimPreference = paintToClaim;
         this.setPaintClaimMode?.(paintToClaim && this.state !== 'COMBAT');
-        return { paintToClaim };
+        if (typeof document !== 'undefined') {
+            document.body?.classList?.toggle('hud-action-bar--top', actionBarTop);
+        }
+        return { paintToClaim, actionBarTop };
     },
 
     /** Update an individual mixer channel from the settings sidebar. */

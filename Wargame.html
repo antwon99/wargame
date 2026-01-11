@@ -128,11 +128,11 @@
             <div id="ui-overworld" class="mode-panel visible">
                 <div class="hud-controls-anchor">
                     <div class="hud-action-row">
-                        <div class="hud-action-row__buttons">
+                        <nav class="hud-action-row__buttons hud-action-nav" aria-label="Primary actions">
                             <button class="btn btn-upg" id="btn-upg" aria-expanded="false">💪 Upgrades</button>
                             <button class="btn btn-research" id="btn-research" aria-expanded="false">🔬 Research</button>
                             <button class="btn btn-ultimates" id="btn-ultimates" aria-expanded="false">💥 Ultimates</button>
-                        </div>
+                        </nav>
                         <div id="reclamation-hint" class="reclamation-hint" aria-live="polite" aria-hidden="true"></div>
                     </div>
 
@@ -287,6 +287,11 @@
                             <span>Paint-to-Claim</span>
                         </label>
                         <p class="setting__hint">Enable here to drag-claim frontier tiles while exploring the overworld.</p>
+                        <label class="setting setting--toggle">
+                            <input type="checkbox" data-general-toggle="actionBarTop" aria-label="Pin action bar to top">
+                            <span>Pin action bar to top</span>
+                        </label>
+                        <p class="setting__hint">Switch the mobile action bar between bottom and top edges.</p>
                     </div>
                 </div>
 
