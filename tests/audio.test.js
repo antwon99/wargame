@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
+import { AudioDebugBus } from '../scripts/audio/debugBus.js';
 
 let AudioManager;
 let SFX_GROUPS;
@@ -243,6 +244,43 @@ function testGroupedPlaybackCoalescesBursts() {
     }
 
     assert.strictEqual(log.length, 2, 'grouping should only create two playback nodes');
+}
+
+function testLiveNodeSnapshotBackfill() {
+    const log = [];
+    const manager = new AudioManager({ ping: { src: 'ping' } }, { createAudio: createStubFactory(log) });
+
+    manager.play('ping');
+    const snapshot = manager.getLiveNodesSnapshot();
+
+    assert.strictEqual(snapshot.length, 1, 'snapshot should include live playback');
+    assert.strictEqual(snapshot[0].node, log[0], 'snapshot should include the playback node');
+    assert.strictEqual(snapshot[0].key, 'ping', 'snapshot should include manifest key');
+    assert.strictEqual(snapshot[0].src, 'ping', 'snapshot should include source');
+    assert.strictEqual(snapshot[0].category, 'sfx', 'snapshot should include category');
+}
+
+function testSyncDebugBusRegistersExistingNodes() {
+    const log = [];
+    const manager = new AudioManager({ ping: { src: 'ping' } }, { createAudio: createStubFactory(log) });
+
+    manager.play('ping');
+    const calls = [];
+    const originalRegister = AudioDebugBus.registerPlayback;
+    AudioDebugBus.registerPlayback = (node, meta) => {
+        calls.push({ node, meta });
+    };
+
+    try {
+        const count = manager.syncDebugBus();
+        assert.strictEqual(count, 1, 'sync should report one node registered');
+        assert.strictEqual(calls.length, 1, 'sync should register a playback node with the debug bus');
+        assert.strictEqual(calls[0].node, log[0], 'debug bus should be called with the live node');
+        assert.strictEqual(calls[0].meta.key, 'ping', 'debug bus metadata should include the manifest key');
+        assert.strictEqual(calls[0].meta.src, 'ping', 'debug bus metadata should include the source');
+    } finally {
+        AudioDebugBus.registerPlayback = originalRegister;
+    }
 }
 function testTerritoryStartAvoidsLayeringAmbientTwice() {
     const log = [];
@@ -851,6 +889,8 @@ async function run() {
     testManifestIncludesNewEffects();
     testTerritoryStartAvoidsLayeringAmbientTwice();
     testGroupedPlaybackCoalescesBursts();
+    testLiveNodeSnapshotBackfill();
+    testSyncDebugBusRegistersExistingNodes();
     testEnterCombatKeepsAmbientAndFiresWardrumImmediately();
     testWardrumStingerDoesNotLoopAfterCombatStart();
     testExitCombatRehomesAmbientAndPlaysOutcome();

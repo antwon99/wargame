@@ -119,10 +119,14 @@ class AudioManager {
      * @param {HTMLAudioElement|object} node audio node to track
      * @param {('music'|'sfx')} category mixer channel the node belongs to
      * @param {number} baseVolume unscaled volume used when playback started
+     * @param {Object} [playbackMeta] optional metadata to aid debug overlays
+     * @param {string} [playbackMeta.key] manifest key for the sound effect
+     * @param {string} [playbackMeta.variantKey] resolved variant key for the audio node
+     * @param {string} [playbackMeta.src] resolved audio source URL
      */
-    trackNode(node, category = 'sfx', baseVolume = 1) {
+    trackNode(node, category = 'sfx', baseVolume = 1, playbackMeta = {}) {
         if (!node) return;
-        this.liveNodes.set(node, { category, baseVolume });
+        this.liveNodes.set(node, { category, baseVolume, ...playbackMeta });
         const cleanup = () => { this.liveNodes.delete(node); };
         if (typeof node.addEventListener === 'function') {
             node.addEventListener('ended', cleanup);
@@ -149,6 +153,56 @@ class AudioManager {
     /** Resolve the mixer category for a live node. */
     getNodeCategory(node) {
         return this.liveNodes.get(node)?.category || 'sfx';
+    }
+
+    /**
+     * Build a snapshot of currently tracked or cached audio nodes for diagnostics.
+     * @returns {Array<{ node: HTMLAudioElement|object, key?: string, variantKey?: string, src?: string, category?: string }>} live node snapshot
+     */
+    getLiveNodesSnapshot() {
+        const nodes = new Map();
+        this.liveNodes.forEach((meta, node) => {
+            if (!node) return;
+            nodes.set(node, {
+                node,
+                key: meta.key,
+                variantKey: meta.variantKey,
+                src: meta.src,
+                category: meta.category
+            });
+        });
+
+        this.cache.forEach((node, cacheKey) => {
+            if (!node || nodes.has(node)) return;
+            const baseKey = cacheKey.includes(':') ? cacheKey.split(':')[0] : cacheKey;
+            const manifestDef = this.manifest[baseKey] || {};
+            nodes.set(node, {
+                node,
+                key: baseKey,
+                variantKey: cacheKey,
+                src: node.src || manifestDef.src,
+                category: this.resolveCategory(baseKey, manifestDef)
+            });
+        });
+
+        return Array.from(nodes.values());
+    }
+
+    /**
+     * Register any currently active nodes with the audio debug bus after it is enabled.
+     * @returns {number} count of nodes that were synchronized.
+     */
+    syncDebugBus() {
+        const snapshot = this.getLiveNodesSnapshot();
+        snapshot.forEach((entry) => {
+            AudioDebugBus.registerPlayback(entry.node, {
+                key: entry.key,
+                variantKey: entry.variantKey,
+                src: entry.src,
+                category: entry.category
+            });
+        });
+        return snapshot.length;
     }
 
     /**
@@ -278,7 +332,7 @@ class AudioManager {
             ? volume
             : (typeof variantDef.volume === 'number' ? variantDef.volume : node.volume);
         node.__baseVolume = baseVolume;
-        this.trackNode(node, category, baseVolume);
+        this.trackNode(node, category, baseVolume, { key, variantKey, src: variantDef.src });
         const scaledVolume = this.getScaledVolume(baseVolume, category);
         if (typeof volume !== 'undefined' || node.volume !== scaledVolume) node.volume = scaledVolume;
         if (typeof loop !== 'undefined') node.loop = !!loop;
