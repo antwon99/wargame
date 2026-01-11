@@ -360,6 +360,9 @@ export function setupUIBindings(game) {
     const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
 
+    const settingsGear = document.getElementById('btn-settings-gear');
+    if (settingsGear) settingsGear.onclick = () => game.toggleSidebar(true);
+
     const sidebarClose = document.getElementById('btn-sidebar-close');
     if (sidebarClose) sidebarClose.onclick = () => game.toggleSidebar(false);
 
