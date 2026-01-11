@@ -5,10 +5,20 @@
  */
 import { BOOT_PHASES, getBootPhase } from './bootManager.js';
 import { enableAudioDebugBus } from './audio/debugBus.js';
+import { GameAudio } from './audio.js';
 
 let debugPanel = null;
 let toggleButton = null;
 let debugToggles = null;
+
+/**
+ * Register any currently playing audio nodes with the debug bus for backfill.
+ */
+function syncAudioDebugBus() {
+    if (typeof GameAudio?.syncDebugBus === 'function') {
+        GameAudio.syncDebugBus();
+    }
+}
 
 /**
  * Establish a shared DebugToggles object for ad-hoc developer flags.
@@ -53,7 +63,9 @@ function setDebugVisibility(isVisible, doc = typeof document !== 'undefined' ? d
         debugToggles.showDebugLog = isVisible;
         if (isVisible) {
             debugToggles.audioDebugBus = true;
-            debugBusPromise = enableAudioDebugBus();
+            debugBusPromise = enableAudioDebugBus().then(() => {
+                syncAudioDebugBus();
+            });
         }
     }
     const debugLogEl = doc?.getElementById?.('debug-log');
