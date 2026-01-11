@@ -220,6 +220,11 @@ function testManifestIncludesNewEffects() {
 
 function testGroupedPlaybackCoalescesBursts() {
     const log = [];
+    const reportCalls = [];
+    const originalReportGrouped = AudioDebugBus.reportGroupedPlayback;
+    AudioDebugBus.reportGroupedPlayback = (entry) => {
+        reportCalls.push(entry);
+    };
     const manager = new AudioManager({
         death: {
             src: 'death',
@@ -241,9 +246,12 @@ function testGroupedPlaybackCoalescesBursts() {
         assert.ok(manager.play('death'), 'grouping should reset after the window expires');
     } finally {
         Date.now = originalNow;
+        AudioDebugBus.reportGroupedPlayback = originalReportGrouped;
     }
 
     assert.strictEqual(log.length, 2, 'grouping should only create two playback nodes');
+    assert.strictEqual(reportCalls.length, 1, 'grouping should report a blocked burst to the debug bus');
+    assert.strictEqual(reportCalls[0].groupKey, 'combat-death', 'debug bus should record the grouping key');
 }
 
 function testLiveNodeSnapshotBackfill() {
@@ -334,6 +342,22 @@ function testAmbientLoop() {
     assert.strictEqual(ambient.playCount, 1, 'ambient loop should play once per start');
     manager.stop();
     assert.strictEqual(ambient.currentTime, 0, 'stop should reset playback position');
+}
+
+function testAmbientLoopReportsIntent() {
+    const log = [];
+    const calls = [];
+    const originalReportIntent = AudioDebugBus.reportIntent;
+    AudioDebugBus.reportIntent = (key) => calls.push(key);
+    try {
+        const manager = new AudioManager({ ambient: { src: 'ambient', loop: true, isAmbient: true } }, { createAudio: createStubFactory(log) });
+        manager.startAmbientLoop();
+    } finally {
+        AudioDebugBus.reportIntent = originalReportIntent;
+    }
+
+    assert.strictEqual(calls.length, 1, 'ambient loop should report its intent once');
+    assert.strictEqual(calls[0], 'ambient', 'ambient intent should use the manifest key');
 }
 
 function testWeightedSelectionUsesRandomizer() {
@@ -879,6 +903,7 @@ async function run() {
     await testPlaybackUnlockRetriesBlockedAudio();
     testOverlapCreatesClone();
     testAmbientLoop();
+    testAmbientLoopReportsIntent();
     testWeightedSelectionUsesRandomizer();
     testAmbientConductorModes();
     testConductorLimitsFadeDurationsAndStopsOverlap();

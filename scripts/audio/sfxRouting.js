@@ -221,7 +221,17 @@ class AudioManager {
             existing.windowStart = now;
             existing.count = 0;
         }
-        if (existing.count >= maxPlays) return true;
+        if (existing.count >= maxPlays) {
+            if (typeof AudioDebugBus.reportGroupedPlayback === 'function') {
+                AudioDebugBus.reportGroupedPlayback({
+                    groupKey,
+                    windowMs,
+                    maxPlays,
+                    at: now
+                });
+            }
+            return true;
+        }
         existing.count += 1;
         this.groupWindows.set(groupKey, existing);
         return false;
@@ -310,6 +320,10 @@ class AudioManager {
         const cooldownMs = options.cooldownMs ?? variantDef.cooldownMs;
         const last = this.lastAttempted.get(key) || 0;
         if (cooldownMs && now - last < cooldownMs) return returnHandle ? { attempted: false, node: null, variantKey: null } : false;
+
+        if (variantDef.isAmbient) {
+            AudioDebugBus.reportIntent(key);
+        }
 
         const groupKey = options.groupKey ?? variantDef.groupKey;
         const groupWindowMs = options.groupWindowMs ?? variantDef.groupWindowMs;

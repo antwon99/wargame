@@ -6,16 +6,19 @@ function createNoopBus() {
         masterVolume: 1,
         boundNodes: new WeakSet(),
         blockedPlays: [],
+        groupedClusters: new Map(),
         reportIntent() {},
         registerPlayback() {},
         unregisterPlayback() {},
         reportPlaybackFailure() {},
+        reportGroupedPlayback() {},
         snapshot() {
             return {
                 intendedTrack: 'None',
                 masterVolume: this.masterVolume,
                 activeSources: [],
-                blockedPlays: []
+                blockedPlays: [],
+                groupedClusters: []
             };
         }
     };

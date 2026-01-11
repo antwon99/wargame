@@ -9,6 +9,7 @@ function createAudioDebugBus() {
         masterVolume: 1,
         boundNodes: new WeakSet(),
         blockedPlays: [],
+        groupedClusters: new Map(),
         reportIntent(name) {
             if (!this.enabled) return;
             this.intendedTrack = name || 'Unknown';
@@ -37,12 +38,39 @@ function createAudioDebugBus() {
             this.blockedPlays.unshift(entry);
             if (this.blockedPlays.length > 5) this.blockedPlays.length = 5;
         },
+        /**
+         * Record when grouped playback blocks a burst so the debug overlay can
+         * verify combat clustering is working as expected.
+         * @param {Object} meta grouping metadata
+         * @param {string} meta.groupKey cluster identifier for the audio group
+         * @param {number} [meta.windowMs] grouping window in milliseconds
+         * @param {number} [meta.maxPlays] max plays allowed in the window
+         * @param {number} [meta.at] timestamp for when the block occurred
+         */
+        reportGroupedPlayback(meta = {}) {
+            if (!this.enabled) return;
+            if (!meta?.groupKey) return;
+            const existing = this.groupedClusters.get(meta.groupKey) || {
+                groupKey: meta.groupKey,
+                windowMs: meta.windowMs,
+                maxPlays: meta.maxPlays,
+                blockedCount: 0,
+                lastBlockedAt: 0
+            };
+            existing.windowMs = meta.windowMs ?? existing.windowMs;
+            existing.maxPlays = meta.maxPlays ?? existing.maxPlays;
+            existing.blockedCount += 1;
+            existing.lastBlockedAt = meta.at ?? Date.now();
+            this.groupedClusters.set(meta.groupKey, existing);
+        },
         snapshot() {
             return {
                 intendedTrack: this.intendedTrack,
                 masterVolume: this.masterVolume,
                 activeSources: Array.from(this.sources.values()),
-                blockedPlays: [...this.blockedPlays]
+                blockedPlays: [...this.blockedPlays],
+                groupedClusters: Array.from(this.groupedClusters.values())
+                    .sort((a, b) => (b.lastBlockedAt || 0) - (a.lastBlockedAt || 0))
             };
         }
     };
