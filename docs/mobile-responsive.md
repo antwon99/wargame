@@ -11,3 +11,6 @@ HUD elements now share size tokens in `style.css` (see `:root`), including:
 - `--hud-font-*` clamp values so typography scales smoothly between small and large viewports.
 
 Key HUD components (`.top-bar`, `.resource-pill`, `.pause-toggle`, `.mandates-button`, `.btn`) reference those tokens directly, using `clamp()`/`min()`/`max()` sizes instead of global transforms.
+
+## Touch target rule
+All tap targets on mobile must meet a 44px minimum hit area. The mobile breakpoint explicitly defines `--touch-min: 44px`, and interactive controls (including `.hamburger`, `.pause-toggle`, `.mandates-button`, `.btn`, `.meta-btn`, and bottom action buttons) use `min-height`/`min-width` plus aligned padding so icon-only buttons stay comfortably tappable.

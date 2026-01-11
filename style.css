@@ -337,12 +337,17 @@
             color: #fff;
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 10px;
-            padding: 10px 14px;
+            padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
             font-size: 1.1rem;
             cursor: pointer;
             backdrop-filter: blur(4px);
             box-shadow: 0 4px 10px rgba(0,0,0,0.35);
             transition: transform 0.2s ease, background 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: var(--touch-min);
+            min-height: var(--touch-min);
         }
         .hamburger:hover { background: rgba(255,255,255,0.12); }
         .hamburger:active { transform: translateY(2px); }
@@ -417,6 +422,7 @@
             font-weight: 700;
             font-size: var(--hud-font-base);
             min-height: var(--touch-min);
+            min-width: var(--touch-min);
             cursor: pointer;
             transition: background 0.2s ease, transform 0.2s ease;
         }
@@ -518,6 +524,9 @@
         }
 
         @media (max-width: 720px) {
+            :root {
+                --touch-min: 44px;
+            }
             .top-bar { padding: 8px 10px; }
             .top-bar__zones {
                 display: flex;
@@ -544,7 +553,7 @@
             .mandates-zone .hud-panel-anchor + .hud-panel-anchor { display: none; }
             .mandates-button {
                 min-width: 0;
-                padding: 6px 8px;
+                padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
                 flex-direction: row;
                 gap: 6px;
                 border-radius: 10px;
@@ -562,11 +571,12 @@
         .btn {
             pointer-events: auto;
             background: #333; border: 2px solid #555;
-            color: white; padding: var(--hud-button-padding-y) clamp(20px, 4vw, 32px);
+            color: white; padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
             border-radius: 12px; font-weight: 800; font-size: var(--hud-font-base);
             cursor: pointer; text-transform: uppercase;
             box-shadow: 0 4px 0 rgba(0,0,0,0.4);
             min-height: var(--touch-min);
+            min-width: var(--touch-min);
             transition: all 0.1s;
         }
         .btn:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); }
@@ -589,10 +599,15 @@
         .meta-btn {
             pointer-events: auto;
             background: #1f1f2b; border: 1px solid #3d3d50;
-            color: #d7d7ff; padding: 10px 16px;
+            color: #d7d7ff; padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
             border-radius: 10px; font-weight: 700; font-size: 0.95rem;
             cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
             box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+            min-width: var(--touch-min);
+            min-height: var(--touch-min);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .meta-btn:active { transform: translateY(2px); box-shadow: none; }
 
