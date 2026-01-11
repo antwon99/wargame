@@ -58,6 +58,37 @@ function detectPlatformProfile(options = {}) {
 }
 
 /**
+ * Sync the document body with the current platform profile so CSS can react to
+ * mobile vs desktop targets and viewport-driven variables.
+ *
+ * @param {Object} profile - Result from detectPlatformProfile.
+ * @param {Object} [options] - Optional configuration for DOM updates.
+ * @param {Document|Object|null} [options.document] - Document-like object to mutate.
+ * @param {boolean} [options.setViewportVars] - When true, set --viewport-width/height CSS vars.
+ */
+function applyPlatformProfileClasses(profile, options = {}) {
+    if (!profile) return;
+    const doc = Object.prototype.hasOwnProperty.call(options, 'document')
+        ? options.document
+        : typeof document !== 'undefined'
+            ? document
+            : null;
+    const body = doc?.body || null;
+    if (!body || !body.classList) return;
+
+    body.classList.toggle('mobile', Boolean(profile.isMobile));
+    body.classList.toggle('desktop', !profile.isMobile);
+
+    const shouldSetVars = options.setViewportVars !== false;
+    if (!shouldSetVars || !body.style || typeof body.style.setProperty !== 'function') return;
+
+    const widthValue = Number.isFinite(profile.viewportWidth) ? profile.viewportWidth : 0;
+    const heightValue = Number.isFinite(profile.viewportHeight) ? profile.viewportHeight : 0;
+    body.style.setProperty('--viewport-width', `${widthValue}px`);
+    body.style.setProperty('--viewport-height', `${heightValue}px`);
+}
+
+/**
  * Resize a canvas to match the active platform profile and apply a retina
  * transform so draw operations remain aligned to CSS pixels.
  *
@@ -83,7 +114,7 @@ function sizeCanvasForDisplay(canvas, ctx, profile) {
     }
 }
 
-const PlatformAdapter = { detectPlatformProfile, sizeCanvasForDisplay };
+const PlatformAdapter = { detectPlatformProfile, applyPlatformProfileClasses, sizeCanvasForDisplay };
 
 /**
  * Register the platform helpers on the provided global scope.
@@ -97,5 +128,4 @@ function initPlatformAdapter(target = typeof window !== 'undefined' ? window : u
     return PlatformAdapter;
 }
 
-export { PlatformAdapter, detectPlatformProfile, sizeCanvasForDisplay, initPlatformAdapter };
-
+export { PlatformAdapter, detectPlatformProfile, applyPlatformProfileClasses, sizeCanvasForDisplay, initPlatformAdapter };

@@ -42,7 +42,13 @@ export function resolveSettingsStorage(scope = typeof window !== 'undefined' ? w
 export function bootstrapGame(dependencies = {}) {
     const scope = dependencies.windowScope || (typeof window !== 'undefined' ? window : null);
     const { Game, Hex, Layout, TIPS } = createGameCore({ dependencies });
+    const platformAdapter = dependencies.platformAdapter || null;
     const { storage, warning, error } = resolveSettingsStorage(scope);
+
+    platformAdapter?.applyPlatformProfileClasses?.(Game.deviceProfile, {
+        document: scope?.document || null,
+        setViewportVars: true
+    });
 
     composeGameSettings(Game, {
         storageKey: Game.settingsStorageKey,

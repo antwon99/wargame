@@ -2,7 +2,7 @@ import assert from 'assert';
 import { PlatformAdapter } from '../scripts/platform.js';
 
 PlatformAdapter.initPlatformAdapter?.(globalThis);
-const { detectPlatformProfile, sizeCanvasForDisplay } = PlatformAdapter;
+const { applyPlatformProfileClasses, detectPlatformProfile, sizeCanvasForDisplay } = PlatformAdapter;
 
 function testDetectsMobileProfile() {
     const profile = detectPlatformProfile({
@@ -45,10 +45,74 @@ function testCanvasSizingAppliesDeviceScale() {
     assert.deepStrictEqual(calls[0], [2, 0, 0, 2, 0, 0], 'context transform should respect device scale');
 }
 
+function createMockDocument() {
+    const classes = new Set();
+    const classList = {
+        add: (value) => classes.add(value),
+        remove: (value) => classes.delete(value),
+        contains: (value) => classes.has(value),
+        toggle: (value, force) => {
+            if (force === undefined) {
+                if (classes.has(value)) {
+                    classes.delete(value);
+                    return false;
+                }
+                classes.add(value);
+                return true;
+            }
+            if (force) {
+                classes.add(value);
+                return true;
+            }
+            classes.delete(value);
+            return false;
+        }
+    };
+    const style = {
+        values: {},
+        setProperty: (key, value) => {
+            style.values[key] = value;
+        }
+    };
+    return { body: { classList, style } };
+}
+
+function testApplyPlatformProfileClassesSetsMobileClass() {
+    const doc = createMockDocument();
+    const profile = detectPlatformProfile({
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
+        viewportWidth: 430,
+        viewportHeight: 932,
+        devicePixelRatio: 2
+    });
+
+    applyPlatformProfileClasses(profile, { document: doc });
+
+    assert.strictEqual(doc.body.classList.contains('mobile'), true, 'mobile profile should set mobile class');
+    assert.strictEqual(doc.body.classList.contains('desktop'), false, 'mobile profile should remove desktop class');
+}
+
+function testApplyPlatformProfileClassesSetsDesktopClass() {
+    const doc = createMockDocument();
+    const profile = detectPlatformProfile({
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        devicePixelRatio: 1
+    });
+
+    applyPlatformProfileClasses(profile, { document: doc });
+
+    assert.strictEqual(doc.body.classList.contains('desktop'), true, 'desktop profile should set desktop class');
+    assert.strictEqual(doc.body.classList.contains('mobile'), false, 'desktop profile should remove mobile class');
+}
+
 function run() {
     testDetectsMobileProfile();
     testDesktopProfileKeepsNormalZoom();
     testCanvasSizingAppliesDeviceScale();
+    testApplyPlatformProfileClassesSetsMobileClass();
+    testApplyPlatformProfileClassesSetsDesktopClass();
     console.log('All platform tests passed.');
 }
 

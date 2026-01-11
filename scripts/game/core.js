@@ -233,6 +233,7 @@ export function createGameCore(overrides = {}) {
                 deviceScale: hasWindow && window.devicePixelRatio ? window.devicePixelRatio : 1,
                 baseZoom: 1
             }),
+            applyPlatformProfileClasses: () => {},
             sizeCanvasForDisplay: (canvas, ctx, profile) => {
                 if (!canvas || !ctx || !profile) return;
                 canvas.width = profile.viewportWidth;
@@ -410,6 +411,7 @@ const Game = {
             });
             this.bindVoidClickEasterEgg();
             window.addEventListener('resize', () => this.resize());
+            window.addEventListener('orientationchange', () => this.resize());
             if (typeof this.setupInput === 'function') this.setupInput();
             this.resetSession();
 
@@ -722,6 +724,11 @@ const Game = {
             width: this.deviceProfile.viewportWidth,
             height: this.deviceProfile.viewportHeight
         };
+
+        Platform.applyPlatformProfileClasses?.(this.deviceProfile, {
+            document: typeof document !== 'undefined' ? document : null,
+            setViewportVars: true
+        });
 
         Platform.sizeCanvasForDisplay(this.canvas, this.ctx, this.deviceProfile);
 

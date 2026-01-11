@@ -15,3 +15,9 @@ The platform adapter derives a simple rendering profile for the current browser 
 ## Application
 
 `PlatformAdapter.sizeCanvasForDisplay` sets the canvas backing store to `viewport * deviceScale`, applies the same CSS width/height for layout, and resets the rendering transform using `setTransform(scale, 0, 0, scale, 0, 0)` so draw calls use logical CSS pixels.
+
+`PlatformAdapter.applyPlatformProfileClasses` keeps the DOM aligned with the active platform profile:
+
+- **Body classes:** `document.body` always has either `mobile` or `desktop` based on `profile.isMobile`.
+- **Viewport CSS vars:** `--viewport-width` and `--viewport-height` are set (in `px`) on `document.body` when viewport variables are enabled.
+- **Update triggers:** Applied once during bootstrap after `Game.deviceProfile` exists, and re-applied on every resize or orientation change. The class flips only when `Game.deviceProfile.isMobile` changes.
