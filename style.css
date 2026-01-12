@@ -530,43 +530,60 @@
             :root {
                 --touch-min: 44px;
             }
-            .top-bar { padding: 6px 8px; }
+            .top-bar { padding: 4px 6px; }
             .top-bar__zones {
                 display: flex;
-                align-items: center;
-                gap: 6px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
                 flex-wrap: nowrap;
-                justify-content: space-between;
+                justify-content: flex-start;
                 overflow-x: hidden;
             }
-            .top-bar__zone { flex: 0 0 auto; }
-            .top-bar__controls { gap: 6px; }
+            .top-bar__zone {
+                flex: 0 0 auto;
+                width: 100%;
+                justify-content: center;
+            }
+            .top-bar__controls {
+                gap: 4px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
             .top-bar__controls > * { min-height: var(--touch-min); }
             .pause-cluster,
             .resource-pill { min-height: var(--touch-min); }
-            .top-bar__zone--middle,
-            .top-bar__zone--right { display: none; }
 
             .resource-pill { padding: 4px 8px; gap: 6px; }
-            .res { font-size: 0.85rem; font-weight: 700; }
+            .res { font-size: 0.85rem; font-weight: 700; gap: 4px; }
             #gold,
             #wood,
             #lives-count {
-                font-size: 1rem;
+                font-size: 0.95rem;
                 font-weight: 800;
             }
-            .res span:first-child { opacity: 0.85; }
+            .res span:first-child {
+                opacity: 0.9;
+                font-size: 1rem;
+            }
 
-            .imperial-favor { padding: 4px 8px; gap: 8px; }
+            .imperial-favor { padding: 4px 8px; gap: 6px; }
             .favor-label,
             .enemy-label { font-size: 0.65rem; }
 
-            .calendar-cluster { gap: 6px; flex: 0 1 auto; max-width: none; }
-            .calendar-pill { padding: 4px 8px; max-width: 180px; flex: 0 1 auto; }
+            .calendar-cluster {
+                gap: 4px;
+                flex: 0 1 auto;
+                max-width: none;
+                flex-direction: column;
+                align-items: center;
+            }
+            .calendar-pill { padding: 4px 8px; max-width: 220px; flex: 0 1 auto; }
             .calendar-readout { font-size: 0.8rem; }
 
             .mandates-zone { gap: 6px; }
-            .mandates-zone .hud-panel-anchor + .hud-panel-anchor { display: none; }
+            #btn-mandates,
+            #btn-reputation { display: none; }
             .mandates-button {
                 min-width: 0;
                 padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
