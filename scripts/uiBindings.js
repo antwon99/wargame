@@ -420,9 +420,6 @@ export function setupUIBindings(game) {
         };
     });
 
-    const mandatesClose = document.getElementById('btn-mandates-close');
-    if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
-
     const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
     reputationTriggers.forEach((trigger) => {
         trigger.onclick = () => {
@@ -431,9 +428,6 @@ export function setupUIBindings(game) {
             toggleOverviewPanel(false);
         };
     });
-
-    const reputationClose = document.getElementById('btn-reputation-close');
-    if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false);
 
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
@@ -541,14 +535,6 @@ function syncSidebarTriggerState(activeKey, sidebarOpen) {
     reputationTriggers.forEach((trigger) => {
         trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'standing' ? 'true' : 'false');
     });
-    const mandatesPanel = document.getElementById('mandates-panel');
-    if (mandatesPanel) {
-        mandatesPanel.setAttribute('aria-hidden', sidebarOpen && activeKey === 'tasks' ? 'false' : 'true');
-    }
-    const reputationPanel = document.getElementById('reputation-panel');
-    if (reputationPanel) {
-        reputationPanel.setAttribute('aria-hidden', sidebarOpen && activeKey === 'standing' ? 'false' : 'true');
-    }
 }
 function bindVoidClickEasterEgg(game, deps) {
     const HexImpl = deps.Hex || game.Hex || window.Hex;
