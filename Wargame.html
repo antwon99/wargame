@@ -44,7 +44,6 @@
                 <div class="top-bar__zone top-bar__zone--left">
                     <div class="top-bar__controls">
                         <button class="hamburger" id="btn-sidebar-toggle" aria-label="Open command sidebar">☰</button>
-                        <button class="gear-button" id="btn-settings-gear" type="button" aria-label="Open settings">⚙️</button>
                         <div class="pause-cluster" aria-live="polite">
                             <button class="pause-toggle" id="btn-pause" type="button" aria-pressed="false">⏸️ Pause</button>
                             <span class="pause-indicator" id="pause-indicator">Live</span>
@@ -77,8 +76,8 @@
                 </div>
                 <div class="top-bar__zone top-bar__zone--right">
                     <div class="calendar-cluster">
-                        <div class="overview-toggle">
-                            <button class="overview-button" id="btn-overview" type="button" aria-label="Open overview" aria-expanded="false" aria-controls="overview-panel">🏰</button>
+                        <div class="overview-toggle mobile-only">
+                            <button class="overview-button mobile-only" id="btn-overview" type="button" aria-label="Open overview" aria-expanded="false" aria-controls="overview-panel">🏰</button>
                             <div class="overview-panel" id="overview-panel" aria-hidden="true">
                                 <button class="mandates-button" id="btn-overview-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
                                     <span class="mandates-button__primary">Tasks</span>
@@ -93,7 +92,7 @@
                         <div class="calendar-pill" aria-live="polite">
                             <span id="calendar-readout" class="calendar-readout">M: 1 | W: 1/5 | D: 1/40</span>
                         </div>
-                        <div class="mandates-zone">
+                        <div class="mandates-zone desktop-only">
                             <div class="hud-panel-anchor">
                                 <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
                                     <span class="mandates-button__primary">Tasks</span>
@@ -184,7 +183,7 @@
                 </div>
             </div>
         </div>
-        <div id="zoom-controls" class="zoom-controls" aria-label="Camera zoom controls">
+        <div id="zoom-controls" class="zoom-controls mobile-only" aria-label="Camera zoom controls">
             <button id="zoom-in" class="zoom-control-button" type="button" aria-label="Zoom in">+</button>
             <button id="zoom-out" class="zoom-control-button" type="button" aria-label="Zoom out">–</button>
         </div>
