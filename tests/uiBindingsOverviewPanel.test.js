@@ -33,6 +33,7 @@ async function testOverviewMandatesTriggerOpensSidebar() {
     try {
         const doc = createStubDocument();
         const mandatesTrigger = createStubElement('button');
+        mandatesTrigger.id = 'btn-overview-mandates';
         const overviewToggle = doc.register('btn-overview', createStubElement('button'));
         const overviewPanel = doc.register('overview-panel', createStubElement('div'));
         const sidebar = doc.register('sidebar', createStubElement('aside'));
@@ -59,9 +60,42 @@ async function testOverviewMandatesTriggerOpensSidebar() {
     }
 }
 
+async function testOverviewReputationTriggerOpensSidebar() {
+    const originalDocument = global.document;
+    try {
+        const doc = createStubDocument();
+        const reputationTrigger = createStubElement('button');
+        reputationTrigger.id = 'btn-overview-reputation';
+        const overviewToggle = doc.register('btn-overview', createStubElement('button'));
+        const overviewPanel = doc.register('overview-panel', createStubElement('div'));
+        const sidebar = doc.register('sidebar', createStubElement('aside'));
+        const standingSection = doc.register('sidebar-section-standing', createStubElement('section'));
+        doc.body = createStubElement('body');
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [];
+            if (selector === '[data-reputation-trigger]') return [reputationTrigger];
+            return [];
+        };
+        global.document = doc;
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        setupUIBindings({});
+
+        reputationTrigger.onclick();
+        assert.strictEqual(sidebar.classList.contains('open'), true, 'reputation trigger should open the sidebar');
+        assert.strictEqual(standingSection.classList.contains('is-active'), true, 'standing section should be active');
+        assert.strictEqual(overviewPanel.classList.contains('open'), false, 'overview panel should close after selection');
+        assert.strictEqual(overviewPanel.getAttribute('aria-hidden'), 'true', 'overview panel should be aria-hidden');
+        assert.strictEqual(overviewToggle.getAttribute('aria-expanded'), 'false', 'overview toggle should be collapsed');
+    } finally {
+        global.document = originalDocument;
+    }
+}
+
 async function run() {
     await testOverviewToggleUpdatesPanelState();
     await testOverviewMandatesTriggerOpensSidebar();
+    await testOverviewReputationTriggerOpensSidebar();
     console.log('UI bindings overview panel tests passed.');
 }
 
