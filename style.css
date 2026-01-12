@@ -899,22 +899,6 @@
         }
         .tile-inspector.hostile { border-color: #f08b8b; box-shadow: 0 10px 20px rgba(255,0,0,0.25); }
 
-        .hud-flyout-panel {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            width: min(360px, 92vw);
-            pointer-events: none;
-            opacity: 0;
-            transform: translateX(120%);
-            transition: opacity 0.25s ease, transform 0.25s ease;
-            transform-origin: top right;
-            z-index: 20;
-        }
-        .mandates-panel.open {
-            opacity: 1;
-            transform: translateX(0);
-        }
         .mandates-panel__inner {
             pointer-events: auto;
             background: rgba(12, 14, 24, 0.9);
@@ -945,10 +929,6 @@
             color: #f1f3ff;
             letter-spacing: 0.3px;
             font-size: 1rem;
-        }
-        .mandates-panel__close {
-            padding: 6px 10px;
-            font-size: 0.9rem;
         }
         .mandates-panel__body {
             margin-top: 10px;
@@ -1050,10 +1030,6 @@
             color: #aeb6d4;
         }
 
-        .reputation-panel.open {
-            opacity: 1;
-            transform: translateX(0);
-        }
         .reputation-panel__inner {
             pointer-events: auto;
             background: rgba(12, 14, 24, 0.92);
@@ -1084,10 +1060,6 @@
             color: #f1f3ff;
             letter-spacing: 0.3px;
             font-size: 1rem;
-        }
-        .reputation-panel__close {
-            padding: 6px 10px;
-            font-size: 0.9rem;
         }
         .reputation-panel__body {
             margin-top: 10px;
@@ -1338,14 +1310,6 @@
             font-size: 0.95rem;
             font-weight: 600;
             color: #d4dcf4;
-        }
-        .sidebar .hud-flyout-panel {
-            position: static;
-            width: 100%;
-            opacity: 1;
-            transform: none;
-            pointer-events: auto;
-            transition: none;
         }
         .save-grid { display: grid; gap: 8px; grid-template-columns: 1fr; }
         .save-slot {

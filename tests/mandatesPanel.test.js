@@ -112,8 +112,7 @@ async function testMandatesPanelToggleStates() {
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
-        const panel = doc.register('mandates-panel');
-        const body = doc.register('mandates-panel-body');
+        doc.register('mandates-panel-body');
         const sidebar = doc.register('sidebar');
         const statsSection = doc.register('sidebar-section-stats');
         const tasksSection = doc.register('sidebar-section-tasks');
@@ -142,12 +141,10 @@ async function testMandatesPanelToggleStates() {
         btn.onclick();
         assert.ok(sidebar.classList.contains('open'), 'sidebar should open on first click');
         assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
-        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'open sidebar should unhide mandates panel');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when section opens');
 
         btn.onclick();
         assert.ok(!sidebar.classList.contains('open'), 'sidebar should close when clicking Tasks again');
-        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'closing restores aria-hidden guard');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
         assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should remain selected after closing');
         assert.ok(!statsSection.classList.contains('is-active'), 'stats section should not be active after task selection');
@@ -163,9 +160,7 @@ async function testMandatesPanelClosesReputationPanel() {
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
-        const mandatesPanel = doc.register('mandates-panel');
         doc.register('mandates-panel-body');
-        const reputationPanel = doc.register('reputation-panel');
         doc.register('reputation-panel-body');
         const sidebar = doc.register('sidebar');
         const tasksSection = doc.register('sidebar-section-tasks');
@@ -204,12 +199,13 @@ async function testMandatesPanelClosesReputationPanel() {
         reputationBtn.onclick();
         assert.ok(sidebar.classList.contains('open'), 'sidebar should open on click');
         assert.ok(standingSection.classList.contains('is-active'), 'standing section should become active');
-        assert.strictEqual(reputationPanel.getAttribute('aria-hidden'), 'false', 'standing panel should be visible');
+        assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'true', 'standing trigger should expand');
+        assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'false', 'mandates trigger should remain collapsed');
 
         mandatesBtn.onclick();
         assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
-        assert.strictEqual(mandatesPanel.getAttribute('aria-hidden'), 'false', 'mandates panel should be visible');
-        assert.strictEqual(reputationPanel.getAttribute('aria-hidden'), 'true', 'reputation panel should be hidden');
+        assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'true', 'mandates trigger should expand');
+        assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'false', 'standing trigger should collapse');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
@@ -220,7 +216,7 @@ function testMandatesPanelTransformsAndPointerGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
     assert.ok(css.includes('.sidebar-tabs'), 'sidebar tabs should be styled for section switching');
     assert.ok(css.includes('.sidebar-section.is-active'), 'sidebar sections should define an active state');
-    assert.ok(css.includes('.sidebar .hud-flyout-panel'), 'sidebar should override flyout panel layout');
+    assert.ok(css.includes('.mandates-panel__inner'), 'mandates panel styling should stay available inside the sidebar');
 }
 
 async function testRenderSurvivesDomRelocation() {
