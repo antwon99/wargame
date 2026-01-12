@@ -1,4 +1,5 @@
 import assert from 'assert';
+import fs from 'fs';
 import { applyUIBindings, setupUIBindings } from '../scripts/uiBindings.js';
 
 function createButtonStub() {
@@ -71,6 +72,13 @@ function testWheelZoomClampsToSameRange() {
 function run() {
     testZoomButtonsClampAndStep();
     testWheelZoomClampsToSameRange();
+    const css = fs.readFileSync('style.css', 'utf8');
+    assert.ok(css.includes('.zoom-controls') && css.includes('pointer-events: none'), 'zoom controls container should ignore pointer events');
+    assert.ok(css.includes('.zoom-control-button') && css.includes('pointer-events: auto'), 'zoom buttons should accept pointer events');
+    assert.ok(
+        css.includes('@media (max-width: 768px)') && css.includes('min-width: 44px') && css.includes('min-height: 44px'),
+        'mobile zoom buttons should meet minimum touch size'
+    );
     console.log('Zoom controls tests passed.');
 }
 
