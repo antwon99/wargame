@@ -19,14 +19,18 @@ function createCanvasStub() {
 function testZoomButtonsClampAndStep() {
     const zoomInBtn = createButtonStub();
     const zoomOutBtn = createButtonStub();
+    const zoomControls = {};
+    const originalMatchMedia = global.window.matchMedia;
 
     global.document.getElementById = (id) => {
+        if (id === 'zoom-controls') return zoomControls;
         if (id === 'zoom-in') return zoomInBtn;
         if (id === 'zoom-out') return zoomOutBtn;
         return null;
     };
     global.document.querySelectorAll = () => [];
     global.document.querySelector = () => null;
+    global.window.matchMedia = () => ({ matches: true });
 
     const game = {
         cam: { x: 0, y: 0, zoom: 1 },
@@ -49,6 +53,38 @@ function testZoomButtonsClampAndStep() {
     game.cam.zoom = 0.55;
     zoomOutBtn.onclick();
     assert.strictEqual(game.cam.zoom, 0.5, 'zoom out should clamp at the min value');
+
+    global.window.matchMedia = originalMatchMedia;
+}
+
+function testZoomButtonsSkipDesktopViewport() {
+    const zoomInBtn = createButtonStub();
+    const zoomOutBtn = createButtonStub();
+    const zoomControls = {};
+    const originalMatchMedia = global.window.matchMedia;
+
+    global.document.getElementById = (id) => {
+        if (id === 'zoom-controls') return zoomControls;
+        if (id === 'zoom-in') return zoomInBtn;
+        if (id === 'zoom-out') return zoomOutBtn;
+        return null;
+    };
+    global.document.querySelectorAll = () => [];
+    global.document.querySelector = () => null;
+    global.window.matchMedia = () => ({ matches: false });
+
+    const game = {
+        cam: { x: 0, y: 0, zoom: 1 },
+        settingsService: null,
+        toggleSidebar: () => {}
+    };
+
+    setupUIBindings(game);
+
+    assert.strictEqual(zoomInBtn.onclick, null, 'zoom in button should not bind outside mobile viewport');
+    assert.strictEqual(zoomOutBtn.onclick, null, 'zoom out button should not bind outside mobile viewport');
+
+    global.window.matchMedia = originalMatchMedia;
 }
 
 function testWheelZoomClampsToSameRange() {
@@ -71,6 +107,7 @@ function testWheelZoomClampsToSameRange() {
 
 function run() {
     testZoomButtonsClampAndStep();
+    testZoomButtonsSkipDesktopViewport();
     testWheelZoomClampsToSameRange();
     const css = fs.readFileSync('style.css', 'utf8');
     assert.ok(css.includes('.zoom-controls') && css.includes('pointer-events: none'), 'zoom controls container should ignore pointer events');

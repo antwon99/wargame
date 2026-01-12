@@ -635,8 +635,14 @@
             }
 
             .zoom-controls {
+                position: fixed;
                 right: calc(16px + env(safe-area-inset-right));
                 bottom: calc(96px + env(safe-area-inset-bottom));
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                z-index: 70;
+                pointer-events: none;
             }
 
             .zoom-control-button {
@@ -673,17 +679,6 @@
             background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
             text-align: center; pointer-events: auto;
             display: flex; flex-direction: column; align-items: center; gap: 15px;
-        }
-
-        .zoom-controls {
-            position: fixed;
-            right: calc(16px + env(safe-area-inset-right));
-            bottom: calc(120px + env(safe-area-inset-bottom));
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 70;
-            pointer-events: none;
         }
 
         .zoom-control-button {
