@@ -14,3 +14,6 @@ Key HUD components (`.top-bar`, `.resource-pill`, `.pause-toggle`, `.mandates-bu
 
 ## Touch target rule
 All tap targets on mobile must meet a 44px minimum hit area. The mobile breakpoint explicitly defines `--touch-min: 44px`, and interactive controls (including `.hamburger`, `.pause-toggle`, `.mandates-button`, `.btn`, `.meta-btn`, and bottom action buttons) use `min-height`/`min-width` plus aligned padding so icon-only buttons stay comfortably tappable.
+
+## Regression policy: desktop unchanged
+Mobile-specific adjustments must be scoped exclusively to `@media (max-width: 768px)` blocks. Desktop selectors and layout rules outside that breakpoint should remain identical to pre-change behavior, with no new flex/grid tweaks or resized controls on larger viewports.

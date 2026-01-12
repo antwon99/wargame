@@ -575,6 +575,10 @@
                 border-radius: 10px;
             }
             .mandates-button__secondary { display: none; }
+
+            body.hud-action-bar--top .zoom-controls {
+                bottom: calc(24px + env(safe-area-inset-bottom));
+            }
         }
 
         .controls {
@@ -593,10 +597,6 @@
             gap: 8px;
             z-index: 70;
             pointer-events: auto;
-        }
-
-        body.hud-action-bar--top .zoom-controls {
-            bottom: calc(24px + env(safe-area-inset-bottom));
         }
 
         .zoom-control-button {
