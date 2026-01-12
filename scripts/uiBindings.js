@@ -423,7 +423,7 @@ export function setupUIBindings(game) {
     const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
     mandatesTriggers.forEach((trigger) => {
         trigger.onclick = () => {
-            const opened = toggleMandatesPanel();
+            const opened = toggleMandatesPanel(trigger.id === 'btn-overview-mandates');
             if (opened) toggleReputationPanel(game, false);
             toggleOverviewPanel(false);
         };
@@ -432,7 +432,7 @@ export function setupUIBindings(game) {
     const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
     reputationTriggers.forEach((trigger) => {
         trigger.onclick = () => {
-            const opened = toggleReputationPanel(game);
+            const opened = toggleReputationPanel(game, trigger.id === 'btn-overview-reputation');
             if (opened) toggleMandatesPanel(false);
             toggleOverviewPanel(false);
         };
