@@ -375,10 +375,19 @@ export function setupUIBindings(game) {
     const combatUltimateBtn = document.getElementById('ultimate-button');
     if (combatUltimateBtn) combatUltimateBtn.onclick = () => game.activateUltimate?.();
 
-    const zoomInBtn = document.getElementById('zoom-in');
-    if (zoomInBtn) zoomInBtn.onclick = () => setCameraZoom(game, game.cam.zoom + ZOOM_STEP);
-    const zoomOutBtn = document.getElementById('zoom-out');
-    if (zoomOutBtn) zoomOutBtn.onclick = () => setCameraZoom(game, game.cam.zoom - ZOOM_STEP);
+    const zoomControls = document.getElementById('zoom-controls');
+    const zoomViewportMatches = Boolean(
+        zoomControls
+            && (typeof window === 'undefined'
+                || typeof window.matchMedia !== 'function'
+                || window.matchMedia('(max-width: 768px)').matches)
+    );
+    if (zoomViewportMatches) {
+        const zoomInBtn = document.getElementById('zoom-in');
+        if (zoomInBtn) zoomInBtn.onclick = () => setCameraZoom(game, game.cam.zoom + ZOOM_STEP);
+        const zoomOutBtn = document.getElementById('zoom-out');
+        if (zoomOutBtn) zoomOutBtn.onclick = () => setCameraZoom(game, game.cam.zoom - ZOOM_STEP);
+    }
 
     const drawerController = createHudDrawerController(game);
     game.hudDrawer = drawerController;
