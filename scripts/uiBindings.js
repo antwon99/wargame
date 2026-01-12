@@ -406,29 +406,34 @@ export function setupUIBindings(game) {
     const sidebarClose = document.getElementById('btn-sidebar-close');
     if (sidebarClose) sidebarClose.onclick = () => game.toggleSidebar(false);
 
+    const overviewToggle = document.getElementById('btn-overview');
+    if (overviewToggle) overviewToggle.onclick = () => toggleOverviewPanel();
+
     SIDEBAR_SECTION_KEYS.forEach((key) => {
         const tab = document.getElementById(SIDEBAR_TAB_IDS[key]);
         if (tab) tab.onclick = () => setSidebarSection(key);
     });
 
-    const mandatesBtn = document.getElementById('btn-mandates');
-    if (mandatesBtn) {
-        mandatesBtn.onclick = () => {
+    const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
+    mandatesTriggers.forEach((trigger) => {
+        trigger.onclick = () => {
             const opened = toggleMandatesPanel();
             if (opened) toggleReputationPanel(game, false);
+            toggleOverviewPanel(false);
         };
-    }
+    });
 
     const mandatesClose = document.getElementById('btn-mandates-close');
     if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
 
-    const reputationBtn = document.getElementById('btn-reputation');
-    if (reputationBtn) {
-        reputationBtn.onclick = () => {
+    const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
+    reputationTriggers.forEach((trigger) => {
+        trigger.onclick = () => {
             const opened = toggleReputationPanel(game);
             if (opened) toggleMandatesPanel(false);
+            toggleOverviewPanel(false);
         };
-    }
+    });
 
     const reputationClose = document.getElementById('btn-reputation-close');
     if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false);
@@ -531,14 +536,14 @@ function setSidebarSection(sectionKey, options = {}) {
  * @param {boolean} sidebarOpen whether the sidebar is open.
  */
 function syncSidebarTriggerState(activeKey, sidebarOpen) {
-    const mandatesTrigger = document.getElementById('btn-mandates');
-    if (mandatesTrigger) {
-        mandatesTrigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'tasks' ? 'true' : 'false');
-    }
-    const reputationTrigger = document.getElementById('btn-reputation');
-    if (reputationTrigger) {
-        reputationTrigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'standing' ? 'true' : 'false');
-    }
+    const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
+    mandatesTriggers.forEach((trigger) => {
+        trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'tasks' ? 'true' : 'false');
+    });
+    const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
+    reputationTriggers.forEach((trigger) => {
+        trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'standing' ? 'true' : 'false');
+    });
     const mandatesPanel = document.getElementById('mandates-panel');
     if (mandatesPanel) {
         mandatesPanel.setAttribute('aria-hidden', sidebarOpen && activeKey === 'tasks' ? 'false' : 'true');
@@ -630,6 +635,22 @@ function toggleSidebar(forceState) {
 }
 
 /**
+ * Toggle the mobile overview panel that groups Tasks and Factions triggers.
+ * @param {boolean} [forceState] optional explicit open/close state.
+ * @returns {boolean} true if the panel is now open.
+ */
+function toggleOverviewPanel(forceState) {
+    const panel = document.getElementById('overview-panel');
+    const toggle = document.getElementById('btn-overview');
+    if (!panel || !toggle) return false;
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
+    panel.classList.toggle('open', shouldOpen);
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    return shouldOpen;
+}
+
+/**
  * Toggle the mandates section of the sidebar for task awareness.
  * @param {boolean} [forceState] optional explicit open/close state.
  */
@@ -641,7 +662,7 @@ function toggleMandatesPanel(forceState) {
     if (shouldOpen) {
         renderMandatesPanel();
         setSidebarSection('tasks', { openSidebar: true });
-    } else {
+    } else if (isOpen && isActive) {
         toggleSidebar(false);
     }
     return shouldOpen;
@@ -675,7 +696,7 @@ function toggleReputationPanel(game, forceState) {
     if (shouldOpen) {
         renderReputationPanel(game);
         setSidebarSection('standing', { openSidebar: true });
-    } else {
+    } else if (isOpen && isActive) {
         toggleSidebar(false);
     }
     return shouldOpen;

@@ -124,6 +124,11 @@ async function testMandatesPanelToggleStates() {
         doc.register('sidebar-tab-standing', createStubElement('button'));
         doc.register('sidebar-tab-settings', createStubElement('button'));
         const btn = doc.register('btn-mandates', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [btn];
+            if (selector === '[data-reputation-trigger]') return [];
+            return [];
+        };
 
         global.document = doc;
         global.ImperialMandates = {
@@ -173,6 +178,11 @@ async function testMandatesPanelClosesReputationPanel() {
         doc.register('sidebar-tab-settings', createStubElement('button'));
         const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
         const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [mandatesBtn];
+            if (selector === '[data-reputation-trigger]') return [reputationBtn];
+            return [];
+        };
 
         global.document = doc;
         global.ImperialMandates = {

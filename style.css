@@ -333,7 +333,8 @@
         }
 
         .hamburger,
-        .gear-button {
+        .gear-button,
+        .overview-button {
             background: rgba(255,255,255,0.05);
             color: #fff;
             border: 1px solid rgba(255,255,255,0.1);
@@ -351,9 +352,11 @@
             min-height: var(--touch-min);
         }
         .hamburger:hover,
-        .gear-button:hover { background: rgba(255,255,255,0.12); }
+        .gear-button:hover,
+        .overview-button:hover { background: rgba(255,255,255,0.12); }
         .hamburger:active,
-        .gear-button:active { transform: translateY(2px); }
+        .gear-button:active,
+        .overview-button:active { transform: translateY(2px); }
 
         .resource-pill {
             justify-self: center;
@@ -451,6 +454,34 @@
             gap: 14px;
             flex: 0 1 280px;
             max-width: 320px;
+        }
+        .overview-toggle {
+            position: relative;
+            display: none;
+            align-items: center;
+        }
+        .overview-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+            z-index: 80;
+            opacity: 0;
+            transform: translateY(-4px);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .overview-panel.open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
         }
         .mandates-zone {
             display: inline-flex;
@@ -578,6 +609,8 @@
                 flex-direction: column;
                 align-items: center;
             }
+            .overview-toggle { display: inline-flex; }
+            .overview-panel { display: flex; }
             .calendar-pill { padding: 4px 8px; max-width: 220px; flex: 0 1 auto; }
             .calendar-readout { font-size: 0.8rem; }
 

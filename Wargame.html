@@ -77,18 +77,31 @@
                 </div>
                 <div class="top-bar__zone top-bar__zone--right">
                     <div class="calendar-cluster">
+                        <div class="overview-toggle">
+                            <button class="overview-button" id="btn-overview" type="button" aria-label="Open overview" aria-expanded="false" aria-controls="overview-panel">🏰</button>
+                            <div class="overview-panel" id="overview-panel" aria-hidden="true">
+                                <button class="mandates-button" id="btn-overview-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
+                                    <span class="mandates-button__primary">Tasks</span>
+                                    <span class="mandates-button__secondary">Mandates</span>
+                                </button>
+                                <button class="mandates-button mandates-button--reputation" id="btn-overview-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing" data-reputation-trigger>
+                                    <span class="mandates-button__primary">Factions</span>
+                                    <span class="mandates-button__secondary">Standing</span>
+                                </button>
+                            </div>
+                        </div>
                         <div class="calendar-pill" aria-live="polite">
                             <span id="calendar-readout" class="calendar-readout">M: 1 | W: 1/5 | D: 1/40</span>
                         </div>
                         <div class="mandates-zone">
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks">
+                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
                                     <span class="mandates-button__primary">Tasks</span>
                                     <span class="mandates-button__secondary">Mandates</span>
                                 </button>
                             </div>
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing">
+                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing" data-reputation-trigger>
                                     <span class="mandates-button__primary">Factions</span>
                                     <span class="mandates-button__secondary">Standing</span>
                                 </button>
