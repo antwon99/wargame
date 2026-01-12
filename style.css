@@ -303,20 +303,20 @@
 
         .top-bar {
             background: linear-gradient(90deg, rgba(10,10,15,0.85), rgba(20,20,30,0.85));
-            padding: var(--hud-padding-y) var(--hud-padding-x);
+            padding: 10px 16px;
             display: grid;
             grid-template-columns: 1fr;
             align-items: center;
             border-bottom: 1px solid #333; pointer-events: auto;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            gap: var(--hud-gap);
+            gap: 12px;
         }
 
         .top-bar__zones {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
             align-items: center;
-            gap: var(--hud-gap);
+            gap: 14px;
             width: 100%;
         }
 
@@ -325,12 +325,12 @@
         .top-bar__zone--middle-left,
         .top-bar__zone--middle { justify-self: center; }
 
-        .top-bar__controls { display: inline-flex; align-items: center; gap: var(--hud-gap); }
+        .top-bar__controls { display: inline-flex; align-items: center; gap: 10px; }
 
         .resource-cluster {
             display: inline-flex;
             align-items: center;
-            gap: var(--hud-gap);
+            gap: 10px;
             justify-content: center;
         }
 
@@ -341,7 +341,7 @@
             color: #fff;
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 10px;
-            padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
+            padding: 10px 14px;
             font-size: 1.1rem;
             cursor: pointer;
             backdrop-filter: blur(4px);
@@ -350,8 +350,6 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: var(--touch-min);
-            min-height: var(--touch-min);
         }
         .hamburger:hover,
         .gear-button:hover,
@@ -364,12 +362,12 @@
             justify-self: center;
             background: rgba(255,255,255,0.06);
             border: 1px solid rgba(255,255,255,0.12);
-            padding: var(--hud-pill-padding-y) var(--hud-pill-padding-x);
+            padding: 8px 16px;
             border-radius: 999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: var(--hud-gap);
+            gap: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.35);
             backdrop-filter: blur(6px);
         }
@@ -528,17 +526,16 @@
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.12);
             color: #d7e4ff;
-            padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
+            padding: 10px 14px;
             border-radius: 14px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: clamp(4px, 0.8vw, 6px);
+            gap: 4px;
             box-shadow: 0 6px 14px rgba(0,0,0,0.3);
             cursor: pointer;
             backdrop-filter: blur(6px);
-            min-width: clamp(96px, 14vw, 120px);
-            min-height: var(--touch-min);
+            min-width: 96px;
             transition: background 0.2s ease, transform 0.2s ease;
         }
         .mandates-button:hover { background: rgba(255,255,255,0.08); }
@@ -547,10 +544,10 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.6px;
-            font-size: var(--hud-font-small);
+            font-size: 0.85rem;
         }
         .mandates-button__secondary {
-            font-size: var(--hud-font-small);
+            font-size: 0.75rem;
             color: #9be3b4;
             letter-spacing: 0.3px;
             opacity: 0.9;
@@ -589,6 +586,14 @@
             .pause-cluster,
             .resource-pill { min-height: var(--touch-min); }
 
+            .hamburger,
+            .gear-button,
+            .overview-button {
+                padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
+                min-width: var(--touch-min);
+                min-height: var(--touch-min);
+            }
+
             .resource-pill { padding: 4px 8px; gap: 6px; }
             .res { font-size: 0.85rem; font-weight: 700; gap: 4px; }
             #gold,
@@ -623,6 +628,7 @@
             #btn-reputation { display: none; }
             .mandates-button {
                 min-width: 0;
+                min-height: var(--touch-min);
                 padding: var(--hud-button-padding-y) var(--hud-button-padding-x);
                 flex-direction: row;
                 gap: 6px;
