@@ -109,6 +109,7 @@ async function testMandatesPanelEmptyStateAndWarnings() {
 async function testMandatesPanelToggleStates() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
+    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
@@ -130,6 +131,7 @@ async function testMandatesPanelToggleStates() {
         };
 
         global.document = doc;
+        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -151,12 +153,14 @@ async function testMandatesPanelToggleStates() {
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
+        global.window = originalWindow;
     }
 }
 
 async function testMandatesPanelClosesReputationPanel() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
+    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
@@ -180,6 +184,7 @@ async function testMandatesPanelClosesReputationPanel() {
         };
 
         global.document = doc;
+        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -209,6 +214,52 @@ async function testMandatesPanelClosesReputationPanel() {
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
+        global.window = originalWindow;
+    }
+}
+
+async function testMandatesPanelDesktopFlyoutToggle() {
+    const originalDocument = global.document;
+    const originalImperial = global.ImperialMandates;
+    const originalWindow = global.window;
+    try {
+        const doc = createStubDocument();
+        doc.body = createStubElement('body');
+        doc.register('mandates-panel');
+        doc.register('mandates-panel-body');
+        const sidebar = doc.register('sidebar');
+        const btn = doc.register('btn-mandates', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [btn];
+            if (selector === '[data-reputation-trigger]') return [];
+            return [];
+        };
+
+        global.document = doc;
+        global.window = { innerWidth: 1200 };
+        global.ImperialMandates = {
+            describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
+            getActiveMandates: () => []
+        };
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        setupUIBindings({});
+
+        btn.onclick();
+        const panel = doc.getElementById('mandates-panel');
+        assert.ok(panel.classList.contains('open'), 'mandates flyout should open on desktop');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'panel should be visible to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded for flyout');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed on desktop');
+
+        btn.onclick();
+        assert.ok(!panel.classList.contains('open'), 'mandates flyout should close on second click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'panel should be hidden to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should mark collapsed for flyout');
+    } finally {
+        global.document = originalDocument;
+        global.ImperialMandates = originalImperial;
+        global.window = originalWindow;
     }
 }
 
@@ -253,6 +304,7 @@ async function run() {
     await testMandatesPanelEmptyStateAndWarnings();
     await testMandatesPanelToggleStates();
     await testMandatesPanelClosesReputationPanel();
+    await testMandatesPanelDesktopFlyoutToggle();
     testMandatesPanelTransformsAndPointerGuards();
     await testRenderSurvivesDomRelocation();
     console.log('Mandates panel UI tests passed.');

@@ -40,6 +40,7 @@ async function testReputationPanelRender() {
 
 async function testReputationPanelToggleStates() {
     const originalDocument = global.document;
+    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
@@ -60,6 +61,7 @@ async function testReputationPanelToggleStates() {
             return [];
         };
         global.document = doc;
+        global.window = { innerWidth: 480 };
 
         const { setupUIBindings } = await import('../scripts/uiBindings.js');
         setupUIBindings({});
@@ -74,12 +76,14 @@ async function testReputationPanelToggleStates() {
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
     } finally {
         global.document = originalDocument;
+        global.window = originalWindow;
     }
 }
 
 async function testReputationPanelClosesMandatesPanel() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
+    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
@@ -102,6 +106,7 @@ async function testReputationPanelClosesMandatesPanel() {
             return [];
         };
         global.document = doc;
+        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -131,6 +136,53 @@ async function testReputationPanelClosesMandatesPanel() {
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
+        global.window = originalWindow;
+    }
+}
+
+async function testReputationPanelDesktopFlyoutToggle() {
+    const originalDocument = global.document;
+    const originalWindow = global.window;
+    try {
+        const doc = createStubDocument();
+        doc.body = createStubElement('body');
+        doc.register('reputation-panel');
+        doc.register('reputation-panel-body');
+        const sidebar = doc.register('sidebar');
+        const btn = doc.register('btn-reputation', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [];
+            if (selector === '[data-reputation-trigger]') return [btn];
+            return [];
+        };
+        global.document = doc;
+        global.window = { innerWidth: 1200 };
+
+        const { setupUIBindings } = await import('../scripts/uiBindings.js');
+        const game = {
+            factionState: { standings: {} },
+            imperialFavor: 5,
+            difficulty: 1,
+            stats: { warsWon: 0, warsFought: 0 },
+            overworld: { hexes: new Map() },
+            timekeeper: { ticks: 1 }
+        };
+        setupUIBindings(game);
+
+        btn.onclick();
+        const panel = doc.getElementById('reputation-panel');
+        assert.ok(panel.classList.contains('open'), 'reputation flyout should open on desktop');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'panel should be visible to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded for flyout');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed on desktop');
+
+        btn.onclick();
+        assert.ok(!panel.classList.contains('open'), 'reputation flyout should close on second click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'panel should be hidden to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should mark collapsed for flyout');
+    } finally {
+        global.document = originalDocument;
+        global.window = originalWindow;
     }
 }
 
@@ -145,6 +197,7 @@ async function run() {
     await testReputationPanelRender();
     await testReputationPanelToggleStates();
     await testReputationPanelClosesMandatesPanel();
+    await testReputationPanelDesktopFlyoutToggle();
     testReputationPanelCssGuards();
     console.log('Reputation panel UI tests passed.');
 }
