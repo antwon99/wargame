@@ -41,6 +41,20 @@ const SIDEBAR_TAB_IDS = {
 };
 
 /**
+ * Determine when Tasks/Standing should route into the sidebar instead of top-bar flyouts.
+ * Uses the platform-set body class or a narrow viewport check for responsive behavior.
+ * @returns {boolean} true when sidebar routing should be used.
+ */
+function shouldRouteToSidebar() {
+    if (typeof document === 'undefined') return false;
+    const body = document.body;
+    const hasMobileClass = Boolean(body?.classList?.contains?.('mobile'));
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : null;
+    const isNarrowViewport = Number.isFinite(viewportWidth) && viewportWidth <= 768;
+    return hasMobileClass || isNarrowViewport;
+}
+
+/**
  * Lazily create (or return) the shared notification stack anchored to the game container.
  * Keeping a single instance prevents duplicate DOM overlays when the UI bindings are
  * re-applied after a reset or test harness initialization.
@@ -536,6 +550,7 @@ function setSidebarSection(sectionKey, options = {}) {
  * @param {boolean} sidebarOpen whether the sidebar is open.
  */
 function syncSidebarTriggerState(activeKey, sidebarOpen) {
+    if (!shouldRouteToSidebar()) return;
     const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
     mandatesTriggers.forEach((trigger) => {
         trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'tasks' ? 'true' : 'false');
@@ -647,6 +662,14 @@ function toggleOverviewPanel(forceState) {
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleMandatesPanel(forceState) {
+    if (!shouldRouteToSidebar()) {
+        return toggleTopBarPanel({
+            panelId: 'mandates-panel',
+            triggerSelector: '[data-mandates-trigger]',
+            forceState,
+            onOpen: () => renderMandatesPanel()
+        });
+    }
     const sidebar = document.getElementById('sidebar');
     const isOpen = sidebar?.classList?.contains('open');
     const isActive = getActiveSidebarKey() === 'tasks';
@@ -681,6 +704,14 @@ const DEFAULT_FACTION_STANDINGS = {
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleReputationPanel(game, forceState) {
+    if (!shouldRouteToSidebar()) {
+        return toggleTopBarPanel({
+            panelId: 'reputation-panel',
+            triggerSelector: '[data-reputation-trigger]',
+            forceState,
+            onOpen: () => renderReputationPanel(game)
+        });
+    }
     const sidebar = document.getElementById('sidebar');
     const isOpen = sidebar?.classList?.contains('open');
     const isActive = getActiveSidebarKey() === 'standing';
@@ -691,6 +722,26 @@ function toggleReputationPanel(game, forceState) {
     } else if (isOpen && isActive) {
         toggleSidebar(false);
     }
+    return shouldOpen;
+}
+
+/**
+ * Toggle a top-bar flyout panel and keep trigger accessibility in sync.
+ * @param {{ panelId: string, triggerSelector: string, forceState?: boolean, onOpen?: () => void }} options
+ * @returns {boolean} true when the panel is now open.
+ */
+function toggleTopBarPanel({ panelId, triggerSelector, forceState, onOpen }) {
+    if (typeof document === 'undefined') return false;
+    const panel = document.getElementById(panelId);
+    if (!panel) return false;
+    const isOpen = panel.classList?.contains?.('open');
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
+    if (shouldOpen && typeof onOpen === 'function') onOpen();
+    panel.classList?.toggle?.('open', shouldOpen);
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+    document.querySelectorAll(triggerSelector).forEach((trigger) => {
+        trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    });
     return shouldOpen;
 }
 
