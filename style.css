@@ -629,6 +629,28 @@
             body.hud-action-bar--top .zoom-controls {
                 bottom: calc(24px + env(safe-area-inset-bottom));
             }
+
+            .hud-drawer {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                max-height: 80vh;
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
+            .hud-drawer__panel {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                max-height: 80vh;
+                overflow-y: auto;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
         }
 
         .controls {
