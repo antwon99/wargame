@@ -437,8 +437,14 @@ export function setupUIBindings(game) {
     const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
     mandatesTriggers.forEach((trigger) => {
         trigger.onclick = () => {
-            const opened = toggleMandatesPanel(trigger.id === 'btn-overview-mandates');
-            if (opened) toggleReputationPanel(game, false);
+            const isOverviewTrigger = trigger.id === 'btn-overview-mandates';
+            const opened = isOverviewTrigger
+                ? toggleMandatesTopBarPanel()
+                : toggleMandatesPanel();
+            if (opened) {
+                if (isOverviewTrigger) toggleReputationTopBarPanel(game, false);
+                else toggleReputationPanel(game, false);
+            }
             toggleOverviewPanel(false);
         };
     });
@@ -446,8 +452,14 @@ export function setupUIBindings(game) {
     const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
     reputationTriggers.forEach((trigger) => {
         trigger.onclick = () => {
-            const opened = toggleReputationPanel(game, trigger.id === 'btn-overview-reputation');
-            if (opened) toggleMandatesPanel(false);
+            const isOverviewTrigger = trigger.id === 'btn-overview-reputation';
+            const opened = isOverviewTrigger
+                ? toggleReputationTopBarPanel(game)
+                : toggleReputationPanel(game);
+            if (opened) {
+                if (isOverviewTrigger) toggleMandatesTopBarPanel(false);
+                else toggleMandatesPanel(false);
+            }
             toggleOverviewPanel(false);
         };
     });
@@ -655,6 +667,35 @@ function toggleOverviewPanel(forceState) {
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
     return shouldOpen;
+}
+
+/**
+ * Toggle the mandates top-bar panel without routing through the sidebar.
+ * @param {boolean} [forceState] optional explicit open/close state.
+ * @returns {boolean} true when the panel is now open.
+ */
+function toggleMandatesTopBarPanel(forceState) {
+    return toggleTopBarPanel({
+        panelId: 'mandates-panel',
+        triggerSelector: '[data-mandates-trigger]',
+        forceState,
+        onOpen: () => renderMandatesPanel()
+    });
+}
+
+/**
+ * Toggle the reputation top-bar panel without routing through the sidebar.
+ * @param {object} game live game singleton.
+ * @param {boolean} [forceState] optional explicit open/close state.
+ * @returns {boolean} true when the panel is now open.
+ */
+function toggleReputationTopBarPanel(game, forceState) {
+    return toggleTopBarPanel({
+        panelId: 'reputation-panel',
+        triggerSelector: '[data-reputation-trigger]',
+        forceState,
+        onOpen: () => renderReputationPanel(game)
+    });
 }
 
 /**

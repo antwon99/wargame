@@ -560,7 +560,7 @@
             :root {
                 --touch-min: 44px;
             }
-            .mobile-only { display: initial; }
+            .mobile-only { display: block; }
             .desktop-only { display: none; }
             .top-bar { padding: 4px 6px; }
             .top-bar__zones {
