@@ -28,7 +28,7 @@ async function testOverviewToggleUpdatesPanelState() {
     }
 }
 
-async function testOverviewMandatesTriggerOpensSidebar() {
+async function testOverviewMandatesTriggerOpensTopBarPanel() {
     const originalDocument = global.document;
     try {
         const doc = createStubDocument();
@@ -36,8 +36,7 @@ async function testOverviewMandatesTriggerOpensSidebar() {
         mandatesTrigger.id = 'btn-overview-mandates';
         const overviewToggle = doc.register('btn-overview', createStubElement('button'));
         const overviewPanel = doc.register('overview-panel', createStubElement('div'));
-        const sidebar = doc.register('sidebar', createStubElement('aside'));
-        const tasksSection = doc.register('sidebar-section-tasks', createStubElement('section'));
+        const mandatesPanel = doc.register('mandates-panel', createStubElement('div'));
         doc.body = createStubElement('body');
         doc.querySelectorAll = (selector) => {
             if (selector === '[data-mandates-trigger]') return [mandatesTrigger];
@@ -50,8 +49,7 @@ async function testOverviewMandatesTriggerOpensSidebar() {
         setupUIBindings({});
 
         mandatesTrigger.onclick();
-        assert.strictEqual(sidebar.classList.contains('open'), true, 'mandates trigger should open the sidebar');
-        assert.strictEqual(tasksSection.classList.contains('is-active'), true, 'tasks section should be active');
+        assert.strictEqual(mandatesPanel.classList.contains('open'), true, 'mandates trigger should open the top bar panel');
         assert.strictEqual(overviewPanel.classList.contains('open'), false, 'overview panel should close after selection');
         assert.strictEqual(overviewPanel.getAttribute('aria-hidden'), 'true', 'overview panel should be aria-hidden');
         assert.strictEqual(overviewToggle.getAttribute('aria-expanded'), 'false', 'overview toggle should be collapsed');
@@ -60,7 +58,7 @@ async function testOverviewMandatesTriggerOpensSidebar() {
     }
 }
 
-async function testOverviewReputationTriggerOpensSidebar() {
+async function testOverviewReputationTriggerOpensTopBarPanel() {
     const originalDocument = global.document;
     try {
         const doc = createStubDocument();
@@ -68,8 +66,7 @@ async function testOverviewReputationTriggerOpensSidebar() {
         reputationTrigger.id = 'btn-overview-reputation';
         const overviewToggle = doc.register('btn-overview', createStubElement('button'));
         const overviewPanel = doc.register('overview-panel', createStubElement('div'));
-        const sidebar = doc.register('sidebar', createStubElement('aside'));
-        const standingSection = doc.register('sidebar-section-standing', createStubElement('section'));
+        const reputationPanel = doc.register('reputation-panel', createStubElement('div'));
         doc.body = createStubElement('body');
         doc.querySelectorAll = (selector) => {
             if (selector === '[data-mandates-trigger]') return [];
@@ -82,8 +79,7 @@ async function testOverviewReputationTriggerOpensSidebar() {
         setupUIBindings({});
 
         reputationTrigger.onclick();
-        assert.strictEqual(sidebar.classList.contains('open'), true, 'reputation trigger should open the sidebar');
-        assert.strictEqual(standingSection.classList.contains('is-active'), true, 'standing section should be active');
+        assert.strictEqual(reputationPanel.classList.contains('open'), true, 'reputation trigger should open the top bar panel');
         assert.strictEqual(overviewPanel.classList.contains('open'), false, 'overview panel should close after selection');
         assert.strictEqual(overviewPanel.getAttribute('aria-hidden'), 'true', 'overview panel should be aria-hidden');
         assert.strictEqual(overviewToggle.getAttribute('aria-expanded'), 'false', 'overview toggle should be collapsed');
@@ -94,8 +90,8 @@ async function testOverviewReputationTriggerOpensSidebar() {
 
 async function run() {
     await testOverviewToggleUpdatesPanelState();
-    await testOverviewMandatesTriggerOpensSidebar();
-    await testOverviewReputationTriggerOpensSidebar();
+    await testOverviewMandatesTriggerOpensTopBarPanel();
+    await testOverviewReputationTriggerOpensTopBarPanel();
     console.log('UI bindings overview panel tests passed.');
 }
 
