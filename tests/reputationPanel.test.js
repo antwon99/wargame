@@ -55,6 +55,11 @@ async function testReputationPanelToggleStates() {
         doc.register('sidebar-tab-standing', createStubElement('button'));
         doc.register('sidebar-tab-settings', createStubElement('button'));
         const btn = doc.register('btn-reputation', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [];
+            if (selector === '[data-reputation-trigger]') return [btn];
+            return [];
+        };
         global.document = doc;
 
         const { setupUIBindings } = await import('../scripts/uiBindings.js');
@@ -96,6 +101,11 @@ async function testReputationPanelClosesMandatesPanel() {
         doc.register('sidebar-tab-settings', createStubElement('button'));
         const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
         const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
+        doc.querySelectorAll = (selector) => {
+            if (selector === '[data-mandates-trigger]') return [mandatesBtn];
+            if (selector === '[data-reputation-trigger]') return [reputationBtn];
+            return [];
+        };
         global.document = doc;
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
