@@ -26,33 +26,13 @@ let cachedNotificationStack = null;
 const ZOOM_LIMITS = { min: 0.5, max: 2.0 };
 const ZOOM_STEP = 0.1;
 
-const SIDEBAR_SECTION_KEYS = ['stats', 'tasks', 'standing', 'settings'];
+const SIDEBAR_SECTION_KEYS = ['settings'];
 const SIDEBAR_SECTION_IDS = {
-    stats: 'sidebar-section-stats',
-    tasks: 'sidebar-section-tasks',
-    standing: 'sidebar-section-standing',
     settings: 'sidebar-section-settings'
 };
 const SIDEBAR_TAB_IDS = {
-    stats: 'sidebar-tab-stats',
-    tasks: 'sidebar-tab-tasks',
-    standing: 'sidebar-tab-standing',
     settings: 'sidebar-tab-settings'
 };
-
-/**
- * Determine when Tasks/Standing should route into the sidebar instead of top-bar flyouts.
- * Uses the platform-set body class or a narrow viewport check for responsive behavior.
- * @returns {boolean} true when sidebar routing should be used.
- */
-function shouldRouteToSidebar() {
-    if (typeof document === 'undefined') return false;
-    const body = document.body;
-    const hasMobileClass = Boolean(body?.classList?.contains?.('mobile'));
-    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : null;
-    const isNarrowViewport = Number.isFinite(viewportWidth) && viewportWidth <= 768;
-    return hasMobileClass || isNarrowViewport;
-}
 
 /**
  * Lazily create (or return) the shared notification stack anchored to the game container.
@@ -552,25 +532,7 @@ function setSidebarSection(sectionKey, options = {}) {
 
     if (openSidebar) toggleSidebar(true);
 
-    syncSidebarTriggerState(sectionKey, sidebar.classList.contains('open') || openSidebar);
     return true;
-}
-
-/**
- * Sync sidebar-linked triggers and section panels for tasks and standing.
- * @param {string|null} activeKey active sidebar section key.
- * @param {boolean} sidebarOpen whether the sidebar is open.
- */
-function syncSidebarTriggerState(activeKey, sidebarOpen) {
-    if (!shouldRouteToSidebar()) return;
-    const mandatesTriggers = document.querySelectorAll('[data-mandates-trigger]');
-    mandatesTriggers.forEach((trigger) => {
-        trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'tasks' ? 'true' : 'false');
-    });
-    const reputationTriggers = document.querySelectorAll('[data-reputation-trigger]');
-    reputationTriggers.forEach((trigger) => {
-        trigger.setAttribute('aria-expanded', sidebarOpen && activeKey === 'standing' ? 'true' : 'false');
-    });
 }
 function bindVoidClickEasterEgg(game, deps) {
     const HexImpl = deps.Hex || game.Hex || window.Hex;
@@ -649,8 +611,7 @@ function toggleSidebar(forceState) {
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
     sidebar.classList.toggle('open', shouldOpen);
     document.body.classList.toggle('sidebar-open', shouldOpen);
-    if (shouldOpen && !getActiveSidebarKey()) setSidebarSection('stats', { openSidebar: false });
-    syncSidebarTriggerState(getActiveSidebarKey(), shouldOpen);
+    if (shouldOpen && !getActiveSidebarKey()) setSidebarSection('settings', { openSidebar: false });
 }
 
 /**
@@ -699,29 +660,16 @@ function toggleReputationTopBarPanel(game, forceState) {
 }
 
 /**
- * Toggle the mandates section of the sidebar for task awareness.
+ * Toggle the mandates flyout panel without opening the command sidebar.
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleMandatesPanel(forceState) {
-    if (!shouldRouteToSidebar()) {
-        return toggleTopBarPanel({
-            panelId: 'mandates-panel',
-            triggerSelector: '[data-mandates-trigger]',
-            forceState,
-            onOpen: () => renderMandatesPanel()
-        });
-    }
-    const sidebar = document.getElementById('sidebar');
-    const isOpen = sidebar?.classList?.contains('open');
-    const isActive = getActiveSidebarKey() === 'tasks';
-    const shouldOpen = typeof forceState === 'boolean' ? forceState : !(isOpen && isActive);
-    if (shouldOpen) {
-        renderMandatesPanel();
-        setSidebarSection('tasks', { openSidebar: true });
-    } else if (isOpen && isActive) {
-        toggleSidebar(false);
-    }
-    return shouldOpen;
+    return toggleTopBarPanel({
+        panelId: 'mandates-panel',
+        triggerSelector: '[data-mandates-trigger]',
+        forceState,
+        onOpen: () => renderMandatesPanel()
+    });
 }
 
 const FACTION_DEFINITIONS = [
@@ -740,30 +688,17 @@ const DEFAULT_FACTION_STANDINGS = {
 };
 
 /**
- * Toggle the faction reputation section inside the command sidebar.
+ * Toggle the faction reputation flyout panel without opening the command sidebar.
  * @param {object} game live game singleton.
  * @param {boolean} [forceState] optional explicit open/close state.
  */
 function toggleReputationPanel(game, forceState) {
-    if (!shouldRouteToSidebar()) {
-        return toggleTopBarPanel({
-            panelId: 'reputation-panel',
-            triggerSelector: '[data-reputation-trigger]',
-            forceState,
-            onOpen: () => renderReputationPanel(game)
-        });
-    }
-    const sidebar = document.getElementById('sidebar');
-    const isOpen = sidebar?.classList?.contains('open');
-    const isActive = getActiveSidebarKey() === 'standing';
-    const shouldOpen = typeof forceState === 'boolean' ? forceState : !(isOpen && isActive);
-    if (shouldOpen) {
-        renderReputationPanel(game);
-        setSidebarSection('standing', { openSidebar: true });
-    } else if (isOpen && isActive) {
-        toggleSidebar(false);
-    }
-    return shouldOpen;
+    return toggleTopBarPanel({
+        panelId: 'reputation-panel',
+        triggerSelector: '[data-reputation-trigger]',
+        forceState,
+        onOpen: () => renderReputationPanel(game)
+    });
 }
 
 /**
