@@ -79,11 +79,11 @@
                         <div class="overview-toggle mobile-only">
                             <button class="overview-button mobile-only" id="btn-overview" type="button" aria-label="Open overview" aria-expanded="false" aria-controls="overview-panel">🏰</button>
                             <div class="overview-panel mobile-only" id="overview-panel" aria-hidden="true">
-                                <button class="mandates-button" id="btn-overview-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
+                                <button class="mandates-button" id="btn-overview-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel" data-mandates-trigger>
                                     <span class="mandates-button__primary">Tasks</span>
                                     <span class="mandates-button__secondary">Mandates</span>
                                 </button>
-                                <button class="mandates-button mandates-button--reputation" id="btn-overview-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing" data-reputation-trigger>
+                                <button class="mandates-button mandates-button--reputation" id="btn-overview-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="reputation-panel" data-reputation-trigger>
                                     <span class="mandates-button__primary">Factions</span>
                                     <span class="mandates-button__secondary">Standing</span>
                                 </button>
@@ -94,16 +94,38 @@
                         </div>
                         <div class="mandates-zone desktop-only">
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="sidebar-section-tasks" data-mandates-trigger>
+                                <button class="mandates-button" id="btn-mandates" type="button" aria-label="Open mandates" aria-expanded="false" aria-controls="mandates-panel" data-mandates-trigger>
                                     <span class="mandates-button__primary">Tasks</span>
                                     <span class="mandates-button__secondary">Mandates</span>
                                 </button>
+                                <div class="hud-panel" id="mandates-panel" aria-hidden="true">
+                                    <div class="mandates-panel__inner">
+                                        <div class="mandates-panel__header">
+                                            <div class="mandates-panel__eyebrow">Tasks</div>
+                                            <div class="mandates-panel__title">Imperial Mandates</div>
+                                        </div>
+                                        <div class="mandates-panel__body" id="mandates-panel-body">
+                                            <p class="mandates-panel__empty">No active mandates yet.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="hud-panel-anchor">
-                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="sidebar-section-standing" data-reputation-trigger>
+                                <button class="mandates-button mandates-button--reputation" id="btn-reputation" type="button" aria-label="Open faction standing" aria-expanded="false" aria-controls="reputation-panel" data-reputation-trigger>
                                     <span class="mandates-button__primary">Factions</span>
                                     <span class="mandates-button__secondary">Standing</span>
                                 </button>
+                                <div class="hud-panel" id="reputation-panel" aria-hidden="true">
+                                    <div class="reputation-panel__inner">
+                                        <div class="reputation-panel__header">
+                                            <div class="reputation-panel__eyebrow">Standing</div>
+                                            <div class="reputation-panel__title">Faction Reputation</div>
+                                        </div>
+                                        <div class="reputation-panel__body" id="reputation-panel-body">
+                                            <p class="reputation-panel__empty">Standing reports will appear here.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -197,44 +219,11 @@
                 <div class="sidebar-tabs" role="tablist" aria-label="Command sidebar sections">
                     <button
                         class="sidebar-tab is-active"
-                        id="sidebar-tab-stats"
-                        data-sidebar-tab="stats"
-                        type="button"
-                        role="tab"
-                        aria-selected="true"
-                        aria-controls="sidebar-section-stats"
-                    >
-                        Stats
-                    </button>
-                    <button
-                        class="sidebar-tab"
-                        id="sidebar-tab-tasks"
-                        data-sidebar-tab="tasks"
-                        type="button"
-                        role="tab"
-                        aria-selected="false"
-                        aria-controls="sidebar-section-tasks"
-                    >
-                        Tasks
-                    </button>
-                    <button
-                        class="sidebar-tab"
-                        id="sidebar-tab-standing"
-                        data-sidebar-tab="standing"
-                        type="button"
-                        role="tab"
-                        aria-selected="false"
-                        aria-controls="sidebar-section-standing"
-                    >
-                        Standing
-                    </button>
-                    <button
-                        class="sidebar-tab"
                         id="sidebar-tab-settings"
                         data-sidebar-tab="settings"
                         type="button"
                         role="tab"
-                        aria-selected="false"
+                        aria-selected="true"
                         aria-controls="sidebar-section-settings"
                     >
                         Settings
@@ -242,82 +231,7 @@
                 </div>
 
                 <section
-                    class="sidebar-section sidebar-section--stats is-active"
-                    id="sidebar-section-stats"
-                    data-sidebar-section="stats"
-                    role="tabpanel"
-                    aria-labelledby="sidebar-tab-stats"
-                >
-                    <h4 class="sidebar-section__title">Stats</h4>
-                    <div class="sidebar-stat-group">
-                        <div class="sidebar-stat-group__header">
-                            <span class="sidebar-stat-group__title">Secondary Intel</span>
-                            <span class="sidebar-stat-group__helper">Detailed stats are tucked here for quick reference.</span>
-                        </div>
-                        <div class="sidebar-stat-grid sidebar-stat-grid--secondary">
-                            <div class="sidebar-stat-card sidebar-stat-card--secondary">
-                                <span class="sidebar-stat-label">Enemy Level</span>
-                                <span class="sidebar-stat-value" data-hud-stat="enemy-level">Lv.0</span>
-                            </div>
-                            <div class="sidebar-stat-card sidebar-stat-card--secondary">
-                                <span class="sidebar-stat-label">Imperial Favor</span>
-                                <span class="sidebar-stat-value" data-hud-stat="imperial-favor">5</span>
-                            </div>
-                            <div class="sidebar-stat-card sidebar-stat-card--calendar sidebar-stat-card--secondary">
-                                <span class="sidebar-stat-label">Calendar</span>
-                                <span class="sidebar-stat-value" data-hud-stat="calendar">M: 1 | W: 1/5 | D: 1/40</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="leaderboard-scroll settings-group leaderboard-panel">
-                        <div class="leaderboard" id="leaderboard">
-                            <div class="board-row">Highest Level <span id="stat-best-lvl">0</span></div>
-                            <div class="board-row">Best War Kills <span id="stat-best-kills">0</span></div>
-                            <div class="board-row">Total Kills <span id="stat-total-kills">0</span></div>
-                            <div class="board-row">Wars Fought <span id="stat-wars">0</span></div>
-                        </div>
-                    </div>
-                </section>
-
-                <section
-                    class="sidebar-section sidebar-section--tasks"
-                    id="sidebar-section-tasks"
-                    data-sidebar-section="tasks"
-                    role="tabpanel"
-                    aria-labelledby="sidebar-tab-tasks"
-                >
-                    <div class="mandates-panel__inner">
-                        <div class="mandates-panel__header">
-                            <div class="mandates-panel__eyebrow">Tasks</div>
-                            <div class="mandates-panel__title">Imperial Mandates</div>
-                        </div>
-                        <div class="mandates-panel__body" id="mandates-panel-body">
-                            <p class="mandates-panel__empty">No active mandates yet.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <section
-                    class="sidebar-section sidebar-section--standing"
-                    id="sidebar-section-standing"
-                    data-sidebar-section="standing"
-                    role="tabpanel"
-                    aria-labelledby="sidebar-tab-standing"
-                >
-                    <div class="reputation-panel__inner">
-                        <div class="reputation-panel__header">
-                            <div class="reputation-panel__eyebrow">Standing</div>
-                            <div class="reputation-panel__title">Faction Reputation</div>
-                        </div>
-                        <div class="reputation-panel__body" id="reputation-panel-body">
-                            <p class="reputation-panel__empty">Standing reports will appear here.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <section
-                    class="sidebar-section sidebar-section--settings"
+                    class="sidebar-section sidebar-section--settings is-active"
                     id="sidebar-section-settings"
                     data-sidebar-section="settings"
                     role="tabpanel"

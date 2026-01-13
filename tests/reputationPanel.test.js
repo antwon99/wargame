@@ -40,20 +40,12 @@ async function testReputationPanelRender() {
 
 async function testReputationPanelToggleStates() {
     const originalDocument = global.document;
-    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
+        doc.register('reputation-panel');
         doc.register('reputation-panel-body');
         const sidebar = doc.register('sidebar');
-        doc.register('sidebar-section-stats');
-        doc.register('sidebar-section-tasks');
-        const standingSection = doc.register('sidebar-section-standing');
-        doc.register('sidebar-section-settings');
-        doc.register('sidebar-tab-stats', createStubElement('button'));
-        doc.register('sidebar-tab-tasks', createStubElement('button'));
-        doc.register('sidebar-tab-standing', createStubElement('button'));
-        doc.register('sidebar-tab-settings', createStubElement('button'));
         const btn = doc.register('btn-reputation', createStubElement('button'));
         doc.querySelectorAll = (selector) => {
             if (selector === '[data-mandates-trigger]') return [];
@@ -61,43 +53,37 @@ async function testReputationPanelToggleStates() {
             return [];
         };
         global.document = doc;
-        global.window = { innerWidth: 480 };
 
         const { setupUIBindings } = await import('../scripts/uiBindings.js');
         setupUIBindings({});
 
         btn.onclick();
-        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on first click');
-        assert.ok(standingSection.classList.contains('is-active'), 'standing section should become active');
-        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when section opens');
+        const panel = doc.getElementById('reputation-panel');
+        assert.ok(panel.classList.contains('open'), 'reputation flyout should open on click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'reputation flyout should be visible to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when flyout opens');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed when opening reputation');
 
         btn.onclick();
-        assert.ok(!sidebar.classList.contains('open'), 'sidebar should close when clicking again');
+        assert.ok(!panel.classList.contains('open'), 'reputation flyout should close on second click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'reputation flyout should be hidden to assistive tech');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
     } finally {
         global.document = originalDocument;
-        global.window = originalWindow;
     }
 }
 
 async function testReputationPanelClosesMandatesPanel() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
-    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
+        doc.register('mandates-panel');
         doc.register('mandates-panel-body');
+        doc.register('reputation-panel');
         doc.register('reputation-panel-body');
         const sidebar = doc.register('sidebar');
-        const tasksSection = doc.register('sidebar-section-tasks');
-        const standingSection = doc.register('sidebar-section-standing');
-        doc.register('sidebar-section-stats');
-        doc.register('sidebar-section-settings');
-        doc.register('sidebar-tab-stats', createStubElement('button'));
-        doc.register('sidebar-tab-tasks', createStubElement('button'));
-        doc.register('sidebar-tab-standing', createStubElement('button'));
-        doc.register('sidebar-tab-settings', createStubElement('button'));
         const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
         const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
         doc.querySelectorAll = (selector) => {
@@ -106,7 +92,6 @@ async function testReputationPanelClosesMandatesPanel() {
             return [];
         };
         global.document = doc;
-        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -124,19 +109,22 @@ async function testReputationPanelClosesMandatesPanel() {
         setupUIBindings(game);
 
         mandatesBtn.onclick();
-        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on click');
-        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
+        const mandatesPanel = doc.getElementById('mandates-panel');
+        const reputationPanel = doc.getElementById('reputation-panel');
+        assert.ok(mandatesPanel.classList.contains('open'), 'mandates flyout should open on click');
         assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'true', 'mandates trigger should expand');
         assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'false', 'standing trigger should remain collapsed');
+        assert.ok(!reputationPanel.classList.contains('open'), 'reputation flyout should remain closed');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed when opening mandates');
 
         reputationBtn.onclick();
-        assert.ok(standingSection.classList.contains('is-active'), 'standing section should become active');
+        assert.ok(reputationPanel.classList.contains('open'), 'reputation flyout should open when toggled');
         assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'true', 'standing trigger should expand');
         assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'false', 'mandates trigger should collapse');
+        assert.ok(!mandatesPanel.classList.contains('open'), 'mandates flyout should close when reputation opens');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
-        global.window = originalWindow;
     }
 }
 
@@ -188,7 +176,8 @@ async function testReputationPanelDesktopFlyoutToggle() {
 
 function testReputationPanelCssGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
-    assert.ok(css.includes('.reputation-panel__inner'), 'reputation panel styling should stay available inside the sidebar');
+    assert.ok(css.includes('.reputation-panel__inner'), 'reputation panel styling should stay available for flyouts');
+    assert.ok(css.includes('.hud-panel.open'), 'hud panels should expose an open state for flyouts');
     assert.ok(css.includes('.sidebar-tab.is-active'), 'sidebar tabs should have an active state');
     assert.ok(css.includes('.sidebar-section.is-active'), 'sidebar sections should define an active state');
 }

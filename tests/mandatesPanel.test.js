@@ -109,20 +109,12 @@ async function testMandatesPanelEmptyStateAndWarnings() {
 async function testMandatesPanelToggleStates() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
-    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
+        doc.register('mandates-panel');
         doc.register('mandates-panel-body');
         const sidebar = doc.register('sidebar');
-        const statsSection = doc.register('sidebar-section-stats');
-        const tasksSection = doc.register('sidebar-section-tasks');
-        doc.register('sidebar-section-standing');
-        doc.register('sidebar-section-settings');
-        doc.register('sidebar-tab-stats', createStubElement('button'));
-        doc.register('sidebar-tab-tasks', createStubElement('button'));
-        doc.register('sidebar-tab-standing', createStubElement('button'));
-        doc.register('sidebar-tab-settings', createStubElement('button'));
         const btn = doc.register('btn-mandates', createStubElement('button'));
         doc.querySelectorAll = (selector) => {
             if (selector === '[data-mandates-trigger]') return [btn];
@@ -131,7 +123,6 @@ async function testMandatesPanelToggleStates() {
         };
 
         global.document = doc;
-        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -141,40 +132,33 @@ async function testMandatesPanelToggleStates() {
         setupUIBindings({});
 
         btn.onclick();
-        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on first click');
-        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
-        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when section opens');
+        const panel = doc.getElementById('mandates-panel');
+        assert.ok(panel.classList.contains('open'), 'mandates flyout should open on click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'mandates flyout should be visible to assistive tech');
+        assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when flyout opens');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed when opening mandates');
 
         btn.onclick();
-        assert.ok(!sidebar.classList.contains('open'), 'sidebar should close when clicking Tasks again');
+        assert.ok(!panel.classList.contains('open'), 'mandates flyout should close on second click');
+        assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'mandates flyout should be hidden to assistive tech');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
-        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should remain selected after closing');
-        assert.ok(!statsSection.classList.contains('is-active'), 'stats section should not be active after task selection');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
-        global.window = originalWindow;
     }
 }
 
 async function testMandatesPanelClosesReputationPanel() {
     const originalDocument = global.document;
     const originalImperial = global.ImperialMandates;
-    const originalWindow = global.window;
     try {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
+        doc.register('mandates-panel');
         doc.register('mandates-panel-body');
+        doc.register('reputation-panel');
         doc.register('reputation-panel-body');
         const sidebar = doc.register('sidebar');
-        const tasksSection = doc.register('sidebar-section-tasks');
-        const standingSection = doc.register('sidebar-section-standing');
-        doc.register('sidebar-section-stats');
-        doc.register('sidebar-section-settings');
-        doc.register('sidebar-tab-stats', createStubElement('button'));
-        doc.register('sidebar-tab-tasks', createStubElement('button'));
-        doc.register('sidebar-tab-standing', createStubElement('button'));
-        doc.register('sidebar-tab-settings', createStubElement('button'));
         const mandatesBtn = doc.register('btn-mandates', createStubElement('button'));
         const reputationBtn = doc.register('btn-reputation', createStubElement('button'));
         doc.querySelectorAll = (selector) => {
@@ -184,7 +168,6 @@ async function testMandatesPanelClosesReputationPanel() {
         };
 
         global.document = doc;
-        global.window = { innerWidth: 480 };
         global.ImperialMandates = {
             describeDeadlineTick: () => ({ label: 'Month 1', remainingDays: 4 }),
             getActiveMandates: () => []
@@ -202,19 +185,22 @@ async function testMandatesPanelClosesReputationPanel() {
         setupUIBindings(game);
 
         reputationBtn.onclick();
-        assert.ok(sidebar.classList.contains('open'), 'sidebar should open on click');
-        assert.ok(standingSection.classList.contains('is-active'), 'standing section should become active');
+        const mandatesPanel = doc.getElementById('mandates-panel');
+        const reputationPanel = doc.getElementById('reputation-panel');
+        assert.ok(reputationPanel.classList.contains('open'), 'reputation flyout should open on click');
         assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'true', 'standing trigger should expand');
         assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'false', 'mandates trigger should remain collapsed');
+        assert.ok(!mandatesPanel.classList.contains('open'), 'mandates flyout should stay closed');
+        assert.ok(!sidebar.classList.contains('open'), 'sidebar should remain closed when opening reputation');
 
         mandatesBtn.onclick();
-        assert.ok(tasksSection.classList.contains('is-active'), 'tasks section should become active');
+        assert.ok(mandatesPanel.classList.contains('open'), 'mandates flyout should open when toggled');
         assert.strictEqual(mandatesBtn.getAttribute('aria-expanded'), 'true', 'mandates trigger should expand');
         assert.strictEqual(reputationBtn.getAttribute('aria-expanded'), 'false', 'standing trigger should collapse');
+        assert.ok(!reputationPanel.classList.contains('open'), 'reputation flyout should close when mandates open');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;
-        global.window = originalWindow;
     }
 }
 
@@ -267,7 +253,8 @@ function testMandatesPanelTransformsAndPointerGuards() {
     const css = fs.readFileSync('style.css', 'utf8');
     assert.ok(css.includes('.sidebar-tabs'), 'sidebar tabs should be styled for section switching');
     assert.ok(css.includes('.sidebar-section.is-active'), 'sidebar sections should define an active state');
-    assert.ok(css.includes('.mandates-panel__inner'), 'mandates panel styling should stay available inside the sidebar');
+    assert.ok(css.includes('.hud-panel.open'), 'hud panels should expose an open state for flyouts');
+    assert.ok(css.includes('.mandates-panel__inner'), 'mandates panel styling should stay available for flyouts');
 }
 
 async function testRenderSurvivesDomRelocation() {
