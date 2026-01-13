@@ -460,6 +460,7 @@
             display: none;
             align-items: center;
         }
+        #btn-overview { display: none; }
         .overview-panel {
             position: absolute;
             top: calc(100% + 6px);
@@ -638,6 +639,8 @@
                 align-items: center;
             }
             .overview-toggle { display: inline-flex; }
+            #btn-overview { display: inline-flex; }
+            #overview-panel { display: flex; }
             .overview-panel { display: flex; }
             .calendar-pill { padding: 4px 8px; max-width: 220px; flex: 0 1 auto; }
             .calendar-readout { font-size: 0.8rem; }
