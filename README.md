@@ -1,6 +1,6 @@
 # Hex Kingdom
 
-![CI](https://github.com/antwon99/wargame/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/twonthebuilder/wargame/actions/workflows/ci.yml/badge.svg)
 
 This repository originated as a single-page prototype for the Hex Kingdom wargame experience, intended for initial testing and rapid prototyping. However, as development has progressed, it is gradually undergoing de-compartmentalization. The user interface is located in `Wargame.html` with the ES module entry point `scripts/script.js`, which stitches together the overworld loop, combat engine, UI bindings, persistence, and audio systems (all housed under `scripts/`).
 
@@ -8,7 +8,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/antwon99/wargame
+   git clone https://github.com/twonthebuilder/wargame
    cd wargame
    ```
 2. Open the game:
