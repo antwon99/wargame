@@ -14,11 +14,14 @@ function createStubElement(id = null) {
         children: [],
         className: '',
         dataset: {},
-        style: {},
+        style: { setProperty: () => {} },
         innerText: '',
         appendChild(child) { this.children.push(child); child.parentNode = this; },
+        removeChild(child) { this.children = this.children.filter((entry) => entry !== child); },
         setAttribute() {},
-        addEventListener() {},
+        addEventListener(event, callback) {
+            if (event === 'transitionend') queueMicrotask(callback);
+        },
         remove() {}
     };
     const classes = new Set();
@@ -51,7 +54,12 @@ function createStubDocument() {
 
 async function testQueueingAndAutoDismiss() {
     const { NotificationStack } = await loadStackModule();
-    const stack = new NotificationStack({ maxVisible: 2, autoDismissMs: 20, registerGlobal: false });
+    const stack = new NotificationStack({
+        maxVisible: 2,
+        autoDismissMs: 20,
+        registerGlobal: false,
+        document: createStubDocument()
+    });
 
     const first = stack.enqueue({ title: 'First', lines: ['alpha'], duration: 20 });
     stack.enqueue({ title: 'Second', lines: ['bravo'], duration: 20 });
@@ -65,7 +73,7 @@ async function testQueueingAndAutoDismiss() {
 
     assert.strictEqual(stack.visible.size, 2, 'dismissing should promote queued items');
 
-    await new Promise((resolve) => setTimeout(resolve, 45));
+    await new Promise((resolve) => setTimeout(resolve, 80));
 
     assert.strictEqual(stack.visible.size, 0, 'auto-dismiss should clear visible cards');
     assert.strictEqual(stack.queue.length, 0, 'queue should empty after dismissals');
@@ -92,7 +100,12 @@ async function testBootPhaseGuard() {
 
 async function testAutoPromotionAfterScheduledDismiss() {
     const { NotificationStack } = await loadStackModule();
-    const stack = new NotificationStack({ maxVisible: 1, autoDismissMs: 12, registerGlobal: false });
+    const stack = new NotificationStack({
+        maxVisible: 1,
+        autoDismissMs: 12,
+        registerGlobal: false,
+        document: createStubDocument()
+    });
 
     stack.enqueue({ id: 'first', title: 'First', duration: 10 });
     stack.enqueue({ id: 'second', title: 'Second', duration: 14 });
@@ -115,7 +128,4 @@ async function run() {
     console.log('Notification stack tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

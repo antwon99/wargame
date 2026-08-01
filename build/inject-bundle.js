@@ -23,9 +23,9 @@ function injectBundleTag(sourceHtml, bundlePath) {
 }
 
 function copyStatic() {
-    const styleSrc = path.resolve('style.css');
-    const styleDest = path.join(distDir, 'style.css');
-    if (fs.existsSync(styleSrc)) fs.copyFileSync(styleSrc, styleDest);
+    fs.copyFileSync(path.resolve('index.html'), path.join(distDir, 'index.html'));
+    fs.copyFileSync(path.resolve('style.css'), path.join(distDir, 'style.css'));
+    fs.cpSync(path.resolve('sfx'), path.join(distDir, 'sfx'), { recursive: true });
 }
 
 function main() {

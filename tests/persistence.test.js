@@ -566,7 +566,4 @@ async function runTests() {
     console.log('All persistence tests passed.');
 }
 
-runTests().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await runTests();

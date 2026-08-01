@@ -113,6 +113,8 @@ function loadEntryModule() {
                     };
                 case './mandates/imperialMandates.js':
                     return { initImperialMandates: () => stubs.imperialMandates };
+                case './bootOverlay.js':
+                    return { BootOverlay: {} };
                 case './storageProbe.js':
                     return { initStorageProbe: () => stubs.storageProbe };
                 case './script.js':
@@ -175,7 +177,4 @@ async function run() {
     console.log('Bundle entry dependencies test passed.');
 }
 
-run().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+await run();

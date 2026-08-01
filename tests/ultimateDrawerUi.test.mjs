@@ -9,6 +9,7 @@ function createStubElement(id = '') {
         innerText: '',
         title: '',
         disabled: false,
+        appendChild: () => {},
         classList: {
             toggle: () => {}
         },
@@ -26,6 +27,7 @@ function createStubDocument() {
     };
     return {
         body: register('body'),
+        createElement: () => createStubElement(),
         getElementById: (id) => elements.get(id) || null,
         querySelector: (selector) => {
             const match = selector.match(/\[data-ultimate-(button|level|effect)="(.+)"\]/);
@@ -53,7 +55,7 @@ function testUltimateDrawerUpdates() {
     const rushButton = createStubElement('buy-ultimate-rush');
     rushButton.querySelector = (selector) => {
         if (selector === '[data-ultimate-label="rush"]') return rushLabel;
-        if (selector === '[data-ultimate-cost="rush"]') return rushCost;
+        if (selector === '[data-ultimate-cost="rush"]' || selector === '[data-ultimate-cost]') return rushCost;
         return null;
     };
 

@@ -29,6 +29,15 @@ function buildGameState() {
 async function run() {
     const adapter = buildAdapterSpy();
     const originalRebelSystem = global.RebelSystem;
+    const originalTutorialHandler = global.TutorialHandler;
+    global.TutorialHandler = {
+        spawnFrontierSweepCamp: () => ({
+            hex: { toString: () => '1,0' },
+            type: 'rebelcamp',
+            prevType: 'field'
+        })
+    };
+    createImperialMandates.initImperialMandatesCore?.(global);
     global.RebelSystem = {
         spawnRebelCampNearFrontier: () => ({
             hex: { toString: () => '1,0' },
@@ -37,7 +46,6 @@ async function run() {
         })
     };
 
-    createImperialMandates.initImperialMandatesCore?.(global);
     const mandates = createImperialMandates(adapter, global);
     mandates.resetForNewCampaign();
 
@@ -53,9 +61,8 @@ async function run() {
     mandates.resetForNewCampaign();
     if (originalRebelSystem) global.RebelSystem = originalRebelSystem;
     else delete global.RebelSystem;
+    if (originalTutorialHandler) global.TutorialHandler = originalTutorialHandler;
+    else delete global.TutorialHandler;
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

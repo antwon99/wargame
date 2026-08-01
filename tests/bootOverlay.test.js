@@ -18,6 +18,12 @@ function createStubElement() {
         classList: {
             add: (...names) => names.forEach(name => classSet.add(name)),
             remove: (...names) => names.forEach(name => classSet.delete(name)),
+            toggle: (name, force) => {
+                const enabled = force ?? !classSet.has(name);
+                if (enabled) classSet.add(name);
+                else classSet.delete(name);
+                return enabled;
+            },
             contains: name => classSet.has(name)
         }
     };

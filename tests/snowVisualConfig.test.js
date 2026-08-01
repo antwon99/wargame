@@ -31,7 +31,4 @@ async function run() {
     console.log('Snow visual config tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

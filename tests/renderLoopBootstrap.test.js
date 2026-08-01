@@ -7,7 +7,7 @@ Persistence.initPersistence?.(globalThis);
 const rafCalls = [];
 const canvasStub = { width: 0, height: 0, getContext: () => ({}) };
 const genericElement = {
-    style: {},
+    style: { setProperty: () => {} },
     textContent: '',
     addEventListener: () => {},
     onclick: null,

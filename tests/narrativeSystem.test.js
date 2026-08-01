@@ -98,7 +98,4 @@ async function run() {
     console.log('Narrative system tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

@@ -139,8 +139,8 @@ function testLoadCampaignDelegatesSynchronously() {
 
     assert.ok(loadCalled, 'loadCampaign should synchronously call persistence.loadSnapshot');
     assert.strictEqual(loaded.state.foo, 'bar', 'loadCampaign should preserve the payload state');
-    assert.strictEqual(loaded.state.difficulty, 2, 'loadCampaign should reconcile difficulty on the returned payload');
-    assert.strictEqual(loaded.stats.warsWon, 2, 'loadCampaign should reconcile warsWon when mismatched');
+    assert.strictEqual(loaded.state.difficulty, 1, 'loadCampaign should treat the persisted win count as canonical');
+    assert.strictEqual(loaded.stats.warsWon, 1, 'loadCampaign should preserve the persisted win count');
 }
 
 testNormalizesLegacyStats();

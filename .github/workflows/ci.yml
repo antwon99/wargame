@@ -25,8 +25,16 @@ jobs:
       - name: Run lint checks
         run: npm run lint
 
+      - name: Validate HTML
+        uses: Cyb3r-Jak3/html5validator-action@v7.2.0
+        with:
+          root: .
+
       - name: Build bundle
         run: npm run build
+
+      - name: Smoke test built site
+        run: npm run test:dist
 
       - name: Run tests
         run: npm test

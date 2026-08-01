@@ -266,7 +266,4 @@ async function run() {
     console.log('Script module bootstrap tests passed.');
 }
 
-run().catch(error => {
-    console.error(error);
-    process.exit(1);
-});
+await run();

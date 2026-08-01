@@ -61,7 +61,4 @@ async function run() {
     console.log('Timekeeper tick conversion tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();
