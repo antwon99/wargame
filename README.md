@@ -50,6 +50,7 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
   ```bash
   npm run build
   ```
+
   - The build step emits a hashed bundle under `dist/assets/` and injects it into `dist/Wargame.html` with `defer`.
   - Legacy globals are preserved via `scripts/globalShim.js` so existing runtime checks continue to work in the bundle.
 
@@ -58,13 +59,13 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
 - `scripts/snowVisualConfig.js` drives the seasonal snow overlay and coverage. The config determines which months render snow (October–March), the maximum gradient height, and overlay opacity. Temporary snow toggles can be flipped from the in-game debug overlay (F3) alongside the audio diagnostics.
 - Per-hex visibility overlays can be supplied via the `drawTileOverlay` extension point passed into `drawOverworldTiles()`; the default implementation shades unseen/seen tiles while keeping snow separate from tile shrouds.
 
-
 ### Testing
 
 - Run the consolidated suite with:
   ```bash
   npm test
   ```
+
   - The test runner stubs DOM APIs and executes both `.js` and `.mjs` suites.
 
 ### Linting and formatting
@@ -79,12 +80,22 @@ This repository originated as a single-page prototype for the Hex Kingdom wargam
   npm run format
   ```
 
+### HTML validation
+
+- Install the same validator version used by CI, then validate both HTML entry points:
+  ```bash
+  python -m pip install html5validator==0.4.2
+  npm run validate:html
+  ```
+- The validation command checks `Wargame.html` and `index.html` with the Nu HTML
+  Checker and exits with a nonzero status when either document contains malformed
+  HTML or invalid ARIA markup.
+
 ## Audio
 
 - MP3s in `/sfx` now power all game sounds: war drums, swords, arrows, towers/castles, legendary attacks, victory/defeat, city unlocks, forest claims, and an overworld ambient loop. Effects are grouped into `/sfx/ambient`, `/sfx/combat`, and `/sfx/system` subfolders, with `/sfx/ui` reserved for future interface cues.
 - Combat transitions now run through `enterCombat()` / `exitCombat()` in `scripts/audio.js` so war drums hit immediately and ambience swaps back to territory after victory/defeat/retreat.
 - See `docs/audio.md` for the event map and integration notes.
-
 
 ## Repository Layout
 

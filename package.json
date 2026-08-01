@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rollup -c && node build/inject-bundle.js",
     "lint": "eslint .",
+    "validate:html": "node scripts/validate-html.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node tests/run-all.js",
