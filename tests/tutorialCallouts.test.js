@@ -214,6 +214,22 @@ function testCalloutRepositionsWithFramesAndResize() {
     });
 }
 
+function testCalloutBodyTreatsHtmlAsText() {
+    withStubbedDom((TutorialCallouts, env) => {
+        const payload = '<img src="invalid" onerror="globalThis.calloutPayloadExecuted = true">Read this';
+        globalThis.calloutPayloadExecuted = false;
+
+        TutorialCallouts.showTileCallout({}, { element: env.anchorEl }, { body: payload });
+        const callout = env.document.getElementById('game-container').children.find((el) => el.className === 'tile-callout');
+        const body = callout.children.find((el) => el.className === 'tile-callout__body');
+
+        assert.strictEqual(body.textContent, payload, 'HTML-like body copy should be displayed verbatim as text');
+        assert.strictEqual(body.children.length, 0, 'body copy should not create executable DOM nodes');
+        assert.strictEqual(globalThis.calloutPayloadExecuted, false, 'event-handler attributes should not execute');
+        delete globalThis.calloutPayloadExecuted;
+    });
+}
+
 function run() {
     testCalloutAnchorsAboveTile();
     testHideRemovesElements();
@@ -221,6 +237,7 @@ function run() {
     testAutoHideUsesDefaultDuration();
     testDismissCancelsAutoHideTimer();
     testCalloutRepositionsWithFramesAndResize();
+    testCalloutBodyTreatsHtmlAsText();
     console.log('All tutorial callout tests passed.');
 }
 

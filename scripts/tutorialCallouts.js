@@ -93,9 +93,11 @@ function createTutorialCallouts(global = typeof window !== 'undefined' ? window 
     }
 
     /**
-     * Normalize callout body text so presenters that omit copy still render helpful guidance.
-     * @param {object} options callout options possibly containing body/defaultBody.
-     * @returns {string} resolved body HTML.
+     * Resolve plain-text callout copy so presenters that omit a body can use default guidance.
+     * @param {object} options Callout options possibly containing body/defaultBody text.
+     * @param {string} [options.body] Plain text displayed in the callout body; HTML is not rendered.
+     * @param {string} [options.defaultBody] Plain-text fallback used when body is empty.
+     * @returns {string} Resolved body text.
      */
     function resolveBodyCopy(options = {}) {
         const primary = typeof options.body === 'string' ? options.body.trim() : '';
@@ -109,7 +111,10 @@ function createTutorialCallouts(global = typeof window !== 'undefined' ? window 
      * onConfirm callback fires immediately so logic relying on acknowledgement can proceed.
      * @param {object} game live game instance.
      * @param {object} tile overworld tile to anchor against.
-     * @param {object} options presentation options (title, body, buttonText, onConfirm, duration).
+     * @param {object} options Presentation options (title, buttonText, onConfirm, duration).
+     * @param {string} [options.body] Plain text displayed in the callout body; HTML is not rendered.
+     * @param {string} [options.defaultBody] Plain-text fallback used when body is empty.
+     * @returns {object|null} Active callout state, or null when no DOM is available.
      */
     function showTileCallout(game, tile, options = {}) {
         const calloutOptions = { ...options, body: resolveBodyCopy(options) };
@@ -134,7 +139,7 @@ function createTutorialCallouts(global = typeof window !== 'undefined' ? window 
         if (calloutOptions.body) {
             const body = document.createElement('p');
             body.className = 'tile-callout__body';
-            body.innerHTML = calloutOptions.body;
+            body.textContent = calloutOptions.body;
             callout.appendChild(body);
         }
 
@@ -226,4 +231,3 @@ function initTutorialCallouts(target = typeof window !== 'undefined' ? window : 
 }
 
 export { createTutorialCallouts, TutorialCallouts, initTutorialCallouts };
-
