@@ -26,6 +26,7 @@ function createStubElement(id = '') {
         },
         addEventListener: () => {}
     };
+    el.focus = () => { global.document.activeElement = el; };
     Object.defineProperty(el, 'innerHTML', {
         get() { return this._innerHTML; },
         set(value) { this._innerHTML = value; this.children = []; }
@@ -39,6 +40,7 @@ function createStubDocument() {
     const register = (id, el = createStubElement(id)) => { elements.set(id, el); return el; };
     return {
         body: register('body'),
+        activeElement: null,
         listeners,
         addEventListener: (event, cb) => {
             listeners[event] = listeners[event] || [];
@@ -104,6 +106,7 @@ function testHudDrawerController() {
     buildTemplates(document);
     const shell = wireDrawerShell(document);
     const actions = registerActionButtons(document);
+    document.activeElement = actions.upg;
 
     const game = {
         research: { lives: 0 },
@@ -125,6 +128,7 @@ function testHudDrawerController() {
     assert.strictEqual(actions.upg.getAttribute('aria-controls'), 'hud-drawer', 'upgrade trigger should target the drawer shell');
     assert.strictEqual(actions.research.getAttribute('aria-controls'), 'hud-drawer', 'research trigger should target the drawer shell');
     assert.strictEqual(actions.ultimates.getAttribute('aria-controls'), 'hud-drawer', 'ultimate trigger should target the drawer shell');
+    assert.strictEqual(document.activeElement.id, 'hud-drawer-close', 'opening should focus the drawer close control');
 
     const soldierBtn = document.getElementById('buy-soldier');
     soldierBtn.onclick?.();
@@ -149,13 +153,18 @@ function testHudDrawerController() {
     assert.strictEqual(shell.drawer.getAttribute('aria-hidden'), 'true', 'drawer should hide from assistive tech after dismiss');
 
     controller.showUpgrades();
+    document.activeElement = actions.upg;
+    controller.showUpgrades();
     (document.listeners.keydown || []).forEach((handler) => handler({ key: 'Escape' }));
     assert.ok(!shell.drawer.classList.contains('open'), 'escape key should close the drawer');
+    assert.strictEqual(document.activeElement, actions.upg, 'escape should restore focus to the opening trigger');
 
+    document.activeElement = actions.upg;
     controller.showUpgrades();
     const closeBtn = document.getElementById('hud-drawer-close');
     closeBtn.onclick?.();
     assert.ok(!shell.drawer.classList.contains('open'), 'close button should hide the drawer when tapped');
+    assert.strictEqual(document.activeElement, actions.upg, 'close button should restore focus to the opening trigger');
 
     restoreGlobals(originalDocument, originalWindow);
     console.log('HUD drawer controller tests passed.');

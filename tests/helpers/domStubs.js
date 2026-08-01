@@ -49,10 +49,19 @@ export function createStubElement(tag = 'div') {
  */
 export function createStubDocument() {
     const elements = new Map();
-    return {
+    const listeners = {};
+    const document = {
         createElement: (tag) => createStubElement(tag),
         getElementById: (id) => elements.get(id) || null,
         querySelectorAll: () => [],
+        listeners,
+        addEventListener: (type, listener) => {
+            listeners[type] = listeners[type] || [];
+            listeners[type].push(listener);
+        },
         register: (id, el = createStubElement()) => { elements.set(id, el); return el; }
     };
+    document.body = document.register('body');
+    document.activeElement = document.body;
+    return document;
 }
