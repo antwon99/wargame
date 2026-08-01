@@ -137,8 +137,8 @@
                     </div>
 
                     <!-- HUD DRAWER -->
-                    <div id="hud-drawer" class="hud-drawer" aria-hidden="true" aria-label="HUD drawer">
-                        <div class="hud-drawer__panel" role="dialog" aria-modal="false">
+                    <div id="hud-drawer" class="hud-drawer" aria-hidden="true">
+                        <div class="hud-drawer__panel" role="dialog" aria-modal="false" aria-labelledby="hud-drawer-title" aria-describedby="hud-drawer-subtitle">
                             <div class="hud-drawer__header">
                                 <div class="hud-drawer__heading">
                                     <p class="hud-drawer__eyebrow" id="hud-drawer-eyebrow">Imperial Engineering</p>
@@ -243,8 +243,8 @@
 
                 <div class="sidebar-section sidebar-section--settings">
                     <h4 style="margin:0;">Settings</h4>
-                    <div class="settings-group" aria-label="Audio Settings">
-                        <div class="settings-group__label">Audio</div>
+                    <fieldset class="settings-group">
+                        <legend class="settings-group__label">Audio</legend>
                         <label class="setting setting--range">
                             <span class="setting__meta">
                                 <span>Master Volume</span>
@@ -266,10 +266,10 @@
                             </span>
                             <input type="range" min="0" max="100" value="100" data-audio-setting="sfx" aria-label="Sound Effects Volume">
                         </label>
-                    </div>
+                    </fieldset>
 
-                    <div class="settings-group" aria-label="Visual Settings">
-                        <div class="settings-group__label">Visuals</div>
+                    <fieldset class="settings-group">
+                        <legend class="settings-group__label">Visuals</legend>
                         <label class="setting setting--toggle">
                             <input type="checkbox" data-visual-toggle="snowEnabled" aria-label="Snow overlay enabled">
                             <span>Snow Overlay</span>
@@ -278,16 +278,16 @@
                             <input type="checkbox" data-visual-toggle="snowfallEnabled" aria-label="Seasonal snowfall enabled">
                             <span>Seasonal Snowfall</span>
                         </label>
-                    </div>
+                    </fieldset>
 
-                    <div class="settings-group" aria-label="General Settings">
-                        <div class="settings-group__label">General</div>
+                    <fieldset class="settings-group">
+                        <legend class="settings-group__label">General</legend>
                         <label class="setting setting--toggle">
                             <input type="checkbox" data-general-toggle="paintToClaim" aria-label="Paint-to-claim enabled">
                             <span>Paint-to-Claim</span>
                         </label>
                         <p class="setting__hint">Enable here to drag-claim frontier tiles while exploring the overworld.</p>
-                    </div>
+                    </fieldset>
                 </div>
 
                 <div class="sidebar-section sidebar-section--scrollable">
