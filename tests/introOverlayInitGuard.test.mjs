@@ -102,7 +102,4 @@ async function run() {
     console.log('Intro overlay init guard test passed.');
 }
 
-run().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+await run();

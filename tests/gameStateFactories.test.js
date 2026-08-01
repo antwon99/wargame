@@ -31,7 +31,4 @@ async function run() {
     assert.strictEqual(freshToggles.snow.enabled, true, 'Feature toggles should clone snow defaults.');
 }
 
-run().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+await run();

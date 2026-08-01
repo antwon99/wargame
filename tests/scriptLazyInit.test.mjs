@@ -59,7 +59,4 @@ async function run() {
     console.log('Script lazy bootstrap test passed.');
 }
 
-run().catch(error => {
-    console.error(error);
-    process.exit(1);
-});
+await run();

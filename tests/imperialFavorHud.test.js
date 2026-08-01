@@ -65,7 +65,4 @@ async function run() {
     console.log('Imperial favor HUD tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

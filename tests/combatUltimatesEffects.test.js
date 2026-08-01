@@ -165,7 +165,7 @@ function testManpowerAdjustsSpawnRateAndDoubleSpawnsOnlyWhileActive() {
 function testGoldUltimateCullsUnitsOnce() {
     const goldGame = buildBaseGame();
     goldGame.gold = 0;
-    goldGame.combat.warElapsedMs = 30000;
+    goldGame.combat.warElapsedMs = 60000;
     goldGame.combat.units = [
         { type: 'soldier', owner: 'player', hp: 100, dmg: 10, range: 1, speed: 1, cooldown: 0, pos: new Hex(0, 0) },
         { type: 'soldier', owner: 'player', hp: 100, dmg: 10, range: 1, speed: 1, cooldown: 0, pos: new Hex(0, 0) },
@@ -173,7 +173,7 @@ function testGoldUltimateCullsUnitsOnce() {
         { type: 'soldier', owner: 'player', hp: 100, dmg: 10, range: 1, speed: 1, cooldown: 0, pos: new Hex(0, 0) },
         { type: 'soldier', owner: 'enemy', hp: 100, dmg: 10, range: 1, speed: 1, cooldown: 0, pos: new Hex(0, 0) }
     ];
-    goldGame.combat.ultimates = buildUltimatesState();
+    goldGame.combat.ultimates = buildUltimatesState({}, 'gold');
     goldGame.combat.ultimates.activeEffects.gold = { activatedAtMs: 0 };
 
     const expectedCull = Math.floor(4 * resolveUltimateLevelValue(

@@ -485,7 +485,4 @@ async function run() {
     console.log('Land reclamation flow tests passed.');
 }
 
-run().catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-});
+await run();

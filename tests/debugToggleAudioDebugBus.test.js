@@ -45,7 +45,4 @@ async function run() {
     console.log('Debug panel audio bus hydration test passed.');
 }
 
-run().catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+await run();
