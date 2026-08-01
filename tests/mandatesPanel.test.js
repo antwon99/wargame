@@ -115,6 +115,11 @@ async function testMandatesPanelToggleStates() {
         const panel = doc.register('mandates-panel');
         const body = doc.register('mandates-panel-body');
         const btn = doc.register('btn-mandates', createStubElement('button'));
+        const close = doc.register('btn-mandates-close', createStubElement('button'));
+        btn.focus = () => { doc.activeElement = btn; };
+        close.focus = () => { doc.activeElement = close; };
+        panel.contains = (element) => element === close;
+        doc.activeElement = btn;
 
         global.document = doc;
         global.ImperialMandates = {
@@ -129,11 +134,19 @@ async function testMandatesPanelToggleStates() {
         assert.ok(panel.classList.contains('open'), 'panel should toggle open on first click');
         assert.strictEqual(panel.getAttribute('aria-hidden'), 'false', 'open panel should flip aria-hidden to false');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'true', 'trigger should mark expanded when panel opens');
+        assert.strictEqual(doc.activeElement, close, 'opening should focus the panel close control');
+        assert.strictEqual(panel.style.display, 'block', 'opening should expose the panel to keyboard focus');
 
-        btn.onclick();
+        (doc.listeners.keydown || []).forEach((handler) => handler({ key: 'Escape' }));
         assert.ok(!panel.classList.contains('open'), 'panel should close when clicking Tasks again');
         assert.strictEqual(panel.getAttribute('aria-hidden'), 'true', 'closing restores aria-hidden guard');
         assert.strictEqual(btn.getAttribute('aria-expanded'), 'false', 'trigger should broadcast collapse state');
+        assert.strictEqual(panel.style.display, 'none', 'closing should remove descendants from keyboard navigation');
+        assert.strictEqual(doc.activeElement, btn, 'escape should restore focus to the mandates trigger');
+
+        btn.onclick();
+        close.onclick();
+        assert.strictEqual(doc.activeElement, btn, 'close button should restore focus to the mandates trigger');
     } finally {
         global.document = originalDocument;
         global.ImperialMandates = originalImperial;

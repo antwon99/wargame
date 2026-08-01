@@ -215,6 +215,7 @@ function createHudDrawerController(game) {
     }
 
     let activeView = drawer.dataset.activeView || null;
+    let returnFocusTarget = null;
 
     const updateTriggerState = (mode, open) => {
         if (drawer) drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
@@ -245,19 +246,26 @@ function createHudDrawerController(game) {
         if (body?.scrollTo) body.scrollTo({ top: 0 });
     };
 
-    const hide = () => {
+    const hide = (restoreFocus = false) => {
+        const focusWasInside = drawer.contains?.(document.activeElement);
         drawer.classList.remove('open');
         drawer.style.display = 'none';
         activeView = null;
         updateTriggerState(null, false);
+        if ((restoreFocus || focusWasInside) && returnFocusTarget?.focus) {
+            returnFocusTarget.focus();
+        }
     };
 
     const show = (mode) => {
+        const trigger = triggers[mode];
+        returnFocusTarget = trigger;
         activeView = mode;
         swapContent(mode);
         drawer.style.display = 'block';
         drawer.classList.add('open');
         updateTriggerState(mode, true);
+        closeBtn?.focus?.();
     };
 
     const hideIfActive = (mode) => {
@@ -273,12 +281,12 @@ function createHudDrawerController(game) {
     };
 
     const onKeyDown = (evt) => {
-        if (evt.key === 'Escape' && drawer.classList.contains('open')) hide();
+        if (evt.key === 'Escape' && drawer.classList.contains('open')) hide(true);
     };
 
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onKeyDown);
-    if (closeBtn) closeBtn.onclick = () => hide();
+    if (closeBtn) closeBtn.onclick = () => hide(true);
 
     return {
         showUpgrades: () => show('upgrades'),
@@ -355,7 +363,7 @@ export function setupUIBindings(game) {
     if (ultimatesBtn) ultimatesBtn.onclick = () => drawerController.showUltimates?.();
 
     const drawerClose = document.getElementById('hud-drawer-close');
-    if (drawerClose) drawerClose.onclick = () => drawerController.hide?.();
+    if (drawerClose) drawerClose.onclick = () => drawerController.hide?.(true);
 
     const sidebarToggle = document.getElementById('btn-sidebar-toggle');
     if (sidebarToggle) sidebarToggle.onclick = () => game.toggleSidebar();
@@ -372,7 +380,8 @@ export function setupUIBindings(game) {
     }
 
     const mandatesClose = document.getElementById('btn-mandates-close');
-    if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false);
+    if (mandatesClose) mandatesClose.onclick = () => toggleMandatesPanel(false, true);
+    toggleMandatesPanel(false);
 
     const reputationBtn = document.getElementById('btn-reputation');
     if (reputationBtn) {
@@ -383,7 +392,18 @@ export function setupUIBindings(game) {
     }
 
     const reputationClose = document.getElementById('btn-reputation-close');
-    if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false);
+    if (reputationClose) reputationClose.onclick = () => toggleReputationPanel(game, false, true);
+    toggleReputationPanel(game, false);
+
+    document.addEventListener?.('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (document.getElementById('mandates-panel')?.classList.contains('open')) {
+            toggleMandatesPanel(false, true);
+        }
+        if (document.getElementById('reputation-panel')?.classList.contains('open')) {
+            toggleReputationPanel(game, false, true);
+        }
+    });
 
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) resetBtn.onclick = () => { game.resetProgress(); game.updateSaveSlotsUI(); };
@@ -512,16 +532,29 @@ function toggleSidebar(forceState) {
  * Toggle the lightweight mandates/task flyout without blocking canvas pointer events.
  * The container keeps pointer-events disabled so the map remains interactive while open.
  * @param {boolean} [forceState] optional explicit open/close state.
+ * @param {boolean} [restoreFocus=false] whether closing should return focus to the opener.
+ * @returns {boolean} whether the panel is open after the update.
  */
-function toggleMandatesPanel(forceState) {
+let mandatesReturnFocusTarget = null;
+
+function toggleMandatesPanel(forceState, restoreFocus = false) {
     const panel = document.getElementById('mandates-panel');
     if (!panel) return false;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
-    if (shouldOpen) renderMandatesPanel();
-    panel.classList.toggle('open', shouldOpen);
-    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-mandates');
+    if (shouldOpen) {
+        mandatesReturnFocusTarget = trigger;
+        renderMandatesPanel();
+    }
+    panel.classList.toggle('open', shouldOpen);
+    panel.style.display = shouldOpen ? 'block' : 'none';
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    if (shouldOpen) {
+        document.getElementById('btn-mandates-close')?.focus?.();
+    } else if ((restoreFocus || panel.contains?.(document.activeElement)) && mandatesReturnFocusTarget?.focus) {
+        mandatesReturnFocusTarget.focus();
+    }
     return shouldOpen;
 }
 
@@ -544,16 +577,29 @@ const DEFAULT_FACTION_STANDINGS = {
  * Toggle the faction reputation panel without blocking map pointer events.
  * @param {object} game live game singleton.
  * @param {boolean} [forceState] optional explicit open/close state.
+ * @param {boolean} [restoreFocus=false] whether closing should return focus to the opener.
+ * @returns {boolean} whether the panel is open after the update.
  */
-function toggleReputationPanel(game, forceState) {
+let reputationReturnFocusTarget = null;
+
+function toggleReputationPanel(game, forceState, restoreFocus = false) {
     const panel = document.getElementById('reputation-panel');
     if (!panel) return false;
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !panel.classList.contains('open');
-    if (shouldOpen) renderReputationPanel(game);
-    panel.classList.toggle('open', shouldOpen);
-    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     const trigger = document.getElementById('btn-reputation');
+    if (shouldOpen) {
+        reputationReturnFocusTarget = trigger;
+        renderReputationPanel(game);
+    }
+    panel.classList.toggle('open', shouldOpen);
+    panel.style.display = shouldOpen ? 'block' : 'none';
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    if (shouldOpen) {
+        document.getElementById('btn-reputation-close')?.focus?.();
+    } else if ((restoreFocus || panel.contains?.(document.activeElement)) && reputationReturnFocusTarget?.focus) {
+        reputationReturnFocusTarget.focus();
+    }
     return shouldOpen;
 }
 
