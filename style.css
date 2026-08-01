@@ -16,7 +16,6 @@
             background-color: var(--bg-color);
             color: white;
             font-family: 'Segoe UI', system-ui, sans-serif;
-            touch-action: none;
             user-select: none;
         }
 
@@ -227,7 +226,13 @@
             z-index: 10;
             pointer-events: none;
         }
-        canvas { display: block; width: 100%; height: 100%; }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Keep one-finger game input while reserving multi-touch pinches for browser zoom. */
+            touch-action: pinch-zoom;
+        }
         .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 16; }
         .tile-action-layer { position: absolute; inset: 0; pointer-events: none; z-index: 18; }
         .tile-attack-button {
