@@ -121,7 +121,7 @@ async function testMandateIssuanceAndDeadlines() {
     state = ImperialMandates.getKingState().mandates;
     assert.strictEqual(state.levy_tithed_gold.status, ImperialMandates.MandateStatus.PENDING, 'levy should remain gated until the frontier sweep is cleared');
 
-    const rebelTile = clearFrontierSweep(gameState, uiBindings);
+    clearFrontierSweep(gameState, uiBindings);
     const completionTick = ImperialMandates.getKingState().currentTick;
     const levyGrace = ImperialMandateCalendar.convertToTicks({ weeks: 2, days: 2 }, gameState);
 

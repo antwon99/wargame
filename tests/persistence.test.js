@@ -18,10 +18,11 @@ global.localStorage = (() => {
     };
 })();
 
-global.Hex = class Hex {
+const Hex = class Hex {
     constructor(q, r, s) { this.q = q; this.r = r; this.s = s; }
     toString() { return `${this.q},${this.r}`; }
 };
+global.Hex = Hex;
 
 assert.strictEqual(
     typeof Persistence.serializeGameState,

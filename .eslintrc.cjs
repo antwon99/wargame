@@ -6,12 +6,19 @@ module.exports = {
     es2022: true,
   },
   parserOptions: {
-    ecmaVersion: "latest",
-    sourceType: "module",
+    ecmaVersion: 'latest',
+    sourceType: 'module',
   },
-  extends: ["eslint:recommended", "prettier"],
+  extends: ['eslint:recommended', 'prettier'],
   rules: {
-    "no-undef": "off",
-    "no-unused-vars": "off",
+    'no-undef': 'error',
+    'no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      },
+    ],
   },
 };

@@ -18,8 +18,6 @@ function createRebelSystem(global = typeof window !== 'undefined' ? window : glo
     };
     const DEFAULT_DAYS_PER_WEEK = 7;
     const DEFAULT_WEEKS_PER_MONTH = 4;
-    const DEFAULT_MONTH_TICKS = DEFAULT_DAYS_PER_WEEK * DEFAULT_WEEKS_PER_MONTH;
-
     /**
      * Determine whether a tile has been marked as a rebel camp.
      * @param {object} tile tile payload from the overworld map.

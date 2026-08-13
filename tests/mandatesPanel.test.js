@@ -113,7 +113,7 @@ async function testMandatesPanelToggleStates() {
         const doc = createStubDocument();
         doc.body = createStubElement('body');
         const panel = doc.register('mandates-panel');
-        const body = doc.register('mandates-panel-body');
+        doc.register('mandates-panel-body');
         const btn = doc.register('btn-mandates', createStubElement('button'));
         const close = doc.register('btn-mandates-close', createStubElement('button'));
         btn.focus = () => { doc.activeElement = btn; };
