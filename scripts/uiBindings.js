@@ -5,6 +5,11 @@ import { resolveEnemyLevel } from './utils/resolveEnemyLevel.js';
 import { RebelSystem } from './rebelSystem.js';
 import { beginCombatFromTile } from './game/combatEntry.js';
 import { SCORCHED_DOUSE_COST } from './overworldConfig.js';
+import { VoidEasterEgg } from './voidEasterEgg.js';
+import Persistence from './persistence.js';
+import { ResearchSystem } from './researchSystem.js';
+import { TutorialCallouts } from './tutorialCallouts.js';
+import { Juice } from './juice.js';
 import {
     DEFAULT_ULTIMATE_LEVELS,
     DEFAULT_ULTIMATE_SELECTION,
@@ -747,7 +752,6 @@ function buildFactionTooltip({ faction, standingValue, game }) {
 }
 
 function getImperialMandatesApi() {
-    if (typeof ImperialMandates !== 'undefined') return ImperialMandates;
     if (typeof globalThis !== 'undefined' && globalThis.ImperialMandates) return globalThis.ImperialMandates;
     return null;
 }
@@ -974,7 +978,7 @@ function updateSaveStatus(msg) {
 }
 
 function updateSaveSlotsUI(game) {
-    if (typeof Persistence === 'undefined' || !Persistence.getSlotMetadata) return;
+    if (!Persistence.getSlotMetadata) return;
     const label = document.getElementById('active-slot-label');
     if (label) label.innerText = `Slot ${game.activeSaveSlot} Active`;
 
@@ -1904,9 +1908,8 @@ function showFloatingText(game, x, y, txt, cssClass) {
  * Resolve the shared tutorial callout helper regardless of module system.
  */
 function getCalloutHelper() {
-    if (typeof TutorialCallouts !== 'undefined') return TutorialCallouts;
     if (typeof window !== 'undefined' && window.TutorialCallouts) return window.TutorialCallouts;
-    return null;
+    return TutorialCallouts;
 }
 
 /**
@@ -1938,7 +1941,7 @@ function triggerCameraShake(game) {
 
 function spawnParticleBurst(game, x, y, count = 6, colors = ['#ffd166', '#06d6a0', '#ef476f']) {
     const layer = game.fxLayer || document.getElementById('fx-layer');
-    if (!layer || typeof Juice === 'undefined') return;
+    if (!layer) return;
     const burst = Juice.createBurstVectors(count, 18, 46);
     burst.forEach((vec, idx) => {
         const node = document.createElement('div');

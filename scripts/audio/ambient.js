@@ -226,7 +226,6 @@ class AmbientConductor {
         const config = this.getConfig();
         if (!config) return;
         this.startBedsForMode(this.currentMode, config.fadeMs);
-        const previousHandle = this.activeHandle;
         const track = this.randomizer.pickTrack(this.currentMode, config.tracks);
         if (!track) {
             this.scheduleNext();
@@ -278,7 +277,7 @@ class AmbientConductor {
         this.scheduler.scheduleFallback(() => this.handleTrackEnded('timeout'), maxMs);
     }
 
-    handleTrackEnded(reason = 'ended') {
+    handleTrackEnded(_reason = 'ended') {
         const config = this.getConfig();
         if (!config) return;
         this.scheduler.clearFallback();

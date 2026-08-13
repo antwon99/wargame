@@ -86,8 +86,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         'Rebels have been sighted nearby.',
         "Expand the Empire's reach — and survive the rebels beyond the fog."
     ];
-    const DEFAULT_REBEL_DECREE_BODY = DEFAULT_REBEL_DECREE_LINES.join('<br>');
-
     /**
      * Locate a declarative mandate blueprint without coupling to runtime logic.
      * @param {string} id mandate identifier.
@@ -104,10 +102,6 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * @param {Function} fn callback to execute while the guard is active.
      * @returns {*} return value from the guarded callback.
      */
-    function withImperialAudioGuard(fn) {
-        return uiAdapter.withImperialAudioGuard(fn);
-    }
-
     /**
      * Scale mandate intensity and grace periods according to imperial favor so loyal vassals
      * enjoy lighter requests while neglectful ones face steeper, faster demands.
@@ -510,16 +504,8 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
         }
     }
 
-    function renderImperialModal(config) {
-        return uiAdapter.renderImperialModal(config);
-    }
-
     function showImperialMessage(config, uiBindings) {
         return uiAdapter.showImperialMessage(config, uiBindings);
-    }
-
-    function queueImperialNotification(lines, uiBindings, options = {}) {
-        return uiAdapter.queueImperialNotification(lines, uiBindings, options);
     }
 
     function showMandateBanner(lines, uiBindings, title = 'By Imperial Decree:', durationOrOptions = 4200) {
@@ -694,7 +680,7 @@ function createImperialMandates(adapter = {}, runtimeGlobal = (typeof window !==
      * Cycle-tracked mandates only reset once their runtime cycle lists have been exhausted.
      * @param {object} ctx shared context for cadence lookups.
      */
-    function refreshRecurringMandates(ctx) {
+    function refreshRecurringMandates(_ctx) {
         state.mandates.forEach((entry) => {
             if (entry.runtime.status === MandateStatus.ACTIVE) return;
             if (!isRecurringMandate(entry)) return;
@@ -1502,4 +1488,3 @@ function initImperialMandatesCore(target = typeof window !== 'undefined' ? windo
 createImperialMandates.initImperialMandatesCore = initImperialMandatesCore;
 export { initImperialMandatesCore };
 export default createImperialMandates;
-

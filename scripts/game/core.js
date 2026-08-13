@@ -952,7 +952,7 @@ const Game = {
             return;
         }
         persistenceModule.clearSnapshot();
-        this.stats = { ...(persistenceModule.DEFAULT_STATS || FALLBACK_STATS) };
+        this.stats = { ...fallbackStats };
         this.activeSaveSlot = '1';
         if (imperialMandates?.resetForNewCampaign) imperialMandates.resetForNewCampaign();
         this.bootstrapNewWorld({ preserveIntro: false });
@@ -2057,7 +2057,7 @@ const Game = {
     },
     calcOverworldGhosts() {
         this.overworld.claimable.clear();
-        for(let [k, d] of this.overworld.hexes) {
+        for(let d of this.overworld.hexes.values()) {
             for(let i=0; i<6; i++) {
                 const n = Hex.neighbor(d.hex, i);
                 if(!this.overworld.hexes.has(n.toString())) {
@@ -2075,7 +2075,6 @@ const Game = {
         return hex.toPixel(layout);
     },
     draw() {
-        const ctx = this.ctx;
         const layout = {origin:this.cam, size:30*this.cam.zoom, ...Layout};
         if (this.updateTileAttackOverlay) {
             this.updateTileAttackOverlay(this.state === 'OVERWORLD' ? this.selectedOverworldTile : null);

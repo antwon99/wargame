@@ -25,8 +25,7 @@ export const CAMERA_MOTION_CONFIG = {
  * @param {number} [sqrt3=Math.sqrt(3)] constant used for coordinate transforms.
  * @returns {typeof Hex} constructor with the expected hex helpers attached.
  */
-export function createHexFactory(sqrt3 = Math.sqrt(3)) {
-    const SQRT3 = Number.isFinite(sqrt3) ? sqrt3 : Math.sqrt(3);
+export function createHexFactory(_sqrt3 = Math.sqrt(3)) {
     return class Hex {
         constructor(q, r, s = -q - r) { this.q = q; this.r = r; this.s = s; }
         add(b) { return new Hex(this.q + b.q, this.r + b.r, this.s + b.s); }

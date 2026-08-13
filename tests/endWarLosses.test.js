@@ -83,7 +83,7 @@ function withPatchedRandom(sequence, fn) {
 
 function testEndWarHighlightsLostTiles() {
     const { game, addTile, floatingTexts, bursts } = buildGame();
-    const castle = addTile(0, 0, 'castle');
+    addTile(0, 0, 'castle');
     const protectedTile = addTile(1, 0);
     addTile(2, 0);
     addTile(0, 1);

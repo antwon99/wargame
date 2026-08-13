@@ -3,7 +3,6 @@ import { initImperialMandates } from '../scripts/mandates/imperialMandates.js';
 import { AudioDebugBus } from '../scripts/audio/debugBus.js';
 
 let AudioManager;
-let SFX_GROUPS;
 let SFX_MANIFEST;
 let AmbientConductor;
 let AmbientScheduler;
@@ -17,7 +16,6 @@ async function loadAudioModule() {
     const audioModule = await import('../scripts/audio.js');
     ({
         AudioManager,
-        SFX_GROUPS,
         SFX_MANIFEST,
         AmbientConductor,
         AmbientScheduler,
