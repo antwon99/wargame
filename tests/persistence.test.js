@@ -6,10 +6,30 @@ import Persistence from '../scripts/persistence.js';
 initStorageProbe?.(globalThis);
 
 global.localStorage = (() => {
+    const quotaBytes = 5 * 1024 * 1024;
     const store = new Map();
+    const storedBytes = () => Array.from(store, ([key, value]) => (key.length + value.length) * 2)
+        .reduce((total, entryBytes) => total + entryBytes, 0);
     return {
         getItem: key => store.get(key) || null,
-        setItem: (key, value) => store.set(key, value),
+        setItem: (key, value) => {
+            const normalizedKey = String(key);
+            const normalizedValue = String(value);
+            const previousValue = store.get(normalizedKey);
+            const previousBytes = previousValue === undefined
+                ? 0
+                : (normalizedKey.length + previousValue.length) * 2;
+            const nextBytes = (normalizedKey.length + normalizedValue.length) * 2;
+
+            if (storedBytes() - previousBytes + nextBytes > quotaBytes) {
+                const error = new Error('Storage quota exceeded');
+                error.name = 'QuotaExceededError';
+                error.code = 22;
+                throw error;
+            }
+
+            store.set(normalizedKey, normalizedValue);
+        },
         removeItem: key => store.delete(key),
         clear: () => store.clear(),
         key: index => Array.from(store.keys())[index] || null,
@@ -65,6 +85,16 @@ async function runTests() {
         canUseLocalStorage({ localStorage: global.localStorage }, { silent: true }),
         true,
         'probe should allow usable storage'
+    );
+    assert.throws(
+        () => global.localStorage.setItem('oversized', 'x'.repeat(3 * 1024 * 1024)),
+        error => error?.name === 'QuotaExceededError' && error?.code === 22,
+        'mock storage should enforce its five-megabyte quota'
+    );
+    assert.strictEqual(
+        global.localStorage.getItem('oversized'),
+        null,
+        'failed quota writes should not alter mock storage'
     );
     const throwingStorage = { get localStorage() { throw new Error('denied'); } };
     assert.strictEqual(
